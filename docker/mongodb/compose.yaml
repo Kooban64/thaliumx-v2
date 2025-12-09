@@ -1,0 +1,49 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: thaliumx-mongodb
+    hostname: thaliumx-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-thaliumx}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-ThaliumX2025}
+      MONGO_INITDB_DATABASE: thaliumx
+    command:
+      - mongod
+      - --bind_ip_all
+      - --auth
+      - --wiredTigerCacheSizeGB=1
+    ports:
+      - "27017:27017"
+    volumes:
+      - thaliumx-mongodb-data:/data/db
+      - thaliumx-mongodb-config:/data/configdb
+      - ./init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "-u", "${MONGO_INITDB_ROOT_USERNAME:-thaliumx}", "-p", "${MONGO_INITDB_ROOT_PASSWORD:-ThaliumX2025}", "--authenticationDatabase", "admin"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    labels:
+      - "com.thaliumx.service=mongodb"
+      - "com.thaliumx.component=database"
+      - "com.thaliumx.description=Document Database"
+
+volumes:
+  thaliumx-mongodb-data:
+    name: thaliumx-mongodb-data
+  thaliumx-mongodb-config:
+    name: thaliumx-mongodb-config
+
+networks:
+  thaliumx-net:
+    external: true

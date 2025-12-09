@@ -1,0 +1,311 @@
+# ThaliumX Docker Compose Override
+# ================================
+# This file ensures persistent volumes for data safety
+# Use with: docker compose -f docker/compose.yaml -f docker/docker-compose.override.yml up -d
+
+volumes:
+  postgres-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/postgres
+
+  redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/redis
+
+  mongodb-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/mongodb
+
+  vault-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/vault
+
+  vault-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/vault-logs
+
+  vault-file:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/vault-file
+
+  opa-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/opa
+
+  keycloak-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/keycloak
+
+  prometheus-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/prometheus
+
+  grafana-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/grafana
+
+  loki-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/loki
+
+  etcd-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/etcd
+
+  apisix-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/apisix-logs
+
+  kafka-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/kafka
+
+  # Additional database volumes
+  typesense-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/typesense
+
+  citus-coordinator-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/citus-coordinator
+
+  citus-worker1-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/citus-worker1
+
+  citus-worker2-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/citus-worker2
+
+  # Trading volumes
+  dingir-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/dingir
+
+  dingir-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/dingir-logs
+
+  liquibook-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/liquibook
+
+  liquibook-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/liquibook-logs
+
+  quantlib-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/quantlib
+
+  quantlib-cache:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/quantlib-cache
+
+  quantlib-models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/quantlib-models
+
+  # Additional observability volumes
+  alertmanager-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/alertmanager
+
+  tempo-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/tempo
+
+  # Wazuh SIEM volumes
+  wazuh-indexer-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/wazuh-indexer
+
+  wazuh-api-configuration:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/wazuh-api-config
+
+  wazuh-etc:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/wazuh-etc
+
+  wazuh-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/wazuh-logs
+
+  wazuh-queue:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/wazuh-queue
+
+  wazuh-var-multigroups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/wazuh-multigroups
+
+  wazuh-integrations:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/wazuh-integrations
+
+  wazuh-active-response:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/wazuh-active-response
+
+  wazuh-agentless:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/wazuh-agentless
+
+  wazuh-wodles:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/wazuh-wodles
+
+  filebeat-etc:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/filebeat-etc
+
+  filebeat-var:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/filebeat-var
+
+  wazuh-dashboard-config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/wazuh-dashboard-config
+
+  wazuh-dashboard-custom:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/wazuh-dashboard-custom
+
+  # Fintech volumes
+  ballerine-postgres-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/ballerine-postgres
+
+  blinkfinance-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/thaliumx/data/blinkfinance

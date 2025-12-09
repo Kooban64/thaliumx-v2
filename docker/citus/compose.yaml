@@ -1,0 +1,256 @@
+# ThaliumX Citus PostgreSQL
+# =========================
+# Citus distributed PostgreSQL for multi-tenant architecture
+# Provides horizontal scaling and tenant isolation
+#
+# Architecture:
+# - Coordinator: Routes queries, manages metadata
+# - Workers: Store distributed data shards
+#
+# For production, add more workers for horizontal scaling
+
+services:
+  # ===================
+  # CITUS COORDINATOR
+  # ===================
+  # Main entry point for all database connections
+  citus-coordinator:
+    image: citusdata/citus:12.1
+    container_name: thaliumx-citus-coordinator
+    hostname: thaliumx-citus-coordinator
+    restart: unless-stopped
+    
+    # Credentials stored in Vault at: kv/thaliumx/database/citus
+    environment:
+      POSTGRES_USER: ${CITUS_POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${CITUS_POSTGRES_PASSWORD:-ThaliumX2025}
+      POSTGRES_DB: ${POSTGRES_DB:-thaliumx}
+      # Citus specific settings
+      CITUS_HOST: thaliumx-citus-coordinator
+      PGDATA: /var/lib/postgresql/data/pgdata
+    
+    ports:
+      - "${CITUS_PORT:-5434}:5432"
+    
+    volumes:
+      - citus_coordinator_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    
+    networks:
+      - thaliumx-net
+    
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=citus"
+      - "-c"
+      - "max_connections=300"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "effective_cache_size=1536MB"
+      - "-c"
+      - "maintenance_work_mem=256MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=16MB"
+      - "-c"
+      - "default_statistics_target=100"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "work_mem=8MB"
+      - "-c"
+      - "min_wal_size=1GB"
+      - "-c"
+      - "max_wal_size=4GB"
+      - "-c"
+      - "max_worker_processes=8"
+      - "-c"
+      - "max_parallel_workers_per_gather=2"
+      - "-c"
+      - "max_parallel_workers=4"
+      - "-c"
+      - "max_parallel_maintenance_workers=2"
+      - "-c"
+      - "log_statement=mod"
+      - "-c"
+      - "log_duration=on"
+      - "-c"
+      - "log_min_duration_statement=1000"
+      - "-c"
+      - "citus.node_conninfo=sslmode=prefer"
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d thaliumx"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    
+    labels:
+      - "thaliumx.service=citus-coordinator"
+      - "thaliumx.tier=data"
+      - "thaliumx.component=database"
+
+  # ===================
+  # CITUS WORKER 1
+  # ===================
+  # First worker node for distributed data
+  citus-worker-1:
+    image: citusdata/citus:12.1
+    container_name: thaliumx-citus-worker-1
+    hostname: thaliumx-citus-worker-1
+    restart: unless-stopped
+    
+    environment:
+      POSTGRES_USER: ${CITUS_POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${CITUS_POSTGRES_PASSWORD:-ThaliumX2025}
+      POSTGRES_DB: ${POSTGRES_DB:-thaliumx}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    
+    volumes:
+      - citus_worker1_data:/var/lib/postgresql/data
+    
+    networks:
+      - thaliumx-net
+    
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=citus"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=768MB"
+      - "-c"
+      - "work_mem=4MB"
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d thaliumx"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    depends_on:
+      citus-coordinator:
+        condition: service_healthy
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    
+    labels:
+      - "thaliumx.service=citus-worker-1"
+      - "thaliumx.tier=data"
+      - "thaliumx.component=database"
+
+  # ===================
+  # CITUS WORKER 2
+  # ===================
+  # Second worker node for distributed data
+  citus-worker-2:
+    image: citusdata/citus:12.1
+    container_name: thaliumx-citus-worker-2
+    hostname: thaliumx-citus-worker-2
+    restart: unless-stopped
+    
+    environment:
+      POSTGRES_USER: ${CITUS_POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${CITUS_POSTGRES_PASSWORD:-ThaliumX2025}
+      POSTGRES_DB: ${POSTGRES_DB:-thaliumx}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    
+    volumes:
+      - citus_worker2_data:/var/lib/postgresql/data
+    
+    networks:
+      - thaliumx-net
+    
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=citus"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=768MB"
+      - "-c"
+      - "work_mem=4MB"
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d thaliumx"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    depends_on:
+      citus-coordinator:
+        condition: service_healthy
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    
+    labels:
+      - "thaliumx.service=citus-worker-2"
+      - "thaliumx.tier=data"
+      - "thaliumx.component=database"
+
+volumes:
+  citus_coordinator_data:
+    name: thaliumx-citus-coordinator-data
+  citus_worker1_data:
+    name: thaliumx-citus-worker1-data
+  citus_worker2_data:
+    name: thaliumx-citus-worker2-data
+
+networks:
+  thaliumx-net:
+    external: true

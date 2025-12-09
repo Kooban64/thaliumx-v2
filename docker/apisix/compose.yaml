@@ -1,0 +1,94 @@
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.12
+    container_name: thaliumx-etcd
+    hostname: thaliumx-etcd
+    command:
+      - etcd
+      - --name=thaliumx-etcd
+      - --data-dir=/etcd-data
+      - --advertise-client-urls=http://thaliumx-etcd:2379
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --initial-advertise-peer-urls=http://thaliumx-etcd:2380
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-cluster=thaliumx-etcd=http://thaliumx-etcd:2380
+    ports:
+      - "2379:2379"
+    volumes:
+      - thaliumx-etcd-data:/etcd-data
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/etcdctl", "endpoint", "health", "--endpoints=http://localhost:2379"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+    labels:
+      - "com.thaliumx.service=etcd"
+      - "com.thaliumx.component=gateway"
+      - "com.thaliumx.description=Configuration Store for APISIX"
+
+  apisix:
+    image: apache/apisix:3.9.1-debian
+    container_name: thaliumx-apisix
+    hostname: thaliumx-apisix
+    environment:
+      APISIX_STAND_ALONE: "false"
+    ports:
+      - "9080:9080"      # HTTP
+      - "9443:9443"      # HTTPS
+      - "9180:9180"      # Admin API
+      - "9091:9091"      # Prometheus metrics
+    volumes:
+      - ./config/apisix.yaml:/usr/local/apisix/conf/config.yaml:ro
+    networks:
+      - thaliumx-net
+    depends_on:
+      etcd:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9080' 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    labels:
+      - "com.thaliumx.service=apisix"
+      - "com.thaliumx.component=gateway"
+      - "com.thaliumx.description=API Gateway"
+
+  apisix-dashboard:
+    image: apache/apisix-dashboard:3.0.1-alpine
+    container_name: thaliumx-apisix-dashboard
+    hostname: thaliumx-apisix-dashboard
+    volumes:
+      - ./config/dashboard.yaml:/usr/local/apisix-dashboard/conf/conf.yaml:ro
+    ports:
+      - "9000:9000"
+    networks:
+      - thaliumx-net
+    depends_on:
+      apisix:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    labels:
+      - "com.thaliumx.service=apisix-dashboard"
+      - "com.thaliumx.component=gateway"
+      - "com.thaliumx.description=APISIX Management Dashboard"
+
+volumes:
+  thaliumx-etcd-data:
+    name: thaliumx-etcd-data
+
+networks:
+  thaliumx-net:
+    external: true

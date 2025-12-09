@@ -1,0 +1,692 @@
+# ThaliumX Production Docker Compose
+# Complete production deployment with all services
+# 
+# Usage:
+#   docker-compose -f compose.production.yaml up -d
+#
+# Prerequisites:
+#   - All secrets generated in .secrets/generated/
+#   - TLS certificates in docker/certs/
+#   - Vault initialized and unsealed
+#   - .env.production configured
+
+version: '3.8'
+
+x-common-env: &common-env
+  NODE_ENV: production
+  TZ: UTC
+
+x-vault-env: &vault-env
+  VAULT_ADDR: http://vault:8200
+  VAULT_SKIP_VERIFY: "false"
+
+x-logging: &logging
+  driver: "json-file"
+  options:
+    max-size: "50m"
+    max-file: "5"
+    labels: "service,environment"
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 60s
+
+x-restart-policy: &restart-policy
+  restart: unless-stopped
+
+networks:
+  thaliumx-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+  
+  # Isolated network for databases
+  database-network:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
+
+  # Isolated network for monitoring
+  monitoring-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  mongodb-data:
+    driver: local
+  vault-data:
+    driver: local
+  keycloak-data:
+    driver: local
+  kafka-data:
+    driver: local
+  zookeeper-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  loki-data:
+    driver: local
+  etcd-data:
+    driver: local
+  apisix-logs:
+    driver: local
+
+services:
+  # ============================================
+  # CORE INFRASTRUCTURE
+  # ============================================
+
+  # HashiCorp Vault - Secrets Management
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: thaliumx-vault
+    <<: *restart-policy
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_ADDR: http://127.0.0.1:8200
+      VAULT_API_ADDR: http://vault:8200
+      VAULT_CLUSTER_ADDR: https://vault:8201
+    volumes:
+      - vault-data:/vault/data
+      - ./vault/config:/vault/config:ro
+      - ./certs/services/vault:/vault/certs:ro
+    command: server -config=/vault/config/vault-production.hcl
+    ports:
+      - "8200:8200"
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # PostgreSQL - Primary Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: thaliumx-postgres
+    <<: *restart-policy
+    environment:
+      POSTGRES_DB: thaliumx
+      POSTGRES_USER: thaliumx
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./citus/init:/docker-entrypoint-initdb.d:ro
+      - ./certs/services/postgres:/var/lib/postgresql/certs:ro
+      - ./certs/ca/ca.crt:/var/lib/postgresql/ca.crt:ro
+    secrets:
+      - postgres-password
+    command: >
+      postgres
+      -c ssl=on
+      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
+      -c ssl_key_file=/var/lib/postgresql/certs/server.key
+      -c ssl_ca_file=/var/lib/postgresql/ca.crt
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=768MB
+      -c maintenance_work_mem=128MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c max_worker_processes=4
+      -c max_parallel_workers_per_gather=2
+      -c max_parallel_workers=4
+      -c max_parallel_maintenance_workers=2
+      -c log_statement=all
+      -c log_connections=on
+      -c log_disconnections=on
+    ports:
+      - "5432:5432"
+    networks:
+      - thaliumx-network
+      - database-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thaliumx -d thaliumx"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # Redis - Caching and Sessions
+  redis:
+    image: redis:7-alpine
+    container_name: thaliumx-redis
+    <<: *restart-policy
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-changeme}
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 300
+      --timeout 0
+      --tls-port 6379
+      --port 0
+      --tls-cert-file /certs/server.crt
+      --tls-key-file /certs/server.key
+      --tls-ca-cert-file /certs/ca.crt
+      --tls-auth-clients optional
+    volumes:
+      - redis-data:/data
+      - ./certs/services/redis:/certs:ro
+      - ./certs/ca/ca.crt:/certs/ca.crt:ro
+    ports:
+      - "6379:6379"
+    networks:
+      - thaliumx-network
+      - database-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--tls", "--cert", "/certs/server.crt", "--key", "/certs/server.key", "--cacert", "/certs/ca.crt", "ping"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # MongoDB - Document Store
+  mongodb:
+    image: mongo:7
+    container_name: thaliumx-mongodb
+    <<: *restart-policy
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: thaliumx
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongodb-password
+      MONGO_INITDB_DATABASE: thaliumx
+    volumes:
+      - mongodb-data:/data/db
+      - ./certs/services/mongodb:/certs:ro
+      - ./certs/ca/ca.crt:/certs/ca.crt:ro
+    secrets:
+      - mongodb-password
+    command: >
+      mongod
+      --tlsMode requireTLS
+      --tlsCertificateKeyFile /certs/mongodb.pem
+      --tlsCAFile /certs/ca.crt
+      --auth
+      --bind_ip_all
+    ports:
+      - "27017:27017"
+    networks:
+      - thaliumx-network
+      - database-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--tls", "--tlsCAFile", "/certs/ca.crt", "--eval", "db.adminCommand('ping')"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # ============================================
+  # MESSAGE QUEUE
+  # ============================================
+
+  # Zookeeper for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: thaliumx-zookeeper
+    <<: *restart-policy
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # Kafka - Event Streaming
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: thaliumx-kafka
+    <<: *restart-policy
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
+      KAFKA_NUM_PARTITIONS: 3
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # ============================================
+  # AUTHENTICATION
+  # ============================================
+
+  # Keycloak - Identity and Access Management
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: thaliumx-keycloak
+    <<: *restart-policy
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: thaliumx
+      KC_DB_PASSWORD_FILE: /run/secrets/postgres-password
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/certs/server.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/certs/server.key
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD_FILE: /run/secrets/keycloak-admin-password
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./keycloak/realm-config:/opt/keycloak/data/import:ro
+      - ./certs/services/keycloak:/opt/keycloak/certs:ro
+    secrets:
+      - postgres-password
+      - keycloak-admin-password
+    command: start --import-realm --optimized
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3;if [ $? -eq 0 ]; then echo 'Healthcheck Successful';exit 0;else echo 'Healthcheck Failed';exit 1;fi;"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # ============================================
+  # API GATEWAY
+  # ============================================
+
+  # etcd for APISIX
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.9
+    container_name: thaliumx-etcd
+    <<: *restart-policy
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+    volumes:
+      - etcd-data:/bitnami/etcd
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # APISIX - API Gateway
+  apisix:
+    image: apache/apisix:3.7.0-debian
+    container_name: thaliumx-apisix
+    <<: *restart-policy
+    depends_on:
+      etcd:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+    volumes:
+      - ./apisix/config/apisix-production.yaml:/usr/local/apisix/conf/config.yaml:ro
+      - ./certs/services/apisix:/usr/local/apisix/certs:ro
+      - ./certs/ca/ca.crt:/usr/local/apisix/certs/ca.crt:ro
+      - apisix-logs:/usr/local/apisix/logs
+    ports:
+      - "9080:9080"   # HTTP
+      - "9443:9443"   # HTTPS
+      - "9180:9180"   # Admin API
+      - "9091:9091"   # Prometheus metrics
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9080/apisix/status"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # ============================================
+  # APPLICATION SERVICES
+  # ============================================
+
+  # Backend API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+    image: thaliumx/backend:${VERSION:-latest}
+    container_name: thaliumx-backend
+    <<: *restart-policy
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: [*common-env, *vault-env]
+      PORT: 3002
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: thaliumx
+      DB_USER: thaliumx
+      DB_SSL: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_TLS: "true"
+      MONGODB_HOST: mongodb
+      MONGODB_PORT: 27017
+      KAFKA_BROKERS: kafka:9092
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: thaliumx
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: thaliumx-backend
+    volumes:
+      - ./certs/client/backend-service:/app/certs:ro
+      - ./certs/ca/ca.crt:/app/certs/ca.crt:ro
+    secrets:
+      - vault-role-id
+      - vault-secret-id
+      - postgres-password
+      - redis-password
+      - jwt-secret
+      - encryption-key
+    ports:
+      - "3002:3002"
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      <<: *healthcheck-defaults
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+        NEXT_PUBLIC_API_URL: ${API_URL:-https://api.thaliumx.com}
+        NEXT_PUBLIC_KEYCLOAK_URL: ${KEYCLOAK_URL:-https://auth.thaliumx.com}
+    image: thaliumx/frontend:${VERSION:-latest}
+    container_name: thaliumx-frontend
+    <<: *restart-policy
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${API_URL:-http://backend:3002}
+    ports:
+      - "3000:3000"
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      <<: *healthcheck-defaults
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # QuantLib Service (Python)
+  quantlib-svc:
+    build:
+      context: ./backend/services/quantlib-svc
+      dockerfile: Dockerfile
+    image: thaliumx/quantlib-svc:${VERSION:-latest}
+    container_name: thaliumx-quantlib
+    <<: *restart-policy
+    environment:
+      <<: *common-env
+      PORT: 8000
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8000:8000"
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # ============================================
+  # OBSERVABILITY
+  # ============================================
+
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.91.0
+    container_name: thaliumx-otel-collector
+    <<: *restart-policy
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./observability/config/otel-collector.yml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Prometheus metrics
+      - "8889:8889"   # Prometheus exporter
+    networks:
+      - thaliumx-network
+      - monitoring-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133/"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # Prometheus - Metrics
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: thaliumx-prometheus
+    <<: *restart-policy
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    volumes:
+      - ./observability/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/config/alerts:/etc/prometheus/alerts:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - thaliumx-network
+      - monitoring-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # Grafana - Dashboards
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: thaliumx-grafana
+    <<: *restart-policy
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana-admin-password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_URL:-http://localhost:3001}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    secrets:
+      - grafana-admin-password
+    ports:
+      - "3001:3000"
+    networks:
+      - thaliumx-network
+      - monitoring-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # Loki - Log Aggregation
+  loki:
+    image: grafana/loki:2.9.2
+    container_name: thaliumx-loki
+    <<: *restart-policy
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./observability/config/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - thaliumx-network
+      - monitoring-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # Promtail - Log Shipper
+  promtail:
+    image: grafana/promtail:2.9.2
+    container_name: thaliumx-promtail
+    <<: *restart-policy
+    depends_on:
+      loki:
+        condition: service_healthy
+    volumes:
+      - ./observability/config/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/promtail.yml
+    networks:
+      - thaliumx-network
+      - monitoring-network
+    logging: *logging
+
+  # Alertmanager - Alert Routing
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: thaliumx-alertmanager
+    <<: *restart-policy
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - ./observability/config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "9093:9093"
+    networks:
+      - thaliumx-network
+      - monitoring-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9093/-/healthy"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+  # Jaeger - Distributed Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.52
+    container_name: thaliumx-jaeger
+    <<: *restart-policy
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      SPAN_STORAGE_TYPE: badger
+      BADGER_EPHEMERAL: "false"
+      BADGER_DIRECTORY_VALUE: /badger/data
+      BADGER_DIRECTORY_KEY: /badger/key
+    volumes:
+      - ./observability/jaeger-data:/badger
+    ports:
+      - "16686:16686"  # UI
+      - "14250:14250"  # gRPC
+    networks:
+      - thaliumx-network
+      - monitoring-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:14269/"]
+      <<: *healthcheck-defaults
+    logging: *logging
+
+# ============================================
+# SECRETS
+# ============================================
+
+secrets:
+  postgres-password:
+    file: ../.secrets/generated/postgres-password
+  redis-password:
+    file: ../.secrets/generated/redis-password
+  mongodb-password:
+    file: ../.secrets/generated/mongodb-password
+  jwt-secret:
+    file: ../.secrets/generated/jwt-secret
+  encryption-key:
+    file: ../.secrets/generated/encryption-key
+  keycloak-admin-password:
+    file: ../.secrets/generated/keycloak-admin-password
+  vault-role-id:
+    file: ../.secrets/generated/vault-role-id
+  vault-secret-id:
+    file: ../.secrets/generated/vault-secret-id
+  grafana-admin-password:
+    file: ../.secrets/generated/keycloak-admin-password

@@ -1,0 +1,22 @@
+# Wazuh Dashboard Configuration
+# ==============================
+# Credentials are loaded from environment variables set in docker/.env
+# - DASHBOARD_USERNAME / DASHBOARD_PASSWORD for OpenSearch connection
+# - These are set via the Wazuh dashboard entrypoint script
+
+server.host: 0.0.0.0
+server.port: 5601
+opensearch.hosts: https://thaliumx-wazuh-indexer:9200
+opensearch.ssl.verificationMode: certificate
+opensearch.requestHeadersWhitelist: ["securitytenant","Authorization"]
+# Username and password are set via keystore from environment variables
+# DASHBOARD_USERNAME=kibanaserver, DASHBOARD_PASSWORD from .env
+opensearch.username: kibanaserver
+opensearch.password: ThaliumX2025!wazuh@dash
+opensearch.ssl.certificateAuthorities: ["/usr/share/wazuh-dashboard/certs/root-ca.pem"]
+server.ssl.enabled: true
+server.ssl.key: "/usr/share/wazuh-dashboard/certs/wazuh-dashboard-key.pem"
+server.ssl.certificate: "/usr/share/wazuh-dashboard/certs/wazuh-dashboard.pem"
+opensearch_security.multitenancy.enabled: false
+opensearch_security.readonly_mode.roles: ["kibana_read_only"]
+uiSettings.overrides.defaultRoute: /app/wazuh

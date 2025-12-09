@@ -1,0 +1,91 @@
+{{ define "slack.default.title" }}
+{{ if eq .Status "firing" }}🔥{{ else }}✅{{ end }} [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}
+{{ end }}
+
+{{ define "slack.default.text" }}
+{{ range .Alerts }}
+*Alert:* {{ .Labels.alertname }}{{ if .Labels.severity }} - `{{ .Labels.severity }}`{{ end }}
+*Summary:* {{ .Annotations.summary }}
+*Description:* {{ .Annotations.description }}
+*Details:*
+{{ range .Labels.SortedPairs }}  • {{ .Name }}: `{{ .Value }}`
+{{ end }}
+{{ if .Annotations.runbook_url }}📖 <{{ .Annotations.runbook_url }}|Runbook>{{ end }}
+{{ if .Annotations.grafana_url }} | 📊 <{{ .Annotations.grafana_url }}|Grafana>{{ end }}
+---
+{{ end }}
+{{ end }}
+
+{{ define "slack.default.footer" }}
+ThaliumX AlertManager | {{ .ExternalURL }}
+{{ end }}
+
+{{ define "slack.critical.title" }}
+🚨 CRITICAL ALERT: {{ .CommonLabels.alertname }}
+{{ end }}
+
+{{ define "slack.critical.text" }}
+*IMMEDIATE ACTION REQUIRED*
+
+{{ range .Alerts.Firing }}
+*Alert:* {{ .Labels.alertname }}
+*Severity:* `CRITICAL`
+*Summary:* {{ .Annotations.summary }}
+*Description:* {{ .Annotations.description }}
+*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+
+*Labels:*
+{{ range .Labels.SortedPairs }}  • {{ .Name }}: `{{ .Value }}`
+{{ end }}
+
+{{ if .Annotations.runbook_url }}📖 *Runbook:* <{{ .Annotations.runbook_url }}|Click here for remediation steps>{{ end }}
+{{ if .Annotations.grafana_url }}📊 *Dashboard:* <{{ .Annotations.grafana_url }}|View in Grafana>{{ end }}
+---
+{{ end }}
+{{ end }}
+
+{{ define "slack.security.title" }}
+🛡️ SECURITY ALERT: {{ .CommonLabels.alertname }}
+{{ end }}
+
+{{ define "slack.security.text" }}
+*SECURITY INCIDENT DETECTED*
+
+{{ range .Alerts.Firing }}
+*Alert:* {{ .Labels.alertname }}
+*Category:* Security
+*Summary:* {{ .Annotations.summary }}
+*Description:* {{ .Annotations.description }}
+*Detected:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+
+*Details:*
+{{ range .Labels.SortedPairs }}  • {{ .Name }}: `{{ .Value }}`
+{{ end }}
+
+{{ if .Annotations.runbook_url }}📖 <{{ .Annotations.runbook_url }}|Security Runbook>{{ end }}
+---
+{{ end }}
+
+*Please investigate immediately and follow security incident response procedures.*
+{{ end }}
+
+{{ define "slack.trading.title" }}
+📈 TRADING ALERT: {{ .CommonLabels.alertname }}
+{{ end }}
+
+{{ define "slack.trading.text" }}
+*Trading System Alert*
+
+{{ range .Alerts }}
+*Alert:* {{ .Labels.alertname }}
+*Status:* {{ .Status | toUpper }}
+*Summary:* {{ .Annotations.summary }}
+*Description:* {{ .Annotations.description }}
+{{ if eq .Status "firing" }}*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}{{ else }}*Resolved:* {{ .EndsAt.Format "2006-01-02 15:04:05 UTC" }}{{ end }}
+
+*Details:*
+{{ range .Labels.SortedPairs }}  • {{ .Name }}: `{{ .Value }}`
+{{ end }}
+---
+{{ end }}
+{{ end }}

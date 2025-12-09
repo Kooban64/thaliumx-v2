@@ -1,0 +1,66 @@
+# Wazuh Indexer Internal Users
+# ============================
+# Password hashes generated with: plugins/opensearch-security/tools/hash.sh
+# Passwords are configured in docker/.env file
+#
+# User passwords from .env:
+# - admin: WAZUH_INDEXER_PASSWORD (ThaliumX2025!wazuh@idx)
+# - kibanaserver: WAZUH_DASHBOARD_PASSWORD (ThaliumX2025!wazuh@dash)
+
+---
+_meta:
+  type: "internalusers"
+  config_version: 2
+
+# Admin user - full access
+# Password: ThaliumX2025!wazuh@idx (from WAZUH_INDEXER_PASSWORD)
+admin:
+  hash: "$2y$12$erOCeDKu6eV2G3GjuyKnRO5/GQEuImjaOs6FfSRxXqyzxB3Dfehbi"
+  reserved: true
+  backend_roles:
+    - "admin"
+  description: "Admin user"
+
+# Kibanaserver user - for dashboard
+# Password: ThaliumX2025!wazuh@dash (from WAZUH_DASHBOARD_PASSWORD)
+kibanaserver:
+  hash: "$2y$12$vxDSSULurHdEY2ttbATESuJjXhzzA/m3L8omvMVEfGfz6Hys.G5ie"
+  reserved: true
+  description: "Kibanaserver user"
+
+# Kibanaro user - read-only (using admin password for simplicity)
+kibanaro:
+  hash: "$2y$12$erOCeDKu6eV2G3GjuyKnRO5/GQEuImjaOs6FfSRxXqyzxB3Dfehbi"
+  reserved: false
+  backend_roles:
+    - "kibanauser"
+    - "readall"
+  attributes:
+    attribute1: "value1"
+    attribute2: "value2"
+    attribute3: "value3"
+  description: "Kibanaro user"
+
+# Logstash user (using admin password for simplicity)
+logstash:
+  hash: "$2y$12$erOCeDKu6eV2G3GjuyKnRO5/GQEuImjaOs6FfSRxXqyzxB3Dfehbi"
+  reserved: false
+  backend_roles:
+    - "logstash"
+  description: "Logstash user"
+
+# Readall user (using admin password for simplicity)
+readall:
+  hash: "$2y$12$erOCeDKu6eV2G3GjuyKnRO5/GQEuImjaOs6FfSRxXqyzxB3Dfehbi"
+  reserved: false
+  backend_roles:
+    - "readall"
+  description: "Readall user"
+
+# Snapshotrestore user (using admin password for simplicity)
+snapshotrestore:
+  hash: "$2y$12$erOCeDKu6eV2G3GjuyKnRO5/GQEuImjaOs6FfSRxXqyzxB3Dfehbi"
+  reserved: false
+  backend_roles:
+    - "snapshotrestore"
+  description: "Snapshotrestore user"

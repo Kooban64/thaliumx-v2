@@ -1,0 +1,20 @@
+# PNPM Workspace Configuration
+# =============================
+# This file defines the workspace structure for the Thaliumx monorepo
+
+packages:
+  # Core application packages
+  - 'frontend'
+  - 'backend'
+  
+  # Trading services
+  - 'dingir'
+  - 'liquibook'
+  - 'quantlib'
+  
+  # Fintech services
+  - 'ballerine'
+  - 'blinkfinance'
+  
+  # Shared packages (when created)
+  - 'packages/*'

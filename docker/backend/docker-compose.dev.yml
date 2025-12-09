@@ -1,0 +1,116 @@
+# Docker Compose for ThaliumX Backend Development
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: thaliumx-postgres
+    environment:
+      POSTGRES_DB: thaliumx
+      POSTGRES_USER: thaliumx
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-thaliumx_dev_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thaliumx -d thaliumx"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: thaliumx-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ThaliumX Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: thaliumx-backend
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+      DATABASE_URL: postgresql://thaliumx:${POSTGRES_PASSWORD:-thaliumx_dev_password}@postgres:5432/thaliumx
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_key_change_in_production}
+      METRICS_TOKEN: ${METRICS_TOKEN:-dev_metrics_token}
+      METRICS_IP_ALLOWLIST: ${METRICS_IP_ALLOWLIST:-127.0.0.1,172.16.0.0/12}
+      # OpenTelemetry Configuration
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+      # Open Policy Agent Configuration
+      OPA_URL: ${OPA_URL:-http://opa:8181}
+      OPA_ENABLED: ${OPA_ENABLED:-true}
+      # OPA WASM Configuration (optional)
+      OPA_WASM_ENABLED: ${OPA_WASM_ENABLED:-true}
+      OPA_WASM_POLICY_DIR: ${OPA_WASM_POLICY_DIR:-/app/policies/wasm}
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./.secrets:/app/.secrets:ro
+      - ./logs:/app/logs
+      - ./policies/wasm:/app/policies/wasm:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Keycloak Identity Provider
+  keycloak:
+    image: quay.io/keycloak/keycloak:22.0
+    container_name: thaliumx-keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_password}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: thaliumx
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-thaliumx_dev_password}
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME_STRICT: false
+      KC_HTTP_ENABLED: true
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - thaliumx-network
+    command: ["start-dev"]
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  thaliumx-network:
+    driver: bridge

@@ -1,0 +1,65 @@
+# Production Docker Compose for ThaliumX Backend
+version: '3.8'
+
+services:
+  # ThaliumX Backend (Production)
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    container_name: thaliumx-backend-prod
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DATABASE_URL: postgresql://thaliumx:${POSTGRES_PASSWORD}@postgres:5432/thaliumx
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      METRICS_TOKEN: ${METRICS_TOKEN}
+      METRICS_IP_ALLOWLIST: ${METRICS_IP_ALLOWLIST}
+      # Exchange API Keys
+      BYBIT_API_KEY: ${BYBIT_API_KEY}
+      BYBIT_API_SECRET: ${BYBIT_API_SECRET}
+      KUCOIN_API_KEY: ${KUCOIN_API_KEY}
+      KUCOIN_API_SECRET: ${KUCOIN_API_SECRET}
+      OKX_API_KEY: ${OKX_API_KEY}
+      OKX_API_SECRET: ${OKX_API_SECRET}
+      KRAKEN_API_KEY: ${KRAKEN_API_KEY}
+      KRAKEN_API_SECRET: ${KRAKEN_API_SECRET}
+      VALR_API_KEY: ${VALR_API_KEY}
+      VALR_API_SECRET: ${VALR_API_SECRET}
+      BITSTAMP_API_KEY: ${BITSTAMP_API_KEY}
+      BITSTAMP_API_SECRET: ${BITSTAMP_API_SECRET}
+      CRYPTO_COM_API_KEY: ${CRYPTO_COM_API_KEY}
+      CRYPTO_COM_API_SECRET: ${CRYPTO_COM_API_SECRET}
+      # Nedbank Integration
+      NEDBANK_API_KEY: ${NEDBANK_API_KEY}
+      NEDBANK_API_SECRET: ${NEDBANK_API_SECRET}
+    volumes:
+      - ./secrets:/app/.secrets:ro
+      - ./logs:/app/logs
+      - ./policies/wasm:/app/policies/wasm:ro
+    networks:
+      - thaliumx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+
+volumes:
+  keycloak_data:
+
+networks:
+  thaliumx-network:
+    driver: bridge

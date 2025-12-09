@@ -1,0 +1,1062 @@
+openapi: 3.0.3
+info:
+  title: ThaliumX Exchange API
+  description: |
+    # ThaliumX Exchange Platform API
+    
+    A comprehensive cryptocurrency exchange and financial services platform API.
+    
+    ## Authentication
+    
+    Most endpoints require authentication using JWT tokens. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+    
+    ## Rate Limiting
+    
+    - Standard endpoints: 100 requests per 15 minutes
+    - Financial endpoints: 50 requests per 15 minutes
+    - Authentication endpoints: 10 requests per 15 minutes
+    
+    ## Error Handling
+    
+    All errors follow a consistent format:
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": "ERROR_CODE",
+        "message": "Human readable message"
+      }
+    }
+    ```
+    
+  version: 1.0.0
+  contact:
+    name: ThaliumX Support
+    email: support@thaliumx.com
+    url: https://thaliumx.com
+  license:
+    name: Proprietary
+    url: https://thaliumx.com/terms
+
+servers:
+  - url: https://api.thaliumx.com
+    description: Production server
+  - url: https://staging-api.thaliumx.com
+    description: Staging server
+  - url: http://localhost:3002
+    description: Development server
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Users
+    description: User management
+  - name: Exchange
+    description: Exchange and trading operations
+  - name: Wallets
+    description: Wallet management
+  - name: Financial
+    description: Financial operations
+  - name: KYC
+    description: Know Your Customer verification
+  - name: Token Sale
+    description: Token sale and presale operations
+  - name: Admin
+    description: Administrative operations
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns the health status of the API and all connected services
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Creates a new user account
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticates a user and returns JWT tokens
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Exchanges a refresh token for a new access token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/users/me:
+    get:
+      tags:
+        - Users
+      summary: Get current user
+      description: Returns the profile of the authenticated user
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/exchange/markets:
+    get:
+      tags:
+        - Exchange
+      summary: Get all markets
+      description: Returns a list of all available trading markets
+      operationId: getMarkets
+      responses:
+        '200':
+          description: List of markets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Market'
+
+  /api/exchange/ticker/{symbol}:
+    get:
+      tags:
+        - Exchange
+      summary: Get ticker for a symbol
+      description: Returns the current ticker data for a trading pair
+      operationId: getTicker
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+          example: BTC-USDT
+      responses:
+        '200':
+          description: Ticker data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticker'
+        '404':
+          description: Symbol not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/exchange/orderbook/{symbol}:
+    get:
+      tags:
+        - Exchange
+      summary: Get order book
+      description: Returns the order book for a trading pair
+      operationId: getOrderBook
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+          example: BTC-USDT
+        - name: depth
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Order book data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderBook'
+
+  /api/exchange/orders:
+    post:
+      tags:
+        - Exchange
+      summary: Place an order
+      description: Places a new trading order
+      operationId: placeOrder
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+      responses:
+        '201':
+          description: Order placed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          description: Invalid order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Insufficient balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/wallets/user/{userId}:
+    get:
+      tags:
+        - Wallets
+      summary: Get user wallets
+      description: Returns all wallets for a user
+      operationId: getUserWallets
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User wallets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Wallet'
+
+  /api/wallets/deposit/fiat:
+    post:
+      tags:
+        - Wallets
+      summary: Deposit fiat currency
+      description: Initiates a fiat currency deposit
+      operationId: depositFiat
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FiatDepositRequest'
+      responses:
+        '200':
+          description: Deposit initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FiatDepositResponse'
+
+  /api/financial/transactions:
+    get:
+      tags:
+        - Financial
+      summary: Get transactions
+      description: Returns transaction history for the authenticated user
+      operationId: getTransactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [deposit, withdrawal, trade, transfer]
+      responses:
+        '200':
+          description: Transaction list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionListResponse'
+
+  /api/kyc/verify:
+    post:
+      tags:
+        - KYC
+      summary: Submit KYC verification
+      description: Submits user information for KYC verification
+      operationId: submitKYC
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KYCSubmission'
+      responses:
+        '200':
+          description: KYC submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KYCResponse'
+
+  /api/kyc/status/{userId}:
+    get:
+      tags:
+        - KYC
+      summary: Get KYC status
+      description: Returns the KYC verification status for a user
+      operationId: getKYCStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: KYC status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KYCStatusResponse'
+
+  /api/token-sale/phases:
+    get:
+      tags:
+        - Token Sale
+      summary: Get token sale phases
+      description: Returns all token sale phases
+      operationId: getTokenSalePhases
+      responses:
+        '200':
+          description: Token sale phases
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TokenSalePhase'
+
+  /api/token-sale/investments:
+    post:
+      tags:
+        - Token Sale
+      summary: Make investment
+      description: Invests in the current token sale phase
+      operationId: makeInvestment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvestmentRequest'
+      responses:
+        '201':
+          description: Investment successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestmentResponse'
+
+  /api/cex/pairs:
+    get:
+      tags:
+        - Exchange
+      summary: Get trading pairs
+      description: Returns all available trading pairs on the native CEX
+      operationId: getTradingPairs
+      responses:
+        '200':
+          description: Trading pairs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TradingPair'
+
+  /api/cex/market-data/{symbol}:
+    get:
+      tags:
+        - Exchange
+      summary: Get market data
+      description: Returns detailed market data for a trading pair
+      operationId: getMarketData
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Market data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketData'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        uptime:
+          type: number
+        environment:
+          type: string
+        version:
+          type: string
+        services:
+          type: object
+          additionalProperties:
+            type: string
+        security:
+          type: object
+          properties:
+            threatDetection:
+              type: string
+            rateLimiting:
+              type: string
+            inputValidation:
+              type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+            refreshToken:
+              type: string
+            expiresIn:
+              type: integer
+            user:
+              $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        kycStatus:
+          type: string
+          enum: [pending, verified, rejected]
+        createdAt:
+          type: string
+          format: date-time
+
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/User'
+
+    Market:
+      type: object
+      properties:
+        symbol:
+          type: string
+        baseAsset:
+          type: string
+        quoteAsset:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, maintenance]
+        minQuantity:
+          type: string
+        maxQuantity:
+          type: string
+        tickSize:
+          type: string
+
+    Ticker:
+      type: object
+      properties:
+        symbol:
+          type: string
+        lastPrice:
+          type: string
+        bidPrice:
+          type: string
+        askPrice:
+          type: string
+        volume24h:
+          type: string
+        change24h:
+          type: string
+        high24h:
+          type: string
+        low24h:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    OrderBook:
+      type: object
+      properties:
+        symbol:
+          type: string
+        bids:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+        asks:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    OrderRequest:
+      type: object
+      required:
+        - symbol
+        - side
+        - type
+        - quantity
+      properties:
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        type:
+          type: string
+          enum: [market, limit, stop-loss, stop-limit]
+        quantity:
+          type: string
+        price:
+          type: string
+        stopPrice:
+          type: string
+        timeInForce:
+          type: string
+          enum: [GTC, IOC, FOK]
+          default: GTC
+
+    OrderResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            orderId:
+              type: string
+            symbol:
+              type: string
+            side:
+              type: string
+            type:
+              type: string
+            quantity:
+              type: string
+            price:
+              type: string
+            status:
+              type: string
+              enum: [pending, open, filled, partially_filled, cancelled]
+            createdAt:
+              type: string
+              format: date-time
+
+    Wallet:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        currency:
+          type: string
+        balance:
+          type: string
+        availableBalance:
+          type: string
+        lockedBalance:
+          type: string
+        address:
+          type: string
+        network:
+          type: string
+
+    FiatDepositRequest:
+      type: object
+      required:
+        - currency
+        - amount
+        - paymentMethod
+      properties:
+        currency:
+          type: string
+          enum: [USD, EUR, GBP, ZAR]
+        amount:
+          type: string
+        paymentMethod:
+          type: string
+          enum: [bank_transfer, card]
+
+    FiatDepositResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            depositId:
+              type: string
+            reference:
+              type: string
+            bankDetails:
+              type: object
+            status:
+              type: string
+
+    TransactionListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        currency:
+          type: string
+        amount:
+          type: string
+        fee:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean
+
+    KYCSubmission:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - dateOfBirth
+        - nationality
+        - documentType
+        - documentNumber
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        nationality:
+          type: string
+        address:
+          type: object
+          properties:
+            street:
+              type: string
+            city:
+              type: string
+            state:
+              type: string
+            postalCode:
+              type: string
+            country:
+              type: string
+        documentType:
+          type: string
+          enum: [passport, national_id, drivers_license]
+        documentNumber:
+          type: string
+
+    KYCResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            verificationId:
+              type: string
+            status:
+              type: string
+            message:
+              type: string
+
+    KYCStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [pending, in_review, verified, rejected]
+            level:
+              type: integer
+            submittedAt:
+              type: string
+              format: date-time
+            verifiedAt:
+              type: string
+              format: date-time
+            rejectionReason:
+              type: string
+
+    TokenSalePhase:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        price:
+          type: string
+        minInvestment:
+          type: string
+        maxInvestment:
+          type: string
+        totalTokens:
+          type: string
+        soldTokens:
+          type: string
+        status:
+          type: string
+          enum: [upcoming, active, completed]
+
+    InvestmentRequest:
+      type: object
+      required:
+        - phaseId
+        - amount
+        - currency
+      properties:
+        phaseId:
+          type: string
+        amount:
+          type: string
+        currency:
+          type: string
+
+    InvestmentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            investmentId:
+              type: string
+            tokensAllocated:
+              type: string
+            amountPaid:
+              type: string
+            status:
+              type: string
+
+    TradingPair:
+      type: object
+      properties:
+        symbol:
+          type: string
+        baseAsset:
+          type: string
+        quoteAsset:
+          type: string
+        status:
+          type: string
+        makerFee:
+          type: string
+        takerFee:
+          type: string
+
+    MarketData:
+      type: object
+      properties:
+        symbol:
+          type: string
+        lastPrice:
+          type: string
+        volume24h:
+          type: string
+        change24h:
+          type: string
+        high24h:
+          type: string
+        low24h:
+          type: string
+        openInterest:
+          type: string
+        fundingRate:
+          type: string

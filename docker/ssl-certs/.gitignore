@@ -1,0 +1,10 @@
+# SSL Certificate Data
+# ====================
+# These files contain sensitive certificate data and should not be committed
+
+# Certificate storage
+data/
+
+# Temporary files
+*.tmp
+*.bak

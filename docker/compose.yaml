@@ -1,0 +1,48 @@
+# Thaliumx Master Orchestrator
+# ============================
+# This file orchestrates all service groups using Docker Compose includes
+
+name: thaliumx
+
+include:
+  # Data Layer - No dependencies, start first
+  - path: databases/compose.yaml
+    project_directory: databases
+  
+  # Citus - Distributed PostgreSQL for multi-tenant
+  - path: citus/compose.yaml
+    project_directory: citus
+  
+  - path: messaging/compose.yaml
+    project_directory: messaging
+
+  # Security Layer - Depends on databases
+  - path: security/compose.yaml
+    project_directory: security
+
+  # Gateway Layer - Depends on security
+  - path: gateway/compose.yaml
+    project_directory: gateway
+
+  # Application Layer - Depends on gateway
+  - path: core/compose.yaml
+    project_directory: core
+
+  - path: trading/compose.yaml
+    project_directory: trading
+
+  # Fintech Services - Depends on core
+  - path: fintech/compose.yaml
+    project_directory: fintech
+
+  # Observability - Independent, can start anytime
+  - path: observability/compose.yaml
+    project_directory: observability
+
+  # Security Monitoring - SIEM/XDR
+  - path: wazuh/compose.yaml
+    project_directory: wazuh
+
+networks:
+  thaliumx-net:
+    external: true

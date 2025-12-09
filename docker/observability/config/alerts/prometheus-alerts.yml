@@ -1,0 +1,616 @@
+# ThaliumX Prometheus Alerting Rules
+# ==================================
+# Comprehensive alerting rules for production monitoring
+
+groups:
+  # ===========================================
+  # CRITICAL INFRASTRUCTURE ALERTS
+  # ===========================================
+  - name: infrastructure.critical
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minute."
+          runbook_url: "https://docs.thaliumx.com/runbooks/service-down"
+          grafana_url: "https://grafana.thaliumx.com/d/infrastructure"
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 90% (current: {{ $value | printf \"%.1f\" }}%)"
+          runbook_url: "https://docs.thaliumx.com/runbooks/high-memory"
+
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 5m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 90% (current: {{ $value | printf \"%.1f\" }}%)"
+          runbook_url: "https://docs.thaliumx.com/runbooks/high-cpu"
+
+      - alert: DiskSpaceCritical
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Critical disk space on {{ $labels.instance }}"
+          description: "Disk space is below 10% on {{ $labels.mountpoint }} (current: {{ $value | printf \"%.1f\" }}%)"
+          runbook_url: "https://docs.thaliumx.com/runbooks/disk-space"
+
+  # ===========================================
+  # DATABASE ALERTS
+  # ===========================================
+  - name: database.alerts
+    interval: 30s
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL instance {{ $labels.instance }} is not responding"
+          runbook_url: "https://docs.thaliumx.com/runbooks/postgres-down"
+
+      - alert: PostgresHighConnections
+        expr: pg_stat_activity_count / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: high
+          category: database
+        annotations:
+          summary: "PostgreSQL high connection usage"
+          description: "PostgreSQL connection usage is above 80% (current: {{ $value | printf \"%.1f\" }}%)"
+          runbook_url: "https://docs.thaliumx.com/runbooks/postgres-connections"
+
+      - alert: PostgresReplicationLag
+        expr: pg_replication_lag > 30
+        for: 5m
+        labels:
+          severity: high
+          category: database
+        annotations:
+          summary: "PostgreSQL replication lag"
+          description: "PostgreSQL replication lag is {{ $value }} seconds"
+          runbook_url: "https://docs.thaliumx.com/runbooks/postgres-replication"
+
+      - alert: PostgresDeadlocks
+        expr: rate(pg_stat_database_deadlocks[5m]) > 0
+        for: 5m
+        labels:
+          severity: high
+          category: database
+        annotations:
+          summary: "PostgreSQL deadlocks detected"
+          description: "Deadlocks detected in database {{ $labels.datname }}"
+          runbook_url: "https://docs.thaliumx.com/runbooks/postgres-deadlocks"
+
+      - alert: PostgresSlowQueries
+        expr: pg_stat_activity_max_tx_duration > 300
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "PostgreSQL slow queries"
+          description: "Long running queries detected ({{ $value }} seconds)"
+          runbook_url: "https://docs.thaliumx.com/runbooks/postgres-slow-queries"
+
+      - alert: CitusWorkerDown
+        expr: citus_worker_node_active == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Citus worker node is down"
+          description: "Citus worker {{ $labels.node_name }} is not active"
+          runbook_url: "https://docs.thaliumx.com/runbooks/citus-worker-down"
+
+  # ===========================================
+  # REDIS ALERTS
+  # ===========================================
+  - name: redis.alerts
+    interval: 30s
+    rules:
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Redis is down"
+          description: "Redis instance {{ $labels.instance }} is not responding"
+          runbook_url: "https://docs.thaliumx.com/runbooks/redis-down"
+
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 90
+        for: 5m
+        labels:
+          severity: high
+          category: database
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is above 90% (current: {{ $value | printf \"%.1f\" }}%)"
+          runbook_url: "https://docs.thaliumx.com/runbooks/redis-memory"
+
+      - alert: RedisHighLatency
+        expr: redis_commands_duration_seconds_total / redis_commands_processed_total > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Redis high latency"
+          description: "Redis command latency is high ({{ $value | printf \"%.3f\" }}s)"
+          runbook_url: "https://docs.thaliumx.com/runbooks/redis-latency"
+
+      - alert: RedisRejectedConnections
+        expr: rate(redis_rejected_connections_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: high
+          category: database
+        annotations:
+          summary: "Redis rejecting connections"
+          description: "Redis is rejecting connections"
+          runbook_url: "https://docs.thaliumx.com/runbooks/redis-connections"
+
+  # ===========================================
+  # APPLICATION ALERTS
+  # ===========================================
+  - name: application.alerts
+    interval: 30s
+    rules:
+      - alert: BackendDown
+        expr: up{job="thaliumx-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: application
+        annotations:
+          summary: "ThaliumX Backend is down"
+          description: "Backend service is not responding"
+          runbook_url: "https://docs.thaliumx.com/runbooks/backend-down"
+
+      - alert: FrontendDown
+        expr: up{job="thaliumx-frontend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: application
+        annotations:
+          summary: "ThaliumX Frontend is down"
+          description: "Frontend service is not responding"
+          runbook_url: "https://docs.thaliumx.com/runbooks/frontend-down"
+
+      - alert: HighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) * 100 > 5
+        for: 5m
+        labels:
+          severity: high
+          category: application
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5% (current: {{ $value | printf \"%.2f\" }}%)"
+          runbook_url: "https://docs.thaliumx.com/runbooks/high-error-rate"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: high
+          category: application
+        annotations:
+          summary: "High API latency"
+          description: "95th percentile latency is above 2 seconds (current: {{ $value | printf \"%.2f\" }}s)"
+          runbook_url: "https://docs.thaliumx.com/runbooks/high-latency"
+
+      - alert: HighRequestRate
+        expr: sum(rate(http_requests_total[5m])) > 10000
+        for: 5m
+        labels:
+          severity: warning
+          category: application
+        annotations:
+          summary: "High request rate"
+          description: "Request rate is above 10000 req/s (current: {{ $value | printf \"%.0f\" }})"
+          runbook_url: "https://docs.thaliumx.com/runbooks/high-request-rate"
+
+  # ===========================================
+  # TRADING ENGINE ALERTS
+  # ===========================================
+  - name: trading.alerts
+    interval: 15s
+    rules:
+      - alert: MatchingEngineDown
+        expr: up{job="dingir-matchengine"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          category: trading
+        annotations:
+          summary: "Matching engine is down"
+          description: "Dingir matching engine is not responding - TRADING HALTED"
+          runbook_url: "https://docs.thaliumx.com/runbooks/matching-engine-down"
+
+      - alert: OrderBookEngineDown
+        expr: up{job="liquibook"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          category: trading
+        annotations:
+          summary: "Order book engine is down"
+          description: "Liquibook order book engine is not responding"
+          runbook_url: "https://docs.thaliumx.com/runbooks/orderbook-down"
+
+      - alert: HighOrderLatency
+        expr: histogram_quantile(0.99, sum(rate(order_processing_duration_seconds_bucket[1m])) by (le)) > 0.1
+        for: 2m
+        labels:
+          severity: high
+          category: trading
+        annotations:
+          summary: "High order processing latency"
+          description: "99th percentile order latency is above 100ms (current: {{ $value | printf \"%.3f\" }}s)"
+          runbook_url: "https://docs.thaliumx.com/runbooks/order-latency"
+
+      - alert: OrderQueueBacklog
+        expr: order_queue_size > 10000
+        for: 2m
+        labels:
+          severity: high
+          category: trading
+        annotations:
+          summary: "Order queue backlog"
+          description: "Order queue has {{ $value }} pending orders"
+          runbook_url: "https://docs.thaliumx.com/runbooks/order-backlog"
+
+      - alert: TradingVolumeAnomaly
+        expr: abs(sum(rate(trade_volume_total[5m])) - sum(rate(trade_volume_total[1h] offset 1d))) / sum(rate(trade_volume_total[1h] offset 1d)) > 5
+        for: 10m
+        labels:
+          severity: warning
+          category: trading
+        annotations:
+          summary: "Trading volume anomaly detected"
+          description: "Trading volume deviates significantly from historical average"
+          runbook_url: "https://docs.thaliumx.com/runbooks/volume-anomaly"
+
+  # ===========================================
+  # SECURITY ALERTS
+  # ===========================================
+  - name: security.alerts
+    interval: 15s
+    rules:
+      - alert: HighFailedLoginRate
+        expr: sum(rate(auth_login_failures_total[5m])) > 100
+        for: 2m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "High failed login rate - possible brute force attack"
+          description: "Failed login rate is {{ $value | printf \"%.0f\" }} per second"
+          runbook_url: "https://docs.thaliumx.com/runbooks/brute-force"
+
+      - alert: RateLimitExceeded
+        expr: sum(rate(rate_limit_exceeded_total[5m])) by (endpoint) > 1000
+        for: 2m
+        labels:
+          severity: high
+          category: security
+        annotations:
+          summary: "Rate limit exceeded on {{ $labels.endpoint }}"
+          description: "Rate limit exceeded {{ $value | printf \"%.0f\" }} times in 5 minutes"
+          runbook_url: "https://docs.thaliumx.com/runbooks/rate-limit"
+
+      - alert: SuspiciousIPActivity
+        expr: sum(rate(blocked_ip_requests_total[5m])) > 100
+        for: 2m
+        labels:
+          severity: high
+          category: security
+        annotations:
+          summary: "Suspicious IP activity detected"
+          description: "High volume of blocked IP requests"
+          runbook_url: "https://docs.thaliumx.com/runbooks/suspicious-ip"
+
+      - alert: JWTValidationFailures
+        expr: sum(rate(jwt_validation_failures_total[5m])) > 50
+        for: 2m
+        labels:
+          severity: high
+          category: security
+        annotations:
+          summary: "High JWT validation failure rate"
+          description: "JWT validation failures: {{ $value | printf \"%.0f\" }} per second"
+          runbook_url: "https://docs.thaliumx.com/runbooks/jwt-failures"
+
+      - alert: SQLInjectionAttempts
+        expr: sum(rate(sql_injection_blocked_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "SQL injection attempts detected"
+          description: "SQL injection attempts blocked: {{ $value | printf \"%.0f\" }}"
+          runbook_url: "https://docs.thaliumx.com/runbooks/sql-injection"
+
+      - alert: XSSAttempts
+        expr: sum(rate(xss_blocked_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: high
+          category: security
+        annotations:
+          summary: "XSS attempts detected"
+          description: "XSS attempts blocked: {{ $value | printf \"%.0f\" }}"
+          runbook_url: "https://docs.thaliumx.com/runbooks/xss-attempts"
+
+      - alert: VaultSealed
+        expr: vault_core_unsealed == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Vault is sealed"
+          description: "HashiCorp Vault is sealed - secrets unavailable"
+          runbook_url: "https://docs.thaliumx.com/runbooks/vault-sealed"
+
+  # ===========================================
+  # KAFKA ALERTS
+  # ===========================================
+  - name: kafka.alerts
+    interval: 30s
+    rules:
+      - alert: KafkaDown
+        expr: up{job="kafka"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Kafka is down"
+          description: "Kafka broker is not responding"
+          runbook_url: "https://docs.thaliumx.com/runbooks/kafka-down"
+
+      - alert: KafkaConsumerLag
+        expr: kafka_consumer_group_lag > 10000
+        for: 5m
+        labels:
+          severity: high
+          category: infrastructure
+        annotations:
+          summary: "Kafka consumer lag"
+          description: "Consumer group {{ $labels.group }} has lag of {{ $value }} messages"
+          runbook_url: "https://docs.thaliumx.com/runbooks/kafka-lag"
+
+      - alert: KafkaUnderReplicatedPartitions
+        expr: kafka_server_replicamanager_underreplicatedpartitions > 0
+        for: 5m
+        labels:
+          severity: high
+          category: infrastructure
+        annotations:
+          summary: "Kafka under-replicated partitions"
+          description: "{{ $value }} partitions are under-replicated"
+          runbook_url: "https://docs.thaliumx.com/runbooks/kafka-replication"
+
+  # ===========================================
+  # API GATEWAY ALERTS
+  # ===========================================
+  - name: gateway.alerts
+    interval: 30s
+    rules:
+      - alert: APISIXDown
+        expr: up{job="apisix"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "APISIX Gateway is down"
+          description: "API Gateway is not responding - all traffic blocked"
+          runbook_url: "https://docs.thaliumx.com/runbooks/apisix-down"
+
+      - alert: HighGatewayLatency
+        expr: histogram_quantile(0.95, sum(rate(apisix_http_latency_bucket[5m])) by (le)) > 1
+        for: 5m
+        labels:
+          severity: high
+          category: infrastructure
+        annotations:
+          summary: "High gateway latency"
+          description: "95th percentile gateway latency is above 1 second"
+          runbook_url: "https://docs.thaliumx.com/runbooks/gateway-latency"
+
+      - alert: GatewayHighErrorRate
+        expr: sum(rate(apisix_http_status{code=~"5.."}[5m])) / sum(rate(apisix_http_status[5m])) * 100 > 5
+        for: 5m
+        labels:
+          severity: high
+          category: infrastructure
+        annotations:
+          summary: "High gateway error rate"
+          description: "Gateway error rate is above 5%"
+          runbook_url: "https://docs.thaliumx.com/runbooks/gateway-errors"
+
+  # ===========================================
+  # KEYCLOAK ALERTS
+  # ===========================================
+  - name: keycloak.alerts
+    interval: 30s
+    rules:
+      - alert: KeycloakDown
+        expr: up{job="keycloak"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Keycloak is down"
+          description: "Keycloak identity provider is not responding - authentication unavailable"
+          runbook_url: "https://docs.thaliumx.com/runbooks/keycloak-down"
+
+      - alert: KeycloakHighLoginLatency
+        expr: histogram_quantile(0.95, sum(rate(keycloak_login_duration_seconds_bucket[5m])) by (le)) > 5
+        for: 5m
+        labels:
+          severity: high
+          category: security
+        annotations:
+          summary: "High Keycloak login latency"
+          description: "95th percentile login latency is above 5 seconds"
+          runbook_url: "https://docs.thaliumx.com/runbooks/keycloak-latency"
+
+  # ===========================================
+  # WALLET & BLOCKCHAIN ALERTS
+  # ===========================================
+  - name: wallet.alerts
+    interval: 30s
+    rules:
+      - alert: HotWalletLowBalance
+        expr: hot_wallet_balance_eth < 1
+        for: 5m
+        labels:
+          severity: high
+          category: trading
+        annotations:
+          summary: "Hot wallet low balance"
+          description: "Hot wallet ETH balance is below 1 ETH (current: {{ $value }})"
+          runbook_url: "https://docs.thaliumx.com/runbooks/hot-wallet-balance"
+
+      - alert: BlockchainNodeDown
+        expr: blockchain_node_connected == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: trading
+        annotations:
+          summary: "Blockchain node disconnected"
+          description: "Cannot connect to blockchain node"
+          runbook_url: "https://docs.thaliumx.com/runbooks/blockchain-node"
+
+      - alert: HighPendingTransactions
+        expr: pending_blockchain_transactions > 100
+        for: 10m
+        labels:
+          severity: high
+          category: trading
+        annotations:
+          summary: "High pending blockchain transactions"
+          description: "{{ $value }} transactions pending"
+          runbook_url: "https://docs.thaliumx.com/runbooks/pending-transactions"
+
+      - alert: WithdrawalProcessingDelay
+        expr: withdrawal_processing_delay_seconds > 3600
+        for: 5m
+        labels:
+          severity: high
+          category: trading
+        annotations:
+          summary: "Withdrawal processing delay"
+          description: "Withdrawals delayed by {{ $value | humanizeDuration }}"
+          runbook_url: "https://docs.thaliumx.com/runbooks/withdrawal-delay"
+
+  # ===========================================
+  # CONTAINER ALERTS
+  # ===========================================
+  - name: container.alerts
+    interval: 30s
+    rules:
+      - alert: ContainerHighCPU
+        expr: sum(rate(container_cpu_usage_seconds_total{name!=""}[5m])) by (name) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "Container {{ $labels.name }} high CPU"
+          description: "Container CPU usage is above 80% (current: {{ $value | printf \"%.1f\" }}%)"
+          runbook_url: "https://docs.thaliumx.com/runbooks/container-cpu"
+
+      - alert: ContainerHighMemory
+        expr: container_memory_usage_bytes{name!=""} / container_spec_memory_limit_bytes{name!=""} * 100 > 90
+        for: 5m
+        labels:
+          severity: high
+          category: infrastructure
+        annotations:
+          summary: "Container {{ $labels.name }} high memory"
+          description: "Container memory usage is above 90% (current: {{ $value | printf \"%.1f\" }}%)"
+          runbook_url: "https://docs.thaliumx.com/runbooks/container-memory"
+
+      - alert: ContainerRestarting
+        expr: increase(container_restart_count{name!=""}[1h]) > 3
+        for: 5m
+        labels:
+          severity: high
+          category: infrastructure
+        annotations:
+          summary: "Container {{ $labels.name }} restarting frequently"
+          description: "Container has restarted {{ $value }} times in the last hour"
+          runbook_url: "https://docs.thaliumx.com/runbooks/container-restart"
+
+      - alert: ContainerOOMKilled
+        expr: container_oom_events_total > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Container {{ $labels.name }} OOM killed"
+          description: "Container was killed due to out of memory"
+          runbook_url: "https://docs.thaliumx.com/runbooks/container-oom"
+
+  # ===========================================
+  # SSL/TLS CERTIFICATE ALERTS
+  # ===========================================
+  - name: ssl.alerts
+    interval: 1h
+    rules:
+      - alert: SSLCertificateExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 30
+        for: 1h
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"
+          runbook_url: "https://docs.thaliumx.com/runbooks/ssl-expiry"
+
+      - alert: SSLCertificateExpiryCritical
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 7
+        for: 1h
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "SSL certificate expiring in less than 7 days"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"
+          runbook_url: "https://docs.thaliumx.com/runbooks/ssl-expiry-critical"

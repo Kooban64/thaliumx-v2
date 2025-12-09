@@ -1,0 +1,214 @@
+# Thaliumx Trading Services
+# =========================
+# Dingir Exchange (matchengine + restapi), Liquibook Orderbook, QuantLib Financial Calculations
+#
+# Port Allocation:
+# - Dingir REST: 50053
+# - Dingir gRPC: 50051
+# - Liquibook: 8083 (8082 used by cAdvisor)
+# - QuantLib: 3010
+
+services:
+  # ============================================================================
+  # DINGIR MATCHENGINE - Core Trading Engine (gRPC)
+  # ============================================================================
+  # High-performance matching engine - the core of the exchange
+  # Port: 50051 (gRPC internal)
+  dingir-matchengine:
+    build:
+      context: ./dingir
+      dockerfile: Dockerfile
+    image: thaliumx/dingir:latest
+    container_name: thaliumx-dingir-matchengine
+    hostname: thaliumx-dingir-matchengine
+    restart: unless-stopped
+    command: ["./matchengine"]
+    env_file:
+      - trading.env
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      RUN_MODE: ${RUN_MODE:-production}
+      # Database - TimescaleDB for trading data
+      DATABASE_URL: postgresql://${TIMESCALE_USER:-dingir}:${TIMESCALE_PASSWORD:-ThaliumX2025}@thaliumx-timescaledb:5432/${TIMESCALE_DB:-exchange}
+      # Redis
+      REDIS_HOST: thaliumx-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-ThaliumX2025}
+      # Kafka
+      KAFKA_BROKERS: thaliumx-kafka:9092
+      # Vault integration (optional)
+      VAULT_ADDR: http://thaliumx-vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN:-}
+    ports:
+      - "${DINGIR_GRPC_PORT:-50051}:50051"
+    volumes:
+      - dingir_data:/app/data
+      - dingir_logs:/app/logs
+    networks:
+      - thaliumx-net
+    healthcheck:
+      # matchengine is gRPC only, check if process is running
+      test: ["CMD-SHELL", "pgrep matchengine || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+      promtail.scrape: "true"
+      logging_name: dingir-matchengine
+      logging_job: trading
+
+  # ============================================================================
+  # DINGIR REST API - HTTP Interface for Trading Engine
+  # ============================================================================
+  # REST API that connects to matchengine via gRPC
+  # Port: 50053 (REST)
+  dingir-restapi:
+    build:
+      context: ./dingir
+      dockerfile: Dockerfile
+    image: thaliumx/dingir:latest
+    container_name: thaliumx-dingir-restapi
+    hostname: thaliumx-dingir-restapi
+    restart: unless-stopped
+    command: ["./restapi"]
+    env_file:
+      - trading.env
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      RUN_MODE: ${RUN_MODE:-production}
+      # Database - TimescaleDB for trading data
+      DATABASE_URL: postgresql://${TIMESCALE_USER:-dingir}:${TIMESCALE_PASSWORD:-ThaliumX2025}@thaliumx-timescaledb:5432/${TIMESCALE_DB:-exchange}
+      # Redis
+      REDIS_HOST: thaliumx-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-ThaliumX2025}
+      # Kafka
+      KAFKA_BROKERS: thaliumx-kafka:9092
+      # Vault integration (optional)
+      VAULT_ADDR: http://thaliumx-vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN:-}
+    ports:
+      - "${DINGIR_REST_PORT:-50053}:8080"
+    volumes:
+      - dingir_data:/app/data
+      - dingir_logs:/app/logs
+    networks:
+      - thaliumx-net
+    depends_on:
+      dingir-matchengine:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/api/exchange/panel/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    labels:
+      promtail.scrape: "true"
+      logging_name: dingir-restapi
+      logging_job: trading
+
+  # ============================================================================
+  # LIQUIBOOK - Order Book Engine
+  # ============================================================================
+  # High-performance order book with Node.js HTTP API
+  # Port: 8083 (internal 8080)
+  liquibook:
+    build:
+      context: ./liquibook
+      dockerfile: Dockerfile
+    image: thaliumx/liquibook:latest
+    container_name: thaliumx-liquibook
+    hostname: thaliumx-liquibook
+    restart: unless-stopped
+    env_file:
+      - trading.env
+    environment:
+      PORT: 8080
+      NODE_ENV: production
+      EXCHANGE_ENDPOINT: thaliumx-dingir-matchengine:50051
+      # Vault integration (optional)
+      VAULT_ADDR: http://thaliumx-vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN:-}
+    ports:
+      - "${LIQUIBOOK_PORT:-8083}:8080"
+    volumes:
+      - liquibook_data:/app/data
+      - liquibook_logs:/app/logs
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    labels:
+      promtail.scrape: "true"
+      logging_name: liquibook-orderbook
+      logging_job: trading
+
+  # ============================================================================
+  # QUANTLIB - Financial Calculations Service
+  # ============================================================================
+  # Python-based financial analytics: pricing, risk, yield curves
+  # Port: 3010
+  quantlib:
+    build:
+      context: ./quantlib
+      dockerfile: Dockerfile
+    image: thaliumx/quantlib:latest
+    container_name: thaliumx-quantlib
+    hostname: thaliumx-quantlib
+    restart: unless-stopped
+    env_file:
+      - trading.env
+    environment:
+      PYTHONUNBUFFERED: 1
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Redis for caching
+      REDIS_URL: redis://:${REDIS_PASSWORD:-ThaliumX2025}@thaliumx-redis:6379/0
+      # MongoDB for data storage
+      MONGODB_URL: mongodb://${MONGO_USER:-thaliumx}:${MONGO_INITDB_ROOT_PASSWORD:-ThaliumX2025}@thaliumx-mongodb:27017/${MONGO_DB:-thaliumx}?authSource=admin
+      # Vault integration (optional)
+      VAULT_ADDR: http://thaliumx-vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN:-}
+    ports:
+      - "${QUANTLIB_PORT:-3010}:3010"
+    volumes:
+      - quantlib_data:/app/data
+      - quantlib_cache:/app/cache
+      - quantlib_models:/app/models
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    labels:
+      promtail.scrape: "true"
+      logging_name: quantlib-svc
+      logging_job: trading
+
+volumes:
+  dingir_data:
+    name: thaliumx-dingir-data
+  dingir_logs:
+    name: thaliumx-dingir-logs
+  liquibook_data:
+    name: thaliumx-liquibook-data
+  liquibook_logs:
+    name: thaliumx-liquibook-logs
+  quantlib_data:
+    name: thaliumx-quantlib-data
+  quantlib_cache:
+    name: thaliumx-quantlib-cache
+  quantlib_models:
+    name: thaliumx-quantlib-models
+
+networks:
+  thaliumx-net:
+    external: true

@@ -1,0 +1,92 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { createChart, ColorType, ISeriesApi, Time } from "lightweight-charts";
+
+type SeriesPoint = { time: Time; value: number };
+
+export interface LightweightChartProps {
+  height?: number;
+  backgroundColor?: string;
+  lineColor?: string;
+  textColor?: string;
+  topColor?: string;
+  bottomColor?: string;
+  data?: SeriesPoint[];
+}
+
+export function LightweightChart({
+  height = 360,
+  backgroundColor = "#0b1020",
+  lineColor = "#2962FF",
+  textColor = "#D1D5DB",
+  topColor = "rgba(41, 98, 255, 0.4)",
+  bottomColor = "rgba(41, 98, 255, 0.0)",
+  data = [],
+}: LightweightChartProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Area"> | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const chart = createChart(containerRef.current, {
+      height,
+      layout: {
+        background: { type: ColorType.Solid, color: backgroundColor },
+        textColor,
+      },
+      rightPriceScale: {
+        borderVisible: false,
+      },
+      timeScale: {
+        borderVisible: false,
+      },
+      grid: {
+        vertLines: { color: "rgba(42, 46, 57, 0.2)" },
+        horzLines: { color: "rgba(42, 46, 57, 0.2)" },
+      },
+      crosshair: {
+        horzLine: { visible: false },
+      },
+    });
+
+    const series = chart.addAreaSeries({
+      lineColor,
+      topColor,
+      bottomColor,
+      lineWidth: 2,
+    });
+
+    seriesRef.current = series;
+
+    if (data.length) {
+      series.setData(data);
+      chart.timeScale().fitContent();
+    }
+
+    const resize = () => {
+      if (!containerRef.current) return;
+      chart.applyOptions({ width: containerRef.current.clientWidth });
+    };
+
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(containerRef.current);
+
+    return () => {
+      ro.disconnect();
+      chart.remove();
+    };
+  }, [backgroundColor, bottomColor, data, height, lineColor, textColor, topColor]);
+
+  useEffect(() => {
+    if (seriesRef.current && data.length) {
+      seriesRef.current.setData(data);
+    }
+  }, [data]);
+
+  return <div ref={containerRef} style={{ width: "100%" }} />;
+}
+
+

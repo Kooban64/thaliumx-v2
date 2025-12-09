@@ -1,0 +1,115 @@
+{{ define "email.default.subject" }}
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}
+{{ end }}
+
+{{ define "email.default.html" }}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+    .container { max-width: 800px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .header { padding: 20px; border-radius: 8px 8px 0 0; }
+    .header.firing { background-color: #dc3545; color: white; }
+    .header.resolved { background-color: #28a745; color: white; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .header p { margin: 5px 0 0 0; opacity: 0.9; }
+    .content { padding: 20px; }
+    .alert { border: 1px solid #dee2e6; border-radius: 4px; margin-bottom: 15px; overflow: hidden; }
+    .alert-header { padding: 10px 15px; font-weight: bold; }
+    .alert-header.critical { background-color: #dc3545; color: white; }
+    .alert-header.high { background-color: #fd7e14; color: white; }
+    .alert-header.warning { background-color: #ffc107; color: #212529; }
+    .alert-header.info { background-color: #17a2b8; color: white; }
+    .alert-body { padding: 15px; background-color: #f8f9fa; }
+    .label { display: inline-block; padding: 2px 8px; margin: 2px; border-radius: 3px; font-size: 12px; background-color: #e9ecef; }
+    .label-key { font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #dee2e6; }
+    th { background-color: #f8f9fa; font-weight: 600; }
+    .footer { padding: 15px 20px; background-color: #f8f9fa; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px; color: #6c757d; }
+    .btn { display: inline-block; padding: 8px 16px; margin: 5px; border-radius: 4px; text-decoration: none; font-weight: 500; }
+    .btn-primary { background-color: #007bff; color: white; }
+    .btn-secondary { background-color: #6c757d; color: white; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header {{ if eq .Status "firing" }}firing{{ else }}resolved{{ end }}">
+      <h1>🔔 ThaliumX Alert {{ .Status | toUpper }}</h1>
+      <p>{{ .Alerts | len }} alert(s) {{ .Status }}</p>
+    </div>
+    
+    <div class="content">
+      {{ if gt (len .Alerts.Firing) 0 }}
+      <h2>🔥 Firing Alerts ({{ .Alerts.Firing | len }})</h2>
+      {{ range .Alerts.Firing }}
+      <div class="alert">
+        <div class="alert-header {{ .Labels.severity }}">
+          {{ .Labels.alertname }} - {{ .Labels.severity | toUpper }}
+        </div>
+        <div class="alert-body">
+          <p><strong>Summary:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Started:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+          
+          <h4>Labels</h4>
+          <div>
+            {{ range .Labels.SortedPairs }}
+            <span class="label"><span class="label-key">{{ .Name }}:</span> {{ .Value }}</span>
+            {{ end }}
+          </div>
+          
+          {{ if .Annotations.runbook_url }}
+          <p style="margin-top: 15px;">
+            <a href="{{ .Annotations.runbook_url }}" class="btn btn-primary">📖 View Runbook</a>
+            {{ if .Annotations.grafana_url }}
+            <a href="{{ .Annotations.grafana_url }}" class="btn btn-secondary">📊 View in Grafana</a>
+            {{ end }}
+          </p>
+          {{ end }}
+        </div>
+      </div>
+      {{ end }}
+      {{ end }}
+      
+      {{ if gt (len .Alerts.Resolved) 0 }}
+      <h2>✅ Resolved Alerts ({{ .Alerts.Resolved | len }})</h2>
+      {{ range .Alerts.Resolved }}
+      <div class="alert">
+        <div class="alert-header" style="background-color: #28a745; color: white;">
+          {{ .Labels.alertname }} - RESOLVED
+        </div>
+        <div class="alert-body">
+          <p><strong>Summary:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Started:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+          <p><strong>Resolved:</strong> {{ .EndsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+        </div>
+      </div>
+      {{ end }}
+      {{ end }}
+      
+      <h3>Common Labels</h3>
+      <table>
+        <tr>
+          <th>Label</th>
+          <th>Value</th>
+        </tr>
+        {{ range .CommonLabels.SortedPairs }}
+        <tr>
+          <td>{{ .Name }}</td>
+          <td>{{ .Value }}</td>
+        </tr>
+        {{ end }}
+      </table>
+    </div>
+    
+    <div class="footer">
+      <p>ThaliumX Monitoring System | AlertManager</p>
+      <p>This is an automated message. Please do not reply directly to this email.</p>
+    </div>
+  </div>
+</body>
+</html>
+{{ end }}

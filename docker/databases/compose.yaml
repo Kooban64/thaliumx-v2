@@ -1,0 +1,99 @@
+# Thaliumx Databases
+# ==================
+# PostgreSQL (TimescaleDB/Citus), MongoDB, Redis, Typesense
+
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: thaliumx-postgres
+    hostname: thaliumx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-thaliumx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ThaliumX2025}
+      POSTGRES_DB: ${POSTGRES_DB:-thaliumx}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-thaliumx}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: thaliumx-mongodb
+    hostname: thaliumx-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-thaliumx}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-ThaliumX2025}
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: thaliumx-redis
+    hostname: thaliumx-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-ThaliumX2025} --appendonly yes --maxmemory-policy volatile-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-ThaliumX2025}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  typesense:
+    image: typesense/typesense:27.1
+    container_name: thaliumx-typesense
+    hostname: thaliumx-typesense
+    restart: unless-stopped
+    environment:
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-ThaliumX2025}
+      TYPESENSE_DATA_DIR: /data
+    ports:
+      - "${TYPESENSE_PORT:-8108}:8108"
+    volumes:
+      - typesense_data:/data
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8108'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    name: thaliumx-postgres-data
+  mongodb_data:
+    name: thaliumx-mongodb-data
+  redis_data:
+    name: thaliumx-redis-data
+  typesense_data:
+    name: thaliumx-typesense-data
+
+networks:
+  thaliumx-net:
+    external: true

@@ -1,0 +1,63 @@
+# =============================================================================
+# ThaliumX Backend Production Dockerfile
+# Uses pre-built artifacts for faster deployment
+# =============================================================================
+
+FROM node:20-alpine
+
+# Security: Update packages and install runtime dependencies
+RUN apk update && \
+    apk upgrade --no-cache && \
+    apk add --no-cache \
+      libc6-compat \
+      dumb-init \
+      curl \
+    && rm -rf /var/cache/apk/*
+
+# Security: Create non-root user with specific UID/GID
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 --ingroup nodejs thaliumx
+
+# Set working directory
+WORKDIR /app
+
+# Security: Create necessary directories with proper permissions
+RUN mkdir -p /app/dist /app/shared /app/node_modules /app/logs /app/.secrets && \
+    chown -R thaliumx:nodejs /app
+
+# Copy pre-built application (context is parent docker directory)
+COPY --chown=thaliumx:nodejs backend/dist ./dist
+COPY --chown=thaliumx:nodejs backend/package.json ./
+COPY --chown=thaliumx:nodejs backend/node_modules ./node_modules
+COPY --chown=thaliumx:nodejs shared/dist ./shared/dist
+COPY --chown=thaliumx:nodejs shared/package.json ./shared/
+
+# Security: Set production environment
+ENV NODE_ENV=production
+ENV PORT=3002
+
+# Security: Disable npm update checks and telemetry
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+ENV NO_UPDATE_NOTIFIER=1
+
+# Expose port (non-privileged)
+EXPOSE 3002
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -f http://localhost:3002/health || exit 1
+
+# Security: Switch to non-root user
+USER thaliumx
+
+# Security: Use dumb-init to handle signals properly (PID 1 zombie reaping)
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
+# Start the application
+CMD ["node", "dist/index.js"]
+
+# Security Labels
+LABEL org.opencontainers.image.title="ThaliumX Backend"
+LABEL org.opencontainers.image.description="ThaliumX Backend API Service"
+LABEL security.hardened="true"
+LABEL security.non-root="true"

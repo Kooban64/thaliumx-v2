@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+*.tsbuildinfo
+
+# Environment files with secrets (use .env.staging as template)
+docker/.env
+.env
+.env.local
+.env.*.local
+
+# Secrets directory (contains generated passwords)
+.secrets/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker volumes data (local development)
+data/
+
+# Backups (large files)
+backups/*.tar.gz
+backups/*.sql
+backups/*.dump
+
+# Certificates (generated locally)
+certs/*.pem
+certs/*.key
+certs/*.crt
+certs/*.csr
+
+# Coverage reports
+coverage/
+
+# Turbo cache
+.turbo/
+
+# Test artifacts
+playwright-report/
+test-results/
+
+# Temporary files
+tmp/
+temp/
+*.tmpbackups/

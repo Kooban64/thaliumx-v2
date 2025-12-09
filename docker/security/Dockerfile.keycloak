@@ -1,0 +1,79 @@
+# ===========================================
+# ThaliumX Keycloak Production Build
+# ===========================================
+# This Dockerfile creates an optimized Keycloak image
+# with all configurations pre-built for faster startup
+#
+# Build:
+#   docker build -f Dockerfile.keycloak -t thaliumx/keycloak:24.0-optimized .
+#
+# The optimized image:
+# - Pre-compiles Quarkus application
+# - Includes all required providers
+# - Faster startup time
+# - Smaller runtime footprint
+# ===========================================
+
+ARG KEYCLOAK_VERSION=24.0
+
+# ===========================================
+# Build Stage
+# ===========================================
+FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} AS builder
+
+# Enable health and metrics
+ENV KC_HEALTH_ENABLED=true
+ENV KC_METRICS_ENABLED=true
+
+# Configure database
+ENV KC_DB=postgres
+
+# Configure features
+ENV KC_FEATURES=token-exchange,admin-fine-grained-authz
+
+# Configure cache
+ENV KC_CACHE=local
+
+# Build the optimized Keycloak
+WORKDIR /opt/keycloak
+
+# Build the optimized distribution
+RUN /opt/keycloak/bin/kc.sh build \
+    --db=postgres \
+    --features=token-exchange,admin-fine-grained-authz \
+    --health-enabled=true \
+    --metrics-enabled=true
+
+# ===========================================
+# Production Stage
+# ===========================================
+FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
+
+# Copy the optimized build
+COPY --from=builder /opt/keycloak/lib/quarkus/ /opt/keycloak/lib/quarkus/
+
+# Create directories for TLS and realm import
+RUN mkdir -p /opt/keycloak/conf/tls \
+    && mkdir -p /opt/keycloak/data/import
+
+# Set working directory
+WORKDIR /opt/keycloak
+
+# Default environment variables
+ENV KC_HEALTH_ENABLED=true
+ENV KC_METRICS_ENABLED=true
+ENV KC_DB=postgres
+ENV KC_CACHE=local
+ENV KC_LOG_LEVEL=info
+ENV KC_LOG_CONSOLE_OUTPUT=json
+
+# Expose HTTPS port
+EXPOSE 8443
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD exec 3<>/dev/tcp/localhost/8443 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && cat <&3 | grep -q '200 OK'
+
+# Run in production mode
+ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
+CMD ["start", "--optimized"]

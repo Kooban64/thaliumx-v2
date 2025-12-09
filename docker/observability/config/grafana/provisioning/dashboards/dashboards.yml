@@ -1,0 +1,16 @@
+# Grafana Dashboards Provisioning
+# ================================
+
+apiVersion: 1
+
+providers:
+  - name: 'Thaliumx Dashboards'
+    orgId: 1
+    folder: 'Thaliumx'
+    folderUid: 'thaliumx'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

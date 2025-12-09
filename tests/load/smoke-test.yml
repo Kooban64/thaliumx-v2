@@ -1,0 +1,57 @@
+# ThaliumX Smoke Test Configuration
+# ==================================
+# Quick smoke test to verify system is responding
+
+config:
+  target: "http://localhost:3002"
+  phases:
+    - duration: 30
+      arrivalRate: 10
+      name: "Smoke test"
+
+  defaults:
+    headers:
+      Content-Type: "application/json"
+      Accept: "application/json"
+
+  plugins:
+    expect: {}
+
+  http:
+    timeout: 10
+    pool: 5
+
+scenarios:
+  - name: "Health Check"
+    weight: 50
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+
+  - name: "Metrics"
+    weight: 30
+    flow:
+      - get:
+          url: "/metrics"
+          headers:
+            X-Metrics-Token: "thaliumx-metrics-token"
+          expect:
+            - statusCode:
+                - 200
+                - 401
+
+  - name: "Auth Routes"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "test@test.com"
+            password: "test"
+          expect:
+            - statusCode:
+                - 200
+                - 401
+                - 400

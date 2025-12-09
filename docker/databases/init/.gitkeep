@@ -1,0 +1,4 @@
+# Database initialization scripts directory
+# Add your SQL/JS init scripts here
+# - PostgreSQL: *.sql files
+# - MongoDB: *.js files

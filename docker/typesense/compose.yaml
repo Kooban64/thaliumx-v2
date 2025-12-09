@@ -1,0 +1,38 @@
+# Thaliumx Typesense
+# ==================
+# Fast, typo-tolerant search engine for the trading platform
+
+services:
+  typesense:
+    image: typesense/typesense:27.0
+    container_name: thaliumx-typesense
+    hostname: thaliumx-typesense
+    environment:
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-ThaliumX2025}
+      TYPESENSE_DATA_DIR: /data
+      TYPESENSE_ENABLE_CORS: "true"
+    ports:
+      - "8108:8108"
+    volumes:
+      - thaliumx-typesense-data:/data
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8108' 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    labels:
+      - "com.thaliumx.service=typesense"
+      - "com.thaliumx.component=search"
+      - "com.thaliumx.description=Search Engine for Trading Platform"
+
+volumes:
+  thaliumx-typesense-data:
+    name: thaliumx-typesense-data
+
+networks:
+  thaliumx-net:
+    external: true

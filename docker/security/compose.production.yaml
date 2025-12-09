@@ -1,0 +1,274 @@
+# ===========================================
+# ThaliumX Security Services - Production
+# ===========================================
+# Production-ready configuration for:
+# - Vault (with TLS and file storage)
+# - Keycloak (optimized build)
+# - OPA (Open Policy Agent)
+#
+# Prerequisites:
+# 1. Run setup-production-tls.sh to generate certificates
+# 2. Initialize Vault with vault-production-init.sh
+# 3. Build optimized Keycloak image
+#
+# Usage:
+#   docker compose -f compose.production.yaml up -d
+# ===========================================
+
+services:
+  # ===========================================
+  # HashiCorp Vault - Secrets Management
+  # ===========================================
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: thaliumx-vault
+    hostname: thaliumx-vault
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_ADDR: https://127.0.0.1:8200
+      VAULT_API_ADDR: https://thaliumx-vault:8200
+      VAULT_CLUSTER_ADDR: https://thaliumx-vault:8201
+      VAULT_CACERT: /vault/config/tls/ca.crt
+      SKIP_SETCAP: "true"
+    ports:
+      - "${VAULT_PORT:-8200}:8200"
+      - "8201:8201"
+    volumes:
+      - vault_data:/vault/data
+      - vault_logs:/vault/logs
+      - ./config/vault/vault-production.hcl:/vault/config/vault.hcl:ro
+      - ./config/vault/tls:/vault/config/tls:ro
+    command: server -config=/vault/config/vault.hcl
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "vault status -ca-cert=/vault/config/tls/ca.crt 2>/dev/null | grep -E '(Sealed.*false|Sealed.*true)' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ===========================================
+  # Vault Auto-Unseal Service (Optional)
+  # ===========================================
+  # This is a secondary Vault instance used for Transit auto-unseal
+  # Only needed if you want auto-unseal without cloud providers
+  # 
+  # To enable:
+  # 1. Uncomment this service
+  # 2. Initialize vault-unseal first
+  # 3. Configure transit seal in main vault
+  # ===========================================
+  # vault-unseal:
+  #   image: hashicorp/vault:1.15
+  #   container_name: thaliumx-vault-unseal
+  #   hostname: thaliumx-vault-unseal
+  #   restart: unless-stopped
+  #   cap_add:
+  #     - IPC_LOCK
+  #   environment:
+  #     VAULT_ADDR: https://127.0.0.1:8200
+  #     VAULT_API_ADDR: https://thaliumx-vault-unseal:8200
+  #     VAULT_CACERT: /vault/config/tls/ca.crt
+  #     SKIP_SETCAP: "true"
+  #   ports:
+  #     - "8210:8200"
+  #   volumes:
+  #     - vault_unseal_data:/vault/data
+  #     - vault_unseal_logs:/vault/logs
+  #     - ./config/vault-unseal/vault-unseal.hcl:/vault/config/vault.hcl:ro
+  #     - ./config/vault/tls:/vault/config/tls:ro
+  #   command: server -config=/vault/config/vault.hcl
+  #   networks:
+  #     - thaliumx-net
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "vault status -ca-cert=/vault/config/tls/ca.crt 2>/dev/null | grep -E '(Sealed.*false|Sealed.*true)' || exit 1"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 30s
+
+  # ===========================================
+  # Keycloak - Identity and Access Management
+  # ===========================================
+  keycloak:
+    image: thaliumx/keycloak:24.0-optimized
+    build:
+      context: .
+      dockerfile: Dockerfile.keycloak
+      args:
+        KEYCLOAK_VERSION: "24.0"
+    container_name: thaliumx-keycloak
+    hostname: thaliumx-keycloak
+    restart: unless-stopped
+    # Production mode with optimized build
+    command: start --optimized --import-realm
+    environment:
+      # Admin credentials
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-ThaliumX2025}
+      
+      # Database configuration
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://thaliumx-postgres:5432/${POSTGRES_DB:-thaliumx}
+      KC_DB_USERNAME: ${POSTGRES_USER:-thaliumx}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-ThaliumX2025}
+      KC_DB_SCHEMA: keycloak
+      
+      # Health and metrics
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      
+      # Hostname configuration
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-auth.thaliumx.local}
+      KC_HOSTNAME_STRICT: "true"
+      KC_HOSTNAME_STRICT_HTTPS: "true"
+      
+      # HTTP/HTTPS configuration
+      KC_HTTP_ENABLED: "false"
+      KC_HTTPS_PORT: "8443"
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/tls/tls.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/tls/tls.key
+      
+      # Proxy configuration (for reverse proxy)
+      KC_PROXY: edge
+      
+      # Cache configuration
+      KC_CACHE: local
+      
+      # Logging
+      KC_LOG_LEVEL: info
+      KC_LOG_CONSOLE_OUTPUT: json
+      
+      # Features
+      KC_FEATURES: token-exchange,admin-fine-grained-authz
+    ports:
+      - "${KEYCLOAK_HTTPS_PORT:-8443}:8443"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./config/keycloak/tls:/opt/keycloak/conf/tls:ro
+      - ./config/keycloak/realm:/opt/keycloak/data/import:ro
+    networks:
+      - thaliumx-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8443 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ===========================================
+  # OPA - Open Policy Agent
+  # ===========================================
+  opa:
+    image: openpolicyagent/opa:0.64.0
+    container_name: thaliumx-opa
+    hostname: thaliumx-opa
+    restart: unless-stopped
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "--log-level=info"
+      - "--log-format=json"
+      - "--set=decision_logs.console=true"
+      - "/policies"
+    ports:
+      - "8181:8181"
+    volumes:
+      - ./policies:/policies:ro
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "/opa", "eval", "true"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ===========================================
+  # PostgreSQL (External dependency reference)
+  # ===========================================
+  # This is a reference to the main PostgreSQL service
+  # defined in docker/databases/compose.yaml
+  postgres:
+    image: postgres:16-alpine
+    container_name: thaliumx-postgres
+    hostname: thaliumx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-thaliumx}
+      POSTGRES_USER: ${POSTGRES_USER:-thaliumx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ThaliumX2025}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../databases/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-thaliumx} -d ${POSTGRES_DB:-thaliumx}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  vault_data:
+    name: thaliumx-vault-data
+  vault_logs:
+    name: thaliumx-vault-logs
+  # vault_unseal_data:
+  #   name: thaliumx-vault-unseal-data
+  # vault_unseal_logs:
+  #   name: thaliumx-vault-unseal-logs
+  keycloak_data:
+    name: thaliumx-keycloak-data
+  postgres_data:
+    name: thaliumx-postgres-data
+
+networks:
+  thaliumx-net:
+    external: true

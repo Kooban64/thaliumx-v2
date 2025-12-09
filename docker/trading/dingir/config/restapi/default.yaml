@@ -1,0 +1,5 @@
+# Dingir REST API Configuration
+# =============================
+# Connects to matchengine via gRPC
+
+manage_endpoint: 'http://thaliumx-dingir-matchengine:50051'

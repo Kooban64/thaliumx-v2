@@ -1,0 +1,90 @@
+# Thaliumx Messaging
+# ==================
+# Kafka with KRaft (no Zookeeper) + Schema Registry
+
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: thaliumx-kafka
+    hostname: thaliumx-kafka
+    restart: unless-stopped
+    environment:
+      # KRaft settings
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@thaliumx-kafka:9093
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      # Listeners
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://thaliumx-kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # Performance settings
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      # Auto topic creation
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # Heap settings
+      KAFKA_HEAP_OPTS: "-Xmx512M -Xms512M"
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "com.thaliumx.service=kafka"
+      - "com.thaliumx.component=messaging"
+      - "com.thaliumx.description=Apache Kafka with KRaft"
+
+  # Confluent Schema Registry for Kafka message schemas
+  # Supports Avro, Protobuf, and JSON Schema
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.3
+    container_name: thaliumx-schema-registry
+    hostname: thaliumx-schema-registry
+    restart: unless-stopped
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: thaliumx-schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: thaliumx-kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_SCHEMA_REGISTRY_INTER_INSTANCE_PROTOCOL: http
+      SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL: INFO
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC: _schemas
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
+      SCHEMA_REGISTRY_DEBUG: "false"
+    ports:
+      - "8085:8081"  # External port 8085 (8081 used by Kafka UI)
+    networks:
+      - thaliumx-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/subjects || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+      - "com.thaliumx.service=schema-registry"
+      - "com.thaliumx.component=messaging"
+      - "com.thaliumx.description=Confluent Schema Registry for Kafka"
+
+volumes:
+  kafka_data:
+    name: thaliumx-kafka-data
+
+networks:
+  thaliumx-net:
+    external: true

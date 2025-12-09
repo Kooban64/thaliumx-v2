@@ -1,0 +1,60 @@
+# Thaliumx Vault - Production Ready Configuration
+# ================================================
+# HashiCorp Vault for secrets management
+
+services:
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: thaliumx-vault
+    hostname: thaliumx-vault
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_ADDR: http://127.0.0.1:8200
+      VAULT_API_ADDR: http://thaliumx-vault:8200
+      VAULT_CLUSTER_ADDR: https://thaliumx-vault:8201
+      VAULT_LOG_LEVEL: info
+      VAULT_UI: "true"
+      VAULT_LOCAL_CONFIG: |
+        storage "file" {
+          path = "/vault/file"
+        }
+        listener "tcp" {
+          address = "0.0.0.0:8200"
+          tls_disable = true
+        }
+        ui = true
+        disable_mlock = true
+        api_addr = "http://thaliumx-vault:8200"
+        cluster_name = "thaliumx-vault-cluster"
+        log_level = "info"
+        default_lease_ttl = "768h"
+        max_lease_ttl = "8760h"
+    ports:
+      - "${VAULT_PORT:-8200}:8200"
+      - "8201:8201"
+    volumes:
+      - vault_file:/vault/file
+      - vault_logs:/vault/logs
+      - ./policies:/vault/policies:ro
+      - ./scripts:/vault/scripts:ro
+    command: server
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8200/v1/sys/health?standbyok=true&sealedok=true&uninitok=true"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  vault_file:
+    name: thaliumx-vault-file
+  vault_logs:
+    name: thaliumx-vault-logs
+
+networks:
+  thaliumx-net:
+    external: true

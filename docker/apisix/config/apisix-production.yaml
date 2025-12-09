@@ -1,0 +1,238 @@
+#
+# APISIX Production Configuration for ThaliumX Platform
+# =====================================================
+# This configuration is optimized for production deployment with:
+# - Restricted admin access
+# - TLS enabled
+# - Rate limiting
+# - Security headers
+# - Comprehensive logging
+
+apisix:
+  node_listen: 9080
+  enable_ipv6: false
+  enable_admin: true
+  enable_http2: true
+  
+  # PRODUCTION: Restrict admin access to internal network only
+  allow_admin:
+    - 172.28.0.0/16  # Docker internal network only
+    - 127.0.0.1/32   # Localhost only
+  
+  admin_listen:
+    ip: 127.0.0.1  # PRODUCTION: Only listen on localhost
+    port: 9180
+  
+  # Admin API key - Retrieved from Vault at runtime
+  # These are placeholders - actual keys injected via environment
+  admin_key:
+    - name: admin
+      key: "${APISIX_ADMIN_KEY}"
+      role: admin
+
+  # SSL configuration - PRODUCTION: Enable TLS
+  ssl:
+    enable: true
+    listen:
+      - port: 9443
+        enable_http2: true
+    ssl_protocols: "TLSv1.2 TLSv1.3"
+    ssl_ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
+    ssl_session_tickets: false
+
+  # Proxy settings
+  proxy_mode: http&stream
+  stream_proxy:
+    tcp:
+      - 9100
+
+  # Router configuration
+  router:
+    http: radixtree_uri
+    ssl: radixtree_sni
+
+  # DNS resolver
+  dns_resolver:
+    - 127.0.0.11
+    - 8.8.8.8
+    - 8.8.4.4
+  dns_resolver_valid: 30
+
+# etcd configuration
+deployment:
+  role: traditional
+  role_traditional:
+    config_provider: etcd
+  etcd:
+    host:
+      - "http://thaliumx-etcd:2379"
+    prefix: /apisix
+    timeout: 30
+    # PRODUCTION: Enable TLS for etcd
+    # tls:
+    #   cert: /path/to/cert
+    #   key: /path/to/key
+    #   verify: true
+
+# Plugin configuration - Production optimized
+plugins:
+  # Security plugins
+  - api-breaker
+  - authz-keycloak
+  - basic-auth
+  - consumer-restriction
+  - cors
+  - csrf
+  - hmac-auth
+  - ip-restriction
+  - jwt-auth
+  - key-auth
+  - opa
+  - openid-connect
+  - referer-restriction
+  - ua-restriction
+  - uri-blocker
+  
+  # Rate limiting plugins
+  - limit-conn
+  - limit-count
+  - limit-req
+  
+  # Traffic management
+  - proxy-cache
+  - proxy-mirror
+  - proxy-rewrite
+  - redirect
+  - response-rewrite
+  - traffic-split
+  
+  # Observability plugins
+  - http-logger
+  - kafka-logger
+  - prometheus
+  - request-id
+  - syslog
+  - tcp-logger
+  - zipkin
+  
+  # Utility plugins
+  - batch-requests
+  - echo
+  - fault-injection
+  - grpc-transcode
+  - node-status
+  - request-validation
+  - serverless-post-function
+  - serverless-pre-function
+
+# Nginx configuration - Production optimized
+nginx_config:
+  error_log: /dev/stderr
+  error_log_level: warn
+  worker_processes: auto
+  worker_rlimit_nofile: 65535
+  
+  event:
+    worker_connections: 65535
+    use: epoll
+    multi_accept: "on"
+  
+  http:
+    enable_access_log: true
+    access_log: /dev/stdout
+    access_log_format: '{"time": "$time_iso8601", "remote_addr": "$remote_addr", "x_forwarded_for": "$http_x_forwarded_for", "request_id": "$request_id", "request": "$request", "status": "$status", "body_bytes_sent": "$body_bytes_sent", "request_time": "$request_time", "upstream_response_time": "$upstream_response_time", "upstream_addr": "$upstream_addr", "host": "$host", "user_agent": "$http_user_agent", "referer": "$http_referer"}'
+    access_log_format_escape: json
+    
+    # Timeouts
+    keepalive_timeout: 60s
+    client_header_timeout: 60s
+    client_body_timeout: 60s
+    send_timeout: 60s
+    
+    # Buffer sizes
+    client_body_buffer_size: 16k
+    client_max_body_size: 10m
+    client_header_buffer_size: 1k
+    large_client_header_buffers: 4 8k
+    
+    # Proxy settings
+    proxy_buffer_size: 4k
+    proxy_buffers: 8 4k
+    proxy_busy_buffers_size: 8k
+    
+    # Security headers
+    underscores_in_headers: "on"
+    real_ip_header: X-Forwarded-For
+    real_ip_recursive: "on"
+    real_ip_from:
+      - 127.0.0.1
+      - "unix:"
+      - 172.28.0.0/16
+      - 10.0.0.0/8
+    
+    # Gzip compression
+    gzip: "on"
+    gzip_min_length: 1000
+    gzip_comp_level: 6
+    gzip_types: "text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript"
+    gzip_vary: "on"
+    
+    # Additional security
+    server_tokens: "off"
+
+# Discovery configuration for service mesh
+discovery:
+  dns:
+    servers:
+      - "127.0.0.11:53"
+
+# Prometheus metrics - Production configuration
+plugin_attr:
+  prometheus:
+    export_uri: /apisix/prometheus/metrics
+    export_addr:
+      ip: 127.0.0.1  # PRODUCTION: Only expose metrics internally
+      port: 9091
+    metric_prefix: apisix_
+  
+  # Zipkin tracing configuration
+  zipkin:
+    endpoint: http://thaliumx-tempo:9411/api/v2/spans
+    sample_ratio: 0.1  # Sample 10% of requests in production
+    service_name: thaliumx-apisix
+  
+  # Kafka logger configuration
+  kafka-logger:
+    broker_list:
+      - thaliumx-kafka:9092
+    kafka_topic: thaliumx-access-logs
+    producer_type: async
+    required_acks: 1
+    buffer_duration: 60
+    max_retry_count: 3
+  
+  # Request ID configuration
+  request-id:
+    header_name: X-Request-Id
+    include_in_response: true
+    algorithm: uuid
+
+# Global rules - Applied to all routes
+# These are defined via Admin API, but documented here for reference
+#
+# Example global rate limiting:
+# curl -X PUT http://127.0.0.1:9180/apisix/admin/global_rules/1 \
+#   -H "X-API-KEY: $APISIX_ADMIN_KEY" \
+#   -d '{
+#     "plugins": {
+#       "limit-count": {
+#         "count": 1000,
+#         "time_window": 60,
+#         "rejected_code": 429,
+#         "key": "remote_addr"
+#       },
+#       "ip-restriction": {
+#         "blacklist": ["1.2.3.4"]
+#       }
+#     }
+#   }'

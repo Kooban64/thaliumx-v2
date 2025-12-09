@@ -1,0 +1,32 @@
+{
+  "name": "@thaliumx/workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ThaliumX Docker Workspace - Monorepo for frontend, backend, and shared packages",
+  "packageManager": "pnpm@9.14.4",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "build:shared": "pnpm --filter @thaliumx/shared build",
+    "build:frontend": "pnpm --filter @thaliumx/frontend build",
+    "build:backend": "pnpm --filter @thaliumx/backend build",
+    "dev": "pnpm -r --parallel dev",
+    "dev:frontend": "pnpm --filter @thaliumx/frontend dev",
+    "dev:backend": "pnpm --filter @thaliumx/backend dev",
+    "test": "pnpm -r test",
+    "test:frontend": "pnpm --filter @thaliumx/frontend test",
+    "test:backend": "pnpm --filter @thaliumx/backend test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r clean && rm -rf node_modules",
+    "audit": "pnpm audit --audit-level high",
+    "audit:fix": "pnpm audit --fix"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
+  }
+}

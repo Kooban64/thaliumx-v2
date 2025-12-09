@@ -1,0 +1,181 @@
+# ThaliumX AlertManager Configuration
+# ===================================
+# Production-ready alerting configuration with multiple notification channels
+# 
+# IMPORTANT: Before production, configure the following environment variables:
+# - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD
+# - SLACK_WEBHOOK_URL
+# - PAGERDUTY_SERVICE_KEY, PAGERDUTY_SECURITY_KEY
+#
+# Or update this file directly with your notification endpoints.
+
+global:
+  # Default resolve timeout
+  resolve_timeout: 5m
+  
+  # SMTP settings - uncomment and configure for email notifications
+  # smtp_smarthost: 'smtp.example.com:587'
+  # smtp_from: 'alerts@thaliumx.com'
+  # smtp_auth_username: 'alertmanager'
+  # smtp_auth_password: 'password'
+  # smtp_require_tls: true
+
+# Route tree for alert routing
+route:
+  # Default receiver
+  receiver: 'default-receiver'
+  
+  # Group alerts by these labels
+  group_by: ['alertname', 'severity', 'service']
+  
+  # Wait before sending initial notification
+  group_wait: 30s
+  
+  # Wait before sending updated notification
+  group_interval: 5m
+  
+  # Wait before resending notification
+  repeat_interval: 4h
+  
+  # Child routes for specific alert types
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: true
+    
+    # High severity alerts
+    - match:
+        severity: high
+      receiver: 'high-alerts'
+      group_wait: 30s
+      repeat_interval: 2h
+      continue: true
+    
+    # Security alerts - dedicated channel
+    - match:
+        category: security
+      receiver: 'security-alerts'
+      group_wait: 10s
+      repeat_interval: 30m
+      continue: true
+    
+    # Financial/Trading alerts - dedicated channel
+    - match:
+        category: trading
+      receiver: 'trading-alerts'
+      group_wait: 15s
+      repeat_interval: 1h
+      continue: true
+    
+    # Infrastructure alerts
+    - match:
+        category: infrastructure
+      receiver: 'infrastructure-alerts'
+      group_wait: 1m
+      repeat_interval: 4h
+    
+    # Database alerts
+    - match:
+        category: database
+      receiver: 'database-alerts'
+      group_wait: 30s
+      repeat_interval: 2h
+    
+    # Warning alerts
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 5m
+      repeat_interval: 12h
+
+# Inhibition rules to prevent alert storms
+inhibit_rules:
+  # If critical alert is firing, suppress high alerts for same service
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'high'
+    equal: ['alertname', 'service']
+  
+  # If high alert is firing, suppress warning alerts for same service
+  - source_match:
+      severity: 'high'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service']
+  
+  # If service is down, suppress all other alerts for that service
+  - source_match:
+      alertname: 'ServiceDown'
+    target_match_re:
+      alertname: '.+'
+    equal: ['service']
+
+# Receiver definitions
+receivers:
+  # Default receiver - webhook to logging (always works)
+  - name: 'default-receiver'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook'
+        send_resolved: true
+        max_alerts: 10
+
+  # Critical alerts - high priority
+  - name: 'critical-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/critical'
+        send_resolved: true
+    # Uncomment to enable Slack notifications:
+    # slack_configs:
+    #   - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    #     channel: '#alerts-critical'
+    #     username: 'ThaliumX AlertManager'
+    #     icon_emoji: ':rotating_light:'
+    #     color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+    #     title: '{{ .CommonAnnotations.summary }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+    #     send_resolved: true
+
+  # High severity alerts
+  - name: 'high-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/high'
+        send_resolved: true
+
+  # Security alerts - dedicated security channel
+  - name: 'security-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/security'
+        send_resolved: true
+
+  # Trading alerts - trading operations channel
+  - name: 'trading-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/trading'
+        send_resolved: true
+
+  # Infrastructure alerts
+  - name: 'infrastructure-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/infrastructure'
+        send_resolved: true
+
+  # Database alerts
+  - name: 'database-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/database'
+        send_resolved: true
+
+  # Warning alerts
+  - name: 'warning-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/warning'
+        send_resolved: true
+
+# Templates for notifications
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

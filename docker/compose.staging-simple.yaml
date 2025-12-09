@@ -1,0 +1,471 @@
+# ThaliumX Staging Compose - Simplified (No SSL)
+# This compose file is for staging environment without SSL requirements
+# Usage: docker compose -f compose.staging-simple.yaml up -d
+
+name: thaliumx-staging
+
+networks:
+  thaliumx-net:
+    external: true
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+  typesense_data:
+  kafka_data:
+  keycloak_data:
+  vault_data:
+  vault_logs:
+  etcd_data:
+  apisix_logs:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  tempo_data:
+  alertmanager_data:
+
+services:
+  # ============================================
+  # DATABASES
+  # ============================================
+  
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: thaliumx-postgres
+    hostname: thaliumx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: thaliumx
+      POSTGRES_PASSWORD: ThaliumX2025
+      POSTGRES_DB: thaliumx
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./databases/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thaliumx"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: thaliumx-mongodb
+    hostname: thaliumx-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: thaliumx
+      MONGO_INITDB_ROOT_PASSWORD: ThaliumX2025
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: thaliumx-redis
+    hostname: thaliumx-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ThaliumX2025 --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "ThaliumX2025", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  typesense:
+    image: typesense/typesense:27.1
+    container_name: thaliumx-typesense
+    hostname: thaliumx-typesense
+    restart: unless-stopped
+    environment:
+      TYPESENSE_API_KEY: ThaliumX2025
+      TYPESENSE_DATA_DIR: /data
+    ports:
+      - "8108:8108"
+    volumes:
+      - typesense_data:/data
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8108/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # MESSAGING
+  # ============================================
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: thaliumx-kafka
+    hostname: thaliumx-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@thaliumx-kafka:9093
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://thaliumx-kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_HEAP_OPTS: "-Xmx512M -Xms512M"
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ============================================
+  # SECURITY
+  # ============================================
+
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: thaliumx-vault
+    hostname: thaliumx-vault
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: thaliumx-vault-token-2025
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+      VAULT_ADDR: http://127.0.0.1:8200
+      VAULT_API_ADDR: http://thaliumx-vault:8200
+      SKIP_SETCAP: "true"
+    ports:
+      - "8200:8200"
+    volumes:
+      - vault_data:/vault/data
+      - vault_logs:/vault/logs
+    command: server -dev
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "vault status 2>/dev/null || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: thaliumx-keycloak
+    hostname: thaliumx-keycloak
+    restart: unless-stopped
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ThaliumX2025
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://thaliumx-postgres:5432/thaliumx
+      KC_DB_USERNAME: thaliumx
+      KC_DB_PASSWORD: ThaliumX2025
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+    networks:
+      - thaliumx-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  opa:
+    image: openpolicyagent/opa:0.64.0
+    container_name: thaliumx-opa
+    hostname: thaliumx-opa
+    restart: unless-stopped
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "--log-level=info"
+    ports:
+      - "8181:8181"
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "/opa", "eval", "true"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # GATEWAY
+  # ============================================
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.9
+    container_name: thaliumx-etcd
+    hostname: thaliumx-etcd
+    restart: unless-stopped
+    environment:
+      ETCD_NAME: thaliumx-etcd
+      ETCD_ADVERTISE_CLIENT_URLS: http://thaliumx-etcd:2379
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_DATA_DIR: /etcd-data
+      ETCD_ENABLE_V2: "true"
+      ALLOW_NONE_AUTHENTICATION: "yes"
+    ports:
+      - "2379:2379"
+    volumes:
+      - etcd_data:/etcd-data
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  apisix:
+    image: apache/apisix:3.9.0-debian
+    container_name: thaliumx-apisix
+    hostname: thaliumx-apisix
+    restart: unless-stopped
+    environment:
+      APISIX_STAND_ALONE: "false"
+    ports:
+      - "9080:9080"
+      - "9443:9443"
+      - "9180:9180"
+    volumes:
+      - ./gateway/config/apisix.yaml:/usr/local/apisix/conf/config.yaml:ro
+      - apisix_logs:/usr/local/apisix/logs
+    networks:
+      - thaliumx-net
+    depends_on:
+      etcd:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9080/apisix/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============================================
+  # OBSERVABILITY
+  # ============================================
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: thaliumx-prometheus
+    hostname: thaliumx-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: thaliumx-grafana
+    hostname: thaliumx-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ThaliumX2025
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./observability/config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - thaliumx-net
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  loki:
+    image: grafana/loki:2.9.6
+    container_name: thaliumx-loki
+    hostname: thaliumx-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/config/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  tempo:
+    image: grafana/tempo:2.4.1
+    container_name: thaliumx-tempo
+    hostname: thaliumx-tempo
+    restart: unless-stopped
+    command: -config.file=/etc/tempo/tempo.yml
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./observability/config/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo_data:/var/tempo
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3200/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: thaliumx-alertmanager
+    hostname: thaliumx-alertmanager
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./observability/config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # APPLICATION
+  # ============================================
+
+  backend:
+    image: thaliumx/backend:v9
+    container_name: thaliumx-backend
+    hostname: thaliumx-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DB_HOST: thaliumx-postgres
+      DB_PORT: 5432
+      DB_NAME: thaliumx
+      DB_USER: thaliumx
+      DB_PASSWORD: ThaliumX2025
+      REDIS_HOST: thaliumx-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ThaliumX2025
+      MONGODB_URI: mongodb://thaliumx:ThaliumX2025@thaliumx-mongodb:27017/thaliumx?authSource=admin
+      KAFKA_BROKERS: thaliumx-kafka:9092
+      KEYCLOAK_URL: http://thaliumx-keycloak:8080
+      KEYCLOAK_REALM: thaliumx
+      VAULT_ADDR: http://thaliumx-vault:8200
+      VAULT_TOKEN: thaliumx-vault-token-2025
+      OPA_URL: http://thaliumx-opa:8181
+    ports:
+      - "3002:3002"
+    networks:
+      - thaliumx-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    image: thaliumx/frontend:v17
+    container_name: thaliumx-frontend
+    hostname: thaliumx-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: http://thaliumx-backend:3002
+      NEXT_PUBLIC_KEYCLOAK_URL: http://thaliumx-keycloak:8080
+    ports:
+      - "3001:3000"
+    networks:
+      - thaliumx-net
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s

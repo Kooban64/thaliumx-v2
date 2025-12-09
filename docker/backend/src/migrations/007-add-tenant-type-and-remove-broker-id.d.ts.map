@@ -1,0 +1,1 @@
+{"version":3,"file":"007-add-tenant-type-and-remove-broker-id.d.ts","sourceRoot":"","sources":["007-add-tenant-type-and-remove-broker-id.ts"],"names":[],"mappings":"AAAA;;;;;;;;GAQG;AAEH,OAAO,EAAE,cAAc,EAAa,MAAM,WAAW,CAAC;AAEtD,wBAAsB,EAAE,CAAC,cAAc,EAAE,cAAc,GAAG,OAAO,CAAC,IAAI,CAAC,CAgEtE;AAED,wBAAsB,IAAI,CAAC,cAAc,EAAE,cAAc,GAAG,OAAO,CAAC,IAAI,CAAC,CA4CxE"}

@@ -1,0 +1,49 @@
+# Thaliumx Vault - Production Configuration with TLS
+# ===================================================
+# HashiCorp Vault for secrets management - Production Ready
+
+services:
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: thaliumx-vault
+    hostname: thaliumx-vault
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_ADDR: https://127.0.0.1:8200
+      VAULT_API_ADDR: https://thaliumx-vault:8200
+      VAULT_CLUSTER_ADDR: https://thaliumx-vault:8201
+      VAULT_LOG_LEVEL: info
+      VAULT_UI: "true"
+      VAULT_CACERT: /vault/certs/ca.crt
+      VAULT_SKIP_VERIFY: "false"
+    ports:
+      - "${VAULT_PORT:-8200}:8200"
+      - "8201:8201"
+    volumes:
+      - vault_file:/vault/file
+      - vault_logs:/vault/logs
+      - ./policies:/vault/policies:ro
+      - ./scripts:/vault/scripts:ro
+      - ./config:/vault/config:ro
+      - ../certs/services/vault:/vault/certs:ro
+    command: server -config=/vault/config/vault-production.hcl
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "vault", "status", "-address=https://127.0.0.1:8200", "-ca-cert=/vault/certs/ca.crt"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  vault_file:
+    name: thaliumx-vault-file
+  vault_logs:
+    name: thaliumx-vault-logs
+
+networks:
+  thaliumx-net:
+    external: true

@@ -1,0 +1,560 @@
+openapi: 3.0.3
+info:
+  title: QuantLib Financial Service API
+  description: Advanced financial calculations, pricing models, and risk management
+  version: 1.0.0
+  contact:
+    name: ThaliumX Support
+    email: support@thaliumx.com
+  license:
+    name: ISC
+
+servers:
+  - url: http://localhost:3010
+    description: Development server
+  - url: https://api.thaliumx.com/quantlib
+    description: Production server
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check service health status
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      summary: Service metrics
+      description: Get Prometheus metrics
+      tags:
+        - System
+      responses:
+        '200':
+          description: Metrics retrieved successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /v1/pricing/options/black-scholes:
+    post:
+      summary: Price European option using Black-Scholes
+      description: Calculate European option price and Greeks using Black-Scholes formula
+      tags:
+        - Pricing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptionPricingRequest'
+      responses:
+        '200':
+          description: Option priced successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptionPricingResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/pricing/options/american:
+    post:
+      summary: Price American option using Binomial tree
+      description: Calculate American option price and Greeks using Binomial tree
+      tags:
+        - Pricing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmericanOptionPricingRequest'
+      responses:
+        '200':
+          description: Option priced successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptionPricingResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/pricing/options/greeks:
+    get:
+      summary: Calculate option Greeks
+      description: Calculate Delta, Gamma, Theta, Vega, and Rho for an option
+      tags:
+        - Pricing
+      parameters:
+        - name: spot_price
+          in: query
+          required: true
+          schema:
+            type: number
+            format: float
+        - name: strike_price
+          in: query
+          required: true
+          schema:
+            type: number
+            format: float
+        - name: risk_free_rate
+          in: query
+          required: true
+          schema:
+            type: number
+            format: float
+        - name: volatility
+          in: query
+          required: true
+          schema:
+            type: number
+            format: float
+        - name: time_to_maturity
+          in: query
+          required: true
+          schema:
+            type: number
+            format: float
+        - name: option_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [call, put]
+      responses:
+        '200':
+          description: Greeks calculated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GreeksResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/risk/var/calculate:
+    post:
+      summary: Calculate Value at Risk
+      description: Calculate VaR using historical, parametric, or Monte Carlo methods
+      tags:
+        - Risk Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VaRRequest'
+      responses:
+        '200':
+          description: VaR calculated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VaRResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/risk/var/portfolio:
+    post:
+      summary: Calculate portfolio VaR
+      description: Calculate portfolio VaR using correlation matrix
+      tags:
+        - Risk Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioVaRRequest'
+      responses:
+        '200':
+          description: Portfolio VaR calculated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioVaRResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/analytics/yield-curves/construct:
+    post:
+      summary: Construct yield curve
+      description: Construct yield curve from market data using interpolation
+      tags:
+        - Analytics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/YieldCurveRequest'
+      responses:
+        '200':
+          description: Yield curve constructed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YieldCurveResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        service:
+          type: string
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    OptionPricingRequest:
+      type: object
+      required:
+        - spot_price
+        - strike_price
+        - risk_free_rate
+        - volatility
+        - time_to_maturity
+        - option_type
+      properties:
+        spot_price:
+          type: number
+          format: float
+          description: Current asset price
+          minimum: 0
+        strike_price:
+          type: number
+          format: float
+          description: Option strike price
+          minimum: 0
+        risk_free_rate:
+          type: number
+          format: float
+          description: Risk-free interest rate
+          minimum: 0
+        volatility:
+          type: number
+          format: float
+          description: Asset volatility
+          minimum: 0
+        time_to_maturity:
+          type: number
+          format: float
+          description: Time to expiration in years
+          minimum: 0
+        option_type:
+          type: string
+          enum: [call, put]
+          description: Option type
+
+    AmericanOptionPricingRequest:
+      allOf:
+        - $ref: '#/components/schemas/OptionPricingRequest'
+        - type: object
+          properties:
+            steps:
+              type: integer
+              description: Number of binomial tree steps
+              minimum: 10
+              maximum: 1000
+              default: 100
+
+    OptionPricingResponse:
+      type: object
+      properties:
+        option_price:
+          type: number
+          format: float
+          description: Option price
+        delta:
+          type: number
+          format: float
+          description: Delta (price sensitivity)
+        gamma:
+          type: number
+          format: float
+          description: Gamma (delta sensitivity)
+        theta:
+          type: number
+          format: float
+          description: Theta (time decay)
+        vega:
+          type: number
+          format: float
+          description: Vega (volatility sensitivity)
+        rho:
+          type: number
+          format: float
+          description: Rho (interest rate sensitivity)
+        implied_volatility:
+          type: number
+          format: float
+          description: Implied volatility
+          nullable: true
+        parameters:
+          type: object
+          description: Input parameters
+
+    GreeksResponse:
+      type: object
+      properties:
+        delta:
+          type: number
+          format: float
+        gamma:
+          type: number
+          format: float
+        theta:
+          type: number
+          format: float
+        vega:
+          type: number
+          format: float
+        rho:
+          type: number
+          format: float
+
+    VaRRequest:
+      type: object
+      required:
+        - returns
+      properties:
+        returns:
+          type: array
+          items:
+            type: number
+          description: Historical returns
+        confidence_level:
+          type: number
+          format: float
+          description: VaR confidence level
+          minimum: 0.01
+          maximum: 0.5
+          default: 0.05
+        method:
+          type: string
+          enum: [historical, parametric, monte_carlo]
+          description: VaR calculation method
+          default: historical
+        time_horizon:
+          type: integer
+          description: Time horizon in days
+          minimum: 1
+          default: 1
+        portfolio_value:
+          type: number
+          format: float
+          description: Portfolio value
+          minimum: 0
+          default: 1.0
+
+    VaRResponse:
+      type: object
+      properties:
+        var_absolute:
+          type: number
+          format: float
+          description: Absolute VaR
+        var_relative:
+          type: number
+          format: float
+          description: Relative VaR
+        expected_shortfall:
+          type: number
+          format: float
+          description: Expected Shortfall (Conditional VaR)
+        confidence_level:
+          type: number
+          format: float
+        time_horizon:
+          type: integer
+        method:
+          type: string
+        portfolio_value:
+          type: number
+          format: float
+        statistics:
+          type: object
+          properties:
+            mean_return:
+              type: number
+              format: float
+            volatility:
+              type: number
+              format: float
+            skewness:
+              type: number
+              format: float
+            kurtosis:
+              type: number
+              format: float
+
+    PortfolioVaRRequest:
+      type: object
+      required:
+        - portfolio_weights
+        - asset_returns
+      properties:
+        portfolio_weights:
+          type: array
+          items:
+            type: number
+          description: Portfolio weights
+        asset_returns:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+          description: Asset returns matrix
+        confidence_level:
+          type: number
+          format: float
+          minimum: 0.01
+          maximum: 0.5
+          default: 0.05
+        time_horizon:
+          type: integer
+          minimum: 1
+          default: 1
+        portfolio_value:
+          type: number
+          format: float
+          minimum: 0
+          default: 1.0
+
+    PortfolioVaRResponse:
+      allOf:
+        - $ref: '#/components/schemas/VaRResponse'
+        - type: object
+          properties:
+            portfolio_weights:
+              type: array
+              items:
+                type: number
+            correlation_matrix:
+              type: array
+              items:
+                type: array
+                items:
+                  type: number
+            diversification_ratio:
+              type: number
+              format: float
+
+    YieldCurveRequest:
+      type: object
+      required:
+        - maturities
+        - yields
+      properties:
+        maturities:
+          type: array
+          items:
+            type: number
+          description: Maturities in years
+        yields:
+          type: array
+          items:
+            type: number
+          description: Corresponding yields
+        method:
+          type: string
+          enum: [linear, cubic, spline]
+          description: Interpolation method
+          default: cubic
+
+    YieldCurveResponse:
+      type: object
+      properties:
+        maturities:
+          type: array
+          items:
+            type: number
+        yields:
+          type: array
+          items:
+            type: number
+        curve_maturities:
+          type: array
+          items:
+            type: number
+        curve_yields:
+          type: array
+          items:
+            type: number
+        interpolation_method:
+          type: string
+        metrics:
+          type: object
+          properties:
+            mean_yield:
+              type: number
+              format: float
+            std_yield:
+              type: number
+              format: float
+            min_yield:
+              type: number
+              format: float
+            max_yield:
+              type: number
+              format: float
+            slope_2y_10y:
+              type: number
+              format: float
+            curvature:
+              type: number
+              format: float
+        data_points:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        request_id:
+          type: string

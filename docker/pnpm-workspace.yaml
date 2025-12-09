@@ -1,0 +1,10 @@
+# ThaliumX pnpm Workspace Configuration
+# This file defines the workspace structure for the monorepo
+
+packages:
+  # Shared packages
+  - 'shared'
+  
+  # Core applications
+  - 'frontend'
+  - 'backend'

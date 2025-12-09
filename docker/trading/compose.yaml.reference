@@ -1,0 +1,77 @@
+networks:
+  thaliumx-network:
+    external: true
+
+volumes:
+  trading_logs:
+    driver: local
+
+services:
+  # Dingir Trading Engine (Rust-based)
+  thaliumx-engine-dingir:
+    build:
+      context: ./dingir-exchange
+      dockerfile: Dockerfile
+    image: thaliumx-engine-dingir
+    container_name: thaliumx-engine-dingir
+    env_file:
+      - trading.env
+    environment:
+      RUST_LOG: ${RUST_LOG}
+      DATABASE_URL: postgresql://thaliumx:${DB_PASSWORD}@${POSTGRES_HOST}:5432/thaliumx
+      REDIS_URL: redis://:${REDIS_PASSWORD}@${REDIS_HOST}:6379
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+    # Dependencies managed externally due to multi-compose setup
+    # depends_on:
+    #   - thaliumx-postgres (from data-persistence/postgres)
+    #   - thaliumx-redis (from data-persistence/redis)
+    #   - thaliumx-mq-kafka (from system-messaging)
+    ports:
+      - "${DINGIR_GRPC_PORT}:50051"
+      - "${DINGIR_REST_PORT}:50053"
+    networks:
+      - thaliumx-network
+    restart: unless-stopped
+    volumes:
+      - trading_logs:/app/logs
+    labels:
+      promtail.scrape: "true"
+      logging_name: trading-engine
+      logging_job: trading
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --timeout=5 http://127.0.0.1:50053/ || kill -0 7 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # Liquibook Orderbook Engine (Node.js-based)
+  thaliumx-orderbook-liquibook:
+    build:
+      context: ./liquibook
+      dockerfile: Dockerfile
+    image: thaliumx-orderbook-liquibook
+    container_name: thaliumx-orderbook-liquibook
+    env_file:
+      - trading.env
+    environment:
+      EXCHANGE_ENDPOINT: ${EXCHANGE_ENDPOINT}
+    depends_on:
+      - thaliumx-engine-dingir
+    ports:
+      - "${LIQUIBOOK_PORT}:8080"
+    networks:
+      - thaliumx-network
+    restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+    volumes:
+      - trading_logs:/app/logs
+    labels:
+      promtail.scrape: "true"
+      logging_name: orderbook
+      logging_job: trading

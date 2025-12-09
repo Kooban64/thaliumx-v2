@@ -1,0 +1,211 @@
+# ThaliumX Core Services
+# ======================
+# Frontend (Next.js) & Backend (Node.js/Express) applications
+# Build context is the parent docker directory to access shared package
+# Security-hardened configuration with proper isolation
+
+services:
+  # ===================
+  # FRONTEND SERVICE
+  # ===================
+  # Next.js application with Keycloak authentication
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://thaliumx-backend:3002
+        - NEXT_PUBLIC_KEYCLOAK_URL=http://thaliumx-keycloak:8080
+        - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx
+        - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
+    image: thaliumx/frontend:latest
+    container_name: thaliumx-frontend
+    hostname: thaliumx-frontend
+    restart: unless-stopped
+    
+    # Security: Run as non-root user
+    user: "1001:1001"
+    
+    # Note: read_only disabled for Next.js SWC compatibility
+    # Next.js needs to write to node_modules for SWC wasm fallback
+    # read_only: true
+    
+    # Security: Drop all capabilities, add only what's needed
+    cap_drop:
+      - ALL
+    
+    # Security: Prevent privilege escalation
+    security_opt:
+      - no-new-privileges:true
+    
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      # Runtime environment variables
+      - NEXT_PUBLIC_API_URL=http://thaliumx-backend:3002
+      - NEXT_PUBLIC_KEYCLOAK_URL=http://thaliumx-keycloak:8080
+      - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx
+      - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
+    
+    ports:
+      - "${FRONTEND_PORT:-3001}:3000"
+    
+    # Security: Tmpfs for writable directories with proper ownership
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=100M,uid=1001,gid=1001,mode=1777
+      - /app/.next/cache:noexec,nosuid,nodev,size=200M,uid=1001,gid=1001,mode=0770
+    
+    networks:
+      - thaliumx-net
+    
+    # Note: backend dependency is handled by startup order
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    labels:
+      - "thaliumx.service=frontend"
+      - "thaliumx.tier=application"
+      - "thaliumx.security.hardened=true"
+
+  # ===================
+  # BACKEND SERVICE
+  # ===================
+  # Node.js/Express API with comprehensive service integrations
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile.production
+    image: thaliumx/backend:latest
+    container_name: thaliumx-backend
+    hostname: thaliumx-backend
+    restart: unless-stopped
+    
+    # Security: Run as non-root user
+    user: "1001:1001"
+    
+    # Security: Read-only root filesystem where possible
+    read_only: true
+    
+    # Security: Drop all capabilities, add only what's needed
+    cap_drop:
+      - ALL
+    
+    # Security: Prevent privilege escalation
+    security_opt:
+      - no-new-privileges:true
+    
+    env_file:
+      - ./core.env
+    
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      # Vault Configuration (primary secrets source)
+      - VAULT_ADDR=http://thaliumx-vault:8200
+      - VAULT_TOKEN=${VAULT_TOKEN:-thaliumx-vault-token-2025}
+      - VAULT_MOUNT_PATH=secret
+      # Database Configuration (Citus for multi-tenant)
+      - DB_HOST=thaliumx-citus-coordinator
+      - DB_PORT=5432
+      - DB_NAME=thaliumx
+      - DB_USER=thaliumx
+      - DB_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
+      # Redis Configuration
+      - REDIS_HOST=thaliumx-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ThaliumX2025}
+      # Keycloak Configuration
+      - KEYCLOAK_URL=http://thaliumx-keycloak:8080
+      - KEYCLOAK_REALM=thaliumx
+      - KEYCLOAK_CLIENT_ID=thaliumx-backend
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:-ThaliumX2025}
+      - KEYCLOAK_ADMIN_USERNAME=admin
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-ThaliumX2025}
+      # Kafka Configuration
+      - KAFKA_BROKERS=thaliumx-kafka:9092
+      # MongoDB Configuration
+      - MONGODB_URI=mongodb://thaliumx:${MONGO_INITDB_ROOT_PASSWORD:-ThaliumX2025}@thaliumx-mongodb:27017/thaliumx?authSource=admin
+      # OPA Configuration
+      - OPA_URL=http://thaliumx-opa:8181
+      # Trading Services
+      - DINGIR_URL=http://thaliumx-dingir-restapi:8001
+      - LIQUIBOOK_URL=http://thaliumx-liquibook:8083
+      - QUANTLIB_URL=http://thaliumx-quantlib:8084
+      # OpenTelemetry
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://thaliumx-otel-collector:4318
+      - OTEL_SERVICE_NAME=thaliumx-backend
+      # Feature Flags
+      - ENABLE_VAULT=true
+      - ENABLE_KAFKA=true
+      - ENABLE_OTEL=true
+    
+    ports:
+      - "${BACKEND_PORT:-3002}:3002"
+    
+    # Security: Tmpfs for writable directories with proper ownership
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=100M,uid=1001,gid=1001,mode=1777
+      - /app/logs:noexec,nosuid,nodev,size=100M,uid=1001,gid=1001,mode=0770
+    
+    volumes:
+      # Mount secrets directory for local development fallback (read-only)
+      - ./secrets:/app/.secrets:ro
+    
+    networks:
+      - thaliumx-net
+    
+    # Note: Dependencies on external services (postgres, redis, etc.) are managed
+    # at the orchestrator level via compose.yaml include order
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    
+    labels:
+      - "thaliumx.service=backend"
+      - "thaliumx.tier=application"
+      - "thaliumx.security.hardened=true"
+
+networks:
+  thaliumx-net:
+    external: true

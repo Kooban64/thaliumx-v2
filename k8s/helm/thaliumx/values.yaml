@@ -1,0 +1,511 @@
+# ThaliumX Helm Chart Values
+# ==========================
+# Default configuration values for the ThaliumX platform
+
+# Global settings
+global:
+  environment: production
+  domain: thaliumx.com
+  imageRegistry: ghcr.io/thaliumx
+  imagePullSecrets:
+    - name: ghcr-secret
+  storageClass: gp3
+  
+# Namespace configuration
+namespace:
+  create: true
+  name: thaliumx
+  labels:
+    app.kubernetes.io/part-of: thaliumx
+
+# ============================================
+# Backend Service
+# ============================================
+backend:
+  enabled: true
+  replicaCount: 3
+  
+  image:
+    repository: thaliumx-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 3002
+    annotations: {}
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                    - backend
+            topologyKey: kubernetes.io/hostname
+  
+  env:
+    NODE_ENV: production
+    PORT: "3002"
+    LOG_LEVEL: info
+  
+  envFrom:
+    - secretRef:
+        name: backend-secrets
+    - configMapRef:
+        name: backend-config
+  
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 3002
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  
+  readinessProbe:
+    httpGet:
+      path: /health/ready
+      port: 3002
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+  
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+# ============================================
+# Frontend Service
+# ============================================
+frontend:
+  enabled: true
+  replicaCount: 3
+  
+  image:
+    repository: thaliumx-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 3000
+    annotations: {}
+  
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                    - frontend
+            topologyKey: kubernetes.io/hostname
+  
+  env:
+    NODE_ENV: production
+    NEXT_PUBLIC_API_URL: https://api.thaliumx.com
+  
+  livenessProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  
+  readinessProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+  
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+
+# ============================================
+# Trading Engine Service
+# ============================================
+trading:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: thaliumx-trading
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 3003
+  
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 1Gi
+    limits:
+      cpu: 4000m
+      memory: 4Gi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 60
+  
+  env:
+    NODE_ENV: production
+    PORT: "3003"
+
+# ============================================
+# Fintech Service
+# ============================================
+fintech:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: thaliumx-fintech
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 3004
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  
+  env:
+    NODE_ENV: production
+    PORT: "3004"
+
+# ============================================
+# Ingress Configuration
+# ============================================
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    kubernetes.io/tls-acme: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+  
+  hosts:
+    - host: app.thaliumx.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+          port: 3000
+    - host: api.thaliumx.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: backend
+          port: 3002
+  
+  tls:
+    - secretName: thaliumx-tls
+      hosts:
+        - app.thaliumx.com
+        - api.thaliumx.com
+
+# ============================================
+# PostgreSQL (Citus)
+# ============================================
+postgresql:
+  enabled: true
+  architecture: replication
+  auth:
+    existingSecret: postgresql-secret
+    secretKeys:
+      adminPasswordKey: postgres-password
+      userPasswordKey: password
+  primary:
+    persistence:
+      enabled: true
+      size: 100Gi
+      storageClass: gp3
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+      limits:
+        cpu: 4000m
+        memory: 8Gi
+  readReplicas:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 100Gi
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+  metrics:
+    enabled: true
+
+# ============================================
+# Redis
+# ============================================
+redis:
+  enabled: true
+  architecture: replication
+  auth:
+    existingSecret: redis-secret
+    existingSecretPasswordKey: redis-password
+  master:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+  replica:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  metrics:
+    enabled: true
+
+# ============================================
+# Kafka
+# ============================================
+kafka:
+  enabled: true
+  replicaCount: 3
+  auth:
+    clientProtocol: sasl
+    interBrokerProtocol: sasl
+    sasl:
+      jaas:
+        clientUsers:
+          - thaliumx
+        existingSecret: kafka-secret
+  persistence:
+    enabled: true
+    size: 50Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  metrics:
+    kafka:
+      enabled: true
+    jmx:
+      enabled: true
+
+# ============================================
+# Keycloak
+# ============================================
+keycloak:
+  enabled: true
+  auth:
+    adminUser: admin
+    existingSecret: keycloak-secret
+    passwordSecretKey: admin-password
+  production: true
+  proxy: edge
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  postgresql:
+    enabled: false
+  externalDatabase:
+    host: postgresql
+    port: 5432
+    database: keycloak
+    existingSecret: keycloak-db-secret
+    existingSecretPasswordKey: password
+
+# ============================================
+# Vault Integration
+# ============================================
+vault:
+  enabled: true
+  injector:
+    enabled: true
+  server:
+    ha:
+      enabled: true
+      replicas: 3
+    dataStorage:
+      enabled: true
+      size: 10Gi
+    auditStorage:
+      enabled: true
+      size: 10Gi
+
+# ============================================
+# Monitoring
+# ============================================
+monitoring:
+  enabled: true
+  
+  prometheus:
+    enabled: true
+    retention: 30d
+    storageSize: 50Gi
+  
+  grafana:
+    enabled: true
+    adminPassword: ""  # Set via secret
+    persistence:
+      enabled: true
+      size: 10Gi
+  
+  alertmanager:
+    enabled: true
+    config:
+      global:
+        slack_api_url: ""  # Set via secret
+      route:
+        receiver: slack-notifications
+        group_by: ['alertname', 'severity']
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 4h
+      receivers:
+        - name: slack-notifications
+          slack_configs:
+            - channel: '#alerts'
+              send_resolved: true
+
+# ============================================
+# Service Mesh (Istio)
+# ============================================
+serviceMesh:
+  enabled: false
+  mtls:
+    mode: STRICT
+
+# ============================================
+# Network Policies
+# ============================================
+networkPolicies:
+  enabled: true
+  
+  # Default deny all ingress
+  defaultDeny: true
+  
+  # Allow specific traffic
+  allowedNamespaces:
+    - kube-system
+    - monitoring
+    - istio-system
+
+# ============================================
+# Pod Disruption Budgets
+# ============================================
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# ============================================
+# Service Accounts
+# ============================================
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: ""  # Set for AWS IAM roles
+
+# ============================================
+# Secrets (External Secrets Operator)
+# ============================================
+externalSecrets:
+  enabled: true
+  secretStore:
+    name: vault-backend
+    kind: ClusterSecretStore
+  refreshInterval: 1h

@@ -1,0 +1,50 @@
+# ThaliumX TimescaleDB for Dingir Trading Engine
+# ===============================================
+# TimescaleDB is required for Dingir's kline (candlestick) data
+# which uses hypertables for efficient time-series storage
+
+services:
+  # ============================================================================
+  # TIMESCALEDB - Time-Series Database for Trading Data
+  # ============================================================================
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: thaliumx-timescaledb
+    hostname: thaliumx-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${TIMESCALE_USER:-dingir}
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:-ThaliumX2025}
+      POSTGRES_DB: ${TIMESCALE_DB:-exchange}
+      TIMESCALEDB_TELEMETRY: "off"
+    ports:
+      - "${TIMESCALE_PORT:-5435}:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TIMESCALE_USER:-dingir} -d ${TIMESCALE_DB:-exchange}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    labels:
+      promtail.scrape: "true"
+      logging_name: timescaledb
+      logging_job: databases
+
+volumes:
+  timescaledb_data:
+    name: thaliumx-timescaledb-data
+
+networks:
+  thaliumx-net:
+    external: true

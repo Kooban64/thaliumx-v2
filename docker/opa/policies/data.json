@@ -1,0 +1,197 @@
+{
+  "parameters": {
+    "version": "1.0.0",
+    "last_updated": "2024-01-01T00:00:00Z",
+    "updated_by": "system",
+    
+    "aml": {
+      "version": "1.0.0",
+      "description": "AML/KYC Compliance Parameters",
+      
+      "large_transaction_threshold": 10000,
+      "structuring_lower_bound": 8000,
+      "structuring_count_threshold": 3,
+      
+      "rapid_movement_threshold": 5000,
+      "rapid_movement_window_seconds": 3600,
+      
+      "high_risk_countries": [
+        "AF", "BY", "CF", "CD", "CU", "GN", "GW", "HT", "IR", "IQ",
+        "LB", "LY", "ML", "MM", "NI", "KP", "PK", "RU", "SO", "SS",
+        "SD", "SY", "VE", "YE", "ZW"
+      ],
+      
+      "sanctioned_countries": [
+        "KP", "IR", "SY", "CU", "RU"
+      ],
+      
+      "pep_threshold": 5000,
+      
+      "new_account_days": 30,
+      "new_account_threshold": 5000,
+      
+      "unusual_volume_multiplier": 5,
+      
+      "kyc_level_thresholds": {
+        "level_0": 100,
+        "level_1": 1000,
+        "level_2": 10000,
+        "level_3": 100000,
+        "level_4": 1000000
+      }
+    },
+    
+    "security": {
+      "version": "1.0.0",
+      "description": "Security Policy Parameters",
+      
+      "max_failed_login_attempts": 5,
+      "lockout_duration_seconds": 1800,
+      
+      "blocked_ips": [],
+      
+      "block_vpn": false,
+      
+      "impossible_travel_seconds": 3600,
+      
+      "session_timeout_seconds": 3600,
+      "max_concurrent_sessions": 5,
+      
+      "rate_limits": {
+        "free": 60,
+        "basic": 120,
+        "pro": 300,
+        "enterprise": 1000,
+        "unlimited": 10000
+      },
+      
+      "require_address_whitelist": true,
+      "withdrawal_cooling_period_seconds": 86400,
+      "withdrawal_2fa_threshold": 1000
+    },
+    
+    "trading": {
+      "version": "1.0.0",
+      "description": "Trading Policy Parameters",
+      
+      "min_order_sizes": {
+        "THAL/USDT": 1,
+        "THAL/ZAR": 1,
+        "ZAR/USDT": 10,
+        "BTC/USDT": 0.0001,
+        "ETH/USDT": 0.001,
+        "default": 1
+      },
+      
+      "max_order_sizes": {
+        "THAL/USDT": 1000000,
+        "THAL/ZAR": 1000000,
+        "ZAR/USDT": 10000000,
+        "BTC/USDT": 100,
+        "ETH/USDT": 1000,
+        "default": 1000000
+      },
+      
+      "max_price_deviation_percent": 10,
+      
+      "max_notional_value": 1000000,
+      
+      "max_position_sizes": {
+        "THAL/USDT": 10000000,
+        "THAL/ZAR": 10000000,
+        "ZAR/USDT": 100000000,
+        "BTC/USDT": 1000,
+        "ETH/USDT": 10000,
+        "default": 10000000
+      },
+      
+      "daily_volume_limits": {
+        "free": 10000,
+        "basic": 100000,
+        "pro": 1000000,
+        "enterprise": 10000000,
+        "unlimited": 1000000000
+      },
+      
+      "max_leverage": {
+        "free": 1,
+        "basic": 5,
+        "pro": 20,
+        "enterprise": 50,
+        "unlimited": 100
+      },
+      
+      "max_open_orders": {
+        "free": 10,
+        "basic": 50,
+        "pro": 200,
+        "enterprise": 1000,
+        "unlimited": 10000
+      },
+      
+      "spoofing_order_threshold": 20,
+      "spoofing_cancel_threshold": 15,
+      "spoofing_cancel_ratio": 0.75,
+      
+      "layering_threshold": 10,
+      "layering_fill_rate_threshold": 0.1,
+      
+      "enforce_trading_hours": false,
+      "trading_hours": {
+        "start": 0,
+        "end": 24
+      },
+      "always_open_markets": [
+        "THAL/USDT",
+        "THAL/ZAR",
+        "ZAR/USDT",
+        "BTC/USDT",
+        "ETH/USDT"
+      ]
+    },
+    
+    "rbac": {
+      "version": "1.0.0",
+      "description": "Role-Based Access Control Parameters",
+      
+      "roles": {
+        "super_admin": {
+          "description": "Full system access",
+          "permissions": ["*"]
+        },
+        "admin": {
+          "description": "Administrative access",
+          "permissions": ["users:*", "orders:*", "trades:*", "reports:*", "settings:read"]
+        },
+        "compliance_officer": {
+          "description": "Compliance and AML access",
+          "permissions": ["compliance:*", "reports:*", "users:read", "trades:read"]
+        },
+        "risk_officer": {
+          "description": "Risk management access",
+          "permissions": ["risk:*", "reports:*", "users:read", "trades:read", "positions:read"]
+        },
+        "broker_admin": {
+          "description": "Broker administration",
+          "permissions": ["broker:*", "users:read", "trades:read"]
+        },
+        "tenant_admin": {
+          "description": "Tenant administration",
+          "permissions": ["tenant:*", "users:read"]
+        },
+        "trader": {
+          "description": "Trading access",
+          "permissions": ["orders:*", "trades:read", "positions:read", "wallet:read"]
+        },
+        "viewer": {
+          "description": "Read-only access",
+          "permissions": ["orders:read", "trades:read", "positions:read", "wallet:read"]
+        },
+        "auditor": {
+          "description": "Audit access",
+          "permissions": ["audit:*", "reports:read"]
+        }
+      }
+    }
+  }
+}

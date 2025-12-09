@@ -1,0 +1,106 @@
+# ThaliumX Load Test Configuration
+# =================================
+# Artillery load testing for production readiness validation
+
+config:
+  target: "http://localhost:3002"
+  phases:
+    # Warm-up phase
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm-up"
+    
+    # Ramp-up phase
+    - duration: 120
+      arrivalRate: 5
+      rampTo: 50
+      name: "Ramp-up"
+    
+    # Sustained load phase
+    - duration: 300
+      arrivalRate: 50
+      name: "Sustained load"
+    
+    # Peak load phase
+    - duration: 120
+      arrivalRate: 100
+      name: "Peak load"
+    
+    # Cool-down phase
+    - duration: 60
+      arrivalRate: 10
+      name: "Cool-down"
+
+  defaults:
+    headers:
+      Content-Type: "application/json"
+      Accept: "application/json"
+
+  plugins:
+    expect: {}
+
+  # Performance thresholds
+  ensure:
+    p95: 500
+    p99: 1000
+    maxErrorRate: 1
+
+scenarios:
+  # Health Check - High weight for baseline
+  - name: "Health Check"
+    weight: 30
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+
+  # Get Markets
+  - name: "Get Markets"
+    weight: 20
+    flow:
+      - get:
+          url: "/api/exchange/markets"
+          expect:
+            - statusCode: 200
+
+  # Get Trading Pairs
+  - name: "Get Trading Pairs"
+    weight: 15
+    flow:
+      - get:
+          url: "/api/cex/pairs"
+          expect:
+            - statusCode: 200
+
+  # Get THAL Pairs
+  - name: "Get THAL Pairs"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/cex/pairs/thal"
+          expect:
+            - statusCode: 200
+
+  # Token Sale Phases
+  - name: "Token Sale Phases"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/token-sale/phases"
+
+  # Presales
+  - name: "Presales"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/presale/presales"
+
+  # API Docs
+  - name: "API Documentation"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/docs"
+          expect:
+            - statusCode: 200

@@ -1,0 +1,148 @@
+# ThaliumX Load Test Configuration
+# =================================
+# Artillery load testing for production readiness verification
+
+config:
+  target: "http://localhost:3002"
+  phases:
+    # Warm-up phase
+    - duration: 30
+      arrivalRate: 5
+      name: "Warm-up"
+    # Ramp-up phase
+    - duration: 60
+      arrivalRate: 5
+      rampTo: 50
+      name: "Ramp-up"
+    # Sustained load phase
+    - duration: 120
+      arrivalRate: 50
+      name: "Sustained load"
+    # Spike test
+    - duration: 30
+      arrivalRate: 100
+      name: "Spike test"
+    # Cool-down
+    - duration: 30
+      arrivalRate: 10
+      name: "Cool-down"
+
+  defaults:
+    headers:
+      Content-Type: "application/json"
+      Accept: "application/json"
+
+  plugins:
+    expect: {}
+
+  # Ensure we don't overwhelm the system
+  http:
+    timeout: 30
+    pool: 10
+
+scenarios:
+  # Health check endpoint
+  - name: "Health Check"
+    weight: 20
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+
+  # API health endpoint
+  - name: "API Health"
+    weight: 15
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
+
+  # Metrics endpoint (authenticated)
+  - name: "Metrics Endpoint"
+    weight: 5
+    flow:
+      - get:
+          url: "/metrics"
+          headers:
+            X-Metrics-Token: "thaliumx-metrics-token"
+
+  # User registration flow
+  - name: "User Registration"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/auth/register"
+          json:
+            email: "loadtest_{{ $randomNumber(1, 999999) }}@test.com"
+            password: "TestPassword123!"
+            firstName: "Load"
+            lastName: "Test"
+          expect:
+            - statusCode:
+                - 201
+                - 400  # May fail if email exists
+
+  # Login flow
+  - name: "User Login"
+    weight: 15
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "test@thaliumx.com"
+            password: "TestPassword123!"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+          expect:
+            - statusCode:
+                - 200
+                - 401  # May fail if user doesn't exist
+
+  # Get trading pairs
+  - name: "Get Trading Pairs"
+    weight: 15
+    flow:
+      - get:
+          url: "/api/exchange/pairs"
+          expect:
+            - statusCode:
+                - 200
+                - 401
+
+  # Get market data
+  - name: "Get Market Data"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/exchange/markets"
+          expect:
+            - statusCode:
+                - 200
+                - 401
+
+  # Get order book (simulated)
+  - name: "Get Order Book"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/cex/orderbook/BTC-USDT"
+          expect:
+            - statusCode:
+                - 200
+                - 401
+                - 404
+
+  # Token presale info
+  - name: "Token Presale Info"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/presale/info"
+          expect:
+            - statusCode:
+                - 200
+                - 401
+                - 404

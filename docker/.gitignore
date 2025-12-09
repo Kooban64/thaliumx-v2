@@ -1,0 +1,12 @@
+
+# Sensitive files - NEVER commit these
+.env
+.env.*
+.credentials.*
+*.backup.*
+*.pem
+*.key
+*.crt
+secrets/
+vault-keys.json
+init-keys.json

@@ -1,0 +1,260 @@
+# Thaliumx Observability
+# ======================
+# Prometheus, Grafana, Loki, Promtail, Tempo, OpenTelemetry,
+# Blackbox Exporter, cAdvisor, Postgres Exporter, Redis Exporter
+
+services:
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: thaliumx-alertmanager
+    hostname: thaliumx-alertmanager
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://alertmanager:9093'
+      - '--cluster.listen-address='
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
+    volumes:
+      - ./config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./config/alertmanager-templates:/etc/alertmanager/templates:ro
+      - alertmanager_data:/alertmanager
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: thaliumx-prometheus
+    hostname: thaliumx-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--web.enable-remote-write-receiver'
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/alerts:/etc/prometheus/alerts:ro
+      - prometheus_data:/prometheus
+    networks:
+      - thaliumx-net
+    depends_on:
+      - alertmanager
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: thaliumx-grafana
+    hostname: thaliumx-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: http://localhost:${GRAFANA_PORT:-3000}
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - thaliumx-net
+    depends_on:
+      - prometheus
+      - loki
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  loki:
+    image: grafana/loki:2.9.6
+    container_name: thaliumx-loki
+    hostname: thaliumx-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki.yml
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    volumes:
+      - ./config/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  promtail:
+    image: grafana/promtail:2.9.6
+    container_name: thaliumx-promtail
+    hostname: thaliumx-promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail.yml
+    ports:
+      - "9081:9080"   # HTTP server for health/ready endpoints
+    volumes:
+      - ./config/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks:
+      - thaliumx-net
+    depends_on:
+      - loki
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  tempo:
+    image: grafana/tempo:2.4.1
+    container_name: thaliumx-tempo
+    hostname: thaliumx-tempo
+    restart: unless-stopped
+    command: -config.file=/etc/tempo/tempo.yml
+    ports:
+      - "${TEMPO_PORT:-3200}:3200"
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - ./config/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo_data:/var/tempo
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3200/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.97.0
+    container_name: thaliumx-otel-collector
+    hostname: thaliumx-otel-collector
+    restart: unless-stopped
+    command: --config=/etc/otel/otel-collector.yml
+    ports:
+      # Note: OTLP ports 4317/4318 are exposed by Tempo for direct ingestion
+      # otel-collector uses internal ports for processing/routing
+      - "8888:8888"   # Prometheus metrics for otel-collector itself
+      - "13133:13133" # Health check extension
+    volumes:
+      - ./config/otel-collector.yml:/etc/otel/otel-collector.yml:ro
+    networks:
+      - thaliumx-net
+    depends_on:
+      - tempo
+      - prometheus
+    healthcheck:
+      # otel-collector is a distroless image with no shell, use CMD directly
+      test: ["CMD", "/otelcol-contrib", "components"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: thaliumx-blackbox-exporter
+    hostname: thaliumx-blackbox-exporter
+    restart: unless-stopped
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./config/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9115/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: thaliumx-cadvisor
+    hostname: thaliumx-cadvisor
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "8082:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: thaliumx-postgres-exporter
+    hostname: thaliumx-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-thaliumx}:${POSTGRES_PASSWORD:-ThaliumX2025}@thaliumx-postgres:5432/${POSTGRES_DB:-thaliumx}?sslmode=disable
+    ports:
+      - "9187:9187"
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9187/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.58.0
+    container_name: thaliumx-redis-exporter
+    hostname: thaliumx-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: thaliumx-redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-ThaliumX2025}
+    ports:
+      - "9121:9121"
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "/redis_exporter", "--version"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  alertmanager_data:
+    name: thaliumx-alertmanager-data
+  prometheus_data:
+    name: thaliumx-prometheus-data
+  grafana_data:
+    name: thaliumx-grafana-data
+  loki_data:
+    name: thaliumx-loki-data
+  tempo_data:
+    name: thaliumx-tempo-data
+
+networks:
+  thaliumx-net:
+    external: true

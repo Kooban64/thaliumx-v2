@@ -1,0 +1,604 @@
+{
+  "id": "thaliumx",
+  "realm": "thaliumx",
+  "displayName": "ThaliumX",
+  "displayNameHtml": "<div class=\"kc-logo-text\"><span>ThaliumX</span></div>",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "rememberMe": true,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "defaultSignatureAlgorithm": "RS256",
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "accessTokenLifespan": 900,
+  "accessTokenLifespanForImplicitFlow": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "ssoSessionIdleTimeoutRememberMe": 0,
+  "ssoSessionMaxLifespanRememberMe": 0,
+  "offlineSessionIdleTimeout": 2592000,
+  "offlineSessionMaxLifespanEnabled": true,
+  "offlineSessionMaxLifespan": 5184000,
+  "clientSessionIdleTimeout": 0,
+  "clientSessionMaxLifespan": 0,
+  "clientOfflineSessionIdleTimeout": 0,
+  "clientOfflineSessionMaxLifespan": 0,
+  "accessCodeLifespan": 60,
+  "accessCodeLifespanUserAction": 300,
+  "accessCodeLifespanLogin": 1800,
+  "actionTokenGeneratedByAdminLifespan": 43200,
+  "actionTokenGeneratedByUserLifespan": 300,
+  "oauth2DeviceCodeLifespan": 600,
+  "oauth2DevicePollingInterval": 5,
+  "passwordPolicy": "length(12) and digits(1) and upperCase(1) and lowerCase(1) and specialChars(1) and notUsername and passwordHistory(5)",
+  "otpPolicy": {
+    "type": "totp",
+    "algorithm": "HmacSHA256",
+    "digits": 6,
+    "period": 30,
+    "lookAheadWindow": 1,
+    "initialCounter": 0
+  },
+  "webAuthnPolicy": {
+    "rpEntityName": "ThaliumX",
+    "signatureAlgorithms": ["ES256", "RS256"],
+    "rpId": "",
+    "attestationConveyancePreference": "not specified",
+    "authenticatorAttachment": "not specified",
+    "requireResidentKey": "not specified",
+    "userVerificationRequirement": "not specified",
+    "createTimeout": 0,
+    "avoidSameAuthenticatorRegister": false,
+    "acceptableAaguids": []
+  },
+  "webAuthnPolicyPasswordless": {
+    "rpEntityName": "ThaliumX",
+    "signatureAlgorithms": ["ES256", "RS256"],
+    "rpId": "",
+    "attestationConveyancePreference": "not specified",
+    "authenticatorAttachment": "not specified",
+    "requireResidentKey": "not specified",
+    "userVerificationRequirement": "not specified",
+    "createTimeout": 0,
+    "avoidSameAuthenticatorRegister": false,
+    "acceptableAaguids": []
+  },
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Platform administrator with full access",
+        "composite": true,
+        "composites": {
+          "realm": ["user", "trader", "broker", "compliance"]
+        }
+      },
+      {
+        "name": "user",
+        "description": "Basic authenticated user",
+        "composite": false
+      },
+      {
+        "name": "trader",
+        "description": "User with trading capabilities",
+        "composite": true,
+        "composites": {
+          "realm": ["user"]
+        }
+      },
+      {
+        "name": "broker",
+        "description": "Broker with client management capabilities",
+        "composite": true,
+        "composites": {
+          "realm": ["trader"]
+        }
+      },
+      {
+        "name": "compliance",
+        "description": "Compliance officer with audit access",
+        "composite": true,
+        "composites": {
+          "realm": ["user"]
+        }
+      },
+      {
+        "name": "api-service",
+        "description": "Service account role for API access",
+        "composite": false
+      }
+    ],
+    "client": {
+      "thaliumx-backend": [
+        {
+          "name": "read",
+          "description": "Read access to backend resources"
+        },
+        {
+          "name": "write",
+          "description": "Write access to backend resources"
+        },
+        {
+          "name": "admin",
+          "description": "Administrative access to backend"
+        }
+      ],
+      "thaliumx-trading": [
+        {
+          "name": "trade",
+          "description": "Execute trades"
+        },
+        {
+          "name": "view-orders",
+          "description": "View order history"
+        },
+        {
+          "name": "manage-portfolio",
+          "description": "Manage portfolio"
+        }
+      ],
+      "thaliumx-fintech": [
+        {
+          "name": "deposit",
+          "description": "Make deposits"
+        },
+        {
+          "name": "withdraw",
+          "description": "Make withdrawals"
+        },
+        {
+          "name": "view-transactions",
+          "description": "View transaction history"
+        }
+      ]
+    }
+  },
+  "groups": [
+    {
+      "name": "Administrators",
+      "path": "/Administrators",
+      "realmRoles": ["admin"]
+    },
+    {
+      "name": "Traders",
+      "path": "/Traders",
+      "realmRoles": ["trader"]
+    },
+    {
+      "name": "Brokers",
+      "path": "/Brokers",
+      "realmRoles": ["broker"]
+    },
+    {
+      "name": "Compliance",
+      "path": "/Compliance",
+      "realmRoles": ["compliance"]
+    }
+  ],
+  "defaultGroups": [],
+  "requiredCredentials": ["password"],
+  "clients": [
+    {
+      "clientId": "thaliumx-frontend",
+      "name": "ThaliumX Frontend",
+      "description": "ThaliumX Web Application",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": [
+        "https://app.thaliumx.com/*",
+        "https://staging.thaliumx.com/*",
+        "http://localhost:3000/*",
+        "http://localhost:3001/*"
+      ],
+      "webOrigins": [
+        "https://app.thaliumx.com",
+        "https://staging.thaliumx.com",
+        "http://localhost:3000",
+        "http://localhost:3001"
+      ],
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://app.thaliumx.com/*##https://staging.thaliumx.com/*##http://localhost:3000/*"
+      }
+    },
+    {
+      "clientId": "thaliumx-backend",
+      "name": "ThaliumX Backend API",
+      "description": "ThaliumX Backend Service",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_BACKEND_CLIENT_SECRET}",
+      "bearerOnly": false,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": true,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ],
+      "authorizationSettings": {
+        "allowRemoteResourceManagement": true,
+        "policyEnforcementMode": "ENFORCING",
+        "decisionStrategy": "UNANIMOUS"
+      }
+    },
+    {
+      "clientId": "thaliumx-trading",
+      "name": "ThaliumX Trading Service",
+      "description": "ThaliumX Trading Engine",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_TRADING_CLIENT_SECRET}",
+      "bearerOnly": false,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles"
+      ]
+    },
+    {
+      "clientId": "thaliumx-fintech",
+      "name": "ThaliumX Fintech Service",
+      "description": "ThaliumX Financial Services",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_FINTECH_CLIENT_SECRET}",
+      "bearerOnly": false,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles"
+      ]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "thaliumx-api",
+      "description": "ThaliumX API scope",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Access to ThaliumX API"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "thaliumx-backend",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "trading",
+      "description": "Trading permissions scope",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Access to trading features"
+      }
+    },
+    {
+      "name": "fintech",
+      "description": "Financial services scope",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Access to financial services"
+      }
+    }
+  ],
+  "defaultDefaultClientScopes": [
+    "role_list",
+    "profile",
+    "email",
+    "roles",
+    "web-origins",
+    "acr"
+  ],
+  "defaultOptionalClientScopes": [
+    "offline_access",
+    "address",
+    "phone",
+    "microprofile-jwt"
+  ],
+  "browserSecurityHeaders": {
+    "contentSecurityPolicyReportOnly": "",
+    "xContentTypeOptions": "nosniff",
+    "referrerPolicy": "strict-origin-when-cross-origin",
+    "xRobotsTag": "none",
+    "xFrameOptions": "SAMEORIGIN",
+    "contentSecurityPolicy": "frame-src 'self'; frame-ancestors 'self'; object-src 'none';",
+    "xXSSProtection": "1; mode=block",
+    "strictTransportSecurity": "max-age=31536000; includeSubDomains"
+  },
+  "smtpServer": {
+    "replyToDisplayName": "ThaliumX Support",
+    "starttls": "true",
+    "auth": "true",
+    "envelopeFrom": "",
+    "ssl": "false",
+    "password": "${SMTP_PASSWORD}",
+    "port": "${SMTP_PORT}",
+    "host": "${SMTP_HOST}",
+    "replyTo": "support@thaliumx.com",
+    "from": "${SMTP_FROM}",
+    "fromDisplayName": "ThaliumX",
+    "user": "${SMTP_USER}"
+  },
+  "eventsConfig": {
+    "eventsEnabled": true,
+    "eventsExpiration": 2592000,
+    "eventsListeners": ["jboss-logging", "metrics-listener"],
+    "enabledEventTypes": [
+      "LOGIN",
+      "LOGIN_ERROR",
+      "LOGOUT",
+      "LOGOUT_ERROR",
+      "REGISTER",
+      "REGISTER_ERROR",
+      "CODE_TO_TOKEN",
+      "CODE_TO_TOKEN_ERROR",
+      "CLIENT_LOGIN",
+      "CLIENT_LOGIN_ERROR",
+      "REFRESH_TOKEN",
+      "REFRESH_TOKEN_ERROR",
+      "VALIDATE_ACCESS_TOKEN",
+      "VALIDATE_ACCESS_TOKEN_ERROR",
+      "INTROSPECT_TOKEN",
+      "INTROSPECT_TOKEN_ERROR",
+      "FEDERATED_IDENTITY_LINK",
+      "FEDERATED_IDENTITY_LINK_ERROR",
+      "REMOVE_FEDERATED_IDENTITY",
+      "REMOVE_FEDERATED_IDENTITY_ERROR",
+      "UPDATE_EMAIL",
+      "UPDATE_EMAIL_ERROR",
+      "UPDATE_PROFILE",
+      "UPDATE_PROFILE_ERROR",
+      "UPDATE_PASSWORD",
+      "UPDATE_PASSWORD_ERROR",
+      "UPDATE_TOTP",
+      "UPDATE_TOTP_ERROR",
+      "VERIFY_EMAIL",
+      "VERIFY_EMAIL_ERROR",
+      "VERIFY_PROFILE",
+      "VERIFY_PROFILE_ERROR",
+      "REMOVE_TOTP",
+      "REMOVE_TOTP_ERROR",
+      "GRANT_CONSENT",
+      "GRANT_CONSENT_ERROR",
+      "UPDATE_CONSENT",
+      "UPDATE_CONSENT_ERROR",
+      "REVOKE_GRANT",
+      "REVOKE_GRANT_ERROR",
+      "SEND_VERIFY_EMAIL",
+      "SEND_VERIFY_EMAIL_ERROR",
+      "SEND_RESET_PASSWORD",
+      "SEND_RESET_PASSWORD_ERROR",
+      "SEND_IDENTITY_PROVIDER_LINK",
+      "SEND_IDENTITY_PROVIDER_LINK_ERROR",
+      "RESET_PASSWORD",
+      "RESET_PASSWORD_ERROR",
+      "RESTART_AUTHENTICATION",
+      "RESTART_AUTHENTICATION_ERROR",
+      "IDENTITY_PROVIDER_LINK_ACCOUNT",
+      "IDENTITY_PROVIDER_LINK_ACCOUNT_ERROR",
+      "IDENTITY_PROVIDER_FIRST_LOGIN",
+      "IDENTITY_PROVIDER_FIRST_LOGIN_ERROR",
+      "IDENTITY_PROVIDER_POST_LOGIN",
+      "IDENTITY_PROVIDER_POST_LOGIN_ERROR",
+      "IMPERSONATE",
+      "IMPERSONATE_ERROR",
+      "CUSTOM_REQUIRED_ACTION",
+      "CUSTOM_REQUIRED_ACTION_ERROR",
+      "EXECUTE_ACTIONS",
+      "EXECUTE_ACTIONS_ERROR",
+      "EXECUTE_ACTION_TOKEN",
+      "EXECUTE_ACTION_TOKEN_ERROR",
+      "CLIENT_REGISTER",
+      "CLIENT_REGISTER_ERROR",
+      "CLIENT_UPDATE",
+      "CLIENT_UPDATE_ERROR",
+      "CLIENT_DELETE",
+      "CLIENT_DELETE_ERROR",
+      "CLIENT_INITIATED_ACCOUNT_LINKING",
+      "CLIENT_INITIATED_ACCOUNT_LINKING_ERROR",
+      "TOKEN_EXCHANGE",
+      "TOKEN_EXCHANGE_ERROR",
+      "OAUTH2_DEVICE_AUTH",
+      "OAUTH2_DEVICE_AUTH_ERROR",
+      "OAUTH2_DEVICE_VERIFY_USER_CODE",
+      "OAUTH2_DEVICE_VERIFY_USER_CODE_ERROR",
+      "OAUTH2_DEVICE_CODE_TO_TOKEN",
+      "OAUTH2_DEVICE_CODE_TO_TOKEN_ERROR",
+      "AUTHREQID_TO_TOKEN",
+      "AUTHREQID_TO_TOKEN_ERROR",
+      "PERMISSION_TOKEN",
+      "PERMISSION_TOKEN_ERROR",
+      "DELETE_ACCOUNT",
+      "DELETE_ACCOUNT_ERROR"
+    ],
+    "adminEventsEnabled": true,
+    "adminEventsDetailsEnabled": true
+  },
+  "internationalizationEnabled": true,
+  "supportedLocales": ["en", "de", "es", "fr", "pt-BR", "zh-CN"],
+  "defaultLocale": "en",
+  "authenticationFlows": [
+    {
+      "alias": "thaliumx-browser",
+      "description": "ThaliumX browser-based authentication with MFA",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-cookie",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 10
+        },
+        {
+          "authenticator": "auth-spnego",
+          "authenticatorFlow": false,
+          "requirement": "DISABLED",
+          "priority": 20
+        },
+        {
+          "authenticator": "identity-provider-redirector",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 25
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "ALTERNATIVE",
+          "priority": 30,
+          "flowAlias": "thaliumx-browser-forms"
+        }
+      ]
+    },
+    {
+      "alias": "thaliumx-browser-forms",
+      "description": "Username, password, and OTP form",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-username-password-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "CONDITIONAL",
+          "priority": 20,
+          "flowAlias": "thaliumx-browser-conditional-otp"
+        }
+      ]
+    },
+    {
+      "alias": "thaliumx-browser-conditional-otp",
+      "description": "Conditional OTP for browser authentication",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "conditional-user-configured",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20
+        }
+      ]
+    }
+  ],
+  "browserFlow": "thaliumx-browser",
+  "registrationFlow": "registration",
+  "directGrantFlow": "direct grant",
+  "resetCredentialsFlow": "reset credentials",
+  "clientAuthenticationFlow": "clients",
+  "dockerAuthenticationFlow": "docker auth",
+  "attributes": {
+    "cibaBackchannelTokenDeliveryMode": "poll",
+    "cibaExpiresIn": "120",
+    "cibaAuthRequestedUserHint": "login_hint",
+    "oauth2DeviceCodeLifespan": "600",
+    "oauth2DevicePollingInterval": "5",
+    "parRequestUriLifespan": "60",
+    "clientOfflineSessionMaxLifespan": "0",
+    "clientSessionIdleTimeout": "0",
+    "clientSessionMaxLifespan": "0",
+    "clientOfflineSessionIdleTimeout": "0",
+    "actionTokenGeneratedByUserLifespan-execute-actions": "300",
+    "actionTokenGeneratedByUserLifespan-idp-verify-account-via-email": "300",
+    "actionTokenGeneratedByUserLifespan-reset-credentials": "300",
+    "actionTokenGeneratedByUserLifespan-verify-email": "300"
+  },
+  "userManagedAccessAllowed": false,
+  "identityProviders": [],
+  "identityProviderMappers": []
+}

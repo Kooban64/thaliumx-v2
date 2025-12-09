@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thaliumx - Trading Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #e8e8e8;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 800px;
+        }
+        .logo {
+            font-size: 4rem;
+            font-weight: bold;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+        }
+        .tagline {
+            font-size: 1.5rem;
+            color: #a0a0a0;
+            margin-bottom: 3rem;
+        }
+        .status {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        .status h2 {
+            color: #00d4ff;
+            margin-bottom: 1rem;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .status-item {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        .status-item.healthy {
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.1);
+        }
+        .status-item.pending {
+            border-color: #ffaa00;
+            background: rgba(255, 170, 0, 0.1);
+        }
+        .status-item h3 {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .status-item .indicator {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+        .version {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">THALIUMX</div>
+        <div class="tagline">Next-Generation Trading Platform</div>
+        
+        <div class="status">
+            <h2>🚀 Platform Status</h2>
+            <p>Infrastructure is ready. Frontend implementation pending.</p>
+            
+            <div class="status-grid">
+                <div class="status-item healthy">
+                    <h3>🔐 Security</h3>
+                    <div class="indicator">Vault, Keycloak, OPA</div>
+                </div>
+                <div class="status-item healthy">
+                    <h3>💾 Databases</h3>
+                    <div class="indicator">PostgreSQL, MongoDB, Redis</div>
+                </div>
+                <div class="status-item healthy">
+                    <h3>📨 Messaging</h3>
+                    <div class="indicator">Kafka + KRaft</div>
+                </div>
+                <div class="status-item healthy">
+                    <h3>🌐 Gateway</h3>
+                    <div class="indicator">APISIX + etcd</div>
+                </div>
+                <div class="status-item healthy">
+                    <h3>📊 Observability</h3>
+                    <div class="indicator">Prometheus, Grafana, Loki</div>
+                </div>
+                <div class="status-item healthy">
+                    <h3>🔍 Search</h3>
+                    <div class="indicator">Typesense</div>
+                </div>
+                <div class="status-item healthy">
+                    <h3>💳 Fintech</h3>
+                    <div class="indicator">Ballerine KYC/KYB</div>
+                </div>
+                <div class="status-item pending">
+                    <h3>📈 Trading</h3>
+                    <div class="indicator">Coming Soon</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="version">v0.1.0-placeholder | Infrastructure Ready</div>
+    </div>
+</body>
+</html>
