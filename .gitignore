@@ -34,9 +34,7 @@ logs/
 data/
 
 # Backups (large files)
-backups/*.tar.gz
-backups/*.sql
-backups/*.dump
+backups/
 
 # Certificates (generated locally)
 certs/*.pem
@@ -57,4 +55,7 @@ test-results/
 # Temporary files
 tmp/
 temp/
-*.tmpbackups/
+*.tmp
+
+# Git credentials (stored locally, never commit)
+.git-credentials
