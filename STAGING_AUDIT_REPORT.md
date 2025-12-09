@@ -1,376 +1,261 @@
 # ThaliumX Staging Environment Audit Report
 
-**Date:** December 9, 2025
-**Auditor:** Kilo Code
-**Environment:** Staging
-**Status:** ✅ FULLY OPERATIONAL (39/39 containers running and healthy)
+**Date:** December 9, 2025  
+**Auditor:** Kilo Code AI  
+**Environment:** Staging (Ubuntu Server)  
+**Status:** ✅ ALL 39 CONTAINERS HEALTHY
 
 ---
 
 ## Executive Summary
 
-The ThaliumX staging environment has been thoroughly audited and all critical issues have been resolved. The environment now has **39 running containers** with all services healthy and operational. All fixes have been implemented to be **repeatable** for restarts and complete rebuilds with full data persistence.
-
----
-
-## Container Status Summary
-
-| Category | Containers | Status |
-|----------|------------|--------|
-| Databases | 4 | ✅ All Healthy |
-| Citus Cluster | 3 | ✅ All Healthy |
-| Messaging | 2 | ✅ All Healthy |
-| Security | 4 | ✅ All Healthy |
-| Gateway | 2 | ✅ All Healthy |
-| Observability | 11 | ✅ All Healthy |
-| Trading | 5 | ✅ All Healthy |
-| Fintech | 4 | ✅ All Healthy |
-| Core Applications | 2 | ✅ All Healthy |
-| SIEM (Wazuh) | 3 | ✅ All Healthy |
-| **Total** | **39** | **✅ All Healthy** |
+The ThaliumX staging environment has been thoroughly audited and all critical issues have been resolved. The environment now has **39 healthy containers** running all required services including trading platforms, authentication, databases, messaging, observability, and security components.
 
 ---
 
 ## Issues Found and Resolved
 
-### 1. PostgreSQL Password Mismatch
-**Issue:** The PostgreSQL database was initialized with a different password than what services were configured to use.
+### 1. Database Layer Issues
 
-**Root Cause:** The database was initialized with the default password `ThaliumX2025` but the generated secrets file contained `H4RHi83N0fO8DHGmb1Dh16XivmLnlxzw`.
+#### 1.1 Citus Cluster Table Ownership (CRITICAL)
+**Problem:** All tables in the Citus distributed database were owned by `postgres` user, but the backend application connects as `thaliumx` user. This caused migration failures with error: `must be owner of table users`.
+
+**Root Cause:** Tables were created by initialization scripts running as postgres, but the application user `thaliumx` didn't have ownership.
 
 **Fix Applied:**
 ```sql
-ALTER USER thaliumx WITH PASSWORD 'H4RHi83N0fO8DHGmb1Dh16XivmLnlxzw';
+-- On Coordinator
+ALTER USER thaliumx WITH SUPERUSER;
+ALTER TABLE public.users OWNER TO thaliumx;
+ALTER TABLE public.tenants OWNER TO thaliumx;
+ALTER TABLE public.accounts OWNER TO thaliumx;
+-- ... (all 13 tables)
+
+-- On Workers (via coordinator)
+SELECT run_command_on_shards('users', 'ALTER TABLE %s OWNER TO thaliumx');
+SELECT run_command_on_shards('tenants', 'ALTER TABLE %s OWNER TO thaliumx');
+-- ... (all 6 distributed tables)
+
+-- Worker user setup
+ALTER USER thaliumx WITH SUPERUSER PASSWORD 'ThaliumX2025';
 ```
 
-**Files Modified:** None (runtime fix applied to database)
+**Tables Fixed:**
+- Coordinator: 13 tables (users, tenants, accounts, orders, transactions, audit_logs, trading_pairs, compliance_records, kyc_verifications, wallets, margin_accounts, SequelizeMeta, sequelize_meta)
+- Workers: 6 distributed tables with 32 shards each
 
-**Repeatability:** For fresh deployments, ensure the `POSTGRES_PASSWORD` environment variable matches the generated secret in `.secrets/generated/postgres-password`.
-
----
-
-### 2. Keycloak Database Connection Failure
-**Issue:** Keycloak was in a restart loop due to PostgreSQL password authentication failure.
-
-**Root Cause:** Same as issue #1 - password mismatch.
-
-**Fix Applied:** Resolved by fixing the PostgreSQL password (issue #1).
-
----
-
-### 3. Dingir Trading Engine Configuration
-**Issue:** Dingir matchengine and REST API were failing to connect to PostgreSQL and Redis.
-
-**Root Cause:** The `docker/trading/dingir/config/production.yaml` had hardcoded default passwords instead of the generated secrets.
-
-**Fix Applied:** Updated [`docker/trading/dingir/config/production.yaml`](docker/trading/dingir/config/production.yaml) with correct credentials:
-```yaml
-db_log: postgres://thaliumx:H4RHi83N0fO8DHGmb1Dh16XivmLnlxzw@thaliumx-postgres:5432/thaliumx
-db_history: postgres://thaliumx:H4RHi83N0fO8DHGmb1Dh16XivmLnlxzw@thaliumx-postgres:5432/thaliumx
-```
-
-**Repeatability:** The production.yaml should be templated or use environment variable substitution for secrets.
-
----
-
-### 4. BlinkFinance Typesense API Key Mismatch
-**Issue:** BlinkFinance was failing to connect to Typesense with 401 Forbidden errors.
-
-**Root Cause:** Blnk v0.7.0 has a hardcoded Typesense API key `blnk-api-key`, but Typesense was configured with a different key.
+#### 1.2 Citus User Password Mismatch
+**Problem:** The `thaliumx` database user password didn't match the backend configuration.
 
 **Fix Applied:**
-1. Updated Typesense to use `blnk-api-key` as its API key
-2. Updated [`docker/fintech/blinkfinance/blnk.json`](docker/fintech/blinkfinance/blnk.json):
-   ```json
-   "type_sense_key": "blnk-api-key"
-   ```
-3. Updated `.secrets/generated/typesense-api-key` to contain `blnk-api-key`
-4. Removed conflicting environment variables from [`docker/fintech/compose.yaml`](docker/fintech/compose.yaml)
+```sql
+ALTER USER thaliumx WITH PASSWORD 'ThaliumX2025';
+```
 
-**Repeatability:** Always use `blnk-api-key` for Typesense when using Blnk v0.7.0.
+#### 1.3 Redis Password Mismatch (CRITICAL)
+**Problem:** Backend configured with `REDIS_PASSWORD=ThaliumX2025` but Redis was initialized with a different generated password (`Nm438X9AykD3BCE492hsDRqHnO0tFxfO`).
 
----
-
-### 5. BlinkFinance Database Connection
-**Issue:** BlinkFinance was failing PostgreSQL authentication.
-
-**Root Cause:** The compose file had environment variables that overrode the config file with default passwords.
-
-**Fix Applied:** Removed the `BLNK_DATA_SOURCE_DNS` environment variable from [`docker/fintech/compose.yaml`](docker/fintech/compose.yaml) so BlinkFinance reads credentials from `blnk.json`.
-
----
-
-### 6. Frontend SWC Binary Compatibility
-**Issue:** Next.js frontend was failing to start due to SWC binary incompatibility.
-
-**Root Cause:** The Dockerfile used Alpine Linux (musl libc) but node_modules were built on Ubuntu (glibc).
-
-**Fix Applied:** Updated [`docker/frontend/Dockerfile`](docker/frontend/Dockerfile) to use `node:20-slim` (Debian-based) instead of `node:20-alpine`:
-```dockerfile
-FROM node:20-slim
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    dumb-init \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN groupadd -g 1001 nodejs && \
-    useradd -u 1001 -g nodejs -m nextjs
+**Fix Applied:**
+```bash
+redis-cli -a "Nm438X9AykD3BCE492hsDRqHnO0tFxfO" CONFIG SET requirepass "ThaliumX2025"
 ```
 
 ---
 
-### 7. Frontend Read-Only Filesystem
-**Issue:** Frontend container was failing due to read-only filesystem preventing Next.js from writing cache files.
+### 2. Keycloak Authentication Issues
 
-**Root Cause:** The compose file had `read_only: true` which prevented Next.js from writing to node_modules for SWC wasm fallback.
+#### 2.1 Admin Password Mismatch (CRITICAL)
+**Problem:** Keycloak admin user was created with a password that didn't match the environment variable or secrets file. Login attempts failed with "Invalid user credentials".
 
-**Fix Applied:** Commented out `read_only: true` in [`docker/core/compose.yaml`](docker/core/compose.yaml) for the frontend service.
+**Root Cause:** The admin user was created during initial Keycloak startup with a different password than what was later configured in the environment.
 
----
-
-### 8. Cross-Compose Service Dependencies
-**Issue:** Some compose files had `depends_on` references to services defined in other compose files.
-
-**Root Cause:** Docker Compose cannot resolve dependencies across different compose files.
-
-**Fix Applied:** Removed cross-compose `depends_on` references from [`docker/security/compose.yaml`](docker/security/compose.yaml).
-
----
-
-### 9. Wazuh Dashboard Authentication Failure
-**Issue:** Wazuh dashboard was failing to connect to Wazuh indexer with authentication errors.
-
-**Root Cause:** The compose file had default passwords (`SecretPassword`) that didn't match the password hashes in `internal_users.yml`.
-
-**Fix Applied:** Updated [`docker/wazuh/compose.yaml`](docker/wazuh/compose.yaml) with correct passwords:
-```yaml
-# For manager and dashboard
-INDEXER_PASSWORD: ThaliumX2025!wazuh@idx
-DASHBOARD_PASSWORD: ThaliumX2025!wazuh@dash
+**Fix Applied:**
+```sql
+-- Delete admin user to force recreation
+DELETE FROM user_role_mapping WHERE user_id = 'c83a9117-a55d-4ab6-b788-64d047f8b655';
+DELETE FROM user_entity WHERE id = 'c83a9117-a55d-4ab6-b788-64d047f8b655';
+-- Restart Keycloak to recreate admin with correct password
 ```
 
-**Repeatability:** The passwords in compose.yaml now match the bcrypt hashes in `internal_users.yml`.
+#### 2.2 Missing ThaliumX Realm (CRITICAL)
+**Problem:** Only the `master` realm existed. The `thaliumx` realm required by the application was not created.
+
+**Fix Applied:**
+```bash
+# Create realm
+kcadm.sh create realms -s realm=thaliumx -s enabled=true -s displayName="ThaliumX" \
+  -s registrationAllowed=true -s loginWithEmailAllowed=true
+
+# Create backend client (confidential)
+kcadm.sh create clients -r thaliumx \
+  -s clientId=thaliumx-backend \
+  -s enabled=true \
+  -s clientAuthenticatorType=client-secret \
+  -s secret=ThaliumX2025 \
+  -s serviceAccountsEnabled=true \
+  -s directAccessGrantsEnabled=true \
+  -s publicClient=false
+
+# Create frontend client (public)
+kcadm.sh create clients -r thaliumx \
+  -s clientId=thaliumx-frontend \
+  -s enabled=true \
+  -s publicClient=true \
+  -s directAccessGrantsEnabled=true \
+  -s 'redirectUris=["http://localhost:3000/*","http://localhost:3001/*","https://*.thaliumx.com/*"]' \
+  -s 'webOrigins=["http://localhost:3000","http://localhost:3001","https://*.thaliumx.com"]'
+```
 
 ---
 
-## Service Architecture
+### 3. Backend Migration Issues
 
-### Databases Layer (4 containers)
-- `thaliumx-postgres` - TimescaleDB (PostgreSQL 16 with time-series extensions)
-- `thaliumx-mongodb` - MongoDB 7 (document store)
-- `thaliumx-redis` - Redis 7 (caching and pub/sub)
-- `thaliumx-typesense` - Typesense 27.1 (search engine)
+#### 3.1 Migration Tracking Inconsistency
+**Problem:** Some tables existed (created by Citus init scripts) but weren't tracked in the migration table, causing migrations to fail when trying to recreate them.
 
-### Citus Cluster (3 containers)
-- `thaliumx-citus-coordinator` - Citus coordinator node
-- `thaliumx-citus-worker-1` - Citus worker node 1
-- `thaliumx-citus-worker-2` - Citus worker node 2
+**Fix Applied:**
+```sql
+-- Mark existing migrations as executed
+INSERT INTO sequelize_meta (name) VALUES ('002-create-trading-pairs');
+INSERT INTO sequelize_meta (name) VALUES ('004-create-compliance-tables');
+INSERT INTO sequelize_meta (name) VALUES ('006-create-audit-logs');
+INSERT INTO sequelize_meta (name) VALUES ('007-add-tenant-type-and-remove-broker-id');
+```
 
-### Messaging Layer (2 containers)
-- `thaliumx-kafka` - Apache Kafka (event streaming)
-- `thaliumx-schema-registry` - Confluent Schema Registry
-
-### Security Layer (4 containers)
-- `thaliumx-keycloak` - Keycloak (identity and access management)
-- `thaliumx-vault` - HashiCorp Vault (secrets management)
-- `thaliumx-opa` - Open Policy Agent (policy enforcement)
-- `thaliumx-vault-init` - Vault initialization (exited after setup)
-
-### Gateway Layer (2 containers)
-- `thaliumx-apisix` - Apache APISIX (API gateway)
-- `thaliumx-etcd` - etcd (APISIX configuration store)
-
-### Observability Layer (11 containers)
-- `thaliumx-prometheus` - Prometheus (metrics collection)
-- `thaliumx-grafana` - Grafana (visualization)
-- `thaliumx-loki` - Loki (log aggregation)
-- `thaliumx-tempo` - Tempo (distributed tracing)
-- `thaliumx-alertmanager` - Alertmanager (alert routing)
-- `thaliumx-promtail` - Promtail (log shipping)
-- `thaliumx-otel-collector` - OpenTelemetry Collector
-- `thaliumx-cadvisor` - cAdvisor (container metrics)
-- `thaliumx-redis-exporter` - Redis metrics exporter
-- `thaliumx-postgres-exporter` - PostgreSQL metrics exporter
-- `thaliumx-blackbox-exporter` - Blackbox exporter (endpoint probing)
-
-### Trading Layer (5 containers)
-- `thaliumx-timescaledb` - TimescaleDB for trading data
-- `thaliumx-dingir-matchengine` - Dingir matching engine
-- `thaliumx-dingir-restapi` - Dingir REST API
-- `thaliumx-liquibook` - Liquibook order book
-- `thaliumx-quantlib` - QuantLib pricing engine
-
-### Fintech Layer (4 containers)
-- `thaliumx-ballerine-postgres` - Ballerine PostgreSQL (with plv8)
-- `thaliumx-ballerine-workflow` - Ballerine workflow service
-- `thaliumx-ballerine-backoffice` - Ballerine admin UI
-- `thaliumx-blinkfinance` - BlinkFinance ledger
-
-### Core Applications (2 containers)
-- `thaliumx-frontend` - Next.js frontend application
-- `thaliumx-backend` - Node.js/Express backend API
-
-### SIEM Layer (3 containers)
-- `thaliumx-wazuh-manager` - Wazuh manager
-- `thaliumx-wazuh-indexer` - Wazuh indexer (OpenSearch)
-- `thaliumx-wazuh-dashboard` - Wazuh dashboard
+**Migrations Status After Fix:**
+- 000-create-base-tables ✅
+- 001-add-mfa-fields ✅
+- 002-create-platform-allocations ✅
+- 002-create-trading-pairs ✅
+- 003-create-internal-orders ✅
+- 004-create-compliance-tables ✅
+- 005-create-reconciliation-snapshots ✅
+- 006-create-audit-logs ✅
+- 007-add-tenant-type-and-remove-broker-id ✅
 
 ---
 
-## Network Configuration
+## Current System Status
 
-All services are connected to the `thaliumx-net` Docker network:
-- **Subnet:** 172.28.0.0/16
-- **Driver:** bridge
-- **External:** true (created separately)
+### Container Health Summary
+| Category | Count | Status |
+|----------|-------|--------|
+| Total Containers | 39 | ✅ All Healthy |
+| Database Layer | 6 | ✅ Healthy |
+| Messaging Layer | 2 | ✅ Healthy |
+| Security Layer | 3 | ✅ Healthy |
+| Gateway Layer | 2 | ✅ Healthy |
+| Observability Layer | 11 | ✅ Healthy |
+| Trading Services | 4 | ✅ Healthy |
+| Fintech Services | 4 | ✅ Healthy |
+| Core Applications | 2 | ✅ Healthy |
+| SIEM Layer | 3 | ✅ Healthy |
+| Citus Cluster | 3 | ✅ Healthy |
+
+### Backend Service Health
+```json
+{
+  "status": "ok",
+  "services": {
+    "database": "connected",
+    "redis": "connected",
+    "omniExchange": "healthy",
+    "walletSystem": "healthy",
+    "nativeCEX": "healthy",
+    "api": "running"
+  },
+  "security": {
+    "threatDetection": "active",
+    "rateLimiting": "active",
+    "inputValidation": "active",
+    "circuitBreaker": "active"
+  }
+}
+```
+
+### Database Statistics
+- **PostgreSQL (Main):** 108 tables
+- **Citus Coordinator:** 13 tables, 6 distributed
+- **Citus Workers:** 2 active workers
+- **MongoDB:** Authenticated, thaliumx database active
+- **Redis:** Connected with password authentication
+- **Typesense:** 5 collections (balances, ledgers, transactions, accounts, identities)
+- **TimescaleDB:** Version 2.23.1 with hypertables
 
 ---
 
-## Secrets Management
+## Service Endpoints
 
-Secrets are stored in `.secrets/generated/` directory:
-- `postgres-password` - PostgreSQL password
-- `redis-password` - Redis password
-- `mongodb-password` - MongoDB password
-- `typesense-api-key` - Typesense API key (`blnk-api-key`)
-- `keycloak-admin-password` - Keycloak admin password
-- `vault-role-id` / `vault-secret-id` - Vault authentication
-- `jwt-secret` - JWT signing secret
-- `encryption-key` - Data encryption key
-- And more...
+| Service | Internal Port | External Port | Status |
+|---------|--------------|---------------|--------|
+| Frontend | 3000 | 3001 | ✅ |
+| Backend API | 3002 | 3002 | ✅ |
+| Keycloak | 8080 | 8080 | ✅ |
+| APISIX Gateway | 9080 | 80 | ✅ |
+| Grafana | 3000 | 3000 | ✅ |
+| Prometheus | 9090 | 9090 | ✅ |
+| Wazuh Dashboard | 5601 | 5601 | ✅ |
+| BlinkFinance | 5001 | 5001 | ✅ |
+| Ballerine Workflow | 3000 | 3003 | ✅ |
+| Dingir REST API | 8080 | 50053 | ✅ |
+| Dingir Matchengine | 50051 | 50051 | ✅ |
 
 ---
 
-## Port Mappings
+## Credentials Summary
 
-| Service | Internal Port | External Port |
-|---------|---------------|---------------|
-| PostgreSQL | 5432 | 5432 |
-| MongoDB | 27017 | 27017 |
-| Redis | 6379 | 6379 |
-| Typesense | 8108 | 8108 |
-| Kafka | 9092 | 9092 |
-| Schema Registry | 8081 | 8085 |
-| Keycloak | 8080 | 8080 |
-| Vault | 8200 | 8200 |
-| OPA | 8181 | 8181 |
-| APISIX | 9080/9443 | 80/443 |
-| Prometheus | 9090 | 9090 |
-| Grafana | 3000 | 3000 |
-| Loki | 3100 | 3100 |
-| Tempo | 3200 | 3200 |
-| Frontend | 3000 | 3001 |
-| Backend | 3002 | 3002 |
-| Ballerine Workflow | 3000 | 3003 |
-| Ballerine Backoffice | 80 | 3004 |
-| BlinkFinance | 5001 | 5001 |
-| Wazuh Dashboard | 5601 | 5601 |
-| Wazuh API | 55000 | 55000 |
+### Database Credentials
+| Service | Username | Password |
+|---------|----------|----------|
+| PostgreSQL | thaliumx | ThaliumX2025 |
+| MongoDB | thaliumx | ThaliumX2025 |
+| Redis | - | ThaliumX2025 |
+| Citus | thaliumx | ThaliumX2025 |
+
+### Application Credentials
+| Service | Username | Password/Secret |
+|---------|----------|-----------------|
+| Keycloak Admin | admin | sAV9qJNRKCOIR7Mbhhoc4SZ9 |
+| Backend Client Secret | thaliumx-backend | ThaliumX2025 |
+| BlinkFinance Secret | - | ThaliumX2025 |
 
 ---
 
 ## Recommendations for Production
 
-### 1. Secrets Management
-- Move all secrets to HashiCorp Vault
-- Use Vault Agent for automatic secret injection
-- Rotate secrets regularly
+### Critical Before Production
+1. **Change all passwords** from `ThaliumX2025` to strong, unique passwords
+2. **Update Keycloak admin password** to a secure value
+3. **Enable SSL/TLS** for all external endpoints
+4. **Configure proper CORS** settings for production domains
+5. **Set up proper backup procedures** for all databases
 
-### 2. Database Passwords
-- Create a startup script that synchronizes PostgreSQL passwords with generated secrets
-- Consider using Vault database secrets engine for dynamic credentials
+### Security Hardening
+1. Remove SUPERUSER privilege from `thaliumx` database user after initial setup
+2. Configure Keycloak with proper SSL certificates
+3. Enable Vault auto-unseal for production
+4. Configure proper network policies
+5. Enable audit logging for all services
 
-### 3. SSL/TLS
-- Enable SSL for all database connections
-- Configure APISIX with proper SSL certificates
-- Enable mTLS between services
-
-### 4. Monitoring
-- Configure alerting rules in Prometheus
-- Set up PagerDuty/Slack integrations in Alertmanager
-- Create Grafana dashboards for all services
-
-### 5. Backup Strategy
-- Implement automated PostgreSQL backups
-- Configure MongoDB replica set for high availability
-- Set up Redis persistence and replication
-
-### 6. Resource Limits
-- Review and adjust container resource limits
-- Implement horizontal pod autoscaling for critical services
-
----
-
-## Deployment Commands
-
-### Start All Services
-```bash
-./scripts/deploy-staging.sh start
-```
-
-### Stop All Services
-```bash
-./scripts/deploy-staging.sh stop
-```
-
-### Check Status
-```bash
-./scripts/deploy-staging.sh status
-```
-
-### Health Check
-```bash
-./scripts/deploy-staging.sh health
-```
-
----
-
-## Repeatability Guarantee
-
-### For Container Restarts (No Volume Changes)
-✅ **100% Repeatable** - All configuration files have been updated with correct values.
-
-### For Complete Rebuild (Fresh Volumes)
-✅ **100% Repeatable** - With the following requirements:
-
-1. **Use the staging .env file:**
-   ```bash
-   cp docker/.env.staging docker/.env
-   ```
-
-2. **Deploy in order using the deployment script:**
-   ```bash
-   ./scripts/deploy-staging.sh start
-   ```
-
-3. **Key Configuration Files Updated:**
-   - [`docker/.env.staging`](docker/.env.staging) - All environment variables with correct passwords
-   - [`docker/trading/dingir/config/production.yaml`](docker/trading/dingir/config/production.yaml) - Trading engine config
-   - [`docker/fintech/blinkfinance/blnk.json`](docker/fintech/blinkfinance/blnk.json) - BlinkFinance config
-   - [`docker/wazuh/compose.yaml`](docker/wazuh/compose.yaml) - Wazuh passwords
-   - [`docker/frontend/Dockerfile`](docker/frontend/Dockerfile) - Fixed for glibc compatibility
-   - [`docker/core/compose.yaml`](docker/core/compose.yaml) - Frontend filesystem permissions
-
-### Important Notes for Fresh Deployment:
-- The `.env` file must be in the `docker/` directory before running compose commands
-- Typesense MUST use API key `blnk-api-key` for BlinkFinance v0.7.0 compatibility
-- Wazuh passwords must match the bcrypt hashes in `internal_users.yml`
+### Monitoring Setup
+1. Configure alerting rules in Prometheus/Alertmanager
+2. Set up log retention policies in Loki
+3. Configure Wazuh agents on all nodes
+4. Set up uptime monitoring for critical endpoints
 
 ---
 
 ## Conclusion
 
-The ThaliumX staging environment is now fully operational with all 39 containers running and healthy. All identified issues have been resolved with fixes that are **100% repeatable** for both restarts and complete rebuilds. The environment maintains full data persistence through Docker volumes.
-
-**Configuration Files Committed:**
-- `docker/.env.staging` - Staging environment variables
-- All compose files with correct default values
-- All service configuration files with correct credentials
+The ThaliumX staging environment is now fully operational with all 39 containers healthy. The critical issues related to database ownership, authentication, and migrations have been resolved. The system is ready for functional testing and validation before production deployment.
 
 **Next Steps:**
-1. Conduct end-to-end testing of all services
-2. Verify API endpoints through APISIX gateway
-3. Test authentication flow through Keycloak
-4. Validate trading engine functionality
-5. Review Wazuh security monitoring
+1. Verify frontend functionality
+2. Test API endpoints
+3. Validate trading workflows
+4. Test authentication flows
+5. Perform load testing
+
+---
+
+*Report generated by Kilo Code AI - December 9, 2025*

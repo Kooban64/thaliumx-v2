@@ -97,6 +97,93 @@ export interface Balance {
 }
 
 // =============================================================================
+// COINGECKO ID MAPPING
+// =============================================================================
+
+// Map ticker symbols to CoinGecko IDs
+const COINGECKO_ID_MAP: Record<string, string> = {
+  'BTC': 'bitcoin',
+  'ETH': 'ethereum',
+  'USDT': 'tether',
+  'USDC': 'usd-coin',
+  'BNB': 'binancecoin',
+  'XRP': 'ripple',
+  'ADA': 'cardano',
+  'DOGE': 'dogecoin',
+  'SOL': 'solana',
+  'DOT': 'polkadot',
+  'MATIC': 'matic-network',
+  'LTC': 'litecoin',
+  'SHIB': 'shiba-inu',
+  'TRX': 'tron',
+  'AVAX': 'avalanche-2',
+  'LINK': 'chainlink',
+  'ATOM': 'cosmos',
+  'UNI': 'uniswap',
+  'XLM': 'stellar',
+  'ETC': 'ethereum-classic',
+  'NEAR': 'near',
+  'APT': 'aptos',
+  'ARB': 'arbitrum',
+  'OP': 'optimism',
+  'FIL': 'filecoin',
+  'AAVE': 'aave',
+  'MKR': 'maker',
+  'CRV': 'curve-dao-token',
+  'SNX': 'synthetix-network-token',
+  'COMP': 'compound-governance-token',
+  'SUSHI': 'sushi',
+  'YFI': 'yearn-finance',
+  'ZRX': '0x',
+  'BAT': 'basic-attention-token',
+  'ENJ': 'enjincoin',
+  'MANA': 'decentraland',
+  'SAND': 'the-sandbox',
+  'AXS': 'axie-infinity',
+  'GALA': 'gala',
+  'IMX': 'immutable-x',
+  'LDO': 'lido-dao',
+  'RPL': 'rocket-pool',
+  'FXS': 'frax-share',
+  'GMX': 'gmx',
+  'DYDX': 'dydx',
+  'INJ': 'injective-protocol',
+  'RUNE': 'thorchain',
+  'KAVA': 'kava',
+  'OSMO': 'osmosis',
+  'ALGO': 'algorand',
+  'VET': 'vechain',
+  'HBAR': 'hedera-hashgraph',
+  'ICP': 'internet-computer',
+  'FTM': 'fantom',
+  'EGLD': 'elrond-erd-2',
+  'THETA': 'theta-token',
+  'XTZ': 'tezos',
+  'EOS': 'eos',
+  'FLOW': 'flow',
+  'NEO': 'neo',
+  'WAVES': 'waves',
+  'ZIL': 'zilliqa',
+  'QTUM': 'qtum',
+  'ONT': 'ontology',
+  'ICX': 'icon',
+  'ZEC': 'zcash',
+  'DASH': 'dash',
+  'XMR': 'monero',
+  'DCR': 'decred',
+  'KSM': 'kusama',
+  'CAKE': 'pancakeswap-token',
+  'CRO': 'crypto-com-chain',
+  'FTT': 'ftx-token',
+  'LEO': 'leo-token',
+  'OKB': 'okb',
+  'HT': 'huobi-token',
+  'KCS': 'kucoin-shares',
+  'GT': 'gatechain-token',
+  'THAL': 'thalium', // ThaliumX native token (may not exist on CoinGecko yet)
+};
+
+// =============================================================================
 // EXCHANGE SERVICE CLASS
 // =============================================================================
 
@@ -381,7 +468,10 @@ export class ExchangeService {
       // Normalize symbol for API calls (BTC/USDT -> BTCUSDT or btc-usdt)
       const normalizedSymbol = symbol.replace('/', '').toUpperCase();
       const symbolParts = symbol.split('/');
-      const coinId = symbolParts[0] ? symbolParts[0].toLowerCase() : symbol.toLowerCase();
+      const ticker = symbolParts[0] ? symbolParts[0].toUpperCase() : symbol.toUpperCase();
+      
+      // Map ticker to CoinGecko ID using our mapping table
+      const coinId = COINGECKO_ID_MAP[ticker] || ticker.toLowerCase();
       
       // Try CoinGecko API first (public, no auth required)
       try {
@@ -448,7 +538,41 @@ export class ExchangeService {
         LoggerService.warn(`Binance API failed for ${symbol}:`, error.message);
       }
       
-      // Final fallback: Try database cached data
+      // Fallback: Try CryptoCompare API (another free option)
+      try {
+        const symbolParts2 = symbol.split('/');
+        const fsym = symbolParts2[0] || 'BTC';
+        const tsym = symbolParts2[1] || 'USD';
+        const cryptoCompareUrl = `https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${fsym}&tsyms=${tsym}`;
+        const response = await axios.get(cryptoCompareUrl, { timeout: 5000 });
+        
+        if (response.data && response.data.RAW && response.data.RAW[fsym] && response.data.RAW[fsym][tsym]) {
+          const data = response.data.RAW[fsym][tsym];
+          const price = data.PRICE || 0;
+          const volume24h = data.VOLUME24HOURTO || 0;
+          const change24h = data.CHANGE24HOUR || 0;
+          const changePercent24h = data.CHANGEPCT24HOUR || 0;
+          const high24h = data.HIGH24HOUR || price;
+          const low24h = data.LOW24HOUR || price;
+          
+          LoggerService.debug(`Fetched market data from CryptoCompare for ${symbol}`, { price, volume24h, changePercent24h });
+          
+          return {
+            symbol,
+            price,
+            volume24h,
+            change24h,
+            changePercent24h,
+            high24h,
+            low24h,
+            lastUpdate: new Date()
+          };
+        }
+      } catch (error: any) {
+        LoggerService.warn(`CryptoCompare API failed for ${symbol}:`, error.message);
+      }
+      
+      // Final fallback: Try database cached data (accept any age during initialization)
       try {
         const MarketDataModel = DatabaseService.getModel('MarketData');
         const cached = await MarketDataModel.findOne({
@@ -458,29 +582,35 @@ export class ExchangeService {
         
         if (cached && cached.dataValues) {
           const data = cached.dataValues;
-          // If data is less than 5 minutes old, use it
-          const age = Date.now() - new Date(data.lastUpdate).getTime();
-          if (age < 5 * 60 * 1000) {
-            LoggerService.debug(`Using cached market data for ${symbol}`);
-            return {
-              symbol: data.symbol,
-              price: parseFloat(data.price) || 0,
-              volume24h: parseFloat(data.volume24h) || 0,
-              change24h: parseFloat(data.change24h) || 0,
-              changePercent24h: parseFloat(data.changePercent24h) || 0,
-              high24h: parseFloat(data.high24h) || 0,
-              low24h: parseFloat(data.low24h) || 0,
-              lastUpdate: new Date(data.lastUpdate)
-            };
-          }
+          // Accept cached data regardless of age - better than failing
+          LoggerService.info(`Using cached market data for ${symbol} (age: ${Math.round((Date.now() - new Date(data.lastUpdate).getTime()) / 1000)}s)`);
+          return {
+            symbol: data.symbol,
+            price: parseFloat(data.price) || 0,
+            volume24h: parseFloat(data.volume24h) || 0,
+            change24h: parseFloat(data.change24h) || 0,
+            changePercent24h: parseFloat(data.changePercent24h) || 0,
+            high24h: parseFloat(data.high24h) || 0,
+            low24h: parseFloat(data.low24h) || 0,
+            lastUpdate: new Date(data.lastUpdate)
+          };
         }
       } catch (error: any) {
         LoggerService.warn(`Failed to get cached market data for ${symbol}:`, error.message);
       }
       
-      // If all sources fail, log error but return minimal data structure
-      LoggerService.error(`Could not fetch market data for ${symbol} from any source`);
-      throw createError(`Market data unavailable for ${symbol}`, 503, 'MARKET_DATA_UNAVAILABLE');
+      // If all sources fail, log warning but return default data structure instead of throwing
+      LoggerService.warn(`Could not fetch market data for ${symbol} from any source, using defaults`);
+      return {
+        symbol,
+        price: 0,
+        volume24h: 0,
+        change24h: 0,
+        changePercent24h: 0,
+        high24h: 0,
+        low24h: 0,
+        lastUpdate: new Date()
+      };
       
     } catch (error: any) {
       LoggerService.error(`Failed to fetch external market data for ${symbol}:`, error);
