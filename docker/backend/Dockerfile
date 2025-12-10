@@ -79,8 +79,10 @@ COPY backend/src ./src
 RUN pnpm run build
 
 # Copy ABI JSON files to dist (TypeScript doesn't copy JSON files)
-RUN mkdir -p /app/dist/contracts/abis && \
-    cp -r /app/src/contracts/abis/*.json /app/dist/contracts/abis/ 2>/dev/null || true
+# Also copy contract addresses
+RUN mkdir -p /app/dist/contracts/abis /app/dist/contracts/addresses && \
+    cp -v /app/src/contracts/abis/*.json /app/dist/contracts/abis/ && \
+    ls -la /app/dist/contracts/abis/
 
 # -----------------------------------------------------------------------------
 # Stage 4: Production runtime (minimal, security-hardened)

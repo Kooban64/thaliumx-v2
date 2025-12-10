@@ -132,17 +132,10 @@ services:
       - DB_NAME=thaliumx
       - DB_USER=thaliumx
       - DB_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
-      # Redis Configuration
-      - REDIS_HOST=thaliumx-redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-ThaliumX2025}
-      # Keycloak Configuration
-      - KEYCLOAK_URL=http://thaliumx-keycloak:8080
-      - KEYCLOAK_REALM=thaliumx
-      - KEYCLOAK_CLIENT_ID=thaliumx-backend
-      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:-ThaliumX2025}
-      - KEYCLOAK_ADMIN_USERNAME=admin
-      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-ThaliumX2025}
+      # Redis Configuration - uses REDIS_PASSWORD from core.env
+      # Do not override here to allow env_file to take precedence
+      # Keycloak Configuration - uses values from core.env
+      # Do not override KEYCLOAK_ADMIN_PASSWORD here to allow env_file to take precedence
       # Kafka Configuration
       - KAFKA_BROKERS=thaliumx-kafka:9092
       # MongoDB Configuration
@@ -172,6 +165,8 @@ services:
     volumes:
       # Mount secrets directory for local development fallback (read-only)
       - ./secrets:/app/.secrets:ro
+      # Mount project secrets for banking integrations (absolute path)
+      - /home/ubuntu/thaliumx-v1/.secrets:/app/secrets:ro
     
     networks:
       - thaliumx-net
