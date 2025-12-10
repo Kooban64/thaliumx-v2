@@ -240,10 +240,38 @@ docker run ... -v $(pwd)/docker/backend/src/contracts/abis:/app/dist/contracts/a
 
 ### 2. External API Rate Limits
 
-**Status:** Expected behavior  
+**Status:** Expected behavior
 **Impact:** Market data may use cached values
 
 **Description:** CoinGecko and Binance APIs have rate limits. The exchange service handles this gracefully by falling back to cached data.
+
+### 3. Exchange API Credential Issues
+
+**Status:** Requires Action
+**Impact:** Some exchange health checks failing (non-blocking for platform operation)
+
+**Description:** The exchange credentials from `.secrets/exchange-chain.info` have been loaded into the environment, but several exchanges are returning authentication errors. This is due to:
+
+| Exchange | Status | Issue |
+|----------|--------|-------|
+| **Kraken** | ✅ Working | Credentials valid |
+| **VALR** | ✅ Working | Credentials valid |
+| **KuCoin** | ⚠️ Auth Error | Credentials may be expired or IP-restricted |
+| **Bybit** | ⚠️ 403 Forbidden | IP whitelist restriction or API key permissions |
+| **OKX** | ⚠️ 401 Unauthorized | Credentials may be invalid or expired |
+| **Bitstamp** | ⚠️ 403 Forbidden | Missing customer ID (username) for signature |
+| **Crypto.com** | ⚠️ 401 Unauthorized | Missing API Secret (only API Key provided in secrets) |
+
+**Code Fixes Applied:**
+1. **KuCoin** - Fixed passphrase encryption (API v2 requires HMAC-SHA256 + base64 encrypted passphrase)
+2. **Bitstamp** - Fixed URL paths (removed duplicate `/api` prefix)
+3. **Crypto.com** - Fixed environment variable names (`CRYPTO_COM_API_KEY` vs `CRYPTOCOM_API_KEY`)
+
+**Resolution Required:**
+1. Verify exchange API credentials are still valid and not expired
+2. Check IP whitelist settings on exchange accounts (add staging server IP)
+3. Obtain missing Crypto.com API Secret
+4. Add Bitstamp customer ID/username to configuration
 
 ---
 
@@ -360,17 +388,86 @@ docker run ... -v $(pwd)/docker/backend/src/contracts/abis:/app/dist/contracts/a
 
 ---
 
+## Exchange Credentials Configuration
+
+All exchange credentials have been loaded from `.secrets/exchange-chain.info` into `docker/core/core.env`:
+
+| Exchange | API Key | API Secret | Passphrase | Status |
+|----------|---------|------------|------------|--------|
+| KuCoin | ✅ Set | ✅ Set | ✅ Set | ⚠️ Auth Error |
+| Bybit | ✅ Set | ✅ Set | N/A | ⚠️ 403 |
+| OKX | ✅ Set | ✅ Set | ✅ Set | ⚠️ 401 |
+| Kraken | ✅ Set | ✅ Set | N/A | ✅ Working |
+| VALR | ✅ Set | ✅ Set | N/A | ✅ Working |
+| Bitstamp | ✅ Set | ✅ Set | N/A | ⚠️ 403 |
+| Crypto.com | ✅ Set | ❌ Missing | ✅ Set | ⚠️ 401 |
+| Binance | ✅ Set | ✅ Set | N/A | Not in adapter |
+
+---
+
+## Banking Integration Status
+
+### Nedbank Integration
+| Component | Status | Details |
+|-----------|--------|---------|
+| Deposits API | ✅ Configured | AWS Lambda endpoint configured |
+| PayShap/Payout API | ✅ Configured | B2B API endpoint configured |
+| Account Number | ✅ Set | 1309630755 |
+
+**Environment Variables Set:**
+- `NEDBANK_DEPOSITS_API_KEY` - AWS Lambda API key
+- `NEDBANK_DEPOSITS_BASE_URL` - https://pxsvfmxmo1.execute-api.af-south-1.amazonaws.com/Stage
+- `NEDBANK_PAYOUT_BASE_URL` - https://b2b-api.nedbank.co.za/apimarket/b2b-sb/payments/v1
+- `NEDBANK_ACCOUNT_NUMBER` - 1309630755
+
+---
+
+## Blockchain Network API Keys
+
+All blockchain network API keys have been configured:
+
+| Provider | Status |
+|----------|--------|
+| BSCScan | ✅ Configured |
+| EtherScan | ✅ Configured |
+| TronScan | ✅ Configured |
+| Alchemy | ✅ Configured |
+| Ankr | ✅ Configured |
+| Infura | ✅ Configured |
+
+---
+
+## Data Provider API Keys
+
+| Provider | Status |
+|----------|--------|
+| CoinGecko | ✅ Configured |
+| CoinCap | ✅ Configured |
+| BlockCypher | ✅ Configured |
+| QuickNode | ✅ Configured |
+| 0x | ✅ Configured |
+| The Graph | ✅ Configured |
+| Moralis | ✅ Configured |
+
+---
+
 ## Recommendations
 
 1. **Rebuild Backend Docker Image:** Include the ABI files in the Docker build to enable all blockchain-related services.
 
-2. **Configure External API Keys:** Add API keys for CoinGecko Pro, Binance, and CryptoCompare to avoid rate limiting.
+2. **Verify Exchange API Credentials:**
+   - Check if KuCoin, Bybit, OKX credentials are still valid
+   - Add staging server IP to exchange API whitelist
+   - Obtain missing Crypto.com API Secret
+   - Add Bitstamp customer ID to configuration
 
 3. **SSL/TLS Configuration:** Configure proper SSL certificates for production deployment.
 
 4. **Backup Strategy:** Implement automated backups for PostgreSQL, MongoDB, and Redis.
 
 5. **Monitoring Alerts:** Configure Alertmanager rules for critical service failures.
+
+6. **SMTP Configuration:** SMTP credentials are configured for Gmail - verify email sending works.
 
 ---
 
