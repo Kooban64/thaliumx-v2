@@ -393,11 +393,16 @@ class KuCoinAdapter extends ExchangeAdapter {
   private async kucoinRequest(method: string, path: string, body?: any): Promise<any> {
     const timestamp = Date.now().toString();
     const sign = this.kucoinSign(timestamp, method, path, body);
+    // KuCoin API v2 requires encrypted passphrase
+    const passphrase = this.config.credentials.passphrase || '';
+    const encryptedPassphrase = crypto.createHmac('sha256', this.config.credentials.apiSecret)
+      .update(passphrase)
+      .digest('base64');
     const headers: any = {
       'KC-API-KEY': this.config.credentials.apiKey,
       'KC-API-SIGN': sign,
       'KC-API-TIMESTAMP': timestamp,
-      'KC-API-PASSPHRASE': this.config.credentials.passphrase || '',
+      'KC-API-PASSPHRASE': encryptedPassphrase,
       'KC-API-KEY-VERSION': '2',
       'Content-Type': 'application/json'
     };
@@ -976,7 +981,8 @@ class BitstampAdapter extends ExchangeAdapter {
     return res.data;
   }
   async getBalance(asset: string): Promise<ExchangeBalance> {
-    const data = await this.bitstampForm('/api/v2/balance/', {});
+    // Note: baseURL is 'https://www.bitstamp.net/api', so path should be '/v2/balance/'
+    const data = await this.bitstampForm('/v2/balance/', {});
     const key = `${asset.toLowerCase()}_available`;
     const avail = data?.[key] || '0';
     const totalKey = `${asset.toLowerCase()}_balance`;
@@ -988,7 +994,8 @@ class BitstampAdapter extends ExchangeAdapter {
   async placeOrder(params: any): Promise<ExchangeOrder> {
     const symbol = params.symbol.toLowerCase();
     const isBuy = params.side === 'buy';
-    const path = isBuy ? `/api/v2/buy/${symbol}/` : `/api/v2/sell/${symbol}/`;
+    // Note: baseURL is 'https://www.bitstamp.net/api', so path should be '/v2/...'
+    const path = isBuy ? `/v2/buy/${symbol}/` : `/v2/sell/${symbol}/`;
     const form: Record<string, string> = { amount: params.amount } as any;
     if (params.type === 'limit') form.price = params.price;
     const result = await this.bitstampForm(path, form);
@@ -1015,13 +1022,15 @@ class BitstampAdapter extends ExchangeAdapter {
     };
   }
   async getOrderStatus(orderId: string): Promise<ExchangeOrder> {
-    const data = await this.bitstampForm('/api/v2/order_status/', { id: orderId });
+    // Note: baseURL is 'https://www.bitstamp.net/api', so path should be '/v2/...'
+    const data = await this.bitstampForm('/v2/order_status/', { id: orderId });
     const order = data || {};
     const status: ExchangeOrder['status'] = order?.status === 'Finished' ? 'filled' : order?.status === 'Canceled' ? 'cancelled' : 'open';
     return { id: orderId, tenantId: this.config.id, brokerId: this.config.id, userId: 'unknown', exchangeId: this.config.id, symbol: (order?.transactions?.[0]?.pair || 'UNKNOWN').toUpperCase(), side: ((order?.type === 0 ? 'buy' : 'sell') as any), type: 'limit', amount: order?.amount || '0', price: order?.price || '0', status, filledAmount: order?.amount_executed || '0', averagePrice: order?.avg_price || '0', fees: order?.fee || '0', externalOrderId: orderId, fundSegregation: { platformAccount: 'single_platform_account', brokerAllocation: 'unknown', customerAllocation: 'unknown', orderPool: 'user_trading_pool', feePool: 'fee_pool', settlementPool: 'exchange_settlement_pool' }, riskMetrics: { exposure: 0, maxDrawdown: 0, volatility: 0 }, metadata: { createdAt: new Date(), updatedAt: new Date(), version: '1.0.0' } };
   }
   async cancelOrder(orderId: string): Promise<void> {
-    await this.bitstampForm('/api/v2/cancel_order/', { id: orderId });
+    // Note: baseURL is 'https://www.bitstamp.net/api', so path should be '/v2/...'
+    await this.bitstampForm('/v2/cancel_order/', { id: orderId });
   }
 }
 
