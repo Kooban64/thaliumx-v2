@@ -166,33 +166,91 @@ export class NedbankService {
 
   /**
    * Scrape deposits for a pool account within a date range
+   * Uses the Nedbank Transactions API endpoint
    */
   public static async scrapeDeposits(req: DepositScrapeRequest): Promise<DepositRecord[]> {
     try {
+      // Read secrets to get account number and endpoint
+      const secretsPath = path.resolve(process.env.NEDBANK_SECRETS_PATH || '/home/ubuntu/thaliumx-clean/.secrets/nedbank.json');
+      const raw = fs.readFileSync(secretsPath, 'utf8');
+      const secrets = JSON.parse(raw);
+      
+      const accountNumber = req.poolAccountNumber || secrets.deposits?.accountNumber;
+      const endpoint = secrets.deposits?.endpoints?.transactions || '/Transactions';
+      
       const params: any = {
-        brokerId: req.brokerId,
-        poolAccountNumber: req.poolAccountNumber,
-        fromDate: req.fromDate,
-        toDate: req.toDate
+        AccountNumber: accountNumber
       };
-      const { data } = await this.depositsClient.get('/deposits', { params });
+      
+      // Add date filters if provided (format: YYYYMMDD)
+      if (req.fromDate) {
+        params.FromDate = req.fromDate.replace(/-/g, '');
+      }
+      if (req.toDate) {
+        params.ToDate = req.toDate.replace(/-/g, '');
+      }
+      
+      LoggerService.info('Nedbank deposit scrape starting', { accountNumber, endpoint, params });
+      
+      const { data } = await this.depositsClient.get(endpoint, { params });
 
-      const results: DepositRecord[] = (data?.deposits || []).map((d: any) => ({
-        id: d.id,
-        amount: String(d.amount),
-        currency: d.currency || 'ZAR',
-        reference: d.reference || d.customerReference || '',
-        bankReference: d.bankReference,
-        valueDate: d.valueDate,
-        description: d.description
+      // Handle the API response format - body is a JSON string
+      let transactions: any[] = [];
+      if (data?.body) {
+        try {
+          transactions = typeof data.body === 'string' ? JSON.parse(data.body) : data.body;
+        } catch (parseError) {
+          LoggerService.error('Failed to parse Nedbank response body', { body: data.body });
+          transactions = [];
+        }
+      } else if (Array.isArray(data)) {
+        transactions = data;
+      } else if (data?.transactions || data?.Transactions) {
+        transactions = data.transactions || data.Transactions;
+      }
+
+      const results: DepositRecord[] = transactions.map((d: any) => ({
+        id: d.TransactionKey || d.id || '',
+        amount: String(d.TransactionAmount || d.amount || 0),
+        currency: d.Currency || d.currency || 'ZAR',
+        reference: d.Reference || d.reference || d.customerReference || '',
+        bankReference: d.TransactionKey || d.bankReference || '',
+        valueDate: formatNedbankDate(d.ActionDate, d.ActionTime) || d.valueDate || '',
+        description: `${d.TransactionType || ''} via ${d.ChannelName || ''}`.trim() || d.description || ''
       }));
 
       LoggerService.info('Nedbank deposit scrape completed', { count: results.length });
       return results;
     } catch (error: any) {
-      LoggerService.error('Nedbank deposit scrape failed', { error: error?.message });
+      LoggerService.error('Nedbank deposit scrape failed', { error: error?.message, stack: error?.stack });
       return [];
     }
+  }
+}
+
+/**
+ * Format Nedbank date/time strings to ISO format
+ * ActionDate: YYYYMMDD, ActionTime: HH:MM:SS:ms
+ */
+function formatNedbankDate(actionDate?: string, actionTime?: string): string {
+  if (!actionDate) return '';
+  
+  try {
+    const year = actionDate.substring(0, 4);
+    const month = actionDate.substring(4, 6);
+    const day = actionDate.substring(6, 8);
+    
+    let timeStr = '00:00:00';
+    if (actionTime) {
+      const timeParts = actionTime.split(':');
+      if (timeParts.length >= 3) {
+        timeStr = `${timeParts[0]}:${timeParts[1]}:${timeParts[2]}`;
+      }
+    }
+    
+    return `${year}-${month}-${day}T${timeStr}Z`;
+  } catch {
+    return actionDate;
   }
 }
 
