@@ -751,11 +751,14 @@ export class KeycloakService {
   private static loadKeycloakConfig(): KeycloakConfig {
     const config = ConfigService.getConfig();
     
+    // Note: For admin authentication, we ALWAYS use the 'master' realm
+    // The KEYCLOAK_REALM env var is for application-level realm operations
+    // Admin users exist in the master realm, not in application realms
     return {
       baseUrl: process.env.KEYCLOAK_URL || 'http://localhost:8080',
-      realm: process.env.KEYCLOAK_REALM || 'master',
-      clientId: process.env.KEYCLOAK_CLIENT_ID || 'admin-cli',
-      clientSecret: process.env.KEYCLOAK_CLIENT_SECRET || '',
+      realm: 'master', // Always use master realm for admin authentication
+      clientId: process.env.KEYCLOAK_ADMIN_CLIENT_ID || 'admin-cli',
+      clientSecret: process.env.KEYCLOAK_ADMIN_CLIENT_SECRET || '',
       adminUsername: process.env.KEYCLOAK_ADMIN_USERNAME || 'admin',
       adminPassword: process.env.KEYCLOAK_ADMIN_PASSWORD || 'admin',
       timeout: parseInt(process.env.KEYCLOAK_TIMEOUT || '30000'),
@@ -1218,11 +1221,48 @@ export class KeycloakService {
     try {
       await this.ensureAuthenticated();
 
-      await this.adminClient.post('/admin/realms', realmConfig);
+      // Keycloak Admin API only accepts specific fields for realm creation
+      // Send a minimal configuration that Keycloak will accept
+      const minimalRealmConfig = {
+        realm: realmConfig.realm,
+        displayName: realmConfig.displayName,
+        enabled: realmConfig.enabled,
+        // Token lifespans
+        accessTokenLifespan: realmConfig.accessTokenLifespan,
+        ssoSessionIdleTimeout: realmConfig.ssoSessionIdleTimeout,
+        ssoSessionMaxLifespan: realmConfig.ssoSessionMaxLifespan,
+        offlineSessionIdleTimeout: realmConfig.offlineSessionIdleTimeout,
+        offlineSessionMaxLifespan: realmConfig.offlineSessionMaxLifespan,
+        accessCodeLifespan: realmConfig.accessCodeLifespan,
+        accessCodeLifespanUserAction: realmConfig.accessCodeLifespanUserAction,
+        accessCodeLifespanLogin: realmConfig.accessCodeLifespanLogin,
+        // Internationalization
+        internationalizationEnabled: realmConfig.internationalizationEnabled,
+        supportedLocales: realmConfig.supportedLocales,
+        defaultLocale: realmConfig.defaultLocale,
+        // Password policy
+        passwordPolicy: realmConfig.passwordPolicy,
+        // OTP policy
+        otpPolicyType: realmConfig.otpPolicyType,
+        otpPolicyAlgorithm: realmConfig.otpPolicyAlgorithm,
+        otpPolicyInitialCounter: realmConfig.otpPolicyInitialCounter,
+        otpPolicyDigits: realmConfig.otpPolicyDigits,
+        otpPolicyLookAheadWindow: realmConfig.otpPolicyLookAheadWindow,
+        otpPolicyPeriod: realmConfig.otpPolicyPeriod,
+        // Attributes (custom metadata)
+        attributes: realmConfig.attributes
+      };
+
+      await this.adminClient.post('/admin/realms', minimalRealmConfig);
 
       LoggerService.info(`Realm created: ${realmConfig.realm}`);
 
-    } catch (error) {
+    } catch (error: any) {
+      // If realm already exists (409 Conflict), log and continue
+      if (error?.response?.status === 409) {
+        LoggerService.info(`Realm ${realmConfig.realm} already exists, skipping creation`);
+        return;
+      }
       LoggerService.error('Create realm failed:', error);
       throw error;
     }
