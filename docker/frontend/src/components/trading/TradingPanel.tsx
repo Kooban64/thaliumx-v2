@@ -38,7 +38,10 @@ export function TradingPanel() {
           }
         }
       } catch (err) {
-        console.error('Failed to fetch current price:', err);
+        // Silently handle price fetch errors in production
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Failed to fetch current price:', err);
+        }
       } finally {
         setPriceLoading(false);
       }

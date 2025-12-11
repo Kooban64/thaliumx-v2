@@ -2,7 +2,7 @@
 
 A comprehensive, production-ready infrastructure backbone for building modern financial applications.
 
-[![Version](https://img.shields.io/badge/version-0.5.0--security--hardening-blue.svg)](https://github.com/thaliumx/thaliumx)
+[![Version](https://img.shields.io/badge/version-0.6.0--production--ready-blue.svg)](https://github.com/thaliumx/thaliumx)
 [![Services](https://img.shields.io/badge/services-36-green.svg)](#services)
 [![Security](https://img.shields.io/badge/security-hardened-brightgreen.svg)](#security)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -131,9 +131,9 @@ docker ps --filter name=thaliumx --format "table {{.Names}}\t{{.Status}}"
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
-| **Frontend** | http://localhost:3001 | - |
+| **Frontend** | http://localhost:3000 | - |
 | **Backend API** | http://localhost:3002 | - |
-| Grafana | http://localhost:3000 | admin / ThaliumX2025 |
+| Grafana | http://localhost:3001 | admin / ThaliumX2025 |
 | Keycloak | http://localhost:8080 | admin / ThaliumX2025 |
 | Vault | http://localhost:8200 | Token: <VAULT_TOKEN> |
 | APISIX Dashboard | http://localhost:9000 | admin / ThaliumX2025 |
@@ -195,7 +195,7 @@ thaliumx/
 │   ├── ARCHITECTURE.md
 │   ├── core-services/
 │   └── installation-tips/
-├── blockchain-contracts/      # Smart contracts (future)
+├── blockchain-contracts/      # Smart contracts (Solidity)
 └── README.md                  # This file
 ```
 
@@ -203,6 +203,7 @@ thaliumx/
 
 | Version | Tag | Description |
 |---------|-----|-------------|
+| 0.6.0 | v0.6.0-production-ready | Production readiness fixes, API completion, security hardening |
 | 0.5.0 | v0.5.0-security-hardening | Security hardening, Vault integration, pnpm workspace |
 | 0.4.0 | v0.4.0-core-apps | Frontend/Backend integration |
 | 0.3.0 | v0.3.0-trading | Trading services (Dingir, Liquibook, QuantLib) |
