@@ -296,7 +296,10 @@ export function reportError(error: Error | string, context?: any) {
     url: window.location.href,
   };
 
-  console.error('Error reported:', errorData);
+  // Log error data for debugging (remove in production if not needed)
+  if (process.env.NODE_ENV === 'development') {
+    console.error('Error reported:', errorData);
+  }
 
   // In production, send to error reporting service
   // Example: Sentry, LogRocket, Bugsnag, etc.

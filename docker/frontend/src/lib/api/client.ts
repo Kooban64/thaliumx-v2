@@ -16,7 +16,6 @@ export async function getCSRFToken(): Promise<string> {
     csrfToken = data.csrfToken;
     return csrfToken!;
   } catch (error) {
-    console.error('Failed to get CSRF token:', error);
     throw error;
   }
 }
@@ -100,14 +99,14 @@ class ApiClient {
       };
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           throw new Error('Request timeout');
         }
         throw error;
       }
-      
+
       throw new Error('Unknown error occurred');
     }
   }

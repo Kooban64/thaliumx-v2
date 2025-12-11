@@ -83,6 +83,7 @@ import web3WalletRouter from './routes/web3-wallet';
 import deviceFingerprintRouter from './routes/device-fingerprint';
 import policyManagementRouter from './routes/policy-management';
 import marketDataRouter from './routes/market-data';
+import tradingRouter from './routes/trading';
 
 // Import services
 import { DatabaseService } from './services/database';
@@ -817,6 +818,7 @@ class ThaliumXBackend {
     this.app.use('/api/security', deviceFingerprintRouter);
     this.app.use('/api/admin/policies', policyManagementRouter);
     this.app.use('/api/market', marketDataRouter);
+    this.app.use('/api/trading', tradingRouter);
 
     // API documentation endpoint
     this.app.get('/api/docs', (_req, res) => {

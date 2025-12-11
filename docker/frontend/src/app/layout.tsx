@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import KeycloakAuth from "@/components/KeycloakAuth";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -25,16 +27,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <div className="p-4 flex justify-between items-center border-b">
-          <div className="font-semibold">ThaliumX</div>
-          <div className="flex gap-3 items-center">
-            {/* Keycloak auth and wallet connect buttons */}
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-            <a className="text-sm underline" href="/portfolio">Portfolio</a>
-            <div id="auth-placeholder"></div>
+        <ErrorBoundary>
+          <div className="p-4 flex justify-between items-center border-b">
+            <div className="font-semibold">ThaliumX</div>
+            <div className="flex gap-3 items-center">
+              {/* Keycloak auth and wallet connect buttons */}
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+              <a className="text-sm underline" href="/portfolio">Portfolio</a>
+              <KeycloakAuth />
+            </div>
           </div>
-        </div>
-        <div className="p-4">{children}</div>
+          <div className="p-4">{children}</div>
+        </ErrorBoundary>
       </body>
     </html>
   );

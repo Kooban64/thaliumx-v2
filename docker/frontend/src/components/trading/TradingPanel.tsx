@@ -13,7 +13,7 @@ import {
   Calculator,
   AlertTriangle
 } from 'lucide-react';
-import { tradingOrderSchema, validateForm } from '@/lib/utils';
+import { tradingOrderSchema, validateForm, rateLimitedApiCall } from '@/lib/utils';
 
 export function TradingPanel() {
   const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
@@ -80,24 +80,26 @@ export function TradingPanel() {
     }
 
     try {
-      const response = await fetch('/api/trading/order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies
-        body: JSON.stringify(orderData),
-      });
+      await rateLimitedApiCall(async () => {
+        const response = await fetch('/api/trading/order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // Include cookies
+          body: JSON.stringify(orderData),
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Order failed');
-      }
+        if (!response.ok) {
+          throw new Error(data.message || 'Order failed');
+        }
 
-      setSuccess('Order placed successfully!');
-      setAmount('');
-      setPrice('');
+        setSuccess('Order placed successfully!');
+        setAmount('');
+        setPrice('');
+      }, 'trading-order', 5, 60000); // 5 orders per minute
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -243,11 +245,25 @@ export function TradingPanel() {
                 key={percentage}
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  // Mock balance calculation
-                  const balance = 0.1; // Mock BTC balance
-                  const percentageValue = parseFloat(percentage) / 100;
-                  setAmount((balance * percentageValue).toFixed(5));
+                onClick={async () => {
+                  try {
+                    // Fetch actual balance from API
+                    const response = await fetch('/api/wallet/balance/BTC', {
+                      credentials: 'include',
+                    });
+                    if (response.ok) {
+                      const data = await response.json();
+                      if (data.success && data.data) {
+                        const balance = data.data.available_balance || 0;
+                        const percentageValue = parseFloat(percentage) / 100;
+                        setAmount((balance * percentageValue).toFixed(8));
+                      }
+                    }
+                  } catch (error) {
+                    console.warn('Failed to fetch balance for quick amount:', error);
+                    // Fallback to small amount if balance fetch fails
+                    setAmount('0.001');
+                  }
                 }}
                 disabled={isLoading}
               >

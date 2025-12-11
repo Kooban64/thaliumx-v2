@@ -123,7 +123,7 @@ router.get('/user/:userId', authenticateToken, async (req: Request, res: Respons
 router.get('/wallet/:walletId', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { walletId } = req.params;
-    
+
     if (!walletId) {
       res.status(400).json({
         success: false,
@@ -133,7 +133,7 @@ router.get('/wallet/:walletId', authenticateToken, async (req: Request, res: Res
     }
 
     const wallet = walletSystemService.getWallet(walletId);
-    
+
     if (!wallet) {
       res.status(404).json({
         success: false,
@@ -141,7 +141,7 @@ router.get('/wallet/:walletId', authenticateToken, async (req: Request, res: Res
       });
       return;
     }
-    
+
     res.json({
       success: true,
       data: {
@@ -161,6 +161,58 @@ router.get('/wallet/:walletId', authenticateToken, async (req: Request, res: Res
             updatedAt: wallet.metadata.updatedAt
           }
         }
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get wallet balance by currency
+router.get('/balance/:currency', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+    const { currency } = req.params;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+      return;
+    }
+
+    if (!currency) {
+      res.status(400).json({
+        success: false,
+        error: 'Currency is required'
+      });
+      return;
+    }
+
+    const wallets = walletSystemService.getUserWallets(userId);
+    const wallet = wallets.find(w => w.currency === currency.toUpperCase());
+
+    if (!wallet) {
+      res.json({
+        success: true,
+        data: {
+          currency: currency.toUpperCase(),
+          available_balance: '0',
+          total_balance: '0'
+        },
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        currency: wallet.currency,
+        available_balance: wallet.balance, // Assuming balance is available balance for simplicity
+        total_balance: wallet.balance
       },
       timestamp: new Date().toISOString()
     });

@@ -312,10 +312,13 @@ contract ThaliumPresale is AccessControl, Pausable, ReentrancyGuard {
 
     /**
      * @dev Calculate THAL amount for USDT input
-     * @param usdtAmount USDT amount in smallest units
+     * @param usdtAmount USDT amount in smallest units (6 decimals)
+     * @return THAL amount in smallest units (18 decimals)
      */
     function calculateThalAmount(uint256 usdtAmount) external pure returns (uint256) {
-        return usdtAmount * 100 / 10**6; // 1 USDT = 100 THAL
+        // 1 USDT (10^6 units) = 100 THAL (100 * 10^18 units)
+        // So: usdtAmount * 100 * 10^12 = usdtAmount * 100 * 10^(18-6)
+        return usdtAmount * 100 * 10**12;
     }
 
     // ========================================
