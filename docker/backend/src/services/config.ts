@@ -517,12 +517,28 @@ export class ConfigService {
 
   public static validateConfig(): void {
     const config = this.getConfig();
-    if (!config.jwt.secret || config.jwt.secret.length < 32) {
-      throw new Error('JWT secret must be at least 32 characters long');
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    // In development, use default secrets if not provided
+    if (!isProduction) {
+      if (!config.jwt.secret || config.jwt.secret.length < 32) {
+        config.jwt.secret = 'development-jwt-secret-key-for-testing-purposes-only-32-chars-minimum';
+        LoggerService.warn('Using default development JWT secret');
+      }
+      if (!config.encryption.key || config.encryption.key.length < 32) {
+        config.encryption.key = 'development-encryption-key-for-testing-purposes-only-32-chars-minimum';
+        LoggerService.warn('Using default development encryption key');
+      }
+    } else {
+      // Production validation
+      if (!config.jwt.secret || config.jwt.secret.length < 32) {
+        throw new Error('JWT secret must be at least 32 characters long');
+      }
+      if (!config.encryption.key || config.encryption.key.length < 32) {
+        throw new Error('Encryption key must be at least 32 characters long');
+      }
     }
-    if (!config.encryption.key || config.encryption.key.length < 32) {
-      throw new Error('Encryption key must be at least 32 characters long');
-    }
+
     LoggerService.info('All configuration validation passed');
   }
 

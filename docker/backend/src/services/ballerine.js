@@ -10,7 +10,7 @@
  * - Risk assessment integration
  * - Compliance reporting
  *
- * Connects to external Ballerine workflow service (ballerine-workflow:4000)
+ * Connects to external Ballerine workflow service (thaliumx-ballerine-workflow:3000)
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -62,7 +62,7 @@ class BallerineService {
     apiKey;
     webhookSecret;
     constructor() {
-        this.baseURL = process.env.BALLERINE_BASE_URL || 'http://ballerine-workflow:4000';
+        this.baseURL = process.env.BALLERINE_BASE_URL || 'http://thaliumx-ballerine-workflow:3000';
         this.apiKey = process.env.BALLERINE_API_KEY || process.env.VAULT_BALLERINE_API_KEY || 'ballerine_oss_api_key_12345';
         this.webhookSecret = process.env.BALLERINE_WEBHOOK_SECRET || process.env.VAULT_BALLERINE_WEBHOOK_SECRET || 'ballerine_webhook_secret_67890';
         this.client = axios_1.default.create({

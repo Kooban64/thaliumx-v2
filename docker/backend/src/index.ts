@@ -33,6 +33,10 @@ import * as crypto from 'crypto';
 // Load environment variables first (before any service initialization)
 dotenv.config();
 
+// Initialize Logger FIRST before any other services that might log
+import { LoggerService } from './services/logger';
+LoggerService.initialize();
+
 // Initialize OpenTelemetry BEFORE any other imports
 // This ensures all subsequent imports are automatically instrumented
 // Must be called before any other service imports to enable tracing
@@ -69,7 +73,7 @@ import blnkfinanceRouter from './routes/blnkfinance';
 import nftRouter from './routes/nft';
 import multiTierLedgerRouter from './routes/multi-tier-ledger';
 import dexRouter from './routes/dex';
-// import aiMlRouter from './routes/ai-ml'; // DISABLED due to TensorFlow issues
+import aiMlRouter from './routes/ai-ml';
 import presaleRouter from './routes/presale';
 import securityOversightRouter from './routes/security-oversight';
 import graphsenseRouter from './routes/graphsense';
@@ -88,7 +92,7 @@ import tradingRouter from './routes/trading';
 // Import services
 import { DatabaseService } from './services/database';
 import { RedisService } from './services/redis';
-import { LoggerService } from './services/logger';
+// LoggerService already imported above
 import { ConfigService } from './services/config';
 import { EmailService } from './services/email';
 import { ExchangeService } from './services/exchange';
@@ -106,7 +110,7 @@ import { RBACService } from './services/rbac';
 import { TokenSaleService } from './services/token-sale';
 import { MultiTierLedgerService } from './services/multi-tier-ledger';
 import { DEXService } from './services/dex';
-// import { AIMLService } from './services/ai-ml'; // DISABLED due to TensorFlow issues
+import { AIMLService } from './services/ai-ml';
 import { PresaleService } from './services/presale';
 import { SecurityOversightService } from './services/security-oversight';
 import { MPCSignerService } from './services/mpc-signer';
@@ -413,9 +417,7 @@ class ThaliumXBackend {
         LoggerService.warn('⚠️  Continuing without DEX service (development mode)');
       }
 
-      // Initialize AI/ML service - DISABLED due to TensorFlow native addon issues
-      // TODO: Fix TensorFlow native addon compilation for Docker
-      /*
+      // Initialize AI/ML service
       try {
         await AIMLService.initialize();
         LoggerService.info('✅ AI/ML service initialized successfully');
@@ -426,7 +428,6 @@ class ThaliumXBackend {
         }
         LoggerService.warn('⚠️  Continuing without AI/ML service (development mode)');
       }
-      */
 
       // Initialize Presale service
       try {
@@ -724,7 +725,7 @@ class ThaliumXBackend {
           tokenSale: checkServiceHealth(TokenSaleService, 'TokenSale'),
           multiTierLedger: checkServiceHealth(MultiTierLedgerService, 'MultiTierLedger'),
           dex: checkServiceHealth(DEXService, 'DEX'),
-          aiMl: 'disabled', // checkServiceHealth(AIMLService, 'AIML'),
+          aiMl: checkServiceHealth(AIMLService, 'AIML'),
           presale: checkServiceHealth(PresaleService, 'Presale'),
           securityOversight: checkServiceHealth(SecurityOversightService, 'SecurityOversight'),
           mpcSigner: checkServiceHealth(MPCSignerService, 'MPCSigner'),
@@ -804,7 +805,7 @@ class ThaliumXBackend {
     this.app.use('/api/token-sale', tokenSaleRouter);
     this.app.use('/api/ledger', multiTierLedgerRouter);
     this.app.use('/api/dex', dexRouter);
-    // this.app.use('/api/ai-ml', aiMlRouter); // DISABLED due to TensorFlow issues
+    this.app.use('/api/ai-ml', aiMlRouter);
     this.app.use('/api/presale', presaleRouter);
     this.app.use('/api/security', securityOversightRouter);
     this.app.use('/api/graphsense', graphsenseRouter);

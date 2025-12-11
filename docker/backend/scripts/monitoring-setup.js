@@ -134,7 +134,7 @@ class MonitoringSetup {
                     scrape_interval: '30s'
                 },
                 {
-                    job_name: 'thaliumx-blnkfinance',
+                    job_name: 'thaliumx-blinkfinance',
                     static_configs: [
                         {
                             targets: ['thaliumx-blnk-finance:5001']

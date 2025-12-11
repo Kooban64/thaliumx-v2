@@ -1,0 +1,3 @@
+# AI/ML Models Directory
+# This directory will contain TensorFlow.js model files (.json + .bin)
+# Models should be trained externally and exported in TensorFlow.js format

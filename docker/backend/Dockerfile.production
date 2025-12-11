@@ -25,12 +25,17 @@ WORKDIR /app
 RUN mkdir -p /app/dist /app/shared /app/node_modules /app/logs /app/.secrets && \
     chown -R thaliumx:nodejs /app
 
-# Copy pre-built application (context is parent docker directory)
-COPY --chown=thaliumx:nodejs backend/dist ./dist
-COPY --chown=thaliumx:nodejs backend/package.json ./
-COPY --chown=thaliumx:nodejs backend/node_modules ./node_modules
-COPY --chown=thaliumx:nodejs shared/dist ./shared/dist
-COPY --chown=thaliumx:nodejs shared/package.json ./shared/
+# Copy package files and install production dependencies
+COPY --chown=thaliumx:nodejs docker/backend/package.json ./
+COPY --chown=thaliumx:nodejs docker/backend/package-lock.json ./
+COPY --chown=thaliumx:nodejs docker/shared/package.json ./shared/
+
+# Install production dependencies only
+RUN npm install --only=production --ignore-scripts && npm cache clean --force
+
+# Copy pre-built application (context is project root directory)
+COPY --chown=thaliumx:nodejs docker/backend/dist ./dist
+COPY --chown=thaliumx:nodejs docker/shared/dist ./shared/dist
 
 # Security: Set production environment
 ENV NODE_ENV=production

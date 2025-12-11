@@ -33,7 +33,7 @@ import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
 import { AppError, createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
-import * as tf from '@tensorflow/tfjs-node';
+import * as tf from '@tensorflow/tfjs';
 import * as natural from 'natural';
 import axios from 'axios';
 

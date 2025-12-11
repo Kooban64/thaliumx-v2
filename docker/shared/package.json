@@ -30,18 +30,18 @@
     "lint:fix": "eslint src/**/*.ts --fix"
   },
   "dependencies": {
-    "joi": "^17.13.3",
-    "uuid": "^10.0.0",
     "bcryptjs": "^2.4.3",
+    "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
+    "uuid": "^10.0.0",
     "winston": "^3.17.0"
   },
   "devDependencies": {
-    "@types/node": "^22.10.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.10.1",
     "@types/uuid": "^10.0.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=20.0.0"

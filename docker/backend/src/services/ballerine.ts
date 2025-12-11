@@ -93,7 +93,7 @@ export class BallerineService {
   private webhookSecret: string;
 
   constructor() {
-    this.baseURL = process.env.BALLERINE_BASE_URL || 'http://ballerine-workflow:4000';
+    this.baseURL = process.env.BALLERINE_BASE_URL || 'http://thaliumx-ballerine-workflow:3000';
     this.apiKey = process.env.BALLERINE_API_KEY || process.env.VAULT_BALLERINE_API_KEY || 'ballerine_oss_api_key_12345';
     this.webhookSecret = process.env.BALLERINE_WEBHOOK_SECRET || process.env.VAULT_BALLERINE_WEBHOOK_SECRET || 'ballerine_webhook_secret_67890';
     

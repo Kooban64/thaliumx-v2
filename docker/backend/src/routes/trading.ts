@@ -70,7 +70,7 @@ router.get('/prices/:symbol', authenticateToken, async (req: Request, res: Respo
     const mockReq = {
       ...req,
       params: { symbol: req.params.symbol }
-    } as Request;
+    } as unknown as Request;
 
     const mockRes = {
       ...res,

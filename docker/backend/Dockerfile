@@ -25,8 +25,22 @@ RUN corepack enable && corepack prepare pnpm@9.14.4 --activate
 FROM base AS deps
 WORKDIR /app
 
-# Security: Add build dependencies (needed for native modules)
-RUN apk add --no-cache python3 make g++
+# Security: Add build dependencies (needed for native modules including TensorFlow.js)
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    # TensorFlow.js native dependencies
+    libstdc++ \
+    libgcc \
+    musl-dev \
+    linux-headers \
+    build-base \
+    pkgconfig \
+    # Additional compression libraries for TensorFlow
+    snappy-dev \
+    zlib-dev \
+    lz4-dev
 
 # Security: Copy only package files first for better layer caching
 COPY backend/package.json ./
@@ -52,8 +66,20 @@ RUN pnpm store prune
 FROM base AS builder
 WORKDIR /app
 
-# Add build dependencies
-RUN apk add --no-cache python3 make g++
+# Add build dependencies (including TensorFlow.js requirements)
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    libstdc++ \
+    libgcc \
+    musl-dev \
+    linux-headers \
+    build-base \
+    pkgconfig \
+    snappy-dev \
+    zlib-dev \
+    lz4-dev
 
 # Copy package files
 COPY backend/package.json ./

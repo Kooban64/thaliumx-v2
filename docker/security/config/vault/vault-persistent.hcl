@@ -1,22 +1,22 @@
 # ===========================================
-# Vault Production Configuration
+# Vault Persistent Configuration
 # ===========================================
-# File-based storage for single-node deployment
-# Production-ready with proper security settings
+# Production-ready configuration with file storage
+# For internal network use (TLS optional)
+# ===========================================
 
-# Storage backend - file storage for single-node deployment
+# Storage backend - file storage for persistence
 storage "file" {
   path = "/vault/data"
 }
 
-# Primary listener - HTTP for internal Docker network
-# TLS termination handled by APISIX gateway
+# Listener configuration
 listener "tcp" {
   address       = "0.0.0.0:8200"
   cluster_address = "0.0.0.0:8201"
   
-  # TLS disabled for internal Docker network
-  # External access should go through APISIX with TLS
+  # TLS disabled for internal network
+  # Enable TLS for production with external access
   tls_disable = true
 }
 

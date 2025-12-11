@@ -48,22 +48,23 @@ services:
     cap_add:
       - IPC_LOCK
     environment:
-      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_TOKEN:-thaliumx-vault-token-2025}
-      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
       VAULT_ADDR: http://127.0.0.1:8200
       VAULT_API_ADDR: http://thaliumx-vault:8200
+      VAULT_CLUSTER_ADDR: https://thaliumx-vault:8201
+      VAULT_LOG_LEVEL: info
       SKIP_SETCAP: "true"
     ports:
       - "${VAULT_PORT:-8200}:8200"
     volumes:
       - vault_data:/vault/data
       - vault_logs:/vault/logs
-    # Dev mode for now - will enable TLS after basic functionality works
-    command: server -dev
+      - ./config/vault:/vault/config:ro
+    # Production mode with file storage
+    command: server -config=/vault/config/vault.hcl
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD-SHELL", "vault status --tls-skip-verify 2>/dev/null || exit 0"]
+      test: ["CMD-SHELL", "vault status 2>/dev/null | grep -q 'Sealed.*false' || vault status 2>/dev/null | grep -q 'Sealed.*true' || exit 0"]
       interval: 10s
       timeout: 5s
       retries: 5
