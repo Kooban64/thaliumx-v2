@@ -65,14 +65,14 @@ deployment:
     config_provider: etcd
   etcd:
     host:
-      - "http://thaliumx-etcd:2379"
+      - "https://thaliumx-etcd:2379"
     prefix: /apisix
     timeout: 30
-    # PRODUCTION: Enable TLS for etcd
-    # tls:
-    #   cert: /path/to/cert
-    #   key: /path/to/key
-    #   verify: true
+    tls:
+      cert: /usr/local/apisix/certs/apisix.crt
+      key: /usr/local/apisix/certs/apisix.key
+      verify: true
+      ca: /usr/local/apisix/certs/ca.crt
 
 # Plugin configuration - Production optimized
 plugins:
