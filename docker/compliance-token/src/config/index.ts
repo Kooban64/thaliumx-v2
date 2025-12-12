@@ -88,9 +88,12 @@ function getEnvArray(key: string, defaultValue?: string[]): string[] {
  */
 function parseBlockchainProviders(): TokenComplianceConfig['blockchain']['providers'] {
   const providersJson = process.env['BLOCKCHAIN_PROVIDERS'];
-  if (providersJson) {
+  if (providersJson && providersJson.trim()) {
     try {
-      return JSON.parse(providersJson);
+      const parsed = JSON.parse(providersJson);
+      if (Array.isArray(parsed)) {
+        return parsed as TokenComplianceConfig['blockchain']['providers'];
+      }
     } catch {
       // Fall back to default providers
     }
@@ -150,9 +153,12 @@ function parseBlockchainProviders(): TokenComplianceConfig['blockchain']['provid
  */
 function parseSubmissionEndpoints(): Record<string, string> {
   const endpointsJson = process.env['REGULATORY_SUBMISSION_ENDPOINTS'];
-  if (endpointsJson) {
+  if (endpointsJson && endpointsJson.trim()) {
     try {
-      return JSON.parse(endpointsJson);
+      const parsed = JSON.parse(endpointsJson);
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        return parsed as Record<string, string>;
+      }
     } catch {
       // Fall back to empty object
     }

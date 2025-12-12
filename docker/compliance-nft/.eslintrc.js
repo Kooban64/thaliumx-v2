@@ -17,7 +17,7 @@ module.exports = {
     node: true,
     jest: true,
   },
-  ignorePatterns: ['.eslintrc.js', 'dist/', 'node_modules/'],
+  ignorePatterns: ['.eslintrc.js', 'dist/', 'node_modules/', 'src/types/database.ts'],
   rules: {
     // TypeScript strict rules
     '@typescript-eslint/explicit-function-return-type': 'error',
@@ -80,6 +80,14 @@ module.exports = {
       {
         selector: 'method',
         format: ['camelCase'],
+      },
+      {
+        selector: 'property',
+        format: null,
+        filter: {
+          regex: 'Table$',
+          match: true,
+        },
       },
       {
         selector: 'property',

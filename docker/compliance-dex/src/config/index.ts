@@ -3,8 +3,8 @@
  * Enterprise-grade configuration with validation and environment support
  */
 
+import type { DEXComplianceConfig } from '../types/compliance';
 import { z } from 'zod';
-import { DEXComplianceConfig } from '../types/compliance';
 
 // ==================== CONFIGURATION SCHEMAS ====================
 
@@ -93,12 +93,12 @@ function parseBlockchainProviders(): DEXComplianceConfig['blockchain']['provider
   try {
     const providers = JSON.parse(env.BLOCKCHAIN_PROVIDERS);
     if (Array.isArray(providers) && providers.length > 0) {
-      return providers;
+      return providers as DEXComplianceConfig['blockchain']['providers'];
     }
   } catch {
     // Use default providers
   }
-  
+
   // Default providers for development
   return [
     { chainId: 1, name: 'Ethereum Mainnet', rpcUrl: 'https://eth.llamarpc.com' },
@@ -131,18 +131,12 @@ export const config: DEXComplianceConfig = {
     maxConnections: env.DATABASE_MAX_CONNECTIONS,
   },
 
-  redis: env.REDIS_PASSWORD !== undefined
-    ? {
-        host: env.REDIS_HOST,
-        port: env.REDIS_PORT,
-        password: env.REDIS_PASSWORD,
-        db: env.REDIS_DB,
-      }
-    : {
-        host: env.REDIS_HOST,
-        port: env.REDIS_PORT,
-        db: env.REDIS_DB,
-      },
+  redis: {
+    host: env.REDIS_HOST,
+    port: env.REDIS_PORT,
+    ...(env.REDIS_PASSWORD && { password: env.REDIS_PASSWORD }),
+    db: env.REDIS_DB,
+  },
 
   kafka: {
     brokers: env.KAFKA_BROKERS.split(','),
@@ -189,8 +183,8 @@ export const config: DEXComplianceConfig = {
     jurisdictions: env.REGULATORY_JURISDICTIONS.split(','),
     autoSubmit: env.REGULATORY_AUTO_SUBMIT,
     submissionEndpoints: env.REGULATORY_SUBMISSION_ENDPOINTS
-      ? JSON.parse(env.REGULATORY_SUBMISSION_ENDPOINTS)
-      : {},
+      ? JSON.parse(env.REGULATORY_SUBMISSION_ENDPOINTS) as Record<string, string>
+      : ({} as Record<string, string>),
   },
 };
 
@@ -225,8 +219,10 @@ export function validateConfig(): void {
       }
     }
 
+    // eslint-disable-next-line no-console
     console.log('✅ Configuration validation passed');
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('❌ Configuration validation failed:', error);
     throw error;
   }

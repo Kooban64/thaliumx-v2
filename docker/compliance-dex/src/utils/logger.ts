@@ -36,7 +36,9 @@ const developmentFormat = winston.format.combine(
   winston.format.errors({ stack: true }),
   winston.format.colorize({ all: true }),
   winston.format.printf(({ timestamp, level, message, ...meta }) => {
-    const metaStr = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta, null, 2)}` : '';
+    const metaStr = Object.keys(meta).length > 0
+      ? ` ${JSON.stringify(meta, null, 2)}`
+      : '';
     return `${timestamp} [${level}]: ${message}${metaStr}`;
   }),
 );
@@ -225,11 +227,9 @@ export function withPerformanceLogging<T extends (...args: unknown[]) => Promise
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
 
 // Extend Express Request to include correlationId
-declare global {
-  namespace Express {
-    interface Request {
-      correlationId?: string;
-    }
+declare module 'express-serve-static-core' {
+  interface Request {
+    correlationId?: string;
   }
 }
 

@@ -224,7 +224,7 @@ export interface DEXTravelRuleSentEvent extends BaseEvent<{
 export interface DEXCARFReportGeneratedEvent extends BaseEvent<{
   reportId: string;
   walletAddress: string;
-  reportId_external: string;
+  reportIdExternal: string;
   totalSwapVolumeUSD: string;
   totalLiquidityProvidedUSD: string;
   totalBridgeVolumeUSD: string;
@@ -241,7 +241,7 @@ export interface DEXCARFReportGeneratedEvent extends BaseEvent<{
  */
 export interface DEXCARFReportSubmittedEvent extends BaseEvent<{
   reportId: string;
-  reportId_external: string;
+  reportIdExternal: string;
   jurisdiction: string;
   submissionEndpoint: string;
   status: 'submitted' | 'acknowledged' | 'rejected';
