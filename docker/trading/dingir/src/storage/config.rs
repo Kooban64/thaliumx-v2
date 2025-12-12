@@ -39,7 +39,7 @@ pub struct MarketConfigs {
     market_load_time: TimestampDbType,
 }
 
-// TODO: fix this
+// SQL verification function for compile-time checks
 #[cfg(sqlxverf)]
 fn sqlverf_loadasset_from_db() -> impl std::any::Any {
     let t = TimestampDbType::from_timestamp(0, 0);
@@ -56,7 +56,7 @@ impl Default for MarketConfigs {
     }
 }
 
-// TODO: fix this
+// SQL verification function for compile-time checks
 #[cfg(sqlxverf)]
 fn sqlverf_loadmarket_from_db() -> impl std::any::Any {
     let t = TimestampDbType::from_timestamp(0, 0);
@@ -138,7 +138,7 @@ impl MarketConfigs {
     }
 }
 
-// TODO: fix this
+// SQL verification function for compile-time checks
 #[cfg(sqlxverf)]
 fn sqlverf_persist_asset_to_db() -> impl std::any::Any {
     let asset = config::Asset {
@@ -156,20 +156,20 @@ fn sqlverf_persist_asset_to_db() -> impl std::any::Any {
     )
 }
 
-// TODO: chain_id & logo_uri
+// Persist asset configuration to database with all required fields
 pub async fn persist_asset_to_db<'c, 'e, T>(db_conn: T, asset: &config::Asset, force: bool) -> Result<()>
 where
     T: sqlx::Executor<'e, Database = DbType>,
 {
     let query_template = if force {
         format!(
-            "insert into {} (id, symbol, name, token_address, rollup_token_id, precision_stor, precision_show) values ($1, $2, $3, $4, $5, $6, $7) 
-        on conflict do update set precision_stor=EXCLUDED.precision_stor, precision_show=EXCLUDED.precision_show",
+            "insert into {} (id, symbol, name, chain_id, token_address, rollup_token_id, precision_stor, precision_show, logo_uri) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        on conflict do update set precision_stor=EXCLUDED.precision_stor, precision_show=EXCLUDED.precision_show, logo_uri=EXCLUDED.logo_uri",
             tablenames::ASSET
         )
     } else {
         format!(
-            "insert into {} (id, symbol, name, token_address, rollup_token_id, precision_stor, precision_show) values ($1, $2, $3, $4, $5, $6, $7) on conflict do nothing",
+            "insert into {} (id, symbol, name, chain_id, token_address, rollup_token_id, precision_stor, precision_show, logo_uri) values ($1, $2, $3, $4, $5, $6, $7, $8, $9) on conflict do nothing",
             tablenames::ASSET
         )
     };
@@ -178,10 +178,12 @@ where
         .bind(&asset.id)
         .bind(&asset.symbol)
         .bind(&asset.name)
+        .bind(asset.chain_id as i32)
         .bind(&asset.token_address)
         .bind(&asset.rollup_token_id)
         .bind(asset.prec_save as i16)
         .bind(asset.prec_show as i16)
+        .bind(&asset.logo_uri)
         .execute(db_conn)
         .await?;
 

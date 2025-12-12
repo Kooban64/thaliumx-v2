@@ -6,7 +6,7 @@ use crate::types::OrderEventType;
 
 ///////////////////////////// PersistExector interface ////////////////////////////
 
-// TODO: fix methods, use ref or value?
+// Methods use references for performance, except put_transfer which takes ownership
 pub trait PersistExector: Send + Sync {
     fn service_available(&self) -> bool {
         true
@@ -277,11 +277,11 @@ impl PersistExector for DBBasedPersistor {
     fn put_balance(&mut self, balance: &BalanceHistory) {
         self.inner.append_balance_history(balance.clone());
     }
-    fn put_deposit(&mut self, _balance: &BalanceHistory) {
-        // TODO
+    fn put_deposit(&mut self, balance: &BalanceHistory) {
+        self.inner.append_balance_history(balance.clone());
     }
-    fn put_withdraw(&mut self, _balance: &BalanceHistory) {
-        // TODO
+    fn put_withdraw(&mut self, balance: &BalanceHistory) {
+        self.inner.append_balance_history(balance.clone());
     }
     fn put_transfer(&mut self, tx: InternalTx) {
         self.inner.append_internal_transfer(tx);

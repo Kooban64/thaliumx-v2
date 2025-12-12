@@ -511,7 +511,9 @@ pub unsafe fn fork_and_make_slice(controller: *const Controller) /*-> SimpleResu
             .expect("build another runtime for slice-making");
 
         if let Err(e) = rt.block_on(make_slice(controller)) {
-            // TODO: it seems sometimes no stderr/stdout is printed here. check it later
+            // In forked child process, stderr/stdout may not be visible due to buffering
+            // Force flush before panic to ensure error visibility
+            let _ = std::io::Write::flush(&mut std::io::stderr());
             panic!("panic {:?}", e);
         }
     });

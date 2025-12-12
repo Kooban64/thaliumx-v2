@@ -42,6 +42,7 @@ async fn main() -> std::io::Result<()> {
         manage_channel,
         db: Pool::<Postgres>::connect(&db_url).await.unwrap(),
         config,
+        cache: AppCache::new(),
     });
 
     let workers = user_map.config.workers;
@@ -49,7 +50,6 @@ async fn main() -> std::io::Result<()> {
     let server = HttpServer::new(move || {
         App::new()
             .app_data(user_map.clone())
-            .app_data(AppCache::new())
             .wrap_api()
             .service(
                 web::scope("/api/exchange/panel")

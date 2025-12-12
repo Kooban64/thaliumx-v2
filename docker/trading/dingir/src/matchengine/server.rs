@@ -136,7 +136,6 @@ impl GrpcHandler {
             // check order signature here
             // order signature checking is not 'write' op, so it need not to be moved into the main thread
             // it is better to finish it here
-            // TODO: refactor
             let stub = self.stub.read().await;
             if !stub.markets.contains_key(&req.market) {
                 return Err(Status::invalid_argument("invalid market"));
@@ -149,6 +148,30 @@ impl GrpcHandler {
                 .map_err(|_| Status::invalid_argument("invalid order params"))?;
             let msg = order.hash();
             if !stub.user_manager.verify_signature(req.user_id, msg, &req.signature) {
+                return Err(Status::invalid_argument("invalid signature"));
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn check_transfer_signature(&self, req: &TransferRequest) -> Result<(), Status> {
+        if self.settings.check_eddsa_signatue == OrderSignatrueCheck::Needed
+            || self.settings.check_eddsa_signatue == OrderSignatrueCheck::Auto && !req.signature.is_empty()
+        {
+            // check transfer signature here
+            // transfer signature checking is not 'write' op, so it need not to be moved into the main thread
+            let stub = self.stub.read().await;
+            // Create a message hash for the transfer using the same pattern as orders
+            use fluidex_common::types::{Fr, FrExt};
+            let magic_head = Fr::from_u32(5); // Different magic number for transfers
+            let from_fr = Fr::from_u32(req.from);
+            let to_fr = Fr::from_u32(req.to);
+            let asset_hash = Fr::hash(req.asset.as_bytes());
+            let delta_fr = Fr::from_str(&req.delta).unwrap_or(Fr::zero());
+            let msg_fr = Fr::hash(&[magic_head, from_fr, to_fr, asset_hash, delta_fr]);
+            let msg = msg_fr.to_bigint();
+            if !stub.user_manager.verify_signature(req.from, msg, &req.signature) {
                 return Err(Status::invalid_argument("invalid signature"));
             }
         }
@@ -177,8 +200,11 @@ impl matchengine_server::Matchengine for GrpcHandler {
         &self,
         request: tonic::Request<OrderBookDepthRequest>,
     ) -> Result<tonic::Response<OrderBookDepthResponse>, tonic::Status> {
-        let stub = self.stub.read().await;
-        Ok(Response::new(stub.order_book_depth(request.into_inner())?))
+        let ControllerDispatch(act, rt) =
+            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.order_book_depth(request.into_inner()) }));
+
+        self.task_dispatcher.send(act).await.map_err(map_dispatch_err)?;
+        map_dispatch_ret(rt.await)
     }
     async fn order_detail(&self, request: tonic::Request<OrderDetailRequest>) -> Result<tonic::Response<OrderInfo>, tonic::Status> {
         let stub = self.stub.read().await;
@@ -272,9 +298,11 @@ impl matchengine_server::Matchengine for GrpcHandler {
     }
 
     async fn transfer(&self, request: Request<TransferRequest>) -> Result<Response<TransferResponse>, Status> {
-        // TODO: add signature verification
+        let req = request.into_inner();
+        self.check_transfer_signature(&req).await?;
+
         let ControllerDispatch(act, rt) =
-            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.transfer(true, request.into_inner()) }));
+            ControllerDispatch::new(move |ctrl: &mut Controller| Box::pin(async move { ctrl.transfer(true, req) }));
 
         self.task_dispatcher.send(act).await.map_err(map_dispatch_err)?;
         map_dispatch_ret(rt.await)

@@ -118,14 +118,8 @@ impl BalanceManager {
         debug_assert!(old_value.ge(&amount));
         let new_value = old_value - amount;
         debug_assert!(new_value.is_sign_positive());
-        // TODO don't remove it. Skip when sql insert
-        /*
-        if result.is_zero() {
-            self.balances.remove(&key);
-        } else {
-            self.balances.insert(key, result);
-        }
-        */
+        // Zero balances are kept in memory for simplicity and to avoid SQL insert issues
+        // Could be optimized later to remove zero balances and handle in persistence layer
         self.set_by_key(key, &new_value);
         new_value
     }

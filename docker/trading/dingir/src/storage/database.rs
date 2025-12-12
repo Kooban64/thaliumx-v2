@@ -339,8 +339,9 @@ where
                 ret.send(WriterMsg::Done(self)).await
             }
             Err((resident, e)) => {
-                //TODO: we can adjust waiting time by err_count
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                // Exponential backoff: wait longer with more consecutive errors (max 30s)
+                let wait_secs = std::cmp::min(1u64.saturating_mul(1 << std::cmp::min(self.err_count, 5)), 30);
+                tokio::time::sleep(Duration::from_secs(wait_secs)).await;
                 self.err_count += 1;
                 self.data = resident;
                 ret.send(WriterMsg::Fail(e, self)).await

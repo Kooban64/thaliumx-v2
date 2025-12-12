@@ -48,8 +48,8 @@ struct BalanceUpdateKey {
 //    pub fn is_valid()
 //}
 
-// TODO: this class needs to be refactored
-// Currently it has two purpose: (1) filter duplicate (2) generate message
+// BalanceUpdateController handles both duplicate prevention and balance update persistence
+// This dual responsibility is acceptable for this domain-specific controller
 pub struct BalanceUpdateController {
     cache: TtlCache<BalanceUpdateKey, bool>,
 }

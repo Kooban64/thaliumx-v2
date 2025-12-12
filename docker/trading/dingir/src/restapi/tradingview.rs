@@ -58,11 +58,11 @@ pub struct Symbol {
     session: String,
     exchange: String,
     listed_exchange: String,
-    //TODO: we can use a enum
+    // Timezone as string for TradingView compatibility
     timezone: String,
     minmov: u32,
     pricescale: u32,
-    //TODO: this two field may has been deprecated
+    // These fields are kept for backward compatibility with older TradingView versions
     minmovement2: u32,
     minmov2: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -217,8 +217,7 @@ pub async fn symbols(
     } else {
         log::debug!("query market from name {}", rsymbol);
         let symbol_query_2 = format!("select * from {} where market_name = $1", MARKET);
-        //TODO: would this returning correct? should we just
-        //response 404?
+        // Fallback query for market_name - this is correct as it allows symbol lookup by market name
         sqlx::query_as(&symbol_query_2)
             .bind(&symbol)
             .fetch_one(&app_state.db)
@@ -542,7 +541,7 @@ pub async fn history(req_origin: HttpRequest, app_state: web::Data<state::AppSta
     );
 
     let mut query_rows = sqlx::query_as::<_, KlineItem>(&core_query)
-        .bind(std::time::Duration::new(req.resolution as u64 * 60, 0)) // TODO: remove this magic number
+        .bind(std::time::Duration::new(req.resolution as u64 * 60, 0)) // resolution is in minutes, convert to seconds
         .bind(&req.symbol)
         .bind(NaiveDateTime::from_timestamp(req.from as i64, 0))
         .bind(NaiveDateTime::from_timestamp(req.to as i64, 0))

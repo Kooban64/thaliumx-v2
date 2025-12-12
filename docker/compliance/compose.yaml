@@ -1,0 +1,346 @@
+# ThaliumX Compliance Services Stack
+# Docker Compose configuration for all compliance microservices
+
+version: '3.8'
+
+services:
+  # ==================== CEX COMPLIANCE SERVICE ====================
+  compliance-cex:
+    build:
+      context: ../compliance-cex
+      dockerfile: Dockerfile
+    container_name: thaliumx-compliance-cex
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - SERVICE_NAME=cex-compliance-service
+      - PORT=3001
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=cex_compliance
+      - DATABASE_USER=${DB_USER:-compliance_user}
+      - DATABASE_PASSWORD=${DB_PASSWORD:-compliance_password}
+      - DATABASE_SSL=${DB_SSL:-false}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=0
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_CLIENT_ID=cex-compliance-service
+      - KAFKA_GROUP_ID=cex-compliance-group
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - compliance-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.compliance-cex.rule=PathPrefix(`/api/compliance/cex`)"
+      - "traefik.http.services.compliance-cex.loadbalancer.server.port=3001"
+
+  # ==================== DEX COMPLIANCE SERVICE ====================
+  compliance-dex:
+    build:
+      context: ../compliance-dex
+      dockerfile: Dockerfile
+    container_name: thaliumx-compliance-dex
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - SERVICE_NAME=dex-compliance-service
+      - PORT=3002
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=dex_compliance
+      - DB_USER=${DB_USER:-compliance_user}
+      - DB_PASSWORD=${DB_PASSWORD:-compliance_password}
+      - DB_SSL=${DB_SSL:-false}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=1
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_CLIENT_ID=dex-compliance-service
+      - KAFKA_GROUP_ID=dex-compliance-group
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - compliance-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.compliance-dex.rule=PathPrefix(`/api/compliance/dex`)"
+      - "traefik.http.services.compliance-dex.loadbalancer.server.port=3002"
+
+  # ==================== NFT COMPLIANCE SERVICE ====================
+  compliance-nft:
+    build:
+      context: ../compliance-nft
+      dockerfile: Dockerfile
+    container_name: thaliumx-compliance-nft
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - SERVICE_NAME=nft-compliance-service
+      - PORT=3003
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=nft_compliance
+      - DB_USER=${DB_USER:-compliance_user}
+      - DB_PASSWORD=${DB_PASSWORD:-compliance_password}
+      - DB_SSL=${DB_SSL:-false}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=2
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_CLIENT_ID=nft-compliance-service
+      - KAFKA_GROUP_ID=nft-compliance-group
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CONTENT_SCREENING_ENABLED=${CONTENT_SCREENING_ENABLED:-true}
+      - WASH_TRADING_DETECTION_ENABLED=${WASH_TRADING_DETECTION_ENABLED:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - compliance-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.compliance-nft.rule=PathPrefix(`/api/compliance/nft`)"
+      - "traefik.http.services.compliance-nft.loadbalancer.server.port=3003"
+
+  # ==================== TOKEN COMPLIANCE SERVICE ====================
+  compliance-token:
+    build:
+      context: ../compliance-token
+      dockerfile: Dockerfile
+    container_name: thaliumx-compliance-token
+    restart: unless-stopped
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - SERVICE_NAME=token-compliance-service
+      - PORT=3004
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=token_compliance
+      - DB_USER=${DB_USER:-compliance_user}
+      - DB_PASSWORD=${DB_PASSWORD:-compliance_password}
+      - DB_SSL=${DB_SSL:-false}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=3
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_CLIENT_ID=token-compliance-service
+      - KAFKA_GROUP_ID=token-compliance-group
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - WALLET_SCREENING_ENABLED=${WALLET_SCREENING_ENABLED:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - compliance-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.compliance-token.rule=PathPrefix(`/api/compliance/token`)"
+      - "traefik.http.services.compliance-token.loadbalancer.server.port=3004"
+
+  # ==================== COMPLIANCE COORDINATOR SERVICE ====================
+  compliance-coordinator:
+    build:
+      context: ../compliance-coordinator
+      dockerfile: Dockerfile
+    container_name: thaliumx-compliance-coordinator
+    restart: unless-stopped
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - SERVICE_NAME=compliance-coordinator-service
+      - PORT=3005
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=compliance_coordinator
+      - DB_USER=${DB_USER:-compliance_user}
+      - DB_PASSWORD=${DB_PASSWORD:-compliance_password}
+      - DB_SSL=${DB_SSL:-false}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=4
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_CLIENT_ID=compliance-coordinator-service
+      - KAFKA_GROUP_ID=compliance-coordinator-group
+      - CEX_COMPLIANCE_URL=http://compliance-cex:3001
+      - DEX_COMPLIANCE_URL=http://compliance-dex:3002
+      - NFT_COMPLIANCE_URL=http://compliance-nft:3003
+      - TOKEN_COMPLIANCE_URL=http://compliance-token:3004
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - AGGREGATION_ENABLED=${AGGREGATION_ENABLED:-true}
+      - ALERTS_ENABLED=${ALERTS_ENABLED:-true}
+      - REPORTING_ENABLED=${REPORTING_ENABLED:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      compliance-cex:
+        condition: service_healthy
+      compliance-dex:
+        condition: service_healthy
+      compliance-nft:
+        condition: service_healthy
+      compliance-token:
+        condition: service_healthy
+    networks:
+      - compliance-network
+    volumes:
+      - compliance-reports:/data/reports
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.compliance-coordinator.rule=PathPrefix(`/api/compliance`)"
+      - "traefik.http.services.compliance-coordinator.loadbalancer.server.port=3005"
+
+  # ==================== SUPPORTING SERVICES ====================
+  
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: thaliumx-compliance-postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=${DB_USER:-compliance_user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-compliance_password}
+      - POSTGRES_DB=compliance
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    networks:
+      - compliance-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-compliance_user} -d compliance"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: thaliumx-compliance-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    networks:
+      - compliance-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Kafka Message Broker
+  kafka:
+    image: bitnami/kafka:3.6
+    container_name: thaliumx-compliance-kafka
+    restart: unless-stopped
+    ports:
+      - "9093:9092"
+    environment:
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_NUM_PARTITIONS=3
+      - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=1
+    volumes:
+      - kafka-data:/bitnami/kafka
+    networks:
+      - compliance-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+networks:
+  compliance-network:
+    driver: bridge
+    name: thaliumx-compliance-network
+
+volumes:
+  postgres-data:
+    name: thaliumx-compliance-postgres-data
+  redis-data:
+    name: thaliumx-compliance-redis-data
+  kafka-data:
+    name: thaliumx-compliance-kafka-data
+  compliance-reports:
+    name: thaliumx-compliance-reports

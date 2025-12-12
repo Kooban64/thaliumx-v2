@@ -654,6 +654,321 @@ services:
           memory: 1G
 
   # ============================================
+  # COMPLIANCE SERVICES
+  # ============================================
+
+  # ============================================
+  # COMPLIANCE SERVICES
+  # ============================================
+
+  # DEX Compliance Service
+  compliance-dex:
+    build:
+      context: ./compliance-dex
+      dockerfile: Dockerfile
+    image: thaliumx/compliance-dex:${VERSION:-latest}
+    container_name: thaliumx-compliance-dex
+    <<: *restart-policy
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: [*common-env, *vault-env]
+      PORT: 3002
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: thaliumx_compliance_dex
+      DATABASE_USER: thaliumx
+      DATABASE_SSL: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_TLS: "true"
+      KAFKA_BROKERS: kafka:9092
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: thaliumx-compliance-dex
+      NODE_OPTIONS: "--max-old-space-size=1024"
+    volumes:
+      - ./certs/client/compliance-service:/app/certs:ro
+      - ./certs/ca/ca.crt:/app/certs/ca.crt:ro
+    secrets:
+      - vault-role-id
+      - vault-secret-id
+      - postgres-password
+      - redis-password
+      - jwt-secret
+      - encryption-key
+    ports:
+      - "3003:3002"  # Different port to avoid conflict with backend
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      <<: *healthcheck-defaults
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  # CEX Compliance Service
+  compliance-cex:
+    build:
+      context: ./compliance-cex
+      dockerfile: Dockerfile
+    image: thaliumx/compliance-cex:${VERSION:-latest}
+    container_name: thaliumx-compliance-cex
+    <<: *restart-policy
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: [*common-env, *vault-env]
+      PORT: 3001
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: thaliumx_compliance_cex
+      DATABASE_USER: thaliumx
+      DATABASE_SSL: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_TLS: "true"
+      KAFKA_BROKERS: kafka:9092
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: thaliumx-compliance-cex
+      NODE_OPTIONS: "--max-old-space-size=1024"
+    volumes:
+      - ./certs/client/compliance-service:/app/certs:ro
+      - ./certs/ca/ca.crt:/app/certs/ca.crt:ro
+    secrets:
+      - vault-role-id
+      - vault-secret-id
+      - postgres-password
+      - redis-password
+      - jwt-secret
+      - encryption-key
+    ports:
+      - "3004:3001"
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      <<: *healthcheck-defaults
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  # NFT Compliance Service
+  compliance-nft:
+    build:
+      context: ./compliance-nft
+      dockerfile: Dockerfile
+    image: thaliumx/compliance-nft:${VERSION:-latest}
+    container_name: thaliumx-compliance-nft
+    <<: *restart-policy
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: [*common-env, *vault-env]
+      PORT: 3003
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: thaliumx_compliance_nft
+      DATABASE_USER: thaliumx
+      DATABASE_SSL: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_TLS: "true"
+      KAFKA_BROKERS: kafka:9092
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: thaliumx-compliance-nft
+      NODE_OPTIONS: "--max-old-space-size=1024"
+    volumes:
+      - ./certs/client/compliance-service:/app/certs:ro
+      - ./certs/ca/ca.crt:/app/certs/ca.crt:ro
+    secrets:
+      - vault-role-id
+      - vault-secret-id
+      - postgres-password
+      - redis-password
+      - jwt-secret
+      - encryption-key
+    ports:
+      - "3005:3003"
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      <<: *healthcheck-defaults
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  # Token Compliance Service
+  compliance-token:
+    build:
+      context: ./compliance-token
+      dockerfile: Dockerfile
+    image: thaliumx/compliance-token:${VERSION:-latest}
+    container_name: thaliumx-compliance-token
+    <<: *restart-policy
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: [*common-env, *vault-env]
+      PORT: 3004
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: thaliumx_compliance_token
+      DATABASE_USER: thaliumx
+      DATABASE_SSL: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_TLS: "true"
+      KAFKA_BROKERS: kafka:9092
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: thaliumx-compliance-token
+      NODE_OPTIONS: "--max-old-space-size=1024"
+    volumes:
+      - ./certs/client/compliance-service:/app/certs:ro
+      - ./certs/ca/ca.crt:/app/certs/ca.crt:ro
+    secrets:
+      - vault-role-id
+      - vault-secret-id
+      - postgres-password
+      - redis-password
+      - jwt-secret
+      - encryption-key
+    ports:
+      - "3006:3004"
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      <<: *healthcheck-defaults
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  # Compliance Coordinator Service
+  compliance-coordinator:
+    build:
+      context: ./compliance-coordinator
+      dockerfile: Dockerfile
+    image: thaliumx/compliance-coordinator:${VERSION:-latest}
+    container_name: thaliumx-compliance-coordinator
+    <<: *restart-policy
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      compliance-dex:
+        condition: service_healthy
+      compliance-cex:
+        condition: service_healthy
+      compliance-nft:
+        condition: service_healthy
+      compliance-token:
+        condition: service_healthy
+    environment:
+      <<: [*common-env, *vault-env]
+      PORT: 3005
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: thaliumx_compliance_coordinator
+      DATABASE_USER: thaliumx
+      DATABASE_SSL: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_TLS: "true"
+      KAFKA_BROKERS: kafka:9092
+      CEX_COMPLIANCE_URL: http://compliance-cex:3001
+      DEX_COMPLIANCE_URL: http://compliance-dex:3002
+      NFT_COMPLIANCE_URL: http://compliance-nft:3003
+      TOKEN_COMPLIANCE_URL: http://compliance-token:3004
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: thaliumx-compliance-coordinator
+      NODE_OPTIONS: "--max-old-space-size=1024"
+    volumes:
+      - ./certs/client/compliance-service:/app/certs:ro
+      - ./certs/ca/ca.crt:/app/certs/ca.crt:ro
+    secrets:
+      - vault-role-id
+      - vault-secret-id
+      - postgres-password
+      - redis-password
+      - jwt-secret
+      - encryption-key
+    ports:
+      - "3007:3005"
+    networks:
+      - thaliumx-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+      <<: *healthcheck-defaults
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  # ============================================
   # OBSERVABILITY
   # ============================================
 

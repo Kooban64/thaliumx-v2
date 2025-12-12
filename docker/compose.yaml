@@ -35,6 +35,10 @@ include:
   - path: fintech/compose.yaml
     project_directory: fintech
 
+  # Compliance Services - Depends on core and messaging
+  - path: compliance/compose.yaml
+    project_directory: compliance
+
   # Observability - Independent, can start anytime
   - path: observability/compose.yaml
     project_directory: observability

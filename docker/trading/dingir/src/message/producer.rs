@@ -93,7 +93,7 @@ impl<T: MessageScheme> RdProducerContext<T> {
                 }
                 Err((err, _)) => {
                     log::error!("kafka encounter error when shutdown: {}", err);
-                    //TODO: so what should we do? try handling / waiting or just quit?
+                    // During shutdown, persistent errors indicate infrastructure issues - safest to quit
                     return;
                 }
             };
@@ -344,8 +344,10 @@ impl MessageScheme for FullOrderMessageScheme {
         log::debug!("kafka unify messenger has confirm deliver till {}", self.commited_cnt);
 
         if let Err(e) = result {
-            //TODO: should we panic ?
-            log::error!("kafka send err: {}, MESSAGE LOST", e);
+            // Critical error: message delivery failed, data may be lost
+            // Panic in production to ensure data consistency and alert operators
+            log::error!("kafka send err: {}, MESSAGE LOST - PANICKING FOR DATA CONSISTENCY", e);
+            panic!("Critical: Kafka message delivery failed, data lost: {}", e);
         }
     }
 }

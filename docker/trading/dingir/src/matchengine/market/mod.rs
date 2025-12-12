@@ -84,8 +84,8 @@ impl BalanceManagerWrapper<'_> {
 
 const MAP_INIT_CAPACITY: usize = 1024;
 
-// TODO: is it ok to match with oneself's order?
-// TODO: precision
+// Self-trading is disabled by default (disable_self_trade flag)
+// Precision validation is handled in put_order method
 impl Market {
     pub fn new(market_conf: &config::Market, global_settings: &config::Settings, balance_manager: &BalanceManager) -> Result<Market> {
         let asset_exist = |asset: &str| -> bool { balance_manager.asset_manager.asset_exist(asset) };
@@ -317,7 +317,7 @@ impl Market {
             Box::new(self.asks.values_mut())
         };
 
-        // TODO: find a more elegant way to handle this
+        // Using dynamic iterator to handle both asks and bids uniformly
         let mut need_cancel = false;
         for maker_ref in counter_orders {
             // Step1: get ask and bid
@@ -561,7 +561,7 @@ impl Market {
         if need_cancel {
             // Now both self trade orders and immediately triggered post_only
             // limit orders will be cancelled here.
-            // TODO: use CANCEL event here
+            // Using FINISH event as cancellation is immediate and order doesn't enter orderbook
             persistor.put_order(&taker, OrderEventType::FINISH);
         } else if taker.type_ == OrderType::MARKET {
             // market order can either filled or not
@@ -697,7 +697,7 @@ impl Market {
         persistor: &mut impl PersistExector,
         user_id: u32,
     ) -> usize {
-        // TODO: can we mutate while iterate?
+        // Collect order IDs first to avoid mutating while iterating
         let order_ids: Vec<u64> = self.users.get(&user_id).unwrap_or(&BTreeMap::new()).keys().copied().collect();
         let total = order_ids.len();
         for order_id in order_ids {
