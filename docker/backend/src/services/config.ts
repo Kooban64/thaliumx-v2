@@ -189,14 +189,14 @@ export class ConfigService {
       },
 
       smtp: {
-        host: process.env.SMTP_HOST || '',
-        port: parseInt(process.env.SMTP_PORT || '587', 10),
+        host: this.getSecret('SMTP_HOST', 'thaliumx/smtp/host') || 'smtp.gmail.com',
+        port: parseInt(this.getSecret('SMTP_PORT', 'thaliumx/smtp/port') || '587', 10),
         secure: false,
         auth: {
-          user: process.env.SMTP_USER || '',
-          pass: process.env.SMTP_PASSWORD || ''
+          user: this.getSecret('SMTP_USER', 'thaliumx/smtp/user') || '',
+          pass: this.getSecret('SMTP_PASSWORD', 'thaliumx/smtp/password') || ''
         },
-        from: process.env.SMTP_FROM || process.env.SMTP_USER || ''
+        from: this.getSecret('SMTP_FROM', 'thaliumx/smtp/from') || this.getSecret('SMTP_USER', 'thaliumx/smtp/user') || ''
       },
 
       external: {
@@ -519,24 +519,91 @@ export class ConfigService {
     const config = this.getConfig();
     const isProduction = process.env.NODE_ENV === 'production';
 
-    // In development, use default secrets if not provided
-    if (!isProduction) {
-      if (!config.jwt.secret || config.jwt.secret.length < 32) {
+    // Critical configuration validation
+    const errors: string[] = [];
+
+    // JWT validation
+    if (!config.jwt.secret || config.jwt.secret.length < 32) {
+      if (isProduction) {
+        errors.push('JWT secret must be at least 32 characters long');
+      } else {
         config.jwt.secret = 'development-jwt-secret-key-for-testing-purposes-only-32-chars-minimum';
         LoggerService.warn('Using default development JWT secret');
       }
-      if (!config.encryption.key || config.encryption.key.length < 32) {
+    }
+
+    // Encryption key validation
+    if (!config.encryption.key || config.encryption.key.length < 32) {
+      if (isProduction) {
+        errors.push('Encryption key must be at least 32 characters long');
+      } else {
         config.encryption.key = 'development-encryption-key-for-testing-purposes-only-32-chars-minimum';
         LoggerService.warn('Using default development encryption key');
       }
-    } else {
-      // Production validation
-      if (!config.jwt.secret || config.jwt.secret.length < 32) {
-        throw new Error('JWT secret must be at least 32 characters long');
+    }
+
+    // Database configuration validation
+    if (!config.database.host) {
+      errors.push('Database host is required');
+    }
+    if (!config.database.database) {
+      errors.push('Database name is required');
+    }
+    if (!config.database.username) {
+      errors.push('Database username is required');
+    }
+
+    // Redis configuration validation
+    if (!config.redis.host) {
+      errors.push('Redis host is required');
+    }
+
+    // SMTP configuration validation (required for production)
+    if (isProduction) {
+      if (!config.smtp.host) {
+        errors.push('SMTP host is required for production');
       }
-      if (!config.encryption.key || config.encryption.key.length < 32) {
-        throw new Error('Encryption key must be at least 32 characters long');
+      if (!config.smtp.auth.user) {
+        errors.push('SMTP username is required for production');
       }
+      if (!config.smtp.auth.pass) {
+        errors.push('SMTP password is required for production');
+      }
+    }
+
+    // Keycloak configuration validation
+    if (!config.keycloak.baseUrl) {
+      errors.push('Keycloak base URL is required');
+    }
+    if (!config.keycloak.realm) {
+      errors.push('Keycloak realm is required');
+    }
+
+    // Blockchain configuration validation
+    if (!config.blockchain.rpcUrl) {
+      errors.push('Blockchain RPC URL is required');
+    }
+
+    // External service validation (Stripe, Twilio, etc.)
+    if (isProduction) {
+      if (process.env.STRIPE_SECRET_KEY && !config.external.stripe.secretKey) {
+        errors.push('Stripe secret key is required when STRIPE_SECRET_KEY is set');
+      }
+      if (process.env.TWILIO_ACCOUNT_SID && !config.external.twilio.accountSid) {
+        errors.push('Twilio account SID is required when TWILIO_ACCOUNT_SID is set');
+      }
+    }
+
+    // Kafka configuration validation
+    if (config.kafka.brokers.length === 0) {
+      errors.push('At least one Kafka broker is required');
+    }
+
+    // Throw error if any validation failed
+    if (errors.length > 0) {
+      const errorMessage = `Configuration validation failed:\n${errors.map(error => `  - ${error}`).join('\n')}`;
+      LoggerService.error(errorMessage);
+      throw new Error(errorMessage);
     }
 
     LoggerService.info('All configuration validation passed');

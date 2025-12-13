@@ -51,19 +51,19 @@ scrape_configs:
       - targets: ['apisix:9091']
     metrics_path: /apisix/prometheus/metrics
 
-  # PostgreSQL
+  # PostgreSQL Exporter
   - job_name: 'postgres'
     static_configs:
-      - targets: ['postgres:5432']
-    metrics_path: /metrics
-    # Note: Requires postgres_exporter sidecar
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+    scrape_timeout: 10s
 
-  # Redis
+  # Redis Exporter
   - job_name: 'redis'
     static_configs:
-      - targets: ['redis:6379']
-    metrics_path: /metrics
-    # Note: Requires redis_exporter sidecar
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+    scrape_timeout: 10s
 
   # Kafka
   - job_name: 'kafka'

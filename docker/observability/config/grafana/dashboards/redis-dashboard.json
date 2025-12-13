@@ -1,0 +1,91 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Redis Cache & Sessions",
+    "tags": ["thaliumx", "redis", "cache", "performance"],
+    "timezone": "UTC",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Redis Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "redis_memory_used_bytes{job=\"redis\"}",
+            "legendFormat": "Used Memory"
+          },
+          {
+            "expr": "redis_memory_max_bytes{job=\"redis\"}",
+            "legendFormat": "Max Memory"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Redis Connections",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "redis_connected_clients{job=\"redis\"}",
+            "legendFormat": "Connected Clients"
+          },
+          {
+            "expr": "redis_blocked_clients{job=\"redis\"}",
+            "legendFormat": "Blocked Clients"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Redis Operations",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(redis_commands_total{job=\"redis\"}[5m])",
+            "legendFormat": "Commands/sec"
+          },
+          {
+            "expr": "rate(redis_keyspace_hits_total{job=\"redis\"}[5m])",
+            "legendFormat": "Key Hits/sec"
+          },
+          {
+            "expr": "rate(redis_keyspace_misses_total{job=\"redis\"}[5m])",
+            "legendFormat": "Key Misses/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Redis Hit Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "(rate(redis_keyspace_hits_total{job=\"redis\"}[5m]) / (rate(redis_keyspace_hits_total{job=\"redis\"}[5m]) + rate(redis_keyspace_misses_total{job=\"redis\"}[5m]))) * 100",
+            "legendFormat": "Cache Hit Rate %"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Redis Uptime",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "redis_uptime_in_seconds{job=\"redis\"}",
+            "legendFormat": "Uptime (seconds)"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 8}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}

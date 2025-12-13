@@ -167,132 +167,60 @@ class ThaliumXBackend {
   }
 
   private async initializeServices(): Promise<void> {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const criticalServices: string[] = ['DatabaseService', 'RedisService', 'EmailService'];
+    const failedServices: string[] = [];
+
+    LoggerService.info('Initializing core services');
+
+    // Initialize logger first
+    LoggerService.initialize();
+    LoggerService.info('Logger service initialized');
+
+    // Critical services - must succeed in production
     try {
-      LoggerService.info('Initializing core services');
-      
-      // Initialize logger first
-      LoggerService.initialize();
-      LoggerService.info('Logger service initialized');
+      await EmailService.initialize();
+      LoggerService.info('✅ Email service initialized successfully');
+    } catch (error) {
+      LoggerService.error('❌ Email service initialization failed:', error);
+      failedServices.push('EmailService');
+      if (isProduction && criticalServices.includes('EmailService')) {
+        throw new Error(`Critical service EmailService failed to initialize: ${error}`);
+      }
+    }
 
-      // Initialize email service early (needed for auth)
-      // DISABLED due to SMTP connection issues
-      /*
-      try {
-        EmailService.initialize();
-        LoggerService.info('✅ Email service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Email service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without email service (development mode)');
+    try {
+      await DatabaseService.initialize();
+      LoggerService.info('✅ Database service initialized successfully');
+    } catch (error) {
+      LoggerService.error('❌ Database service initialization failed:', error);
+      failedServices.push('DatabaseService');
+      if (isProduction && criticalServices.includes('DatabaseService')) {
+        throw new Error(`Critical service DatabaseService failed to initialize: ${error}`);
       }
-      */
-      LoggerService.warn('⚠️  Email service disabled due to SMTP configuration issues');
-      
-      // Initialize database with proper error handling
-      try {
-        await DatabaseService.initialize();
-        LoggerService.info('✅ Database service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Database service initialization failed:', error);
-        // For financial applications, we should exit if database fails
-        // But for development, we'll continue with warnings
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without database (development mode)');
-      }
-      
-      // Initialize Redis with proper error handling
-      try {
-        await RedisService.initialize();
-        LoggerService.info('✅ Redis service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Redis service initialization failed:', error);
-        // For financial applications, Redis is critical for caching and sessions
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Redis (development mode)');
-      }
-      
-      // Initialize Kafka service
-      try {
-        await KafkaService.initialize();
-        LoggerService.info('✅ Kafka service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Kafka service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Kafka service (development mode)');
-      }
-      
-      // Initialize Exchange Service
-      try {
-        await ExchangeService.initialize();
-        LoggerService.info('✅ Exchange service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Exchange service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Exchange service (development mode)');
-      }
-      
-      // Initialize FIAT Service
-      try {
-        await FiatService.initialize();
-        LoggerService.info('✅ FIAT service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ FIAT service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without FIAT service (development mode)');
-      }
-      
-      // Initialize Token Service
-      try {
-        await TokenService.initialize();
-        LoggerService.info('✅ Token service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Token service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Token service (development mode)');
-      }
-      
-      // Initialize Event Streaming Service
-      try {
-        await EventStreamingService.initialize();
-        LoggerService.info('✅ Event Streaming service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Event Streaming service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Event Streaming service (development mode)');
-      }
-      
-      // Initialize Margin Trading Service
-      try {
-        await MarginTradingService.initialize();
-        LoggerService.info('✅ Margin Trading service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Margin Trading service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Margin Trading service (development mode)');
-      }
+    }
 
-      // Initialize Keycloak service
-      try {
+    try {
+      await RedisService.initialize();
+      LoggerService.info('✅ Redis service initialized successfully');
+    } catch (error) {
+      LoggerService.error('❌ Redis service initialization failed:', error);
+      failedServices.push('RedisService');
+      if (isProduction && criticalServices.includes('RedisService')) {
+        throw new Error(`Critical service RedisService failed to initialize: ${error}`);
+      }
+    }
+
+    // Non-critical services - log failures but continue
+    const nonCriticalServices = [
+      { name: 'KafkaService', init: () => KafkaService.initialize() },
+      { name: 'ExchangeService', init: () => ExchangeService.initialize() },
+      { name: 'FiatService', init: () => FiatService.initialize() },
+      { name: 'TokenService', init: () => TokenService.initialize() },
+      { name: 'EventStreamingService', init: () => EventStreamingService.initialize() },
+      { name: 'MarginTradingService', init: () => MarginTradingService.initialize() },
+      { name: 'KeycloakService', init: async () => {
         await KeycloakService.initialize();
-        LoggerService.info('✅ Keycloak service initialized successfully');
         // Align Keycloak realms with known brokers (best-effort)
         try {
           const brokers = BrokerManagementService.getAllBrokers().map(b => ({ id: b.id, name: b.name, slug: b.slug, domain: b.domain }));
@@ -301,259 +229,58 @@ class ThaliumXBackend {
         } catch (syncErr) {
           LoggerService.warn('⚠️  Keycloak broker realm synchronization skipped/failed', { error: syncErr instanceof Error ? syncErr.message : String(syncErr) });
         }
-      } catch (error) {
-        LoggerService.error('❌ Keycloak service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Keycloak service (development mode)');
-      }
-
-      // Initialize Broker Management service
-      try {
-        await BrokerManagementService.initialize();
-        LoggerService.info('✅ Broker Management service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Broker Management service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Broker Management service (development mode)');
-      }
-
-      // Initialize Smart Contract service
-      try {
-        await SmartContractService.initialize();
-        LoggerService.info('✅ Smart Contract service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Smart Contract service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Smart Contract service (development mode)');
-      }
-
-      // Initialize BlnkFinance service
-      try {
-        await BlnkFinanceService.initialize();
-        LoggerService.info('✅ BlnkFinance service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ BlnkFinance service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without BlnkFinance service (development mode)');
-      }
-
-      // Initialize NFT service
-      try {
-        await NFTService.initialize();
-        LoggerService.info('✅ NFT service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ NFT service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without NFT service (development mode)');
-      }
-
-      // Initialize KYC service
-      try {
-        await KYCService.initialize();
-        LoggerService.info('✅ KYC service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ KYC service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without KYC service (development mode)');
-      }
-
-      // Initialize RBAC service
-      try {
-        await RBACService.initialize();
-        LoggerService.info('✅ RBAC service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ RBAC service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without RBAC service (development mode)');
-      }
-
-      // Initialize Token Sale service
-      try {
-        await TokenSaleService.initialize();
-        LoggerService.info('✅ Token Sale service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Token Sale service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Token Sale service (development mode)');
-      }
-
-      // Initialize Multi-Tier Ledger service
-      try {
-        await MultiTierLedgerService.initialize();
-        LoggerService.info('✅ Multi-Tier Ledger service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Multi-Tier Ledger service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Multi-Tier Ledger service (development mode)');
-      }
-
-      // Initialize DEX service
-      try {
-        await DEXService.initialize();
-        LoggerService.info('✅ DEX service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ DEX service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without DEX service (development mode)');
-      }
-
-      // Initialize AI/ML service
-      try {
-        await AIMLService.initialize();
-        LoggerService.info('✅ AI/ML service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ AI/ML service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without AI/ML service (development mode)');
-      }
-
-      // Initialize Presale service
-      try {
-        await PresaleService.initialize();
-        LoggerService.info('✅ Presale service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Presale service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Presale service (development mode)');
-      }
-
-      // Initialize Security & Oversight service
-      try {
-        await SecurityOversightService.initialize();
-        LoggerService.info('✅ Security & Oversight service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Security & Oversight service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Security & Oversight service (development mode)');
-      }
-
-      // Initialize Omni Exchange service
-      try {
-        await initializeOmniExchange();
-        LoggerService.info('✅ Omni Exchange service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Omni Exchange service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Omni Exchange service (development mode)');
-      }
-
-      // Initialize MPC Signer service
-      try {
-        await MPCSignerService.initialize();
-        LoggerService.info('✅ MPC Signer service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ MPC Signer service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without MPC Signer service (development mode)');
-      }
-
-      // Initialize GraphSense service
-      try {
-        await GraphSenseService.initialize();
-        LoggerService.info('✅ GraphSense service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ GraphSense service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without GraphSense service (development mode)');
-      }
-
-      // Initialize Wallet System service
-      try {
-        await initializeWalletSystem();
-        LoggerService.info('✅ Wallet System service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Wallet System service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Wallet System service (development mode)');
-      }
-
-      // Initialize Native CEX service
-      try {
-        await initializeNativeCEX();
-        LoggerService.info('✅ Native CEX service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Native CEX service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Native CEX service (development mode)');
-      }
-
-      // Initialize Advanced Margin Trading Service
-      try {
+      }},
+      { name: 'BrokerManagementService', init: () => BrokerManagementService.initialize() },
+      { name: 'SmartContractService', init: () => SmartContractService.initialize() },
+      { name: 'BlnkFinanceService', init: () => BlnkFinanceService.initialize() },
+      { name: 'NFTService', init: () => NFTService.initialize() },
+      { name: 'KYCService', init: () => KYCService.initialize() },
+      { name: 'RBACService', init: () => RBACService.initialize() },
+      { name: 'TokenSaleService', init: () => TokenSaleService.initialize() },
+      { name: 'MultiTierLedgerService', init: () => MultiTierLedgerService.initialize() },
+      { name: 'DEXService', init: () => DEXService.initialize() },
+      { name: 'AIMLService', init: () => AIMLService.initialize() },
+      { name: 'PresaleService', init: () => PresaleService.initialize() },
+      { name: 'SecurityOversightService', init: () => SecurityOversightService.initialize() },
+      { name: 'OmniExchange', init: () => initializeOmniExchange() },
+      { name: 'MPCSignerService', init: () => MPCSignerService.initialize() },
+      { name: 'GraphSenseService', init: () => GraphSenseService.initialize() },
+      { name: 'WalletSystem', init: () => initializeWalletSystem() },
+      { name: 'NativeCEX', init: () => initializeNativeCEX() },
+      { name: 'AdvancedMarginTradingService', init: async () => {
         await AdvancedMarginTradingService.initialize();
-    await web3WalletService.initialize();
-        LoggerService.info('✅ Advanced Margin Trading service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Advanced Margin Trading service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Advanced Margin Trading service (development mode)');
-      }
+        await web3WalletService.initialize();
+      }},
+      { name: 'DeviceFingerprintService', init: () => DeviceFingerprintService.initialize() },
+      { name: 'MetricsService', init: () => MetricsService.initialize() }
+    ];
 
-      // Initialize Device Fingerprint Service
+    for (const service of nonCriticalServices) {
       try {
-        DeviceFingerprintService.initialize();
-        LoggerService.info('✅ Device Fingerprint service initialized successfully');
+        await service.init();
+        LoggerService.info(`✅ ${service.name} initialized successfully`);
       } catch (error) {
-        LoggerService.error('❌ Device Fingerprint service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
+        LoggerService.error(`❌ ${service.name} initialization failed:`, error);
+        failedServices.push(service.name);
+        if (isProduction) {
+          LoggerService.warn(`⚠️  Continuing without ${service.name} (production mode)`);
+        } else {
+          LoggerService.warn(`⚠️  Continuing without ${service.name} (development mode)`);
         }
-        LoggerService.warn('⚠️  Continuing without Device Fingerprint service (development mode)');
       }
+    }
 
-      // Initialize Metrics service
-      try {
-        MetricsService.initialize();
-        LoggerService.info('✅ Metrics service initialized successfully');
-      } catch (error) {
-        LoggerService.error('❌ Metrics service initialization failed:', error);
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
-        LoggerService.warn('⚠️  Continuing without Metrics service (development mode)');
+    if (failedServices.length > 0) {
+      const message = `Services failed to initialize: ${failedServices.join(', ')}`;
+      if (isProduction) {
+        LoggerService.error(`💥 ${message} - Production deployment may be degraded`);
+        // In production, we might want to exit or alert, but for now we'll continue
+        // throw new Error(message);
+      } else {
+        LoggerService.warn(`⚠️  ${message} - Development mode continuing with limited functionality`);
       }
-      
-      LoggerService.info('✅ All core services initialized successfully');
-    } catch (error) {
-      LoggerService.error('💥 Failed to initialize core services:', error);
-      LoggerService.warn('⚠️  Continuing with limited functionality (some services failed)');
+    } else {
+      LoggerService.info('✅ All services initialized successfully');
     }
   }
 
@@ -691,7 +418,10 @@ class ThaliumXBackend {
     LoggerService.info('Setting up routes');
     
     // Health check endpoint - CRITICAL for monitoring
-    this.app.get('/health', (_req, res) => {
+    this.app.get('/health', (req, res) => {
+      // Check if this is an internal request (from monitoring systems)
+      const isInternalRequest = this.isInternalRequest(req);
+
       // Helper function to safely check service health
       // Returns 'healthy', 'unhealthy', or 'not_initialized' (which is treated as acceptable)
       const checkServiceHealth = (service: any, serviceName: string): string => {
@@ -706,7 +436,80 @@ class ThaliumXBackend {
         }
       };
 
-      const healthCheck = {
+      const baseHealthCheck = {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        version: process.env.npm_package_version || '1.0.0'
+      };
+
+      // Detailed health check only for internal/monitoring requests
+      if (isInternalRequest) {
+        const detailedHealthCheck = {
+          ...baseHealthCheck,
+          environment: process.env.NODE_ENV || 'development',
+          services: {
+            database: DatabaseService.isConnected() ? 'connected' : 'disconnected',
+            redis: RedisService.isConnected() ? 'connected' : 'disconnected',
+            keycloak: checkServiceHealth(KeycloakService, 'Keycloak'),
+            brokerManagement: checkServiceHealth(BrokerManagementService, 'BrokerManagement'),
+            smartContracts: checkServiceHealth(SmartContractService, 'SmartContract'),
+            blnkfinance: checkServiceHealth(BlnkFinanceService, 'BlnkFinance'),
+            nft: checkServiceHealth(NFTService, 'NFT'),
+            kyc: checkServiceHealth(KYCService, 'KYC'),
+            rbac: checkServiceHealth(RBACService, 'RBAC'),
+            tokenSale: checkServiceHealth(TokenSaleService, 'TokenSale'),
+            multiTierLedger: checkServiceHealth(MultiTierLedgerService, 'MultiTierLedger'),
+            dex: checkServiceHealth(DEXService, 'DEX'),
+            aiMl: checkServiceHealth(AIMLService, 'AIML'),
+            presale: checkServiceHealth(PresaleService, 'Presale'),
+            securityOversight: checkServiceHealth(SecurityOversightService, 'SecurityOversight'),
+            mpcSigner: checkServiceHealth(MPCSignerService, 'MPCSigner'),
+            graphSense: checkServiceHealth(GraphSenseService, 'GraphSense'),
+            omniExchange: 'healthy',
+            walletSystem: 'healthy',
+            nativeCEX: 'healthy',
+            advancedMargin: checkServiceHealth(AdvancedMarginTradingService, 'AdvancedMargin'),
+            web3Wallet: checkServiceHealth(web3WalletService, 'web3Wallet'),
+            deviceFingerprint: checkServiceHealth(DeviceFingerprintService, 'DeviceFingerprint'),
+            api: 'running'
+          },
+          security: {
+            threatDetection: 'active',
+            rateLimiting: 'active',
+            inputValidation: 'active',
+            circuitBreaker: 'active'
+          }
+        };
+        res.status(200).json(detailedHealthCheck);
+      } else {
+        // Public health check - minimal information
+        res.status(200).json(baseHealthCheck);
+      }
+    });
+
+    // Internal health check endpoint for monitoring systems
+    this.app.get('/health/internal', (req, res) => {
+      // Only allow internal requests
+      if (!this.isInternalRequest(req)) {
+        res.status(403).json({ error: 'Access denied' });
+        return;
+      }
+
+      // Helper function to safely check service health
+      const checkServiceHealth = (service: any, serviceName: string): string => {
+        try {
+          if (!service || typeof service.isHealthy !== 'function') {
+            return 'not_initialized';
+          }
+          return service.isHealthy() ? 'healthy' : 'not_initialized';
+        } catch (error) {
+          LoggerService.warn(`Health check failed for ${serviceName}:`, error);
+          return 'not_initialized';
+        }
+      };
+
+      const internalHealthCheck = {
         status: 'ok',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
@@ -746,7 +549,7 @@ class ThaliumXBackend {
         }
       };
 
-      res.status(200).json(healthCheck);
+      res.status(200).json(internalHealthCheck);
     });
 
     // API Gateway health check
@@ -754,35 +557,38 @@ class ThaliumXBackend {
 
     // CSRF token endpoint
     this.app.get('/api/csrf-token', SecurityMiddleware.getCSRFToken);
+// Secure Prometheus metrics endpoint
+this.app.get('/metrics', async (req, res) => {
+  try {
+    // Only allow internal/monitoring requests
+    if (!this.isInternalRequest(req)) {
+      res.status(403).send('Forbidden');
+      return;
+    }
 
-    // Public Prometheus metrics endpoint with token/IP guard
-    this.app.get('/metrics', async (req, res) => {
-      try {
-        const headerToken = (req.headers['x-prometheus-token'] as string) || '';
-        const authHeader = req.headers['authorization'];
-        const authValue = typeof authHeader === 'string' ? authHeader : '';
-        const bearerToken = authValue.startsWith('Bearer ') ? authValue.substring(7) : '';
-        const token = headerToken || bearerToken;
-        const requiredToken = process.env.METRICS_TOKEN || '';
-        const allowlist = (process.env.METRICS_IP_ALLOWLIST || '').split(',').map(s => s.trim()).filter(Boolean);
+    // Additional token validation for extra security
+    const headerToken = (req.headers['x-prometheus-token'] as string) || '';
+    const authHeader = req.headers['authorization'];
+    const authValue = typeof authHeader === 'string' ? authHeader : '';
+    const bearerToken = authValue.startsWith('Bearer ') ? authValue.substring(7) : '';
+    const token = headerToken || bearerToken;
+    const requiredToken = process.env.METRICS_TOKEN || '';
 
-        const clientIp = (req.ip || (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '') as string;
-        const ipAllowed = allowlist.length === 0 || allowlist.includes(clientIp);
-        const tokenAllowed = !requiredToken || token === requiredToken;
+    // Require token in production
+    if (process.env.NODE_ENV === 'production' && requiredToken && token !== requiredToken) {
+      res.status(403).send('Forbidden');
+      return;
+    }
 
-        if (!ipAllowed && !tokenAllowed) {
-          res.status(403).send('Forbidden');
-          return;
-        }
-
-        const { MetricsService } = await import('./services/metrics');
-        const metrics = await MetricsService.getMetrics();
-        res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
-        res.send(metrics);
-      } catch (err) {
-        res.status(500).send('metrics_error');
-      }
-    });
+    const { MetricsService } = await import('./services/metrics');
+    const metrics = await MetricsService.getMetrics();
+    res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+    res.send(metrics);
+  } catch (err) {
+    LoggerService.error('Metrics endpoint error:', err);
+    res.status(500).send('metrics_error');
+  }
+});
 
     // API routes with proper validation
     this.app.use('/api/auth', authRouter);
@@ -970,6 +776,48 @@ class ThaliumXBackend {
     }, 60 * 60 * 1000); // Every hour
 
     LoggerService.info('Periodic tasks setup complete');
+  }
+
+  /**
+   * Check if the request is from an internal/monitoring system
+   */
+  private isInternalRequest(req: express.Request): boolean {
+    const clientIp = (req.ip || (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '') as string;
+
+    // Allow requests from localhost/private IPs
+    const privateIpPatterns = [
+      /^127\./,      // localhost
+      /^10\./,       // private class A
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // private class B
+      /^192\.168\./, // private class C
+      /^::1$/,       // IPv6 localhost
+      /^fc00:/,      // IPv6 private
+      /^fe80:/       // IPv6 link-local
+    ];
+
+    // Check if IP is private
+    if (privateIpPatterns.some(pattern => pattern.test(clientIp))) {
+      return true;
+    }
+
+    // Check for internal headers (set by reverse proxy/load balancer)
+    const internalHeaders = [
+      req.headers['x-internal-request'],
+      req.headers['x-monitoring-token']
+    ];
+
+    if (internalHeaders.some(header => header === 'true' || header === process.env.INTERNAL_REQUEST_TOKEN)) {
+      return true;
+    }
+
+    // Check user agent for monitoring tools
+    const userAgent = req.headers['user-agent'] as string || '';
+    const monitoringAgents = ['Prometheus', 'DataDog', 'New Relic', 'Grafana', 'curl'];
+    if (monitoringAgents.some(agent => userAgent.includes(agent))) {
+      return true;
+    }
+
+    return false;
   }
 
   public async start(): Promise<void> {

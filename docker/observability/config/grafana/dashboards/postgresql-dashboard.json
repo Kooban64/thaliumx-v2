@@ -1,0 +1,103 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "PostgreSQL Database",
+    "tags": ["thaliumx", "postgresql", "database", "performance"],
+    "timezone": "UTC",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Database Size",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "pg_database_size_bytes{job=\"postgres\"}",
+            "legendFormat": "Database Size (bytes)"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Active Connections",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "pg_stat_activity_count{job=\"postgres\",state=\"active\"}",
+            "legendFormat": "Active Connections"
+          },
+          {
+            "expr": "pg_stat_activity_count{job=\"postgres\",state=\"idle\"}",
+            "legendFormat": "Idle Connections"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Query Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(pg_stat_user_tables_seq_scan{job=\"postgres\"}[5m])",
+            "legendFormat": "Sequential Scans"
+          },
+          {
+            "expr": "rate(pg_stat_user_tables_idx_scan{job=\"postgres\"}[5m])",
+            "legendFormat": "Index Scans"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Cache Hit Ratio",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "(sum(pg_stat_database_blks_hit{job=\"postgres\"}) / (sum(pg_stat_database_blks_hit{job=\"postgres\"}) + sum(pg_stat_database_blks_read{job=\"postgres\"}))) * 100",
+            "legendFormat": "Cache Hit Ratio %"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Transaction Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(pg_stat_database_xact_commit{job=\"postgres\"}[5m])",
+            "legendFormat": "Commits/sec"
+          },
+          {
+            "expr": "rate(pg_stat_database_xact_rollback{job=\"postgres\"}[5m])",
+            "legendFormat": "Rollbacks/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+      },
+      {
+        "id": 6,
+        "title": "Lock Waits",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "pg_locks_count{job=\"postgres\",mode=\"ExclusiveLock\"}",
+            "legendFormat": "Exclusive Locks"
+          },
+          {
+            "expr": "pg_locks_count{job=\"postgres\",mode=\"RowExclusiveLock\"}",
+            "legendFormat": "Row Exclusive Locks"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}

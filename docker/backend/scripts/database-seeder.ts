@@ -9,7 +9,7 @@ import { DatabaseService } from '../src/services/database';
 import { LoggerService } from '../src/services/logger';
 import { UserService } from '../src/services/user';
 import { BrokerManagementService } from '../src/services/broker-management';
-import { AdvancedMarginTradingService } from '../src/services/advanced-margin';
+// import { AdvancedMarginTradingService } from '../src/services/advanced-margin';
 import { TokenService } from '../src/services/token';
 
 class DatabaseSeeder {
@@ -30,8 +30,8 @@ class DatabaseSeeder {
       // Seed users
       await this.seedUsers();
 
-      // Seed margin accounts
-      await this.seedMarginAccounts();
+      // Seed margin accounts (disabled for now)
+      // await this.seedMarginAccounts();
 
       // Seed tokens
       await this.seedTokens();
@@ -115,14 +115,10 @@ class DatabaseSeeder {
 
     const brokers = [
       {
-        id: 'test-broker',
         name: 'Test Broker',
         slug: 'test-broker',
         domain: 'test.thaliumx.com',
-        status: 'active',
-        tier: 'enterprise',
-        apiKey: 'test_api_key_' + Math.random().toString(36).substr(2, 9),
-        webhookSecret: 'test_webhook_secret_' + Math.random().toString(36).substr(2, 9),
+        tier: 'enterprise' as any,
         features: {
           marginTrading: true,
           spotTrading: true,
@@ -140,20 +136,35 @@ class DatabaseSeeder {
           amlRequired: true,
           sanctionsScreening: true
         },
-        createdAt: new Date(),
-        updatedAt: new Date()
+        branding: {},
+        financial: {},
+        contactInfo: {
+          email: 'admin@test.thaliumx.com',
+          phone: '+1234567890',
+          address: '123 Test St',
+          country: 'US',
+          jurisdiction: 'US'
+        },
+        businessInfo: {
+          type: 'corporation',
+          registrationNumber: 'TEST123',
+          taxId: 'TEST456',
+          licenseNumber: 'TEST789',
+          regulatoryBody: 'SEC'
+        },
+        technicalInfo: {
+          expectedUsers: 1000,
+          expectedVolume: 1000000,
+          expectedTradingPairs: 50,
+          expectedCurrencies: 10,
+          expectedLanguages: 3,
+          expectedDomains: 1
+        }
       }
     ];
 
     for (const broker of brokers) {
-      await BrokerManagementService.onboardBroker({
-        name: broker.name,
-        domain: broker.domain,
-        tier: broker.tier as any,
-        features: broker.features,
-        limits: broker.limits as any,
-        compliance: broker.compliance
-      });
+      await BrokerManagementService.onboardBroker(broker);
     }
 
     LoggerService.info(`✅ Seeded ${brokers.length} brokers`);
@@ -168,9 +179,9 @@ class DatabaseSeeder {
         password: 'AdminPass123!',
         firstName: 'System',
         lastName: 'Administrator',
-        role: 'admin',
-        kycLevel: 'L3',
-        kycStatus: 'approved',
+        role: 'ADMIN' as any,
+        kycLevel: 'ADVANCED' as any,
+        kycStatus: 'APPROVED' as any,
         tenantId: 'test-tenant',
         brokerId: 'test-broker'
       },
@@ -179,9 +190,9 @@ class DatabaseSeeder {
         password: 'TraderPass123!',
         firstName: 'Test',
         lastName: 'Trader',
-        role: 'trader',
-        kycLevel: 'L2',
-        kycStatus: 'approved',
+        role: 'USER' as any,
+        kycLevel: 'INTERMEDIATE' as any,
+        kycStatus: 'APPROVED' as any,
         tenantId: 'test-tenant',
         brokerId: 'test-broker'
       },
@@ -190,9 +201,9 @@ class DatabaseSeeder {
         password: 'UserPass123!',
         firstName: 'Regular',
         lastName: 'User',
-        role: 'user',
-        kycLevel: 'L1',
-        kycStatus: 'approved',
+        role: 'USER' as any,
+        kycLevel: 'BASIC' as any,
+        kycStatus: 'APPROVED' as any,
         tenantId: 'test-tenant',
         brokerId: 'test-broker'
       }
@@ -216,52 +227,52 @@ class DatabaseSeeder {
     LoggerService.info(`✅ Seeded ${users.length} users`);
   }
 
-  private static async seedMarginAccounts(): Promise<void> {
-    LoggerService.info('Seeding margin accounts...');
+  // private static async seedMarginAccounts(): Promise<void> {
+  //   LoggerService.info('Seeding margin accounts...');
 
-    // Get test user
-    const testUser = await UserService.getUserByEmail('trader@thaliumx.com');
-    if (!testUser) {
-      LoggerService.warn('Test trader not found, skipping margin account seeding');
-      return;
-    }
+  //   // Get test user
+  //   const testUser = await UserService.getUserByEmail('trader@thaliumx.com');
+  //   if (!testUser) {
+  //     LoggerService.warn('Test trader not found, skipping margin account seeding');
+  //     return;
+  //   }
 
-    const marginAccounts = [
-      {
-        userId: testUser.id,
-        tenantId: 'test-tenant',
-        brokerId: 'test-broker',
-        accountType: 'cross' as const,
-        initialDeposit: { asset: 'USDT', amount: 10000 }
-      },
-      {
-        userId: testUser.id,
-        tenantId: 'test-tenant',
-        brokerId: 'test-broker',
-        accountType: 'isolated' as const,
-        symbol: 'BTCUSDT',
-        initialDeposit: { asset: 'USDT', amount: 5000 }
-      }
-    ];
+  //   const marginAccounts = [
+  //     {
+  //       userId: testUser.id,
+  //       tenantId: 'test-tenant',
+  //       brokerId: 'test-broker',
+  //       accountType: 'cross' as const,
+  //       initialDeposit: { asset: 'USDT', amount: 10000 }
+  //     },
+  //     {
+  //       userId: testUser.id,
+  //       tenantId: 'test-tenant',
+  //       brokerId: 'test-broker',
+  //       accountType: 'isolated' as const,
+  //       symbol: 'BTCUSDT',
+  //       initialDeposit: { asset: 'USDT', amount: 5000 }
+  //     }
+  //   ];
 
-    for (const accountData of marginAccounts) {
-      try {
-        await AdvancedMarginTradingService.createMarginAccount(
-          accountData.userId,
-          accountData.tenantId,
-          accountData.brokerId,
-          accountData.accountType,
-          accountData.symbol,
-          accountData.initialDeposit
-        );
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        LoggerService.warn('Margin account creation failed:', errorMessage);
-      }
-    }
+  //   for (const accountData of marginAccounts) {
+  //     try {
+  //       await AdvancedMarginTradingService.createMarginAccount(
+  //         accountData.userId,
+  //         accountData.tenantId,
+  //         accountData.brokerId,
+  //         accountData.accountType,
+  //         accountData.symbol,
+  //         accountData.initialDeposit
+  //       );
+  //     } catch (error: unknown) {
+  //       const errorMessage = error instanceof Error ? error.message : String(error);
+  //       LoggerService.warn('Margin account creation failed:', errorMessage);
+  //     }
+  //   }
 
-    LoggerService.info(`✅ Seeded ${marginAccounts.length} margin accounts`);
-  }
+  //   LoggerService.info(`✅ Seeded ${marginAccounts.length} margin accounts`);
+  // }
 
   private static async seedTokens(): Promise<void> {
     LoggerService.info('Seeding tokens...');
