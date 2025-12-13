@@ -215,7 +215,7 @@ pub async fn load_operation_log_from_db(conn: &mut ConnectionType, operation_log
         operation_log_start_id = operation_logs.last().unwrap().id;
         for log in operation_logs {
             log::info!("replay {} {}", &log.method, &log.params);
-            controller.replay(&log.method, &log.params).unwrap();
+            controller.replay(&log.method, &log.params.to_string()).unwrap();
         }
     }
     controller.sequencer.set_operation_log_id(operation_log_start_id as u64);

@@ -615,7 +615,7 @@ impl<'r> From<&'r super::BalanceMessage> for models::BalanceHistory {
             balance: DecimalDbType::from_str(&origin.balance).unwrap_or_else(decimal_warning),
             balance_available: DecimalDbType::from_str(&origin.balance_available).unwrap_or_else(decimal_warning),
             balance_frozen: DecimalDbType::from_str(&origin.balance_frozen).unwrap_or_else(decimal_warning),
-            detail: origin.detail.clone(),
+            detail: serde_json::Value::String(origin.detail.clone()),
             signature: origin.signature.as_bytes().to_vec(),
         }
     }

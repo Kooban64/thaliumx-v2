@@ -60,7 +60,7 @@ impl From<&BalanceHistory> for BalanceMessage {
             balance: balance.balance.to_string(),
             balance_available: balance.balance_available.to_string(),
             balance_frozen: balance.balance_frozen.to_string(),
-            detail: balance.detail.clone(),
+            detail: balance.detail.to_string(),
             signature: String::from_utf8(balance.signature.clone()).unwrap(),
         }
     }
@@ -90,7 +90,7 @@ impl From<&BalanceHistory> for DepositMessage {
             balance: balance.balance.to_string(),
             balance_available: balance.balance_available.to_string(),
             balance_frozen: balance.balance_frozen.to_string(),
-            detail: balance.detail.clone(),
+            detail: balance.detail.to_string(),
         }
     }
 }
@@ -120,7 +120,7 @@ impl From<&BalanceHistory> for WithdrawMessage {
             balance: balance.balance.to_string(),
             balance_available: balance.balance_available.to_string(),
             balance_frozen: balance.balance_frozen.to_string(),
-            detail: balance.detail.clone(),
+            detail: balance.detail.to_string(),
             signature: String::from_utf8(balance.signature.clone()).unwrap(),
         }
     }

@@ -46,7 +46,7 @@ function createLogger(): winston.Logger {
     formats.push(
       winston.format.colorize(),
       winston.format.printf(({ timestamp, level, message, ...meta }) => {
-        const metaStr = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta, (key, value) => {
+        const metaStr = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta, (_key, value) => {
           if (typeof value === 'bigint') return value.toString();
           return value;
         })}` : '';

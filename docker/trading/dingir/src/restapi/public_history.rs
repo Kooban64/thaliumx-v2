@@ -48,7 +48,7 @@ pub async fn recent_trades(req: HttpRequest, data: web::Data<AppState>) -> Resul
 
     // Check cache first
     {
-        let mut trading_data = data.cache.trading.borrow_mut();
+        let trading_data = data.cache.trading.read().unwrap();
         if let Some(cached_trades) = trading_data.recent_trades_cache.get(&cache_key) {
             log::debug!("cache hit for recent_trades {}", cache_key);
             return Ok(Json(cached_trades.clone()));
@@ -71,7 +71,7 @@ pub async fn recent_trades(req: HttpRequest, data: web::Data<AppState>) -> Resul
 
     // Cache the result
     {
-        let mut trading_data = data.cache.trading.borrow_mut();
+        let mut trading_data = data.cache.trading.write().unwrap();
         trading_data.recent_trades_cache.insert(cache_key, trades.clone(), std::time::Duration::from_secs(5));
     }
 

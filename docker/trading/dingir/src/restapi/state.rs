@@ -3,10 +3,9 @@ use super::types::TickerResult;
 use crate::models::{AccountDesc, MarketTrade};
 
 use sqlx::postgres::Postgres;
-use std::cell::RefCell;
+use std::sync::RwLock;
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
 use ttl_cache::TtlCache;
 pub struct AppState {
     pub user_addr_map: Mutex<HashMap<String, AccountDesc>>,
@@ -16,7 +15,6 @@ pub struct AppState {
     pub cache: AppCache,
 }
 
-#[derive(Debug)]
 pub struct TradingData {
     pub ticker_ret_cache: HashMap<String, TickerResult>,
     // Cache for recent trades API results
@@ -25,13 +23,21 @@ pub struct TradingData {
 
 impl TradingData {
     pub fn new() -> Self {
-        let mut recent_trades_cache = TtlCache::new(100); // Cache up to 100 different market/limit combinations
-        recent_trades_cache.set_default_ttl(Duration::from_secs(5)); // 5 second TTL for trade data
+        let recent_trades_cache = TtlCache::new(100); // Cache up to 100 different market/limit combinations
 
         TradingData {
             ticker_ret_cache: HashMap::new(),
             recent_trades_cache,
         }
+    }
+}
+
+impl std::fmt::Debug for TradingData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TradingData")
+            .field("ticker_ret_cache", &self.ticker_ret_cache)
+            .field("recent_trades_cache", &"<TtlCache>")
+            .finish()
     }
 }
 
@@ -44,13 +50,13 @@ impl Default for TradingData {
 //TLS storage
 #[derive(Debug)]
 pub struct AppCache {
-    pub trading: RefCell<TradingData>,
+    pub trading: RwLock<TradingData>,
 }
 
 impl AppCache {
     pub fn new() -> Self {
         AppCache {
-            trading: TradingData::new().into(),
+            trading: RwLock::new(TradingData::new()),
         }
     }
 }

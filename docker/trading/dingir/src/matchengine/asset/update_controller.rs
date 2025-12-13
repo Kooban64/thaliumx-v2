@@ -122,7 +122,7 @@ impl BalanceUpdateController {
                 balance: balance_available + balance_frozen,
                 balance_available,
                 balance_frozen,
-                detail: params.detail.to_string(),
+                detail: params.detail.clone(),
                 signature: params.signature,
             };
             persistor.put_balance(&balance_history);

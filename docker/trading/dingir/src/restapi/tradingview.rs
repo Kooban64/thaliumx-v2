@@ -385,7 +385,7 @@ pub async fn ticker(
     let cache = req.app_data::<state::AppCache>().expect("App cache not found");
     let now_ts: DateTime<Utc> = SystemTime::now().into();
     let update_inv = app_state.config.trading.ticker_update_interval;
-    let ticker_ret_cache = &mut cache.trading.borrow_mut().ticker_ret_cache;
+    let ticker_ret_cache = &mut cache.trading.write().unwrap().ticker_ret_cache;
 
     if let Some(cached_resp) = ticker_ret_cache.get(&market_name) {
         //consider systemtime may wraparound, we set the valid

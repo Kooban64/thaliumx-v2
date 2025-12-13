@@ -28,7 +28,7 @@ use tonic::{self, Status};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::str::FromStr;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use ttl_cache::TtlCache;
 
 type MarketName = String;
@@ -145,8 +145,7 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
     })
     .start_schedule(&main_pool)
     .unwrap();
-    let mut order_book_cache = TtlCache::new(1000); // Cache up to 1000 entries
-    order_book_cache.set_default_ttl(Duration::from_millis(100)); // 100ms TTL for real-time data
+    let order_book_cache = TtlCache::new(1000); // Cache up to 1000 entries
 
     Controller {
         settings,
@@ -235,8 +234,8 @@ impl Controller {
         let default_order_num = 10;
         let limit = if req.limit <= 0 {
             default_order_num
-        } else if req.limit > max_order_num {
-            max_order_num
+        } else if req.limit > max_order_num as i32 {
+            max_order_num as i32
         } else {
             req.limit
         };
@@ -899,7 +898,7 @@ impl Controller {
             id: self.sequencer.next_operation_log_id() as i64,
             time: FTimestamp(current_timestamp()).into(),
             method: method.to_owned(),
-            params,
+            params: serde_json::Value::String(params),
         };
         (*self.log_handler).append_operation_log(operation_log).ok();
     }

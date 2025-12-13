@@ -605,7 +605,7 @@ export class DEXCARFService {
     const eventData: DEXCARFReportGeneratedEvent['data'] = {
       reportId: report.id,
       walletAddress: report.walletAddress,
-      reportId_external: report.reportId,
+      reportIdExternal: report.reportId,
       totalSwapVolumeUSD: report.totalSwapVolumeUSD,
       totalLiquidityProvidedUSD: report.totalLiquidityProvidedUSD,
       totalBridgeVolumeUSD: report.totalBridgeVolumeUSD,
@@ -645,7 +645,7 @@ export class DEXCARFService {
   ): Promise<void> {
     const eventData: DEXCARFReportSubmittedEvent['data'] = {
       reportId: report.id,
-      reportId_external: report.reportId,
+      reportIdExternal: report.reportId,
       jurisdiction,
       submissionEndpoint: config.regulatory.submissionEndpoints[jurisdiction] || 'unknown',
       status,

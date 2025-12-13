@@ -167,8 +167,8 @@ impl GrpcHandler {
             let magic_head = Fr::from_u32(5); // Different magic number for transfers
             let from_fr = Fr::from_u32(req.from);
             let to_fr = Fr::from_u32(req.to);
-            let asset_hash = Fr::hash(req.asset.as_bytes());
-            let delta_fr = Fr::from_str(&req.delta).unwrap_or(Fr::zero());
+            let asset_hash = Fr::from_str(&req.asset);
+            let delta_fr = Fr::from_str(&req.delta);
             let msg_fr = Fr::hash(&[magic_head, from_fr, to_fr, asset_hash, delta_fr]);
             let msg = msg_fr.to_bigint();
             if !stub.user_manager.verify_signature(req.from, msg, &req.signature) {
