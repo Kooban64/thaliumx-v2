@@ -104,7 +104,6 @@ services:
     volumes:
       - vault-data:/vault/data
       - ./vault/config:/vault/config:ro
-      - ./certs/services/vault:/vault/certs:ro
     command: server -config=/vault/config/vault-production.hcl
     ports:
       - "8200:8200"
@@ -128,16 +127,10 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./citus/init:/docker-entrypoint-initdb.d:ro
-      - ./certs/services/postgres:/var/lib/postgresql/certs:ro
-      - ./certs/ca/ca.crt:/var/lib/postgresql/ca.crt:ro
     secrets:
       - postgres-password
     command: >
       postgres
-      -c ssl=on
-      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
-      -c ssl_key_file=/var/lib/postgresql/certs/server.key
-      -c ssl_ca_file=/var/lib/postgresql/ca.crt
       -c max_connections=1000
       -c shared_buffers=2GB
       -c effective_cache_size=6GB
@@ -194,19 +187,13 @@ services:
       REDIS_PASSWORD_FILE: /run/secrets/redis-password
     command: >
       redis-server
-      --requirepassfile /run/secrets/redis-password
+      --requirepass "$(cat /run/secrets/redis-password)"
       --appendonly yes
       --appendfsync everysec
       --maxmemory 1gb
       --maxmemory-policy allkeys-lru
       --tcp-keepalive 300
       --timeout 0
-      --tls-port 6379
-      --port 0
-      --tls-cert-file /certs/server.crt
-      --tls-key-file /certs/server.key
-      --tls-ca-cert-file /certs/ca.crt
-      --tls-auth-clients optional
       --maxclients 10000
       --tcp-backlog 511
       --databases 16
@@ -215,8 +202,6 @@ services:
       --save 60 10000
     volumes:
       - redis-data:/data
-      - ./certs/services/redis:/certs:ro
-      - ./certs/ca/ca.crt:/certs/ca.crt:ro
     ports:
       - "6379:6379"
     networks:
@@ -238,8 +223,6 @@ services:
       MONGO_INITDB_DATABASE: thaliumx
     volumes:
       - mongodb-data:/data/db
-      - ./certs/services/mongodb:/certs:ro
-      - ./certs/ca/ca.crt:/certs/ca.crt:ro
     secrets:
       - mongodb-password
     command: >
@@ -407,7 +390,6 @@ services:
     volumes:
       - keycloak-data:/opt/keycloak/data
       - ./keycloak/realm-config:/opt/keycloak/data/import:ro
-      - ./certs/services/keycloak:/opt/keycloak/certs:ro
     secrets:
       - postgres-password
       - keycloak-admin-password
@@ -455,8 +437,6 @@ services:
       ETCD_QUOTA_BACKEND_BYTES: 4294967296
     volumes:
       - etcd-data:/etcd-data
-      - ./certs/services/etcd:/etc/ssl/etcd:ro
-      - ./certs/ca/ca.crt:/etc/ssl/etcd/ca.crt:ro
     ports:
       - "2379:2379"
       - "2380:2380"
@@ -487,8 +467,6 @@ services:
       <<: *common-env
     volumes:
       - ./apisix/config/apisix-production.yaml:/usr/local/apisix/conf/config.yaml:ro
-      - ./certs/services/apisix:/usr/local/apisix/certs:ro
-      - ./certs/ca/ca.crt:/usr/local/apisix/certs/ca.crt:ro
       - apisix-logs:/usr/local/apisix/logs
     ports:
       - "9080:9080"   # HTTP
@@ -546,7 +524,6 @@ services:
       DB_POOL_MAX_LIFETIME: 600000
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_TLS: "true"
       REDIS_MAX_CONNECTIONS: 50
       MONGODB_HOST: mongodb
       MONGODB_PORT: 27017
@@ -559,7 +536,6 @@ services:
       NODE_OPTIONS: "--max-old-space-size=2048"
     volumes:
       - ./certs/client/backend-service:/app/certs:ro
-      - ./certs/ca/ca.crt:/app/certs/ca.crt:ro
     secrets:
       - vault-role-id
       - vault-secret-id
@@ -689,14 +665,12 @@ services:
       DATABASE_SSL: "true"
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_TLS: "true"
       KAFKA_BROKERS: kafka:9092
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: thaliumx-compliance-dex
       NODE_OPTIONS: "--max-old-space-size=1024"
     volumes:
       - ./certs/client/compliance-service:/app/certs:ro
-      - ./certs/ca/ca.crt:/app/certs/ca.crt:ro
     secrets:
       - vault-role-id
       - vault-secret-id
@@ -748,14 +722,12 @@ services:
       DATABASE_SSL: "true"
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_TLS: "true"
       KAFKA_BROKERS: kafka:9092
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: thaliumx-compliance-cex
       NODE_OPTIONS: "--max-old-space-size=1024"
     volumes:
       - ./certs/client/compliance-service:/app/certs:ro
-      - ./certs/ca/ca.crt:/app/certs/ca.crt:ro
     secrets:
       - vault-role-id
       - vault-secret-id
@@ -807,14 +779,12 @@ services:
       DATABASE_SSL: "true"
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_TLS: "true"
       KAFKA_BROKERS: kafka:9092
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: thaliumx-compliance-nft
       NODE_OPTIONS: "--max-old-space-size=1024"
     volumes:
       - ./certs/client/compliance-service:/app/certs:ro
-      - ./certs/ca/ca.crt:/app/certs/ca.crt:ro
     secrets:
       - vault-role-id
       - vault-secret-id
@@ -866,14 +836,12 @@ services:
       DATABASE_SSL: "true"
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_TLS: "true"
       KAFKA_BROKERS: kafka:9092
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: thaliumx-compliance-token
       NODE_OPTIONS: "--max-old-space-size=1024"
     volumes:
       - ./certs/client/compliance-service:/app/certs:ro
-      - ./certs/ca/ca.crt:/app/certs/ca.crt:ro
     secrets:
       - vault-role-id
       - vault-secret-id
@@ -933,7 +901,6 @@ services:
       DATABASE_SSL: "true"
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_TLS: "true"
       KAFKA_BROKERS: kafka:9092
       CEX_COMPLIANCE_URL: http://compliance-cex:3001
       DEX_COMPLIANCE_URL: http://compliance-dex:3002
@@ -944,7 +911,6 @@ services:
       NODE_OPTIONS: "--max-old-space-size=1024"
     volumes:
       - ./certs/client/compliance-service:/app/certs:ro
-      - ./certs/ca/ca.crt:/app/certs/ca.crt:ro
     secrets:
       - vault-role-id
       - vault-secret-id

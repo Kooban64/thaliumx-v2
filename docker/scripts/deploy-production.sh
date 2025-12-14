@@ -41,11 +41,11 @@ docker network create thaliumx-monitoring-network 2>/dev/null || true
 
 # Deploy databases first
 echo "📊 Deploying databases..."
-docker compose -f docker/citus/compose.yaml up -d
-docker compose -f docker/timescaledb/compose.yaml up -d
-docker compose -f docker/postgres/compose.yaml up -d
-docker compose -f docker/redis/compose.yaml up -d
-docker compose -f docker/mongodb/compose.yaml up -d
+docker compose -f citus/compose.yaml up -d
+docker compose -f timescaledb/compose.yaml up -d
+docker compose -f postgres/compose.yaml up -d
+docker compose -f redis/compose.yaml up -d
+docker compose -f mongodb/compose.yaml up -d
 
 # Wait for databases
 wait_for_service "PostgreSQL" "http://localhost:5432" || echo "PostgreSQL check skipped"
@@ -53,8 +53,8 @@ wait_for_service "Redis" "http://localhost:6379" || echo "Redis check skipped"
 
 # Step 2: Deploy security services
 echo "🔐 Step 2: Deploying security services..."
-docker compose -f docker/vault/compose.yaml up -d
-docker compose -f docker/keycloak/compose.yaml up -d
+docker compose -f vault/compose.yaml up -d
+docker compose -f keycloak/compose.yaml up -d
 
 # Wait for security services
 wait_for_service "Vault" "http://localhost:8200/v1/sys/health"
@@ -62,12 +62,12 @@ wait_for_service "Keycloak" "http://localhost:8080/auth/realms/master"
 
 # Step 3: Deploy messaging and gateway
 echo "📨 Step 3: Deploying messaging and API gateway..."
-docker compose -f docker/kafka/compose.yaml up -d
-docker compose -f docker/apisix/compose.yaml up -d
+docker compose -f kafka/compose.yaml up -d
+docker compose -f apisix/compose.yaml up -d
 
 # Step 4: Deploy trading engine
 echo "📈 Step 4: Deploying trading engine..."
-docker compose -f docker/trading/compose.yaml up -d
+docker compose -f trading/compose.yaml up -d
 
 # Wait for trading services
 wait_for_service "Dingir REST API" "http://localhost:50053/api/exchange/panel/health"
@@ -76,8 +76,8 @@ wait_for_service "QuantLib" "http://localhost:3010/health"
 
 # Step 5: Deploy application services
 echo "🖥️ Step 5: Deploying application services..."
-docker compose -f docker/backend/compose.yaml up -d
-docker compose -f docker/frontend/compose.yaml up -d
+docker compose -f backend/compose.yaml up -d
+docker compose -f frontend/compose.yaml up -d
 
 # Wait for application services
 wait_for_service "Backend API" "http://localhost:3002/health"
@@ -85,7 +85,7 @@ wait_for_service "Frontend" "http://localhost:3000"
 
 # Step 6: Deploy monitoring (optional)
 echo "📊 Step 6: Deploying monitoring services..."
-docker compose -f docker/observability/compose.yaml up -d 2>/dev/null || echo "Monitoring deployment skipped"
+docker compose -f observability/compose.yaml up -d 2>/dev/null || echo "Monitoring deployment skipped"
 
 # Step 7: Run final health checks
 echo "🔍 Step 7: Running final health checks..."
