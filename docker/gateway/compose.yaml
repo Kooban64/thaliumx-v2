@@ -39,6 +39,9 @@ services:
     environment:
       APISIX_STAND_ALONE: "false"
       APISIX_ADMIN_KEY: ${APISIX_ADMIN_KEY:-edd1c9f034335f136f87ad84b625c8f1}
+      APISIX_ADMIN_URL: http://localhost:9180/apisix/admin
+      FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:-thaliumx-frontend:3000}
+      BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-thaliumx-backend:3002}
     ports:
       - "80:9080"                    # HTTP (public)
       - "443:9443"                   # HTTPS (public)
@@ -46,6 +49,7 @@ services:
     volumes:
       - ./config/apisix.yaml:/usr/local/apisix/conf/config.yaml:ro
       - ./config/ssl:/usr/local/apisix/conf/ssl:ro
+      - ./scripts/init-apisix-routes.sh:/usr/local/bin/init-apisix-routes.sh:ro
       - apisix_logs:/usr/local/apisix/logs
     networks:
       - thaliumx-net

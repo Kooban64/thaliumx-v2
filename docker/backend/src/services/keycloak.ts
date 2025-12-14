@@ -1090,8 +1090,18 @@ export class KeycloakService {
 
         await this.createRealm(realmConfig);
         LoggerService.info(`Platform realm initialized: ${platformRealm}`);
+        
+        // Create platform roles in Keycloak
+        await this.createPlatformRoles(platformRealm);
+        
+        // Seed platform users with IDs
+        await this.seedPlatformUsers(platformRealm);
       } else {
         LoggerService.info(`Platform realm already exists: ${platformRealm}`);
+        
+        // Ensure roles and users exist even if realm already exists
+        await this.createPlatformRoles(platformRealm);
+        await this.seedPlatformUsers(platformRealm);
       }
 
     } catch (error) {
@@ -1207,8 +1217,14 @@ export class KeycloakService {
           tenantName,
           tenantDomain
         });
+        
+        // Seed tenant users with IDs
+        await this.seedTenantUsers(tenantRealm, tenantId);
       } else {
         LoggerService.info(`Default tenant realm already exists: ${tenantRealm}`);
+        
+        // Ensure users exist even if realm already exists
+        await this.seedTenantUsers(tenantRealm, tenantId);
       }
 
     } catch (error) {
@@ -1535,5 +1551,460 @@ export class KeycloakService {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;
+  }
+
+  /**
+   * Create platform roles in Keycloak realm
+   */
+  private static async createPlatformRoles(realmName: string): Promise<void> {
+    try {
+      await this.ensureAuthenticated();
+
+      const platformRoles = [
+        {
+          name: this.DEFAULT_ROLES.PLATFORM_ADMIN,
+          description: 'Platform Administrator - Full platform access with tenant lifecycle management',
+          composite: false,
+          clientRole: false
+        },
+        {
+          name: 'platform-compliance',
+          description: 'Platform Compliance Officer - Global compliance rules and oversight',
+          composite: false,
+          clientRole: false
+        },
+        {
+          name: 'platform-finance',
+          description: 'Platform Finance Manager - Platform financial operations and treasury management',
+          composite: false,
+          clientRole: false
+        },
+        {
+          name: 'platform-support',
+          description: 'Platform Support Manager - Platform-wide support operations',
+          composite: false,
+          clientRole: false
+        },
+        {
+          name: 'platform-risk',
+          description: 'Platform Risk Manager - Platform-wide risk management',
+          composite: false,
+          clientRole: false
+        },
+        {
+          name: 'platform-content',
+          description: 'Platform Content Manager - Platform content and documentation',
+          composite: false,
+          clientRole: false
+        }
+      ];
+
+      for (const role of platformRoles) {
+        try {
+          // Check if role already exists
+          await this.adminClient.get(
+            `/admin/realms/${realmName}/roles/${role.name}`
+          );
+          LoggerService.info(`Platform role already exists: ${role.name}`);
+        } catch (error: any) {
+          // Role doesn't exist, create it
+          if (error?.response?.status === 404) {
+            await this.adminClient.post(
+              `/admin/realms/${realmName}/roles`,
+              role
+            );
+            LoggerService.info(`Platform role created: ${role.name}`);
+          } else {
+            throw error;
+          }
+        }
+      }
+
+      LoggerService.info(`Platform roles created for ${realmName}`);
+
+    } catch (error) {
+      LoggerService.error('Create platform roles failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Seed platform users with specific IDs
+   * All users are created with predefined IDs for consistency
+   */
+  private static async seedPlatformUsers(realmName: string): Promise<void> {
+    try {
+      await this.ensureAuthenticated();
+
+      // Platform users with specific IDs (UUIDs for consistency)
+      const platformUsers = [
+        {
+          id: '00000000-0000-0000-0000-000000000001', // Platform Admin
+          username: 'platform-admin',
+          email: 'platform-admin@thaliumx.com',
+          firstName: 'Platform',
+          lastName: 'Administrator',
+          enabled: true,
+          emailVerified: true,
+          roles: [this.DEFAULT_ROLES.PLATFORM_ADMIN],
+          credentials: [{
+            type: 'password',
+            value: process.env.PLATFORM_ADMIN_PASSWORD || 'PlatformAdmin2025!',
+            temporary: false
+          }]
+        },
+        {
+          id: '00000000-0000-0000-0000-000000000002', // Compliance Officer
+          username: 'platform-compliance',
+          email: 'compliance@thaliumx.com',
+          firstName: 'Compliance',
+          lastName: 'Officer',
+          enabled: true,
+          emailVerified: true,
+          roles: ['platform-compliance'],
+          credentials: [{
+            type: 'password',
+            value: process.env.PLATFORM_COMPLIANCE_PASSWORD || 'Compliance2025!',
+            temporary: false
+          }]
+        },
+        {
+          id: '00000000-0000-0000-0000-000000000003', // Finance Manager
+          username: 'platform-finance',
+          email: 'finance@thaliumx.com',
+          firstName: 'Finance',
+          lastName: 'Manager',
+          enabled: true,
+          emailVerified: true,
+          roles: ['platform-finance'],
+          credentials: [{
+            type: 'password',
+            value: process.env.PLATFORM_FINANCE_PASSWORD || 'Finance2025!',
+            temporary: false
+          }]
+        },
+        {
+          id: '00000000-0000-0000-0000-000000000004', // Support Manager
+          username: 'platform-support',
+          email: 'support@thaliumx.com',
+          firstName: 'Support',
+          lastName: 'Manager',
+          enabled: true,
+          emailVerified: true,
+          roles: ['platform-support'],
+          credentials: [{
+            type: 'password',
+            value: process.env.PLATFORM_SUPPORT_PASSWORD || 'Support2025!',
+            temporary: false
+          }]
+        },
+        {
+          id: '00000000-0000-0000-0000-000000000005', // Risk Manager
+          username: 'platform-risk',
+          email: 'risk@thaliumx.com',
+          firstName: 'Risk',
+          lastName: 'Manager',
+          enabled: true,
+          emailVerified: true,
+          roles: ['platform-risk'],
+          credentials: [{
+            type: 'password',
+            value: process.env.PLATFORM_RISK_PASSWORD || 'Risk2025!',
+            temporary: false
+          }]
+        },
+        {
+          id: '00000000-0000-0000-0000-000000000006', // Content Manager
+          username: 'platform-content',
+          email: 'content@thaliumx.com',
+          firstName: 'Content',
+          lastName: 'Manager',
+          enabled: true,
+          emailVerified: true,
+          roles: ['platform-content'],
+          credentials: [{
+            type: 'password',
+            value: process.env.PLATFORM_CONTENT_PASSWORD || 'Content2025!',
+            temporary: false
+          }]
+        }
+      ];
+
+      for (const userData of platformUsers) {
+        try {
+          // Check if user already exists by username
+          const existingUsers = await this.adminClient.get(
+            `/admin/realms/${realmName}/users`,
+            {
+              params: { username: userData.username, exact: true }
+            }
+          );
+
+          if (existingUsers.data && existingUsers.data.length > 0) {
+            const existingUser = existingUsers.data[0];
+            LoggerService.info(`Platform user already exists: ${userData.username} (ID: ${existingUser.id})`);
+            
+            // Update user if needed (but preserve existing ID)
+            await this.adminClient.put(
+              `/admin/realms/${realmName}/users/${existingUser.id}`,
+              {
+                username: userData.username,
+                email: userData.email,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                enabled: userData.enabled,
+                emailVerified: userData.emailVerified,
+                attributes: {
+                  'platform.user.id': [userData.id],
+                  'platform.user.type': ['platform'],
+                  createdAt: [new Date().toISOString()],
+                  updatedAt: [new Date().toISOString()]
+                }
+              }
+            );
+
+            // Assign roles
+            if (userData.roles && userData.roles.length > 0) {
+              await this.assignRolesToUser(realmName, existingUser.id, userData.roles);
+            }
+          } else {
+            // Create new user
+            const createResponse = await this.adminClient.post(
+              `/admin/realms/${realmName}/users`,
+              {
+                username: userData.username,
+                email: userData.email,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                enabled: userData.enabled,
+                emailVerified: userData.emailVerified,
+                attributes: {
+                  'platform.user.id': [userData.id],
+                  'platform.user.type': ['platform'],
+                  createdAt: [new Date().toISOString()],
+                  updatedAt: [new Date().toISOString()]
+                },
+                credentials: userData.credentials
+              }
+            );
+
+            // Get the created user ID from Location header
+            const location = createResponse.headers.location;
+            if (location) {
+              const userId = location.split('/').pop();
+              if (userId && userData.roles && userData.roles.length > 0) {
+                await this.assignRolesToUser(realmName, userId, userData.roles);
+              }
+              LoggerService.info(`Platform user created: ${userData.username} (ID: ${userId}, Seed ID: ${userData.id})`);
+            }
+          }
+        } catch (error: any) {
+          // If user creation fails due to conflict, log and continue
+          if (error?.response?.status === 409) {
+            LoggerService.warn(`Platform user ${userData.username} already exists, skipping`);
+          } else {
+            LoggerService.error(`Failed to create platform user ${userData.username}:`, error);
+            // Continue with other users even if one fails
+          }
+        }
+      }
+
+      LoggerService.info(`Platform users seeded for ${realmName}`);
+
+    } catch (error) {
+      LoggerService.error('Seed platform users failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Seed tenant users with specific IDs for platform-default-tenant realm
+   * All users are created with predefined IDs for consistency
+   */
+  private static async seedTenantUsers(realmName: string, tenantId: string): Promise<void> {
+    try {
+      await this.ensureAuthenticated();
+
+      // Tenant users with specific IDs (UUIDs for consistency)
+      const tenantUsers = [
+        {
+          id: '10000000-0000-0000-0000-000000000001', // Broker Admin
+          username: 'tenant-admin',
+          email: 'admin@tenant.thaliumx.com',
+          firstName: 'Tenant',
+          lastName: 'Administrator',
+          enabled: true,
+          emailVerified: true,
+          roles: [this.DEFAULT_ROLES.BROKER_ADMIN],
+          credentials: [{
+            type: 'password',
+            value: process.env.TENANT_ADMIN_PASSWORD || 'TenantAdmin2025!',
+            temporary: false
+          }]
+        },
+        {
+          id: '10000000-0000-0000-0000-000000000002', // Broker User
+          username: 'tenant-user',
+          email: 'user@tenant.thaliumx.com',
+          firstName: 'Tenant',
+          lastName: 'User',
+          enabled: true,
+          emailVerified: true,
+          roles: [this.DEFAULT_ROLES.BROKER_USER],
+          credentials: [{
+            type: 'password',
+            value: process.env.TENANT_USER_PASSWORD || 'TenantUser2025!',
+            temporary: false
+          }]
+        },
+        {
+          id: '10000000-0000-0000-0000-000000000003', // Trader
+          username: 'tenant-trader',
+          email: 'trader@tenant.thaliumx.com',
+          firstName: 'Tenant',
+          lastName: 'Trader',
+          enabled: true,
+          emailVerified: true,
+          roles: [this.DEFAULT_ROLES.TRADER],
+          credentials: [{
+            type: 'password',
+            value: process.env.TENANT_TRADER_PASSWORD || 'TenantTrader2025!',
+            temporary: false
+          }]
+        },
+        {
+          id: '10000000-0000-0000-0000-000000000004', // Investor
+          username: 'tenant-investor',
+          email: 'investor@tenant.thaliumx.com',
+          firstName: 'Tenant',
+          lastName: 'Investor',
+          enabled: true,
+          emailVerified: true,
+          roles: [this.DEFAULT_ROLES.INVESTOR],
+          credentials: [{
+            type: 'password',
+            value: process.env.TENANT_INVESTOR_PASSWORD || 'TenantInvestor2025!',
+            temporary: false
+          }]
+        },
+        {
+          id: '10000000-0000-0000-0000-000000000005', // KYC User
+          username: 'tenant-kyc',
+          email: 'kyc@tenant.thaliumx.com',
+          firstName: 'Tenant',
+          lastName: 'KYC User',
+          enabled: true,
+          emailVerified: true,
+          roles: [this.DEFAULT_ROLES.KYC_USER],
+          credentials: [{
+            type: 'password',
+            value: process.env.TENANT_KYC_PASSWORD || 'TenantKYC2025!',
+            temporary: false
+          }]
+        },
+        {
+          id: '10000000-0000-0000-0000-000000000006', // Tenant User
+          username: 'tenant-default',
+          email: 'default@tenant.thaliumx.com',
+          firstName: 'Tenant',
+          lastName: 'Default User',
+          enabled: true,
+          emailVerified: true,
+          roles: [this.DEFAULT_ROLES.TENANT_USER],
+          credentials: [{
+            type: 'password',
+            value: process.env.TENANT_DEFAULT_PASSWORD || 'TenantDefault2025!',
+            temporary: false
+          }]
+        }
+      ];
+
+      for (const userData of tenantUsers) {
+        try {
+          // Check if user already exists by username
+          const existingUsers = await this.adminClient.get(
+            `/admin/realms/${realmName}/users`,
+            {
+              params: { username: userData.username, exact: true }
+            }
+          );
+
+          if (existingUsers.data && existingUsers.data.length > 0) {
+            const existingUser = existingUsers.data[0];
+            LoggerService.info(`Tenant user already exists: ${userData.username} (ID: ${existingUser.id})`);
+            
+            // Update user if needed (but preserve existing ID)
+            await this.adminClient.put(
+              `/admin/realms/${realmName}/users/${existingUser.id}`,
+              {
+                username: userData.username,
+                email: userData.email,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                enabled: userData.enabled,
+                emailVerified: userData.emailVerified,
+                attributes: {
+                  'tenant.user.id': [userData.id],
+                  'tenant.user.type': ['tenant'],
+                  'tenant.id': [tenantId],
+                  createdAt: [new Date().toISOString()],
+                  updatedAt: [new Date().toISOString()]
+                }
+              }
+            );
+
+            // Assign roles
+            if (userData.roles && userData.roles.length > 0) {
+              await this.assignRolesToUser(realmName, existingUser.id, userData.roles);
+            }
+          } else {
+            // Create new user
+            const createResponse = await this.adminClient.post(
+              `/admin/realms/${realmName}/users`,
+              {
+                username: userData.username,
+                email: userData.email,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                enabled: userData.enabled,
+                emailVerified: userData.emailVerified,
+                attributes: {
+                  'tenant.user.id': [userData.id],
+                  'tenant.user.type': ['tenant'],
+                  'tenant.id': [tenantId],
+                  createdAt: [new Date().toISOString()],
+                  updatedAt: [new Date().toISOString()]
+                },
+                credentials: userData.credentials
+              }
+            );
+
+            // Get the created user ID from Location header
+            const location = createResponse.headers.location;
+            if (location) {
+              const userId = location.split('/').pop();
+              if (userId && userData.roles && userData.roles.length > 0) {
+                await this.assignRolesToUser(realmName, userId, userData.roles);
+              }
+              LoggerService.info(`Tenant user created: ${userData.username} (ID: ${userId}, Seed ID: ${userData.id})`);
+            }
+          }
+        } catch (error: any) {
+          // If user creation fails due to conflict, log and continue
+          if (error?.response?.status === 409) {
+            LoggerService.warn(`Tenant user ${userData.username} already exists, skipping`);
+          } else {
+            LoggerService.error(`Failed to create tenant user ${userData.username}:`, error);
+            // Continue with other users even if one fails
+          }
+        }
+      }
+
+      LoggerService.info(`Tenant users seeded for ${realmName}`);
+
+    } catch (error) {
+      LoggerService.error('Seed tenant users failed:', error);
+      throw error;
+    }
   }
 }
