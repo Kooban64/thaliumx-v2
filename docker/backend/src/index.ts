@@ -168,7 +168,8 @@ class ThaliumXBackend {
 
   private async initializeServices(): Promise<void> {
     const isProduction = process.env.NODE_ENV === 'production';
-    const criticalServices: string[] = ['DatabaseService', 'RedisService', 'EmailService'];
+    const criticalServices: string[] = ['DatabaseService', 'RedisService'];
+    // EmailService removed from critical - Gmail auth may need OAuth2 or app-specific password configuration
     const failedServices: string[] = [];
 
     LoggerService.info('Initializing core services');

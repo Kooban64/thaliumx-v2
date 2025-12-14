@@ -95,8 +95,8 @@ services:
   # Node.js/Express API with comprehensive service integrations
   backend:
     build:
-      context: ..
-      dockerfile: backend/Dockerfile.production
+      context: ../..
+      dockerfile: docker/backend/Dockerfile.production
     image: thaliumx/backend:latest
     container_name: thaliumx-backend
     hostname: thaliumx-backend
@@ -179,7 +179,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 90s  # Increased to allow all 48 services to initialize
     
     deploy:
       resources:

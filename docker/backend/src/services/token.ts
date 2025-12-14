@@ -209,8 +209,8 @@ export class TokenService {
    */
   public static async getUserWallets(userId: string, tenantId: string): Promise<TokenWallet[]> {
     try {
-      const key = `${userId}:${tenantId}`;
-      return this.wallets.get(key) || [];
+      const _key = `${userId}:${tenantId}`;
+      return this.wallets.get(_key) || [];
     } catch (error) {
       LoggerService.error('Get user wallets failed:', error);
       throw error;
@@ -543,8 +543,8 @@ export class TokenService {
    */
   public static async getUserStakingPositions(userId: string, tenantId: string): Promise<StakingPosition[]> {
     try {
-      const key = `${userId}:${tenantId}`;
-      return this.stakingPositions.get(key) || [];
+      const _key = `${userId}:${tenantId}`;
+      return this.stakingPositions.get(_key) || [];
     } catch (error) {
       LoggerService.error('Get staking positions failed:', error);
       throw error;
@@ -569,8 +569,8 @@ export class TokenService {
    */
   public static async getTransactionHistory(userId: string, tenantId: string, tokenSymbol?: string, limit: number = 50, offset: number = 0): Promise<TokenTransaction[]> {
     try {
-      const key = `${userId}:${tenantId}`;
-      let transactions = this.transactions.get(key) || [];
+      const _key = `${userId}:${tenantId}`;
+      let transactions = this.transactions.get(_key) || [];
       
       // Filter by token symbol if specified
       if (tokenSymbol) {
@@ -649,10 +649,10 @@ export class TokenService {
       wallet.updatedAt = new Date();
       
       // Save staking position
-      const key = `${position.userId}:${position.tenantId}`;
-      const positions = this.stakingPositions.get(key) || [];
+      const _key = `${position.userId}:${position.tenantId}`;
+      const positions = this.stakingPositions.get(_key) || [];
       positions.push(position);
-      this.stakingPositions.set(key, positions);
+      this.stakingPositions.set(_key, positions);
       
       // Complete transaction
       transaction.status = 'completed';
@@ -905,7 +905,7 @@ export class TokenService {
   private static async calculateStakingRewards(): Promise<void> {
     try {
       // Calculate rewards for all active positions
-      for (const [key, positions] of this.stakingPositions) {
+      for (const [_key, positions] of this.stakingPositions) {
         for (const position of positions) {
           if (position.status === 'active') {
             const pool = this.stakingPools.get(position.poolId);

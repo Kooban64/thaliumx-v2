@@ -42,7 +42,6 @@ import { DatabaseService } from './database';
 import { RedisService } from './redis';
 import { Op } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
-import { createError } from '../utils';
 
 interface TransactionRequest {
   id?: string;

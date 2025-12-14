@@ -11,13 +11,11 @@ storage "file" {
 
 # Primary listener - HTTP for internal Docker network
 # TLS termination handled by APISIX gateway
+# Only one listener block - no double definition
 listener "tcp" {
-  address       = "0.0.0.0:8200"
+  address         = "0.0.0.0:8200"
   cluster_address = "0.0.0.0:8201"
-  
-  # TLS disabled for internal Docker network
-  # External access should go through APISIX with TLS
-  tls_disable = true
+  tls_disable     = true
 }
 
 # API address for client communication

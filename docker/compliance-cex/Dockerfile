@@ -37,9 +37,10 @@ WORKDIR /app
 RUN addgroup -g 1001 -S compliance && \
     adduser -S compliance -u 1001 -G compliance
 
-# Install production dependencies only
+# Install production dependencies and wget for health checks
 COPY package*.json ./
-RUN npm ci --only=production && \
+RUN apk add --no-cache wget && \
+    npm ci --only=production && \
     npm cache clean --force
 
 # Copy built application from builder stage

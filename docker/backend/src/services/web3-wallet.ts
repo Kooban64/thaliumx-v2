@@ -13,12 +13,10 @@
 import { ethers } from 'ethers';
 import { LoggerService } from './logger';
 import { DatabaseService } from './database';
-import { RedisService } from './redis';
 import { EventStreamingService } from './event-streaming';
-import { AppError, createError } from '../utils';
-import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
+import { createError } from '../utils';
 
 // =============================================================================
 // TYPES & INTERFACES

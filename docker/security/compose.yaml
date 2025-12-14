@@ -14,7 +14,7 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-ThaliumX2025}
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://thaliumx-postgres:5432/${POSTGRES_DB:-thaliumx}
+      KC_DB_URL: jdbc:postgresql://thaliumx-postgres:5432/keycloak
       KC_DB_USERNAME: ${POSTGRES_USER:-thaliumx}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-ThaliumX2025}
       KC_HEALTH_ENABLED: "true"
@@ -50,17 +50,20 @@ services:
     environment:
       VAULT_ADDR: http://127.0.0.1:8200
       VAULT_API_ADDR: http://thaliumx-vault:8200
-      VAULT_CLUSTER_ADDR: https://thaliumx-vault:8201
+      VAULT_CLUSTER_ADDR: http://thaliumx-vault:8201
       VAULT_LOG_LEVEL: info
       SKIP_SETCAP: "true"
+      # Prevent vault from loading default configs that might conflict
+      VAULT_LOCAL_CONFIG: ""
     ports:
       - "${VAULT_PORT:-8200}:8200"
     volumes:
       - vault_data:/vault/data
       - vault_logs:/vault/logs
-      - ./config/vault:/vault/config:ro
-    # Production mode with file storage
-    command: server -config=/vault/config/vault.hcl
+      - ./config/vault/vault.hcl:/etc/vault.d/vault.hcl:ro
+    # Use /etc/vault.d/ instead of /vault/config to avoid conflicts
+    # Production mode with file storage - use vault.hcl (not vault-production.hcl which requires TLS certs)
+    command: ["server", "-config=/etc/vault.d/vault.hcl"]
     networks:
       - thaliumx-net
     healthcheck:

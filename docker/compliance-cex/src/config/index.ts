@@ -24,7 +24,7 @@ const envSchema = z.object({
   DATABASE_NAME: z.string().default('thaliumx_compliance'),
   DATABASE_USER: z.string().default('compliance_user'),
   DATABASE_PASSWORD: z.string().min(1),
-  DATABASE_SSL: z.coerce.boolean().default(true),
+  DATABASE_SSL: z.coerce.boolean().default(false),
   DATABASE_MAX_CONNECTIONS: z.coerce.number().int().positive().default(20),
 
   // Redis Configuration

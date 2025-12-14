@@ -48,6 +48,9 @@ COPY --from=builder --chown=compliance:nodejs /app/package*.json ./
 # Copy migrations
 COPY --chown=compliance:nodejs migrations/ ./migrations/
 
+# Install wget for health checks
+RUN apk add --no-cache wget
+
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3005

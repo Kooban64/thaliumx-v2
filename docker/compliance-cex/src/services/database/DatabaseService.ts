@@ -45,7 +45,7 @@ export class DatabaseService {
         database: config.database.database,
         user: config.database.user,
         password: config.database.password,
-        ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
+        ssl: false, // Disable SSL for internal Docker network
         max: config.database.maxConnections,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000,

@@ -20,10 +20,8 @@
 
 import { Sequelize } from 'sequelize';
 import crypto from 'crypto';
-import { v4 as uuidv4 } from 'uuid';
 import { ethers } from 'ethers';
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
 import { BlnkFinanceService } from './blnkfinance';
 import { QuantLibService } from './quantlib';

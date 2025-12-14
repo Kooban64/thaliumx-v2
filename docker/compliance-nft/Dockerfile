@@ -25,14 +25,13 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
-# Copy package files
-COPY package*.json ./
+# Install runtime dependencies (wget for health checks)
+RUN apk add --no-cache wget ca-certificates
 
-# Install production dependencies only
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy built files
-COPY --from=builder /app/dist ./dist
+# Copy built files and dependencies from builder
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
 
 # Copy migrations
 COPY migrations/ ./migrations/

@@ -1,8 +1,6 @@
 # ThaliumX Compliance Services Stack
 # Docker Compose configuration for all compliance microservices
 
-version: '3.8'
-
 services:
   # ==================== CEX COMPLIANCE SERVICE ====================
   compliance-cex:
@@ -18,24 +16,27 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - SERVICE_NAME=cex-compliance-service
       - PORT=3001
-      - DATABASE_HOST=postgres
+      - DATABASE_HOST=thaliumx-postgres
       - DATABASE_PORT=5432
       - DATABASE_NAME=cex_compliance
-      - DATABASE_USER=${DB_USER:-compliance_user}
-      - DATABASE_PASSWORD=${DB_PASSWORD:-compliance_password}
+      - DATABASE_USER=${DB_USER:-thaliumx}
+      - DATABASE_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
       - DATABASE_SSL=${DB_SSL:-false}
-      - REDIS_HOST=redis
+      - REDIS_HOST=thaliumx-redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ThaliumX2025}
       - REDIS_DB=0
-      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_BROKERS=thaliumx-kafka:9092
       - KAFKA_CLIENT_ID=cex-compliance-service
       - KAFKA_GROUP_ID=cex-compliance-group
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - API_KEY=${API_KEY:-ThaliumX-Compliance-API-Key-2025}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-ThaliumX-Encryption-Key-32-Char-Long-2025}
+      - JWT_SECRET=${JWT_SECRET:-ThaliumX2025SecureJWTSecretKey32CharsMinimum!}
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -59,20 +60,36 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - SERVICE_NAME=dex-compliance-service
       - PORT=3002
-      - DB_HOST=postgres
+      - DB_HOST=thaliumx-postgres
       - DB_PORT=5432
       - DB_NAME=dex_compliance
-      - DB_USER=${DB_USER:-compliance_user}
-      - DB_PASSWORD=${DB_PASSWORD:-compliance_password}
+      - DB_USER=${DB_USER:-thaliumx}
+      - DB_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
       - DB_SSL=${DB_SSL:-false}
-      - REDIS_HOST=redis
+      - DATABASE_HOST=thaliumx-postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=dex_compliance
+      - DATABASE_USER=${DB_USER:-thaliumx}
+      - DATABASE_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
+      - DATABASE_SSL=false
+      - DATABASE_SSL_MODE=disable
+      - REDIS_HOST=thaliumx-redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ThaliumX2025}
       - REDIS_DB=1
-      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_BROKERS=thaliumx-kafka:9092
       - KAFKA_CLIENT_ID=dex-compliance-service
       - KAFKA_GROUP_ID=dex-compliance-group
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - API_KEY=${API_KEY:-ThaliumX-Compliance-API-Key-2025}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-ThaliumX-Encryption-Key-32-Char-Long-2025}
+      - JWT_SECRET=${JWT_SECRET:-ThaliumX2025SecureJWTSecretKey32CharsMinimum!}
+      # Blockchain RPC Providers - configured from .secrets/chain.info
+      # Using Alchemy API key: SztlY3jR1R_HBbKW588ZlWxfAYa1iHgD (Ethereum only)
+      # Using Infura Project ID: 38cb2ace40b3446d900e1c500dd714ab
+      # Using Ankr API: b511d6fbc7c9fd126e6e0b020a1d3578fb8db0fc6f9cf6b0f8ec558e4006db36
+      # Using public RPCs for networks not enabled in Alchemy
+      - BLOCKCHAIN_PROVIDERS=[{"chainId":1,"name":"Ethereum Mainnet","rpcUrl":"https://eth-mainnet.g.alchemy.com/v2/SztlY3jR1R_HBbKW588ZlWxfAYa1iHgD"},{"chainId":56,"name":"BNB Chain","rpcUrl":"https://bsc-dataseed1.binance.org"},{"chainId":137,"name":"Polygon","rpcUrl":"https://polygon-rpc.com"},{"chainId":42161,"name":"Arbitrum One","rpcUrl":"https://arb1.arbitrum.io/rpc"},{"chainId":10,"name":"Optimism","rpcUrl":"https://mainnet.optimism.io"},{"chainId":43114,"name":"Avalanche","rpcUrl":"https://avalanche-mainnet.infura.io/v3/38cb2ace40b3446d900e1c500dd714ab"},{"chainId":250,"name":"Fantom","rpcUrl":"https://rpc.ftm.tools"}]
     networks:
       - thaliumx-net
     healthcheck:
@@ -100,26 +117,29 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - SERVICE_NAME=nft-compliance-service
       - PORT=3003
-      - DB_HOST=postgres
+      - DB_HOST=thaliumx-postgres
       - DB_PORT=5432
       - DB_NAME=nft_compliance
-      - DB_USER=${DB_USER:-compliance_user}
-      - DB_PASSWORD=${DB_PASSWORD:-compliance_password}
+      - DB_USER=${DB_USER:-thaliumx}
+      - DB_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
       - DB_SSL=${DB_SSL:-false}
-      - REDIS_HOST=redis
+      - REDIS_HOST=thaliumx-redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ThaliumX2025}
       - REDIS_DB=2
-      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_BROKERS=thaliumx-kafka:9092
       - KAFKA_CLIENT_ID=nft-compliance-service
       - KAFKA_GROUP_ID=nft-compliance-group
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - CONTENT_SCREENING_ENABLED=${CONTENT_SCREENING_ENABLED:-true}
       - WASH_TRADING_DETECTION_ENABLED=${WASH_TRADING_DETECTION_ENABLED:-true}
+      - API_KEY=${API_KEY:-ThaliumX-Compliance-API-Key-2025}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-ThaliumX-Encryption-Key-32-Char-Long-2025}
+      - JWT_SECRET=${JWT_SECRET:-ThaliumX2025SecureJWTSecretKey32CharsMinimum!}
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3003/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -143,25 +163,34 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - SERVICE_NAME=token-compliance-service
       - PORT=3004
-      - DB_HOST=postgres
+      - DB_HOST=thaliumx-postgres
       - DB_PORT=5432
       - DB_NAME=token_compliance
-      - DB_USER=${DB_USER:-compliance_user}
-      - DB_PASSWORD=${DB_PASSWORD:-compliance_password}
+      - DB_USER=${DB_USER:-thaliumx}
+      - DB_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
       - DB_SSL=${DB_SSL:-false}
-      - REDIS_HOST=redis
+      - DATABASE_HOST=thaliumx-postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=token_compliance
+      - DATABASE_USER=${DB_USER:-thaliumx}
+      - DATABASE_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
+      - DATABASE_SSL=${DB_SSL:-false}
+      - REDIS_HOST=thaliumx-redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ThaliumX2025}
       - REDIS_DB=3
-      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_BROKERS=thaliumx-kafka:9092
       - KAFKA_CLIENT_ID=token-compliance-service
       - KAFKA_GROUP_ID=token-compliance-group
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - WALLET_SCREENING_ENABLED=${WALLET_SCREENING_ENABLED:-true}
+      - API_KEY=${API_KEY:-ThaliumX-Compliance-API-Key-2025}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-ThaliumX-Encryption-Key-32-Char-Long-2025}
+      - JWT_SECRET=${JWT_SECRET:-ThaliumX2025SecureJWTSecretKey32CharsMinimum!}
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3004/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -185,33 +214,42 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - SERVICE_NAME=compliance-coordinator-service
       - PORT=3005
-      - DB_HOST=postgres
+      - DB_HOST=thaliumx-postgres
       - DB_PORT=5432
       - DB_NAME=compliance_coordinator
-      - DB_USER=${DB_USER:-compliance_user}
-      - DB_PASSWORD=${DB_PASSWORD:-compliance_password}
+      - DB_USER=${DB_USER:-thaliumx}
+      - DB_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
       - DB_SSL=${DB_SSL:-false}
-      - REDIS_HOST=redis
+      - DATABASE_HOST=thaliumx-postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=compliance_coordinator
+      - DATABASE_USER=${DB_USER:-thaliumx}
+      - DATABASE_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
+      - DATABASE_SSL=${DB_SSL:-false}
+      - REDIS_HOST=thaliumx-redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-ThaliumX2025}
       - REDIS_DB=4
-      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_BROKERS=thaliumx-kafka:9092
       - KAFKA_CLIENT_ID=compliance-coordinator-service
       - KAFKA_GROUP_ID=compliance-coordinator-group
-      - CEX_COMPLIANCE_URL=http://compliance-cex:3001
-      - DEX_COMPLIANCE_URL=http://compliance-dex:3002
-      - NFT_COMPLIANCE_URL=http://compliance-nft:3003
-      - TOKEN_COMPLIANCE_URL=http://compliance-token:3004
+      - CEX_COMPLIANCE_URL=http://thaliumx-compliance-cex:3001
+      - DEX_COMPLIANCE_URL=http://thaliumx-compliance-dex:3002
+      - NFT_COMPLIANCE_URL=http://thaliumx-compliance-nft:3003
+      - TOKEN_COMPLIANCE_URL=http://thaliumx-compliance-token:3004
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - AGGREGATION_ENABLED=${AGGREGATION_ENABLED:-true}
       - ALERTS_ENABLED=${ALERTS_ENABLED:-true}
       - REPORTING_ENABLED=${REPORTING_ENABLED:-true}
+      - API_KEY=${API_KEY:-ThaliumX-Compliance-API-Key-2025}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-ThaliumX-Encryption-Key-32-Char-Long-2025}
+      - JWT_SECRET=${JWT_SECRET:-ThaliumX2025SecureJWTSecretKey32CharsMinimum!}
     networks:
       - thaliumx-net
     volumes:
       - compliance-reports:/data/reports
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3005/health"]
       interval: 30s
       timeout: 10s
       retries: 3

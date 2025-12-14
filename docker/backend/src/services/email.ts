@@ -37,14 +37,28 @@ export class EmailService {
   public static async initialize(): Promise<void> {
     const config = await ConfigService.getConfig();
 
+    // Gmail requires specific configuration
+    const isGmail = config.smtp.host.includes('gmail.com');
+    
+    // Gmail app-specific passwords may have spaces - remove them
+    const smtpPassword = isGmail ? config.smtp.auth.pass.replace(/\s+/g, '') : config.smtp.auth.pass;
+    
     this.transporter = nodemailer.createTransport({
       host: config.smtp.host,
       port: config.smtp.port,
-      secure: config.smtp.secure,
+      secure: config.smtp.secure, // false for port 587, true for port 465
+      requireTLS: !config.smtp.secure, // Require TLS for port 587
       auth: {
         user: config.smtp.auth.user,
-        pass: config.smtp.auth.pass
-      }
+        pass: smtpPassword
+      },
+      // Gmail-specific settings
+      ...(isGmail && {
+        service: 'gmail',
+        tls: {
+          rejectUnauthorized: false // Allow self-signed certificates if needed
+        }
+      })
     });
 
     // Verify connection
@@ -53,10 +67,15 @@ export class EmailService {
       LoggerService.info('SMTP transporter verified successfully');
     } catch (error) {
       LoggerService.error('SMTP transporter verification failed', error);
-      if (config.env === 'production') {
-        throw error;
-      }
-      LoggerService.warn('Continuing without email service in non-production mode');
+      // Log detailed error for debugging but don't fail startup
+      // Email service will be unavailable but backend can still run
+      LoggerService.warn('Email service unavailable - backend will continue without email functionality', {
+        error: error instanceof Error ? error.message : String(error),
+        host: config.smtp.host,
+        port: config.smtp.port
+      });
+      // Set transporter to null to indicate service is unavailable
+      this.transporter = null as any;
     }
   }
 

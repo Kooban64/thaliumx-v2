@@ -13,6 +13,10 @@ include:
   - path: citus/compose.yaml
     project_directory: citus
   
+  # TimescaleDB - Time-series database for trading data
+  - path: timescaledb/compose.yaml
+    project_directory: timescaledb
+  
   - path: messaging/compose.yaml
     project_directory: messaging
 
