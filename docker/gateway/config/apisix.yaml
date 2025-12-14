@@ -33,7 +33,7 @@ deployment:
       - 172.28.0.0/16
       - 127.0.0.1/32
     admin_listen:
-      ip: 127.0.0.1
+      ip: 0.0.0.0
       port: 9180
   etcd:
     host:
