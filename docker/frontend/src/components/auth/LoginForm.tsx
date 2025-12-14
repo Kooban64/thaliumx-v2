@@ -141,16 +141,24 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
       });
 
       if (!response.success) {
-        if (response.error === 'MFA_REQUIRED') {
+        // Check for MFA requirement
+        if (response.error?.includes('MFA') || response.code === 'MFA_REQUIRED') {
           setShowMFA(true);
+          setIsLoading(false);
           return;
         }
-        throw new Error(response.message || 'Login failed');
+        // Display error message from backend
+        const errorMsg = response.error || response.message || 'Login failed';
+        setError(errorMsg);
+        setIsLoading(false);
+        return;
       }
 
-      if (response.success) {
+      if (response.success && response.data) {
         // Tokens are now stored in httpOnly cookies by the backend
         onSuccess?.('authenticated');
+      } else {
+        setError('Login failed - invalid response');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');

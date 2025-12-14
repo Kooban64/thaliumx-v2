@@ -82,6 +82,14 @@ const circuitBreakerState: CircuitBreakerState = {
   state: 'closed'
 };
 
+// Reset circuit breaker function (for recovery)
+export function resetCircuitBreaker(): void {
+  circuitBreakerState.failures = 0;
+  circuitBreakerState.lastFailureTime = 0;
+  circuitBreakerState.state = 'closed';
+  LoggerService.info('Circuit breaker manually reset');
+}
+
 // Request throttling
 let activeRequests = 0;
 const requestQueue: Array<{ req: Request; res: Response; next: NextFunction; timestamp: number }> = [];

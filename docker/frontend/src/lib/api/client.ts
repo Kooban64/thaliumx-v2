@@ -87,15 +87,35 @@ class ApiClient {
 
       clearTimeout(timeoutId);
 
+      // Handle both success and error responses
+      const data = await response.json();
+      
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Backend returns structured error format
+        return {
+          success: false,
+          error: data.error?.message || data.message || `HTTP ${response.status}: ${response.statusText}`,
+          message: data.error?.message || data.message || `HTTP ${response.status}: ${response.statusText}`,
+          code: data.error?.code || 'HTTP_ERROR',
+          timestamp: data.timestamp || new Date().toISOString(),
+        };
       }
 
-      const data = await response.json();
+      // Backend returns { success: true, data: ... } format
+      if (data.success === false) {
+        return {
+          success: false,
+          error: data.error?.message || data.message || 'Request failed',
+          message: data.error?.message || data.message || 'Request failed',
+          code: data.error?.code || 'REQUEST_FAILED',
+          timestamp: data.timestamp || new Date().toISOString(),
+        };
+      }
+
       return {
         success: true,
-        data,
-        timestamp: new Date().toISOString(),
+        data: data.data || data, // Handle both { data: ... } and direct response
+        timestamp: data.timestamp || new Date().toISOString(),
       };
     } catch (error) {
       clearTimeout(timeoutId);
