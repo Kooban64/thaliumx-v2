@@ -44,9 +44,15 @@ test.describe('Authentication - Browser Flow', () => {
   test.beforeEach(async ({ page }) => {
     // Clear any existing session
     await page.context().clearCookies();
+    // Navigate to a page first to access localStorage
+    await page.goto('/');
     await page.evaluate(() => {
-      localStorage.clear();
-      sessionStorage.clear();
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (e) {
+        // Ignore localStorage access errors
+      }
     });
   });
 
