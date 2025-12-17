@@ -1,15 +1,113 @@
 # ThaliumX Production v1 - Applications Layer
 # ==========================================
-# Business applications: Backend, Compliance services
-# Status: Planned for next development phase
-# Updated: 2025-12-17T08:59:30.000Z
+# Business applications: Keycloak, Backend, Compliance services
+# Status: Keycloak production mode added
+# Updated: 2025-12-17T12:23:00.000Z
 
 version: '3.8'
 
-# TODO: Add backend service
-# TODO: Add compliance services (DEX, CEX, NFT, Token)
-# TODO: Add QuantLib service
-
 services:
-  # Placeholder for future services
-  # Will be populated as services are developed and tested
+  # ============================================
+  # KEYCLOAK - Identity and Access Management
+  # ============================================
+  # Production mode with TLS, Vault integration, and full migrations
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: thaliumx-keycloak
+    hostname: thaliumx-keycloak
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+    environment:
+      # Production mode (not dev)
+      KC_BOOTSTRAP_ADMIN_USERNAME_FILE: /run/secrets/keycloak-admin-username
+      KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak-admin-password
+
+      # Database configuration (PostgreSQL with SSL)
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak?sslmode=require
+      KC_DB_USERNAME_FILE: /run/secrets/postgres-username
+      KC_DB_PASSWORD_FILE: /run/secrets/postgres-password
+      KC_DB_SCHEMA: public
+
+      # HTTPS/TLS configuration
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/certs/server.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/certs/server.key
+      KC_HTTPS_CERTIFICATE_CHAIN_FILE: /opt/keycloak/certs/ca.crt
+      KC_HOSTNAME_STRICT: "true"
+      KC_HOSTNAME_STRICT_HTTPS: "true"
+      KC_HTTP_ENABLED: "false"  # Disable HTTP in production
+      KC_HTTPS_PORT: "8443"
+      KC_PROXY_HEADERS: xforwarded
+
+      # Security settings
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-auth.thaliumx.com}
+      KC_CRYPTO_POLICY: restricted  # FIPS compliant crypto
+
+      # Health and metrics
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+
+      # Production features
+      KC_FEATURES: token-exchange,admin-fine-grained-authz,organization,step-up-authentication,dynamic-scopes,client-policies
+
+      # Logging (production level)
+      KC_LOG_LEVEL: ${KC_LOG_LEVEL:-INFO}
+      KC_LOG_CONSOLE_FORMAT: '%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p [%c] (%t) %s%e%n'
+
+      # Cache configuration (production)
+      KC_CACHE: ispn
+      KC_CACHE_STACK: kubernetes
+      KC_CACHE_CONFIG_FILE: /opt/keycloak/conf/cache-ispn.xml
+
+      # Transaction settings (production)
+      KC_TRANSACTION_XA_ENABLED: "false"
+
+      # Vault integration (for additional secrets)
+      VAULT_ADDR: https://vault:8200
+      VAULT_SKIP_VERIFY: "true"
+
+      # JVM settings for production
+      JAVA_OPTS: "-Xms512m -Xmx2048m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=512m -Djava.net.preferIPv4Stack=true -Djava.security.egd=file:/dev/./urandom"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./../../keycloak/realm-config:/opt/keycloak/data/import:ro
+      - ./../../certs/services/keycloak:/opt/keycloak/certs:ro
+      - ./../../certs/ca/ca.crt:/opt/keycloak/certs/ca.crt:ro
+      - ./../../keycloak/cache-ispn.xml:/opt/keycloak/conf/cache-ispn.xml:ro
+    secrets:
+      - keycloak-admin-username
+      - keycloak-admin-password
+      - postgres-username
+      - postgres-password
+    command: start --import-realm --optimized --http-relative-path=/auth
+    ports:
+      - "8443:8443"  # HTTPS only
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8443;echo -e 'GET /auth/health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3;if [ $? -eq 0 ]; then echo 'Healthcheck Successful';exit 0;else echo 'Healthcheck Failed';exit 1;fi;"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 3G
+        reservations:
+          cpus: '0.5'
+          memory: 1.5G
+    labels:
+      - "com.thaliumx.service=keycloak"
+      - "com.thaliumx.component=security"
+      - "com.thaliumx.description=Identity and Access Management"
+      - "com.thaliumx.tier=application"
+
+  # TODO: Add backend service
+  # TODO: Add compliance services (DEX, CEX, NFT, Token)
+  # TODO: Add QuantLib service

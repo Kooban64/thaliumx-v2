@@ -85,8 +85,12 @@ secrets:
     file: ../../../.secrets/generated/encryption-key
 
   # Authentication
+  keycloak-admin-username:
+    file: ../../../.secrets/generated/keycloak-admin-username
   keycloak-admin-password:
     file: ../../../.secrets/generated/keycloak-admin-password
+  postgres-username:
+    file: ../../../.secrets/generated/postgres-username
 
   # Vault
   vault-role-id:
