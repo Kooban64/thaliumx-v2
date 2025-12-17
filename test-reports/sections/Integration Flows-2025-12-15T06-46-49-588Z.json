@@ -1,0 +1,75 @@
+{
+  "report": {
+    "timestamp": "2025-12-15T06:46:49.588Z",
+    "duration": 51,
+    "totalTests": 4,
+    "passedTests": 0,
+    "failedTests": 4,
+    "suites": [],
+    "summary": {
+      "byCategory": {
+        "trading": {
+          "passed": 0,
+          "failed": 4,
+          "total": 4
+        }
+      },
+      "byFeature": {
+        "Complete Trading Flow": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        },
+        "Complete Wallet Flow": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        },
+        "Complete KYC Flow": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        },
+        "Complete Admin Flow": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "category": "trading",
+      "feature": "Complete Trading Flow",
+      "testName": "Step 1: Authentication",
+      "passed": false,
+      "details": "Failed to authenticate",
+      "timestamp": "2025-12-15T06:46:49.572Z"
+    },
+    {
+      "category": "trading",
+      "feature": "Complete Wallet Flow",
+      "testName": "Step 1: Authentication",
+      "passed": false,
+      "details": "Failed to authenticate",
+      "timestamp": "2025-12-15T06:46:49.580Z"
+    },
+    {
+      "category": "trading",
+      "feature": "Complete KYC Flow",
+      "testName": "Step 1: Authentication",
+      "passed": false,
+      "details": "Failed to authenticate",
+      "timestamp": "2025-12-15T06:46:49.584Z"
+    },
+    {
+      "category": "trading",
+      "feature": "Complete Admin Flow",
+      "testName": "Step 1: Authentication",
+      "passed": false,
+      "details": "Failed to authenticate",
+      "timestamp": "2025-12-15T06:46:49.588Z"
+    }
+  ]
+}

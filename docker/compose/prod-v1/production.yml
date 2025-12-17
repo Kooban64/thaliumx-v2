@@ -1,0 +1,79 @@
+# ThaliumX Production v1 - Full Stack
+# ===================================
+# Complete production deployment combining all layers
+# Updated: 2025-12-17T09:00:20.000Z
+
+version: '3.8'
+
+# This file combines all layers for full production deployment
+# Use with: docker compose -f compose/prod-v1/base.yml -f compose/prod-v1/production.yml up -d
+
+services:
+  # Include all services from other layers
+  # This is a reference file - actual services defined in layer files
+
+  # Infrastructure Layer
+  vault:
+    extends:
+      file: infrastructure.yml
+      service: vault
+
+  postgres:
+    extends:
+      file: infrastructure.yml
+      service: postgres
+
+  redis:
+    extends:
+      file: infrastructure.yml
+      service: redis
+
+  # Database Layer
+  citus-coordinator:
+    extends:
+      file: databases.yml
+      service: citus-coordinator
+
+  citus-worker-1:
+    extends:
+      file: databases.yml
+      service: citus-worker-1
+
+  citus-worker-2:
+    extends:
+      file: databases.yml
+      service: citus-worker-2
+
+  timescaledb:
+    extends:
+      file: databases.yml
+      service: timescaledb
+
+  mongodb:
+    extends:
+      file: databases.yml
+      service: mongodb
+
+  # Applications Layer (when populated)
+  # backend:
+  #   extends:
+  #     file: applications.yml
+  #     service: backend
+
+  # Messaging Layer (when populated)
+  # kafka:
+  #   extends:
+  #     file: messaging.yml
+  #     service: kafka
+
+  # Gateway Layer (when populated)
+  # apisix:
+  #   extends:
+  #     file: gateway.yml
+  #     service: apisix
+
+  # Monitoring Layer (when populated)
+  # prometheus:
+  #   extends:
+  #     file: monitoring.yml
+  #     service: prometheus

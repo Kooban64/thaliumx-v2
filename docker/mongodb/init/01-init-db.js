@@ -5,9 +5,16 @@
 db = db.getSiblingDB('admin');
 
 // Create application user with readWrite access to thaliumx database
+const appUser = (typeof process !== 'undefined' && process.env && process.env.MONGO_APP_USERNAME) ? process.env.MONGO_APP_USERNAME : 'thaliumx';
+const appPassword = (typeof process !== 'undefined' && process.env) ? process.env.MONGO_APP_PASSWORD : undefined;
+
+if (!appPassword) {
+  throw new Error('Missing MongoDB app password: set MONGO_APP_PASSWORD');
+}
+
 db.createUser({
-  user: 'thaliumx',
-  pwd: 'ThaliumX2025',
+  user: appUser,
+  pwd: appPassword,
   roles: [
     { role: 'readWrite', db: 'thaliumx' },
     { role: 'readWrite', db: 'thaliumx_audit' },

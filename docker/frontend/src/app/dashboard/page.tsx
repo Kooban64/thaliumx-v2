@@ -35,7 +35,7 @@ export default function Dashboard() {
     // Check authentication and load user data
     const checkAuth = async () => {
       try {
-        const response = await fetch('/api/auth/me', {
+        const response = await fetch('/api/auth/profile', {
           credentials: 'include' // Include cookies
         });
         if (!response.ok) {
@@ -247,7 +247,14 @@ export default function Dashboard() {
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
-                        <span>BTC/USDT</span>
+                        <span>
+                          BTC/USDT
+                          {currentPrice !== null && (
+                            <span className="ml-2 text-sm font-normal text-muted-foreground">
+                              ${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            </span>
+                          )}
+                        </span>
                         <div className="flex items-center space-x-2">
                           <span className={`text-sm ${priceChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {priceChange >= 0 ? '+' : ''}{priceChange?.toFixed(2) || '0.00'}%

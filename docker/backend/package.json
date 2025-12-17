@@ -10,6 +10,9 @@
     "test": "jest --passWithNoTests --coverage",
     "test:watch": "jest --watch",
     "test:integration": "jest --config jest.integration.config.js",
+    "test:integration:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "test:integration:down": "docker compose -f docker-compose.test.yml down -v --remove-orphans",
+    "test:integration:ci": "pnpm run test:integration:up && pnpm run test:integration && pnpm run test:integration:down",
     "test:performance": "artillery run tests/performance/load-test.yml",
     "test:security": "pnpm run test:security:api && pnpm run test:security:dependencies",
     "test:security:api": "node tests/security/api-security-test.js",
@@ -25,7 +28,7 @@
     "db:restore": "ts-node scripts/database-restore.ts",
     "monitoring:setup": "ts-node scripts/monitoring-setup.ts",
     "clean": "rm -rf dist coverage",
-    "prepare": "husky install"
+    "prepare": "husky install || true"
   },
   "dependencies": {
     "@open-policy-agent/opa-wasm": "^1.10.0",
@@ -46,6 +49,7 @@
     "bcryptjs": "^2.4.3",
     "bull": "^4.16.4",
     "compression": "^1.7.5",
+    "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "decimal.js": "^10.4.3",
     "dompurify": "^3.3.0",
@@ -86,6 +90,7 @@
     "xss": "^1.0.15"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.8",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.7.5",
     "@types/cors": "^2.8.17",

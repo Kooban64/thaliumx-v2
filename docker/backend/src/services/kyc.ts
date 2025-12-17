@@ -18,7 +18,7 @@ import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
 import { KeycloakService } from './keycloak';
 import { BrokerManagementService } from './broker-management';
-import { ballerineService } from './ballerine';
+import { getBallerineService } from './ballerine';
 import { AppError, createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
@@ -552,7 +552,7 @@ export class KYCService {
       LoggerService.info('Initializing KYC Service...');
       
       // Validate Ballerine service is available
-      const isHealthy = await ballerineService.healthCheck();
+      const isHealthy = await getBallerineService().healthCheck();
       if (!isHealthy) {
         LoggerService.warn('Ballerine service health check failed, continuing with limited functionality');
       }
@@ -809,7 +809,7 @@ export class KYCService {
       let workflowData = null;
       if (workflowId) {
         try {
-          workflowData = await ballerineService.getWorkflowStatus(workflowId);
+          workflowData = await getBallerineService().getWorkflowStatus(workflowId);
         } catch (error: any) {
           LoggerService.warn('Failed to get workflow status from Ballerine', { workflowId, error: error.message });
         }
@@ -1020,7 +1020,7 @@ export class KYCService {
         return;
       }
 
-      const definitions = await ballerineService.getWorkflowDefinitions();
+      const definitions = await getBallerineService().getWorkflowDefinitions();
       
       // Cache definitions by type
       definitions.forEach(def => {
@@ -1062,7 +1062,7 @@ export class KYCService {
       }
 
       // Try to find dynamically
-      const definition = await ballerineService.findWorkflowDefinitionByType(type);
+      const definition = await getBallerineService().findWorkflowDefinitionByType(type);
       if (definition) {
         this.workflowDefinitionsCache.set(type, definition);
         return definition.id;
@@ -1134,7 +1134,7 @@ export class KYCService {
       };
 
       // Start workflow using BallerineService
-      const workflowResponse = await ballerineService.startWorkflow(caseData);
+      const workflowResponse = await getBallerineService().startWorkflow(caseData);
 
       // Update document with Ballerine workflow information
       document.ballerineWorkflowId = workflowResponse.id;
@@ -1156,7 +1156,7 @@ export class KYCService {
 
   private static async verifyWebhookSignature(payload: any, signature: string): Promise<boolean> {
     try {
-      return await ballerineService.verifyWebhookSignature(payload, signature);
+      return await getBallerineService().verifyWebhookSignature(payload, signature);
     } catch (error) {
       LoggerService.error('Verify webhook signature failed:', error);
       return false;

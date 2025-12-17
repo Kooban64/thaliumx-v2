@@ -45,6 +45,11 @@ export class MigrationRunner {
    * Creates a direct Sequelize connection without initializing all services
    */
   static async initialize(): Promise<void> {
+    const password = process.env.DB_PASSWORD || process.env.POSTGRES_PASSWORD;
+    if (!password) {
+      throw new Error('Database password missing: set DB_PASSWORD or POSTGRES_PASSWORD');
+    }
+
     // Create direct database connection for migrations
     // This avoids initializing all services which may depend on tables that don't exist yet
     const config = {
@@ -52,7 +57,7 @@ export class MigrationRunner {
       port: parseInt(process.env.DB_PORT || process.env.POSTGRES_PORT || '5432'),
       database: process.env.DB_NAME || process.env.POSTGRES_DB || 'thaliumx',
       username: process.env.DB_USER || process.env.POSTGRES_USER || 'thaliumx',
-      password: process.env.DB_PASSWORD || process.env.POSTGRES_PASSWORD || 'ThaliumX2025',
+      password,
       dialect: 'postgres' as const,
       logging: false, // Disable logging for migrations
       pool: {
@@ -238,4 +243,3 @@ if (require.main === module) {
     }
   })();
 }
-

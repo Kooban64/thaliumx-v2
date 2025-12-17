@@ -1,0 +1,65 @@
+{
+  "summary": {
+    "total": 11,
+    "passed": 2,
+    "failed": 9,
+    "warnings": 0
+  },
+  "tests": [
+    {
+      "name": "Invalid credentials rejected",
+      "passed": false,
+      "error": "read ECONNRESET"
+    },
+    {
+      "name": "Brute force protection active",
+      "passed": false,
+      "error": "read ECONNRESET"
+    },
+    {
+      "name": "Invalid JWT rejected",
+      "passed": false,
+      "error": "read ECONNRESET"
+    },
+    {
+      "name": "SQL injection prevented",
+      "passed": false,
+      "error": "read ECONNRESET"
+    },
+    {
+      "name": "XSS input sanitized",
+      "passed": false,
+      "error": "read ECONNRESET"
+    },
+    {
+      "name": "Large payload rejected",
+      "passed": false,
+      "error": "read ECONNRESET"
+    },
+    {
+      "name": "Rate limiting active",
+      "passed": false,
+      "error": "socket hang up"
+    },
+    {
+      "name": "CORS properly configured",
+      "passed": false,
+      "error": "read ECONNRESET"
+    },
+    {
+      "name": "Security headers present",
+      "passed": false,
+      "error": "socket hang up"
+    },
+    {
+      "name": "SQL injection patterns blocked",
+      "passed": true,
+      "error": null
+    },
+    {
+      "name": "XSS payloads blocked",
+      "passed": true,
+      "error": null
+    }
+  ]
+}

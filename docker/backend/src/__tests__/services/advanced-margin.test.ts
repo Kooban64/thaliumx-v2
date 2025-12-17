@@ -1,8 +1,3 @@
-import { AdvancedMarginTradingService } from '../../services/advanced-margin';
-import { BlnkFinanceService } from '../../services/blnkfinance';
-import { OmniExchangeService } from '../../services/omni-exchange';
-import { DatabaseService } from '../../services/database';
-
 // Mock dependencies
 jest.mock('../../services/blnkfinance', () => ({
   BlnkFinanceService: {
@@ -37,12 +32,26 @@ jest.mock('../../services/database', () => ({
 }));
 
 describe('AdvancedMarginTradingService', () => {
+  let AdvancedMarginTradingService: any;
+
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  beforeEach(async () => {
+    // With `resetModules: true` in Jest config, importing the service inside the test
+    // ensures mocks are applied consistently.
+    const mod = await import('../../services/advanced-margin');
+    AdvancedMarginTradingService = mod.AdvancedMarginTradingService;
+
     // Reset service state
-    (AdvancedMarginTradingService as any).accounts = new Map();
-    (AdvancedMarginTradingService as any).positions = new Map();
-    (AdvancedMarginTradingService as any).fundingRates = new Map();
+    AdvancedMarginTradingService.accounts = new Map();
+    AdvancedMarginTradingService.positions = new Map();
+    AdvancedMarginTradingService.orders = new Map();
+    AdvancedMarginTradingService.transfers = new Map();
+    AdvancedMarginTradingService.liquidations = new Map();
+    AdvancedMarginTradingService.riskLimits = new Map();
+    AdvancedMarginTradingService.fundingRates = new Map();
   });
 
   describe('createMarginAccount', () => {
@@ -172,7 +181,7 @@ describe('AdvancedMarginTradingService', () => {
       );
 
       // Mock closing price (profit scenario)
-      (AdvancedMarginTradingService as any).getCurrentPrice = jest.fn().mockResolvedValue(33000);
+      (AdvancedMarginTradingService as any).getCurrentPrice = jest.fn().mockResolvedValue(50000);
 
       const result = await AdvancedMarginTradingService.closeMarginPosition(
         'user-123',
@@ -232,7 +241,7 @@ describe('AdvancedMarginTradingService', () => {
         'broker-789',
         'cross',
         undefined,
-        { asset: 'USDT', amount: 1000 }
+        { asset: 'USDT', amount: 5000 }
       );
 
       const position = await AdvancedMarginTradingService.createMarginPosition(
@@ -264,23 +273,43 @@ describe('AdvancedMarginTradingService', () => {
       expect(result).toHaveProperty('maxLeverage');
       expect(result).toHaveProperty('maxPositionSize');
       expect(result).toHaveProperty('maxDrawdown');
-      expect(result).toHaveProperty('minMarginLevel');
+      expect(result).toHaveProperty('maintenanceMarginRatio');
+      expect(result).toHaveProperty('liquidationThreshold');
+      expect(result).toHaveProperty('marginCallThreshold');
     });
   });
 
   describe('getUserFundSegregation', () => {
     it('should return fund segregation data', async () => {
+      await AdvancedMarginTradingService.createMarginAccount(
+        'user-123',
+        'tenant-456',
+        'broker-789',
+        'cross',
+        undefined,
+        { asset: 'USDT', amount: 1000 }
+      );
+
       const result = await AdvancedMarginTradingService.getUserFundSegregation('user-123', 'tenant-456', 'broker-789');
 
       expect(result).toHaveProperty('userId');
-      expect(result).toHaveProperty('totalBalance');
-      expect(result).toHaveProperty('availableBalance');
-      expect(result).toHaveProperty('lockedInPositions');
+      expect(result).toHaveProperty('accountId');
+      expect(result).toHaveProperty('userSegregation');
+      expect(result.userSegregation).toHaveProperty('userBalance');
     });
   });
 
   describe('updateUserRiskScore', () => {
     it('should update user risk score', async () => {
+      await AdvancedMarginTradingService.createMarginAccount(
+        'user-123',
+        'tenant-456',
+        'broker-789',
+        'cross',
+        undefined,
+        { asset: 'USDT', amount: 1000 }
+      );
+
       await expect(AdvancedMarginTradingService.updateUserRiskScore('user-123', 'tenant-456', 'broker-789', 75))
         .resolves.not.toThrow();
     });

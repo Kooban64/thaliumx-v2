@@ -15,7 +15,8 @@ NC='\033[0m' # No Color
 # Configuration
 CITUS_COORDINATOR="${CITUS_COORDINATOR:-thaliumx-citus-coordinator}"
 POSTGRES_USER="${POSTGRES_USER:-postgres}"
-POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-ThaliumX2025}"
+# No insecure defaults; must be provided via env/secret manager
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
 
 print_header() {
     echo -e "\n${BLUE}========================================${NC}"

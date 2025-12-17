@@ -23,45 +23,70 @@ afterAll(async () => {
 });
 
 // Mock external dependencies
-jest.mock('../src/lib/cache/redis', () => ({
-  get: jest.fn(),
-  set: jest.fn(),
-  del: jest.fn(),
-  expire: jest.fn(),
+jest.mock('../src/services/redis', () => ({
+  RedisService: {
+    // Connection
+    initialize: jest.fn(),
+    isConnected: jest.fn(() => false),
+    close: jest.fn(),
+    getClient: jest.fn(() => null),
+
+    // Common ops used across services
+    getString: jest.fn(async () => null),
+    setString: jest.fn(async () => undefined),
+    del: jest.fn(async () => undefined),
+    keys: jest.fn(async () => []),
+    get: jest.fn(async () => null),
+    set: jest.fn(async () => undefined),
+    publish: jest.fn(async () => undefined),
+    subscribe: jest.fn(async () => undefined),
+  },
 }));
 
-jest.mock('../src/lib/messaging/kafka', () => ({
-  publish: jest.fn(),
-  subscribe: jest.fn(),
+jest.mock('../src/services/kafka', () => ({
+  KafkaService: {
+    initialize: jest.fn(),
+    produce: jest.fn(async () => undefined),
+    close: jest.fn(),
+  },
 }));
 
-jest.mock('../src/lib/vault', () => ({
-  getSecret: jest.fn(),
-  setSecret: jest.fn(),
+jest.mock('../src/services/secrets', () => ({
+  SecretsService: {
+    initialize: jest.fn(),
+    isConnected: jest.fn(() => false),
+    getSecret: jest.fn(async () => ''),
+    getSecrets: jest.fn(async () => ({})),
+    writeSecret: jest.fn(async () => true),
+    deleteSecret: jest.fn(async () => true),
+    listSecrets: jest.fn(async () => []),
+  },
 }));
 
-// Mock Keycloak
-jest.mock('../src/lib/auth/keycloak', () => ({
-  verifyToken: jest.fn(),
-  getUserInfo: jest.fn(),
+jest.mock('../src/services/keycloak', () => ({
+  KeycloakService: {
+    initialize: jest.fn(),
+    isHealthy: jest.fn(() => true),
+    validateToken: jest.fn(async () => ({ sub: 'test-user' })),
+  },
 }));
 
 // Custom matchers
 expect.extend({
-  toBeValidUUID(received) {
+  toBeValidUUID(received: unknown) {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    const pass = uuidRegex.test(received);
+    const pass = typeof received === 'string' && uuidRegex.test(received);
     return {
-      message: () => `expected ${received} to be a valid UUID`,
+      message: () => `expected ${String(received)} to be a valid UUID`,
       pass,
     };
   },
 
-  toBeValidEmail(received) {
+  toBeValidEmail(received: unknown) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const pass = emailRegex.test(received);
+    const pass = typeof received === 'string' && emailRegex.test(received);
     return {
-      message: () => `expected ${received} to be a valid email`,
+      message: () => `expected ${String(received)} to be a valid email`,
       pass,
     };
   },
@@ -124,13 +149,13 @@ export const clearDatabase = async () => {
   ];
 
   for (const table of tables) {
-    await global.db.query(`TRUNCATE TABLE ${table} CASCADE;`);
+    await (globalThis as any).db.query(`TRUNCATE TABLE ${table} CASCADE;`);
   }
 };
 
 export const seedTestData = async () => {
   // Insert test data
-  await global.db.query(`
+  await (globalThis as any).db.query(`
     INSERT INTO users (id, email, first_name, last_name, status, kyc_status)
     VALUES ($1, $2, $3, $4, $5, $6)
   `, [
@@ -160,7 +185,7 @@ export const createUnauthenticatedRequest = () => ({
 // Performance test helpers
 export const measurePerformance = async (fn: () => Promise<any>, iterations = 100) => {
   const startTime = Date.now();
-  const results = [];
+  const results: number[] = [];
 
   for (let i = 0; i < iterations; i++) {
     const iterationStart = Date.now();

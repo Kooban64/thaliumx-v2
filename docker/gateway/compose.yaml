@@ -13,14 +13,14 @@ services:
       ETCD_ADVERTISE_CLIENT_URLS: http://thaliumx-etcd:2379
       ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
       ETCD_DATA_DIR: /etcd-data
-      ETCD_ENABLE_V2: "true"
-      # Allow none authentication for development
-      ALLOW_NONE_AUTHENTICATION: "yes"
+      # v2 API is long-deprecated and should not be enabled.
+      ETCD_ENABLE_V2: "false"
       # Auto-compaction to prevent unbounded growth
       ETCD_AUTO_COMPACTION_RETENTION: "1"
       ETCD_AUTO_COMPACTION_MODE: periodic
-    ports:
-      - "${ETCD_PORT:-2379}:2379"
+    # Keep etcd off the host network; APISIX connects over the Docker network.
+    expose:
+      - "2379"
     volumes:
       - etcd_data:/etcd-data
     networks:
@@ -38,14 +38,16 @@ services:
     restart: unless-stopped
     environment:
       APISIX_STAND_ALONE: "false"
-      APISIX_ADMIN_KEY: ${APISIX_ADMIN_KEY:-edd1c9f034335f136f87ad84b625c8f1}
+      # No insecure defaults; must be provided via env/secret manager.
+      APISIX_ADMIN_KEY: ${APISIX_ADMIN_KEY:?APISIX_ADMIN_KEY is required}
       APISIX_ADMIN_URL: http://localhost:9180/apisix/admin
       FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:-thaliumx-frontend:3000}
       BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-thaliumx-backend:3002}
     ports:
       - "80:9080"                    # HTTP (public)
       - "443:9443"                   # HTTPS (public)
-      - "${APISIX_ADMIN_PORT:-9180}:9180"  # Admin API
+      # Admin API should not be publicly reachable.
+      - "127.0.0.1:${APISIX_ADMIN_PORT:-9180}:9180"
     volumes:
       - ./config/apisix.yaml:/usr/local/apisix/conf/config.yaml:ro
       - ./config/ssl:/usr/local/apisix/conf/ssl:ro

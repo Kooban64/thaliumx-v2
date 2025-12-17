@@ -1,0 +1,207 @@
+# ThaliumX Production v1 - Database Layer
+# ======================================
+# Distributed databases: Citus, TimescaleDB, MongoDB
+# Updated: 2025-12-17T08:59:00.000Z
+
+version: '3.8'
+
+services:
+  # ============================================
+  # CITUS - Distributed PostgreSQL
+  # ============================================
+  # STABLE CONFIG: SSL temporarily disabled due to certificate permission issues
+  # Production TODO: Re-enable SSL with proper certificate ownership
+  citus-coordinator:
+    image: citusdata/citus:12.1
+    container_name: thaliumx-citus-coordinator
+    hostname: thaliumx-citus-coordinator
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: thaliumx
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+      POSTGRES_DB: thaliumx_citus
+      CITUS_HOST: thaliumx-citus-coordinator
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5434:5432"
+    volumes:
+      - citus_coordinator_data:/var/lib/postgresql/data
+      - ./../../citus/init:/docker-entrypoint-initdb.d:ro
+    secrets:
+      - postgres-password
+    command: postgres -c shared_preload_libraries=citus
+    networks:
+      - thaliumx-net
+      - database-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thaliumx -d thaliumx_citus"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  citus-worker-1:
+    image: citusdata/citus:12.1
+    container_name: thaliumx-citus-worker-1
+    hostname: thaliumx-citus-worker-1
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: thaliumx
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+      POSTGRES_DB: thaliumx_citus
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - citus_worker1_data:/var/lib/postgresql/data
+    secrets:
+      - postgres-password
+    command: postgres -c shared_preload_libraries=citus
+    networks:
+      - thaliumx-net
+      - database-network
+    depends_on:
+      citus-coordinator:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thaliumx -d thaliumx_citus"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  citus-worker-2:
+    image: citusdata/citus:12.1
+    container_name: thaliumx-citus-worker-2
+    hostname: thaliumx-citus-worker-2
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: thaliumx
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+      POSTGRES_DB: thaliumx_citus
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - citus_worker2_data:/var/lib/postgresql/data
+    secrets:
+      - postgres-password
+    command: postgres -c shared_preload_libraries=citus
+    networks:
+      - thaliumx-net
+      - database-network
+    depends_on:
+      citus-coordinator:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thaliumx -d thaliumx_citus"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ============================================
+  # TIMESCALEDB - Time-Series Database
+  # ============================================
+  # STABLE CONFIG: SSL temporarily disabled due to certificate permission issues
+  # Production TODO: Re-enable SSL with proper certificate ownership
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: thaliumx-timescaledb
+    hostname: thaliumx-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dingir
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+      POSTGRES_DB: exchange
+      TIMESCALEDB_TELEMETRY: "off"
+    ports:
+      - "5435:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+    secrets:
+      - postgres-password
+    command: postgres
+    networks:
+      - thaliumx-net
+      - database-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dingir -d exchange"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  # ============================================
+  # MONGODB - Document Store
+  # ============================================
+  # STABLE CONFIG: SSL temporarily disabled due to certificate permission issues
+  # Production TODO: Re-enable SSL with proper certificate ownership
+  mongodb:
+    image: mongo:7
+    container_name: thaliumx-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: thaliumx
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongodb-password
+      MONGO_INITDB_DATABASE: thaliumx
+    volumes:
+      - mongodb-data:/data/db
+    secrets:
+      - mongodb-password
+    command: >
+      mongod
+      --auth
+      --bind_ip_all
+      --dbpath /data/db
+      --logpath /data/db/mongod.log
+      --maxConns 1000
+      --wiredTigerCacheSizeGB 2
+      --setParameter ttlMonitorSleepSecs=60
+    ports:
+      - "27017:27017"
+    networks:
+      - thaliumx-net
+      - database-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G

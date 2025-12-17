@@ -6,12 +6,12 @@ hosts:
       url: https://thaliumx-wazuh-manager
       port: 55000
       username: wazuh-wui
-      password: MyS3cr37P450r.*-
+      password: REPLACE_ME
       run_as: false
 hosts:
   - 1513629884013:
       url: https://thaliumx-wazuh-manager
       port: 55000
       username: wazuh-wui
-      password: MyS3cr37P450r.*-
+      password: REPLACE_ME
       run_as: false

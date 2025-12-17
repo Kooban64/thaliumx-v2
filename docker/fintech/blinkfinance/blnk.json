@@ -6,10 +6,10 @@
     "domain": "blinkfinance"
   },
   "data_source": {
-    "dns": "postgres://thaliumx:H4RHi83N0fO8DHGmb1Dh16XivmLnlxzw@thaliumx-postgres:5432/thaliumx?sslmode=disable"
+    "dns": "postgres://thaliumx:devpostgres@thaliumx-postgres:5432/thaliumx?sslmode=disable"
   },
   "redis": {
-    "dns": "thaliumx-redis:6379"
+    "dns": "redis://:devredis@thaliumx-redis:6379"
   },
   "typesense": {
     "dns": "http://thaliumx-typesense:8108"

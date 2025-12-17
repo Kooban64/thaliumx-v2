@@ -7,17 +7,11 @@ req_extensions = req_ext
 
 [dn]
 C = US
-ST = California
-L = San Francisco
+ST = CA
+L = SanFrancisco
 O = ThaliumX
-OU = keycloak
-CN = keycloak
+OU = development
+CN = thaliumx-keycloak
 
 [req_ext]
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = keycloak
-DNS.2 = auth.thaliumx.local
-DNS.3 = localhost
-IP.1 = 127.0.0.1
+subjectAltName = DNS:thaliumx-keycloak,DNS:keycloak,DNS:localhost,IP:127.0.0.1

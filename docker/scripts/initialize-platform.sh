@@ -8,9 +8,10 @@
 set -e
 
 # Configuration
-KEYCLOAK_URL="http://localhost:8080"
-ADMIN_USER="admin"
-ADMIN_PASSWORD="ThaliumX2025"
+KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:8080}"
+ADMIN_USER="${KEYCLOAK_ADMIN_USERNAME:-admin}"
+# No insecure defaults; must be provided via env/secret manager
+ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}"
 PLATFORM_REALM="thaliumx-platform"
 DEFAULT_TENANT_REALM="thaliumx-default-tenant"
 PLATFORM_DOMAIN="thaliumx.com"
@@ -233,10 +234,6 @@ echo "   Platform Realm: $PLATFORM_REALM"
 echo "   Default Tenant Realm: $DEFAULT_TENANT_REALM"
 echo "   Platform Domain: $PLATFORM_DOMAIN"
 echo "   Default Tenant Domain: $DEFAULT_TENANT_DOMAIN"
-echo ""
-echo "🔐 Admin Credentials:"
-echo "   Platform Admin: platform-admin / AdminPass123!"
-echo "   Tenant Admin: tenant-admin / AdminPass123!"
 echo ""
 echo "🌐 Access URLs:"
 echo "   Platform Admin Console: ${KEYCLOAK_URL}/admin/${PLATFORM_REALM}/console"

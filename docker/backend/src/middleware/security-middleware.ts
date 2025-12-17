@@ -31,17 +31,21 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import * as DOMPurifyModule from 'dompurify';
-import { JSDOM } from 'jsdom';
+import xss, { type IFilterXSSOptions, type IWhiteList } from 'xss';
 import crypto from 'crypto';
 import { LoggerService } from '../services/logger';
 import { AppError, ErrorCode } from '../utils/error-handler';
 
-// Initialize DOMPurify with JSDOM
-// Handle both default export and namespace export
-const window = new JSDOM('').window;
-const DOMPurify = (DOMPurifyModule as any).default || DOMPurifyModule;
-const DOMPurifyInstance = DOMPurify(window as any);
+// Server-side sanitization
+// NOTE: `jsdom` + `dompurify` previously used here, but backend builds as CJS (see tsconfig)
+// and `jsdom@27` is ESM-only, which breaks runtime + Jest. Use `xss` (already a dependency)
+// for deterministic, dependency-light sanitization.
+const XSS_OPTIONS: IWhiteList = {};
+const XSS_SANITIZE_OPTIONS: IFilterXSSOptions = {
+  whiteList: XSS_OPTIONS,
+  stripIgnoreTag: true,
+  stripIgnoreTagBody: ['script', 'style', 'iframe', 'object', 'embed'],
+};
 
 export class SecurityMiddleware {
   // SQL injection patterns to detect
@@ -143,9 +147,16 @@ export class SecurityMiddleware {
   }
 
   static csrfProtection(excludePaths: string[] = []) {
-    return (req: Request, res: Response, next: NextFunction): void => {
+    return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       // Skip CSRF for safe methods
       if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        return next();
+      }
+
+      // If the client is using explicit Authorization (Bearer) auth,
+      // CSRF protections are not applicable and often break non-browser clients.
+      // We enforce CSRF only for cookie-based auth flows.
+      if (req.headers.authorization) {
         return next();
       }
 
@@ -169,10 +180,9 @@ export class SecurityMiddleware {
         return next(AppError.forbidden('CSRF token missing'));
       }
 
-      // In a production system, you'd validate the token against a stored value
-      // For now, we'll do basic validation
-      if (token.length < 32) {
-        LoggerService.logSecurity('Invalid CSRF token', {
+      // Enhanced validation: Check token format and length
+      if (token.length < 32 || !/^[a-f0-9]+$/i.test(token)) {
+        LoggerService.logSecurity('Invalid CSRF token format', {
           ip: req.ip,
           url: req.originalUrl,
           method: req.method,
@@ -181,18 +191,63 @@ export class SecurityMiddleware {
         return next(AppError.forbidden('Invalid CSRF token'));
       }
 
+      // Optional: Validate token against Redis (if Redis is available)
+      // This provides token revocation capability
+      try {
+        const { RedisService } = await import('../services/redis');
+        if (RedisService.isConnected()) {
+          const sessionId = req.headers['x-session-id'] || req.cookies?.sessionId || 'anonymous';
+          const storedToken = await RedisService.getString(`csrf:${sessionId}`);
+          
+          // If token is stored, validate it matches
+          if (storedToken && storedToken !== token) {
+            LoggerService.logSecurity('CSRF token mismatch', {
+              ip: req.ip,
+              url: req.originalUrl,
+              method: req.method
+            });
+            return next(AppError.forbidden('Invalid CSRF token'));
+          }
+        }
+      } catch (error) {
+        // If Redis validation fails, continue with basic validation
+        LoggerService.debug('CSRF Redis validation skipped', { error });
+      }
+
       next();
     };
   }
 
-  // CSRF token endpoint
-  static getCSRFToken(req: Request, res: Response): void {
-    const token = this.generateCSRFToken();
-    res.json({
-      csrfToken: token,
-      success: true,
-      timestamp: new Date()
-    });
+  // CSRF token endpoint - Enhanced with Redis storage
+  static async getCSRFToken(req: Request, res: Response): Promise<void> {
+    try {
+      const token = this.generateCSRFToken();
+      const sessionId = req.headers['x-session-id'] || req.cookies?.sessionId || `session_${Date.now()}`;
+      
+      // Store token in Redis with 1 hour expiration
+      try {
+        const { RedisService } = await import('../services/redis');
+        if (RedisService.isConnected()) {
+          await RedisService.setString(`csrf:${sessionId}`, token, 3600);
+        }
+      } catch (error) {
+        // If Redis fails, continue without storage (graceful degradation)
+        LoggerService.debug('CSRF token storage skipped', { error });
+      }
+
+      res.json({
+        csrfToken: token,
+        success: true,
+        timestamp: new Date()
+      });
+    } catch (error) {
+      LoggerService.error('CSRF token generation failed', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate CSRF token',
+        timestamp: new Date()
+      });
+    }
   }
 
   // Content Security Policy middleware
@@ -323,7 +378,7 @@ export class SecurityMiddleware {
   // Private helper methods
   private static sanitizeObject(obj: any): any {
     if (typeof obj === 'string') {
-      return DOMPurifyInstance.sanitize(obj, { ALLOWED_TAGS: [] });
+      return xss(obj, XSS_SANITIZE_OPTIONS);
     }
 
     if (Array.isArray(obj)) {

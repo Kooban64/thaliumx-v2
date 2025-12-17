@@ -214,7 +214,7 @@ services:
     hostname: thaliumx-postgres-exporter
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-thaliumx}:${POSTGRES_PASSWORD:-ThaliumX2025}@thaliumx-postgres:5432/${POSTGRES_DB:-thaliumx}?sslmode=disable
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-thaliumx}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@thaliumx-postgres:5432/${POSTGRES_DB:-thaliumx}?sslmode=disable
     ports:
       - "9187:9187"
     networks:
@@ -232,7 +232,7 @@ services:
     restart: unless-stopped
     environment:
       REDIS_ADDR: thaliumx-redis:6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-ThaliumX2025}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     ports:
       - "9121:9121"
     networks:

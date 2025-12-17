@@ -50,7 +50,7 @@ openssl rand -base64 32 | tr -d '\n' > .secrets/generated/encryption-key
 openssl rand -base64 32 | tr -d '\n' > .secrets/generated/grafana-admin-password
 openssl rand -hex 16 > .secrets/generated/vault-role-id
 openssl rand -hex 32 > .secrets/generated/vault-secret-id
-echo -n "ThaliumX2025" > .secrets/generated/keycloak-admin-password
+openssl rand -base64 24 | tr -d '\n' > .secrets/generated/keycloak-admin-password
 chmod 600 .secrets/generated/*
 log_success "All secrets generated"
 

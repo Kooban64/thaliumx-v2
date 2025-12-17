@@ -1,0 +1,15 @@
+# ThaliumX Production v1 - Applications Layer
+# ==========================================
+# Business applications: Backend, Compliance services
+# Status: Planned for next development phase
+# Updated: 2025-12-17T08:59:30.000Z
+
+version: '3.8'
+
+# TODO: Add backend service
+# TODO: Add compliance services (DEX, CEX, NFT, Token)
+# TODO: Add QuantLib service
+
+services:
+  # Placeholder for future services
+  # Will be populated as services are developed and tested

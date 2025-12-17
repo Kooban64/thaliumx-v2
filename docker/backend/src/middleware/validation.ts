@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { LoggerService } from '../services/logger';
 import { createError } from '../utils';
+import xss, { type IFilterXSSOptions, type IWhiteList } from 'xss';
 
 /**
  * Input validation and sanitization middleware
@@ -78,17 +79,15 @@ export const validateRequest = (req: Request, res: Response, next: NextFunction)
 /**
  * Sanitize input string
  */
-import * as DOMPurifyModule from 'dompurify';
-import { JSDOM } from 'jsdom';
-
-const window = new JSDOM('').window;
-const DOMPurify = (DOMPurifyModule as any).default || DOMPurifyModule;
-const DOMPurifyInstance = DOMPurify(window as any);
+const XSS_OPTIONS: IWhiteList = {};
+const XSS_SANITIZE_OPTIONS: IFilterXSSOptions = {
+  whiteList: XSS_OPTIONS,
+  stripIgnoreTag: true,
+  stripIgnoreTagBody: ['script', 'style', 'iframe', 'object', 'embed'],
+};
 
 function sanitizeInput(input: string): string {
-  if (typeof input !== 'string') return input;
-  
-  return DOMPurifyInstance.sanitize(input, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] })
+  return xss(input, XSS_SANITIZE_OPTIONS)
     .trim()
     .substring(0, 1000); // Limit length
 }

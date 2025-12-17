@@ -12,11 +12,12 @@ services:
     command: start-dev
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-ThaliumX2025}
+      # No insecure defaults; must be provided via env/secret manager
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://thaliumx-postgres:5432/keycloak
       KC_DB_USERNAME: ${POSTGRES_USER:-thaliumx}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-ThaliumX2025}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
       # Security settings
@@ -81,7 +82,8 @@ services:
     restart: "no"
     environment:
       VAULT_ADDR: http://thaliumx-vault:8200
-      VAULT_TOKEN: ${VAULT_TOKEN:-thaliumx-vault-token-2025}
+      # No insecure defaults; must be provided via env/secret manager
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN is required}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -98,35 +100,7 @@ services:
         else
           echo "KV secrets engine already enabled"
         fi
-        
-        # Create secrets for Ballerine (with correct keys for vault-secrets.js)
-        echo "Creating Ballerine secrets..."
-        vault kv put kv/fintech/ballerine \
-          db_password="dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7" \
-          session_secret="ballerine-session-secret-key-production" \
-          api_key="ballerine-api-key-for-production" \
-          hashing_key_secret="ballerine-hashing-key-secret" \
-          webhook_secret="ballerine-webhook-secret" \
-          jwt_secret_key="ballerine-jwt-secret-key" \
-          magic_link_jwt_secret="ballerine-magic-link-jwt-secret" \
-          magic_link_auth_jwt_secret="ballerine-magic-link-auth-jwt-secret" \
-          notion_api_key="ballerine-notion-api-key"
-        
-        # Create secrets for Backend
-        echo "Creating Backend secrets..."
-        vault kv put kv/fintech/backend \
-          DATABASE_URL="postgresql://thaliumx:dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7@thaliumx-postgres:5432/thaliumx" \
-          REDIS_URL="redis://:thaliumx_redis_password@thaliumx-redis:6379" \
-          JWT_SECRET="thaliumx-jwt-secret-key-for-production" \
-          ENCRYPTION_KEY="thaliumx-encryption-key-32bytes!"
-        
-        # Create secrets for BlinkFinance
-        echo "Creating BlinkFinance secrets..."
-        vault kv put kv/fintech/blinkfinance \
-          api_key="blinkfinance-api-key" \
-          secret_key="blinkfinance-secret-key"
-        
-        echo "Vault initialization complete!"
+        echo "Vault initialization complete (engines only)."
     networks:
       - thaliumx-net
     depends_on:

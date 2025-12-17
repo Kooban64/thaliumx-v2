@@ -194,7 +194,7 @@ echo ""
 echo "Creating initial secrets..."
 
 vault kv put kv/fintech/ballerine \
-    db_password="${BALLERINE_DB_PASSWORD:-dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7}" \
+    db_password="${BALLERINE_DB_PASSWORD:?BALLERINE_DB_PASSWORD is required}" \
     session_secret="$(openssl rand -hex 32)" \
     api_key="$(openssl rand -hex 32)" \
     hashing_key_secret="$(openssl rand -base64 32)" \
@@ -204,14 +204,14 @@ vault kv put kv/fintech/ballerine \
     magic_link_auth_jwt_secret="$(openssl rand -hex 64)"
 
 vault kv put kv/fintech/backend \
-    DATABASE_URL="postgresql://thaliumx:${POSTGRES_PASSWORD:-dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7}@thaliumx-postgres:5432/thaliumx" \
-    REDIS_URL="redis://:${REDIS_PASSWORD:-NFqT8uZlru7Tw5cv8IHVll23BNHg2otS}@thaliumx-redis:6379" \
+    DATABASE_URL="postgresql://thaliumx:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@thaliumx-postgres:5432/thaliumx" \
+    REDIS_URL="redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@thaliumx-redis:6379" \
     JWT_SECRET="$(openssl rand -hex 64)" \
     ENCRYPTION_KEY="$(openssl rand -hex 32)"
 
 vault kv put kv/trading/dingir \
-    db_password="${POSTGRES_PASSWORD:-dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7}" \
-    kafka_password="${KAFKA_SASL_PASSWORD:-ThaliumX2025kafka}"
+    db_password="${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}" \
+    kafka_password="${KAFKA_SASL_PASSWORD:?KAFKA_SASL_PASSWORD is required}"
 
 echo ""
 echo -e "${GREEN}Initial secrets created successfully!${NC}"

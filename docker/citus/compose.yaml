@@ -23,7 +23,8 @@ services:
     # Credentials stored in Vault at: kv/thaliumx/database/citus
     environment:
       POSTGRES_USER: ${CITUS_POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${CITUS_POSTGRES_PASSWORD:-ThaliumX2025}
+      # No insecure defaults; must be provided via env/secret manager
+      POSTGRES_PASSWORD: ${CITUS_POSTGRES_PASSWORD:?CITUS_POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-thaliumx}
       # Citus specific settings
       CITUS_HOST: thaliumx-citus-coordinator
@@ -123,7 +124,7 @@ services:
     
     environment:
       POSTGRES_USER: ${CITUS_POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${CITUS_POSTGRES_PASSWORD:-ThaliumX2025}
+      POSTGRES_PASSWORD: ${CITUS_POSTGRES_PASSWORD:?CITUS_POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-thaliumx}
       PGDATA: /var/lib/postgresql/data/pgdata
     
@@ -189,7 +190,7 @@ services:
     
     environment:
       POSTGRES_USER: ${CITUS_POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${CITUS_POSTGRES_PASSWORD:-ThaliumX2025}
+      POSTGRES_PASSWORD: ${CITUS_POSTGRES_PASSWORD:?CITUS_POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-thaliumx}
       PGDATA: /var/lib/postgresql/data/pgdata
     

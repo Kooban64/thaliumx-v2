@@ -764,7 +764,8 @@ router.post('/collection-flow/create',
       }
 
       // Create collection flow URL via Ballerine
-      const { ballerineService } = await import('../services/ballerine');
+      const { getBallerineService } = await import('../services/ballerine');
+      const ballerineService = getBallerineService();
       const collectionFlow = await ballerineService.createCollectionFlowUrl({
         workflowId: workflowId || user.ballerineWorkflowId || 'kyc-workflow',
         endUserId: userId,
@@ -806,7 +807,8 @@ router.post('/collection-flow/callback',
 
       if (workflowId) {
         // Update workflow state if needed
-        const { ballerineService } = await import('../services/ballerine');
+        const { getBallerineService } = await import('../services/ballerine');
+        const ballerineService = getBallerineService();
         if (state) {
           await ballerineService.updateCollectionFlowState(workflowId, state);
         }
@@ -845,7 +847,8 @@ router.get('/collection-flow/:workflowId/state',
         return;
       }
 
-      const { ballerineService } = await import('../services/ballerine');
+      const { getBallerineService } = await import('../services/ballerine');
+      const ballerineService = getBallerineService();
       const state = await ballerineService.getCollectionFlowState(workflowId);
 
       res.status(200).json({
@@ -888,7 +891,8 @@ router.post('/workflows/:workflowId/event',
         return;
       }
 
-      const { ballerineService } = await import('../services/ballerine');
+      const { getBallerineService } = await import('../services/ballerine');
+      const ballerineService = getBallerineService();
       const result = await ballerineService.sendWorkflowEvent(workflowId, {
         name: event,
         payload: payload || {}
@@ -930,7 +934,8 @@ router.get('/workflows/:workflowId/logs',
         return;
       }
 
-      const { ballerineService } = await import('../services/ballerine');
+      const { getBallerineService } = await import('../services/ballerine');
+      const ballerineService = getBallerineService();
       const logs = await ballerineService.getWorkflowLogs(workflowId, {
         type: type as string,
         limit: limit ? parseInt(limit as string) : undefined
@@ -961,7 +966,8 @@ router.get('/workflow-definitions',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { ballerineService } = await import('../services/ballerine');
+      const { getBallerineService } = await import('../services/ballerine');
+      const ballerineService = getBallerineService();
       const definitions = await ballerineService.getWorkflowDefinitions();
 
       res.status(200).json({

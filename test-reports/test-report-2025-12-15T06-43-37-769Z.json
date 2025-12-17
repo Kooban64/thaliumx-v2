@@ -1,0 +1,886 @@
+{
+  "timestamp": "2025-12-15T06:43:37.769Z",
+  "duration": 1584010,
+  "totalTests": 48,
+  "passedTests": 11,
+  "failedTests": 37,
+  "suites": [
+    {
+      "name": "Infrastructure",
+      "category": "infrastructure",
+      "tests": [
+        {
+          "category": "infrastructure",
+          "feature": "Health Check",
+          "testName": "Public Health Check",
+          "passed": true,
+          "details": "Status: 200",
+          "response": "{\"status\":\"ok\",\"timestamp\":\"2025-12-15T06:17:13.786Z\",\"uptime\":75.815779882,\"version\":\"1.0.0\",\"environment\":\"production\",\"services\":{\"database\":\"connected\",\"redis\":\"connected\",\"keycloak\":\"not_initialized\",\"brokerManagement\":\"healthy\",\"smartContracts\":\"healthy\",\"blnkfinance\":\"healthy\",\"nft\":\"healthy\",\"kyc\":\"healthy\",\"rbac\":\"healthy\",\"tokenSale\":\"healthy\",\"multiTierLedger\":\"healthy\",\"dex\":\"healthy\",\"aiMl\":\"healthy\",\"presale\":\"healthy\",\"securityOversight\":\"healthy\",\"mpcSigner\":\"healthy\",\"graphSense",
+          "timestamp": "2025-12-15T06:17:13.792Z"
+        },
+        {
+          "category": "infrastructure",
+          "feature": "Health Check",
+          "testName": "Internal Health Check",
+          "passed": true,
+          "details": "Status: 200 (403 expected if no auth)",
+          "response": "{\"status\":\"ok\",\"timestamp\":\"2025-12-15T06:17:13.798Z\",\"uptime\":75.827111865,\"environment\":\"production\",\"version\":\"1.0.0\",\"services\":{\"database\":\"connected\",\"redis\":\"connected\",\"keycloak\":\"not_initialized\",\"brokerManagement\":\"healthy\",\"smartContracts\":\"healthy\",\"blnkfinance\":\"healthy\",\"nft\":\"healthy\",\"kyc\":\"healthy\",\"rbac\":\"healthy\",\"tokenSale\":\"healthy\",\"multiTierLedger\":\"healthy\",\"dex\":\"healthy\",\"aiMl\":\"healthy\",\"presale\":\"healthy\",\"securityOversight\":\"healthy\",\"mpcSigner\":\"healthy\",\"graphSense",
+          "timestamp": "2025-12-15T06:17:13.800Z"
+        },
+        {
+          "category": "infrastructure",
+          "feature": "API Documentation",
+          "testName": "API Docs Endpoint",
+          "passed": true,
+          "details": "Status: 200",
+          "response": "{\"message\":\"ThaliumX API Documentation\",\"version\":\"1.0.0\",\"endpoints\":{\"health\":\"GET /health\",\"auth\":\"POST /api/auth/login, POST /api/auth/register\",\"users\":\"GET /api/users, GET /api/users/:id\",\"financial\":\"GET /api/financial/transactions\",\"tenants\":\"GET /api/tenants\",\"admin\":\"GET /api/admin/stats\",\"exchange\":\"POST /api/exchange/orders, GET /api/exchange/orderbook/:symbol\",\"fiat\":\"POST /api/fiat/deposits, POST /api/fiat/withdrawals, GET /api/fiat/wallets\",\"token\":\"POST /api/token/transfers, POST",
+          "timestamp": "2025-12-15T06:17:13.816Z"
+        }
+      ],
+      "passed": 3,
+      "failed": 0,
+      "total": 3
+    },
+    {
+      "name": "Authentication",
+      "category": "authentication",
+      "tests": [
+        {
+          "category": "authentication",
+          "feature": "Login",
+          "testName": "Login as platformAdmin",
+          "passed": true,
+          "details": "Status: 200, Role: admin",
+          "response": "{\"success\":true,\"data\":{\"user\":{\"id\":\"00000000-0000-0000-0000-000000000001\",\"email\":\"admin@thaliumx.com\",\"username\":\"admin\",\"firstName\":\"Platform\",\"lastName\":\"Admin\",\"phone\":null,\"dateOfBirth\":null,\"address\":null,\"kycStatus\":\"verified\",\"kycLevel\":\"basic\",\"isActive\":true,\"isVerified\":true,\"lastLoginAt\":\"2025-12-15T05:56:58.088Z\",\"mfaEnabled\":false,\"mfaSecret\":null,\"role\":\"admin\",\"permissions\":[],\"tenantId\":\"10000000-0000-0000-0000-000000000000\",\"createdAt\":\"2025-12-14T19:25:41.821Z\",\"updatedAt\":\"",
+          "timestamp": "2025-12-15T06:17:14.295Z"
+        },
+        {
+          "category": "authentication",
+          "feature": "Login",
+          "testName": "Login as brokerAdmin",
+          "passed": true,
+          "details": "Status: 200, Role: broker-admin",
+          "response": "{\"success\":true,\"data\":{\"user\":{\"id\":\"00000000-0000-0000-0000-000000000002\",\"email\":\"broker@thaliumx.com\",\"username\":\"broker\",\"firstName\":\"Broker\",\"lastName\":\"Admin\",\"phone\":null,\"dateOfBirth\":null,\"address\":null,\"kycStatus\":\"verified\",\"kycLevel\":\"basic\",\"isActive\":true,\"isVerified\":true,\"lastLoginAt\":\"2025-12-15T05:56:56.686Z\",\"mfaEnabled\":false,\"mfaSecret\":null,\"role\":\"broker-admin\",\"permissions\":[],\"tenantId\":\"10000000-0000-0000-0000-000000000000\",\"createdAt\":\"2025-12-14T19:25:41.842Z\",\"updat",
+          "timestamp": "2025-12-15T06:17:14.719Z"
+        },
+        {
+          "category": "authentication",
+          "feature": "Login",
+          "testName": "Login as compliance",
+          "passed": false,
+          "details": "Status: 401, Role: compliance",
+          "error": "Login failed: {\"success\":false,\"error\":{\"code\":\"LOGIN_FAILED\",\"message\":\"Login failed\"},\"timestamp\":\"2025-12-15T06:17:14.740Z\",\"requestId\":\"unknown\"}",
+          "response": "{\"success\":false,\"error\":{\"code\":\"LOGIN_FAILED\",\"message\":\"Login failed\"},\"timestamp\":\"2025-12-15T06:17:14.740Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:14.742Z"
+        },
+        {
+          "category": "authentication",
+          "feature": "Login",
+          "testName": "Login as finance",
+          "passed": false,
+          "details": "Status: 401, Role: finance",
+          "error": "Login failed: {\"success\":false,\"error\":{\"code\":\"LOGIN_FAILED\",\"message\":\"Login failed\"},\"timestamp\":\"2025-12-15T06:17:14.777Z\",\"requestId\":\"unknown\"}",
+          "response": "{\"success\":false,\"error\":{\"code\":\"LOGIN_FAILED\",\"message\":\"Login failed\"},\"timestamp\":\"2025-12-15T06:17:14.777Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:14.779Z"
+        },
+        {
+          "category": "authentication",
+          "feature": "Login",
+          "testName": "Login as trader",
+          "passed": true,
+          "details": "Status: 200, Role: user",
+          "response": "{\"success\":true,\"data\":{\"user\":{\"id\":\"00000000-0000-0000-0000-000000000003\",\"email\":\"trader@thaliumx.com\",\"username\":\"trader\",\"firstName\":\"John\",\"lastName\":\"Trader\",\"phone\":null,\"dateOfBirth\":null,\"address\":null,\"kycStatus\":\"verified\",\"kycLevel\":\"basic\",\"isActive\":true,\"isVerified\":true,\"lastLoginAt\":\"2025-12-15T05:56:57.143Z\",\"mfaEnabled\":false,\"mfaSecret\":null,\"role\":\"trader\",\"permissions\":[],\"tenantId\":\"10000000-0000-0000-0000-000000000000\",\"createdAt\":\"2025-12-14T19:25:41.848Z\",\"updatedAt\":\"",
+          "timestamp": "2025-12-15T06:17:15.214Z"
+        },
+        {
+          "category": "authentication",
+          "feature": "Login",
+          "testName": "Login as basicUser",
+          "passed": true,
+          "details": "Status: 200, Role: user",
+          "response": "{\"success\":true,\"data\":{\"user\":{\"id\":\"00000000-0000-0000-0000-000000000004\",\"email\":\"user@thaliumx.com\",\"username\":\"user\",\"firstName\":\"Jane\",\"lastName\":\"User\",\"phone\":null,\"dateOfBirth\":null,\"address\":null,\"kycStatus\":\"verified\",\"kycLevel\":\"basic\",\"isActive\":true,\"isVerified\":true,\"lastLoginAt\":\"2025-12-15T05:56:57.636Z\",\"mfaEnabled\":false,\"mfaSecret\":null,\"role\":\"user\",\"permissions\":[],\"tenantId\":\"10000000-0000-0000-0000-000000000000\",\"createdAt\":\"2025-12-14T19:25:41.854Z\",\"updatedAt\":\"2025-12-",
+          "timestamp": "2025-12-15T06:17:15.654Z"
+        },
+        {
+          "category": "authentication",
+          "feature": "Login",
+          "testName": "Invalid Credentials Rejection",
+          "passed": true,
+          "details": "Status: 401",
+          "response": "{\"success\":false,\"error\":{\"code\":\"LOGIN_FAILED\",\"message\":\"Login failed\"},\"timestamp\":\"2025-12-15T06:17:15.669Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:15.672Z"
+        },
+        {
+          "category": "authentication",
+          "feature": "Registration",
+          "testName": "User Registration",
+          "passed": false,
+          "details": "Status: 500",
+          "error": "Registration failed: {\"success\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"Internal Server Error\"},\"timestamp\":\"2025-12-15T06:17:15.676Z\",\"requestId\":\"unknown\"}",
+          "response": "{\"success\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"Internal Server Error\"},\"timestamp\":\"2025-12-15T06:17:15.676Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:15.678Z"
+        },
+        {
+          "category": "authentication",
+          "feature": "Token Management",
+          "testName": "Token Refresh",
+          "passed": false,
+          "details": "Status: 429",
+          "error": "Refresh failed: {\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests from this IP, please try again later.\"},\"timestamp\":\"2025-12-15T06:17:16.121Z\",\"retryAfter\":1}",
+          "response": "{\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests from this IP, please try again later.\"},\"timestamp\":\"2025-12-15T06:17:16.121Z\",\"retryAfter\":1}",
+          "timestamp": "2025-12-15T06:17:16.122Z"
+        }
+      ],
+      "passed": 5,
+      "failed": 4,
+      "total": 9
+    },
+    {
+      "name": "User Management",
+      "category": "user-management",
+      "tests": [
+        {
+          "category": "user-management",
+          "feature": "User Management",
+          "testName": "Get All Users",
+          "passed": false,
+          "details": "Status: 401",
+          "error": "Failed: {\"success\":false,\"error\":{\"code\":\"INVALID_TOKEN\",\"message\":\"Invalid token\"},\"timestamp\":\"2025-12-15T06:17:16.130Z\",\"requestId\":\"unknown\"}",
+          "response": "{\"success\":false,\"error\":{\"code\":\"INVALID_TOKEN\",\"message\":\"Invalid token\"},\"timestamp\":\"2025-12-15T06:17:16.130Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:16.131Z"
+        },
+        {
+          "category": "user-management",
+          "feature": "User Management",
+          "testName": "Get User by ID",
+          "passed": false,
+          "details": "Status: 401",
+          "response": "{\"success\":false,\"error\":{\"code\":\"INVALID_TOKEN\",\"message\":\"Invalid token\"},\"timestamp\":\"2025-12-15T06:17:16.138Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:16.140Z"
+        },
+        {
+          "category": "user-management",
+          "feature": "User Management",
+          "testName": "Update User Profile",
+          "passed": false,
+          "details": "Status: 500",
+          "error": "Failed: {\"success\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"Internal Server Error\"},\"timestamp\":\"2025-12-15T06:17:16.145Z\",\"requestId\":\"unknown\"}",
+          "response": "{\"success\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"Internal Server Error\"},\"timestamp\":\"2025-12-15T06:17:16.145Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:16.148Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 3,
+      "total": 3
+    },
+    {
+      "name": "Trading",
+      "category": "trading",
+      "tests": [
+        {
+          "category": "trading",
+          "feature": "Trading",
+          "testName": "Trader Authentication",
+          "passed": false,
+          "details": "Failed to authenticate trader",
+          "timestamp": "2025-12-15T06:17:16.155Z"
+        },
+        {
+          "category": "trading",
+          "feature": "Complete Trading Flow",
+          "testName": "Step 1: Authentication",
+          "passed": false,
+          "details": "Failed to authenticate",
+          "timestamp": "2025-12-15T06:17:16.453Z"
+        },
+        {
+          "category": "trading",
+          "feature": "Complete Wallet Flow",
+          "testName": "Step 1: Authentication",
+          "passed": false,
+          "details": "Failed to authenticate",
+          "timestamp": "2025-12-15T06:17:16.458Z"
+        },
+        {
+          "category": "trading",
+          "feature": "Complete KYC Flow",
+          "testName": "Step 1: Authentication",
+          "passed": false,
+          "details": "Failed to authenticate",
+          "timestamp": "2025-12-15T06:17:16.462Z"
+        },
+        {
+          "category": "trading",
+          "feature": "Complete Admin Flow",
+          "testName": "Step 1: Authentication",
+          "passed": false,
+          "details": "Failed to authenticate",
+          "timestamp": "2025-12-15T06:17:16.466Z"
+        },
+        {
+          "category": "trading",
+          "feature": "Playwright",
+          "testName": "Test Execution",
+          "passed": false,
+          "details": "Failed to run Playwright tests",
+          "error": "Command failed: npx playwright test --reporter=json\n",
+          "timestamp": "2025-12-15T06:43:37.769Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 6,
+      "total": 6
+    },
+    {
+      "name": "Wallet",
+      "category": "wallet",
+      "tests": [
+        {
+          "category": "wallet",
+          "feature": "Wallet",
+          "testName": "Trader Authentication",
+          "passed": false,
+          "details": "Failed to authenticate trader",
+          "timestamp": "2025-12-15T06:17:16.160Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    {
+      "name": "Fiat",
+      "category": "fiat",
+      "tests": [
+        {
+          "category": "fiat",
+          "feature": "Fiat",
+          "testName": "Trader Authentication",
+          "passed": false,
+          "details": "Failed to authenticate trader",
+          "timestamp": "2025-12-15T06:17:16.172Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    {
+      "name": "Margin",
+      "category": "margin",
+      "tests": [
+        {
+          "category": "margin",
+          "feature": "Margin Trading",
+          "testName": "Trader Authentication",
+          "passed": false,
+          "details": "Failed to authenticate trader",
+          "timestamp": "2025-12-15T06:17:16.196Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    {
+      "name": "Advanced Margin",
+      "category": "advanced-margin",
+      "tests": [
+        {
+          "category": "advanced-margin",
+          "feature": "Advanced Margin",
+          "testName": "Trader Authentication",
+          "passed": false,
+          "details": "Failed to authenticate trader",
+          "timestamp": "2025-12-15T06:17:16.262Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    {
+      "name": "Dex",
+      "category": "dex",
+      "tests": [
+        {
+          "category": "dex",
+          "feature": "DEX",
+          "testName": "Trader Authentication",
+          "passed": false,
+          "details": "Failed to authenticate trader",
+          "timestamp": "2025-12-15T06:17:16.272Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    {
+      "name": "Nft",
+      "category": "nft",
+      "tests": [
+        {
+          "category": "nft",
+          "feature": "NFT",
+          "testName": "Trader Authentication",
+          "passed": false,
+          "details": "Failed to authenticate trader",
+          "timestamp": "2025-12-15T06:17:16.288Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    {
+      "name": "Kyc",
+      "category": "kyc",
+      "tests": [
+        {
+          "category": "kyc",
+          "feature": "KYC",
+          "testName": "Trader Authentication",
+          "passed": false,
+          "details": "Failed to authenticate trader",
+          "timestamp": "2025-12-15T06:17:16.299Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    {
+      "name": "Token Sale",
+      "category": "token-sale",
+      "tests": [
+        {
+          "category": "token-sale",
+          "feature": "Token Sale",
+          "testName": "Trader Authentication",
+          "passed": false,
+          "details": "Failed to authenticate trader",
+          "timestamp": "2025-12-15T06:17:16.324Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    {
+      "name": "Presale",
+      "category": "presale",
+      "tests": [
+        {
+          "category": "presale",
+          "feature": "Presale",
+          "testName": "Trader Authentication",
+          "passed": false,
+          "details": "Failed to authenticate trader",
+          "timestamp": "2025-12-15T06:17:16.327Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    {
+      "name": "Rbac",
+      "category": "rbac",
+      "tests": [
+        {
+          "category": "rbac",
+          "feature": "RBAC",
+          "testName": "Get Roles",
+          "passed": false,
+          "details": "Status: 401",
+          "error": "Failed: {\"success\":false,\"error\":{\"code\":\"INVALID_TOKEN\",\"message\":\"Invalid token\"},\"timestamp\":\"2025-12-15T06:17:16.332Z\",\"requestId\":\"unknown\"}",
+          "response": "{\"success\":false,\"error\":{\"code\":\"INVALID_TOKEN\",\"message\":\"Invalid token\"},\"timestamp\":\"2025-12-15T06:17:16.332Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:16.333Z"
+        },
+        {
+          "category": "rbac",
+          "feature": "RBAC",
+          "testName": "Assign Role to User",
+          "passed": false,
+          "details": "Status: 500",
+          "error": "Failed: {\"success\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"Internal Server Error\"},\"timestamp\":\"2025-12-15T06:17:16.335Z\",\"requestId\":\"unknown\"}",
+          "response": "{\"success\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"Internal Server Error\"},\"timestamp\":\"2025-12-15T06:17:16.335Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:16.335Z"
+        },
+        {
+          "category": "rbac",
+          "feature": "RBAC",
+          "testName": "Check Permissions",
+          "passed": false,
+          "details": "Status: 500",
+          "error": "Failed: {\"success\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"Internal Server Error\"},\"timestamp\":\"2025-12-15T06:17:16.338Z\",\"requestId\":\"unknown\"}",
+          "response": "{\"success\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"Internal Server Error\"},\"timestamp\":\"2025-12-15T06:17:16.338Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:16.339Z"
+        },
+        {
+          "category": "rbac",
+          "feature": "Platform Admin",
+          "testName": "Authentication",
+          "passed": false,
+          "details": "Failed to authenticate",
+          "timestamp": "2025-12-15T06:17:16.384Z"
+        },
+        {
+          "category": "rbac",
+          "feature": "Broker Admin",
+          "testName": "Authentication",
+          "passed": false,
+          "details": "Failed to authenticate",
+          "timestamp": "2025-12-15T06:17:16.391Z"
+        },
+        {
+          "category": "rbac",
+          "feature": "Compliance",
+          "testName": "Authentication",
+          "passed": false,
+          "details": "Failed to authenticate",
+          "timestamp": "2025-12-15T06:17:16.395Z"
+        },
+        {
+          "category": "rbac",
+          "feature": "Regular User",
+          "testName": "Authentication",
+          "passed": false,
+          "details": "Failed to authenticate",
+          "timestamp": "2025-12-15T06:17:16.399Z"
+        },
+        {
+          "category": "rbac",
+          "feature": "Unauthenticated",
+          "testName": "Denied Users",
+          "passed": true,
+          "details": "Status: 401 (should be 401/403)",
+          "response": "{\"success\":false,\"error\":{\"code\":\"MISSING_TOKEN\",\"message\":\"Access token required\"},\"timestamp\":\"2025-12-15T06:17:16.407Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:16.408Z"
+        },
+        {
+          "category": "rbac",
+          "feature": "Unauthenticated",
+          "testName": "Denied Admin Stats",
+          "passed": true,
+          "details": "Status: 401 (should be 401/403)",
+          "response": "{\"success\":false,\"error\":{\"code\":\"MISSING_TOKEN\",\"message\":\"Access token required\"},\"timestamp\":\"2025-12-15T06:17:16.411Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:16.412Z"
+        },
+        {
+          "category": "rbac",
+          "feature": "Unauthenticated",
+          "testName": "Denied Wallets",
+          "passed": false,
+          "details": "Status: 404 (should be 401/403)",
+          "response": "{\"success\":false,\"error\":{\"code\":\"NOT_FOUND\",\"message\":\"Route /api/wallets not found\"},\"timestamp\":\"2025-12-15T06:17:16.417Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:16.417Z"
+        },
+        {
+          "category": "rbac",
+          "feature": "Unauthenticated",
+          "testName": "Denied Orders",
+          "passed": true,
+          "details": "Status: 401 (should be 401/403)",
+          "response": "{\"success\":false,\"error\":{\"code\":\"MISSING_TOKEN\",\"message\":\"Access token required\"},\"timestamp\":\"2025-12-15T06:17:16.435Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:16.438Z"
+        }
+      ],
+      "passed": 3,
+      "failed": 8,
+      "total": 11
+    },
+    {
+      "name": "Admin",
+      "category": "admin",
+      "tests": [
+        {
+          "category": "admin",
+          "feature": "Admin Stats",
+          "testName": "Get Admin Stats",
+          "passed": false,
+          "details": "Status: 401",
+          "error": "Failed: {\"success\":false,\"error\":{\"code\":\"INVALID_TOKEN\",\"message\":\"Invalid token\"},\"timestamp\":\"2025-12-15T06:17:16.343Z\",\"requestId\":\"unknown\"}",
+          "response": "{\"success\":false,\"error\":{\"code\":\"INVALID_TOKEN\",\"message\":\"Invalid token\"},\"timestamp\":\"2025-12-15T06:17:16.343Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:16.344Z"
+        },
+        {
+          "category": "admin",
+          "feature": "Admin Dashboard",
+          "testName": "Get Admin Dashboard",
+          "passed": false,
+          "details": "Status: 401",
+          "error": "Failed: {\"success\":false,\"error\":{\"code\":\"INVALID_TOKEN\",\"message\":\"Invalid token\"},\"timestamp\":\"2025-12-15T06:17:16.347Z\",\"requestId\":\"unknown\"}",
+          "response": "{\"success\":false,\"error\":{\"code\":\"INVALID_TOKEN\",\"message\":\"Invalid token\"},\"timestamp\":\"2025-12-15T06:17:16.347Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:16.348Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 2,
+      "total": 2
+    },
+    {
+      "name": "Broker",
+      "category": "broker",
+      "tests": [
+        {
+          "category": "broker",
+          "feature": "Broker",
+          "testName": "Broker Authentication",
+          "passed": false,
+          "details": "Failed to authenticate broker",
+          "timestamp": "2025-12-15T06:17:16.356Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    {
+      "name": "Smart Contracts",
+      "category": "smart-contracts",
+      "tests": [
+        {
+          "category": "smart-contracts",
+          "feature": "Smart Contracts",
+          "testName": "Get Token Info",
+          "passed": false,
+          "details": "Status: 401",
+          "response": "{\"success\":false,\"error\":{\"code\":\"INVALID_TOKEN\",\"message\":\"Invalid token\"},\"timestamp\":\"2025-12-15T06:17:16.361Z\",\"requestId\":\"unknown\"}",
+          "timestamp": "2025-12-15T06:17:16.362Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    {
+      "name": "Ledger",
+      "category": "ledger",
+      "tests": [
+        {
+          "category": "ledger",
+          "feature": "Ledger",
+          "testName": "Trader Authentication",
+          "passed": false,
+          "details": "Failed to authenticate trader",
+          "timestamp": "2025-12-15T06:17:16.370Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    {
+      "name": "Native Cex",
+      "category": "native-cex",
+      "tests": [
+        {
+          "category": "native-cex",
+          "feature": "Native CEX",
+          "testName": "Trader Authentication",
+          "passed": false,
+          "details": "Failed to authenticate trader",
+          "timestamp": "2025-12-15T06:17:16.373Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    {
+      "name": "Market Data",
+      "category": "market-data",
+      "tests": [
+        {
+          "category": "market-data",
+          "feature": "Market Data",
+          "testName": "Trader Authentication",
+          "passed": false,
+          "details": "Failed to authenticate trader",
+          "timestamp": "2025-12-15T06:17:16.379Z"
+        }
+      ],
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    }
+  ],
+  "summary": {
+    "byCategory": {
+      "infrastructure": {
+        "passed": 3,
+        "failed": 0,
+        "total": 3
+      },
+      "authentication": {
+        "passed": 5,
+        "failed": 4,
+        "total": 9
+      },
+      "user-management": {
+        "passed": 0,
+        "failed": 3,
+        "total": 3
+      },
+      "trading": {
+        "passed": 0,
+        "failed": 6,
+        "total": 6
+      },
+      "wallet": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "fiat": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "margin": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "advanced-margin": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "dex": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "nft": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "kyc": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "token-sale": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "presale": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "rbac": {
+        "passed": 3,
+        "failed": 8,
+        "total": 11
+      },
+      "admin": {
+        "passed": 0,
+        "failed": 2,
+        "total": 2
+      },
+      "broker": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "smart-contracts": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "ledger": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "native-cex": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "market-data": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      }
+    },
+    "byFeature": {
+      "Health Check": {
+        "passed": 2,
+        "failed": 0,
+        "total": 2
+      },
+      "API Documentation": {
+        "passed": 1,
+        "failed": 0,
+        "total": 1
+      },
+      "Login": {
+        "passed": 5,
+        "failed": 2,
+        "total": 7
+      },
+      "Registration": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Token Management": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "User Management": {
+        "passed": 0,
+        "failed": 3,
+        "total": 3
+      },
+      "Trading": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Wallet": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Fiat": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Margin Trading": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Advanced Margin": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "DEX": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "NFT": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "KYC": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Token Sale": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Presale": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "RBAC": {
+        "passed": 0,
+        "failed": 3,
+        "total": 3
+      },
+      "Admin Stats": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Admin Dashboard": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Broker": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Smart Contracts": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Ledger": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Native CEX": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Market Data": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Platform Admin": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Broker Admin": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Compliance": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Regular User": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Unauthenticated": {
+        "passed": 3,
+        "failed": 1,
+        "total": 4
+      },
+      "Complete Trading Flow": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Complete Wallet Flow": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Complete KYC Flow": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Complete Admin Flow": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      },
+      "Playwright": {
+        "passed": 0,
+        "failed": 1,
+        "total": 1
+      }
+    }
+  }
+}

@@ -15,9 +15,43 @@ import { NativeCEXService, TradingEngine, TradingPair, CEXOrder, MarketData, Liq
 import { authenticateToken, requireRole } from '../middleware/error-handler';
 import { LoggerService } from '../services/logger';
 import { DatabaseService } from '../services/database';
+import { UserRole } from '../types';
+import { createError } from '../utils';
 
 const router: Router = Router();
 let nativeCEXService: NativeCEXService;
+
+const getAuthUserId = (req: Request): string | undefined => {
+  return (req as any).user?.userId;
+};
+
+const hasPrivilegedRole = (req: Request): boolean => {
+  const role = (req as any).user?.role as string | undefined;
+  const roles = ((req as any).user?.roles as string[] | undefined) || [];
+  const all = new Set<string>([...(role ? [role] : []), ...roles]);
+  const privileged = new Set<string>([
+    UserRole.SUPER_ADMIN,
+    UserRole.ADMIN,
+    UserRole.PLATFORM_ADMIN,
+    UserRole.PLATFORM_OPERATIONS,
+    UserRole.BROKER_ADMIN,
+    UserRole.BROKER_OPERATIONS,
+  ]);
+  for (const r of all) {
+    if (privileged.has(r)) return true;
+  }
+  return false;
+};
+
+const assertCanAccessUser = (req: Request, targetUserId: string): void => {
+  const authUserId = getAuthUserId(req);
+  if (!authUserId) {
+    throw createError('Unauthorized', 401, 'UNAUTHORIZED');
+  }
+  if (authUserId !== targetUserId && !hasPrivilegedRole(req)) {
+    throw createError('Forbidden', 403, 'FORBIDDEN');
+  }
+};
 
 // Initialize service
 export const initializeNativeCEX = async () => {
@@ -143,6 +177,9 @@ router.post('/orders', authenticateToken, async (req: Request, res: Response, ne
       });
       return;
     }
+
+    // Prevent IDOR
+    assertCanAccessUser(req, userId);
     
     const order = await nativeCEXService.placeOrder(
       userId,
@@ -218,6 +255,9 @@ router.get('/orders/:orderId', authenticateToken, async (req: Request, res: Resp
       });
       return;
     }
+
+    // Prevent IDOR
+    assertCanAccessUser(req, order.userId);
     
     res.json({
       success: true,
@@ -269,6 +309,9 @@ router.get('/orders/user/:userId', authenticateToken, async (req: Request, res: 
       });
       return;
     }
+
+    // Prevent IDOR
+    assertCanAccessUser(req, userId);
     
     let orders = nativeCEXService.getUserOrders(userId);
     
@@ -323,7 +366,7 @@ router.get('/orders/user/:userId', authenticateToken, async (req: Request, res: 
 router.delete('/orders/:orderId', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { orderId } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = getAuthUserId(req);
     
     if (!userId) {
       res.status(401).json({
@@ -472,6 +515,9 @@ router.get('/thal/incentives/:userId', authenticateToken, async (req: Request, r
       });
       return;
     }
+
+    // Prevent IDOR
+    assertCanAccessUser(req, userId);
     
     const incentives = nativeCEXService.getUserLiquidityIncentives(userId);
     
@@ -514,6 +560,9 @@ router.post('/thal/credit-rewards', authenticateToken, async (req: Request, res:
       });
       return;
     }
+
+    // Prevent IDOR
+    assertCanAccessUser(req, userId);
     
     await nativeCEXService.creditTHALRewards(userId, orderId);
     
@@ -546,6 +595,9 @@ router.get('/dashboard/:userId', authenticateToken, async (req: Request, res: Re
       });
       return;
     }
+
+    // Prevent IDOR
+    assertCanAccessUser(req, userId);
     
     const orders = nativeCEXService.getUserOrders(userId);
     const incentives = nativeCEXService.getUserLiquidityIncentives(userId);

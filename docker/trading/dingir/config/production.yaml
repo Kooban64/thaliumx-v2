@@ -11,8 +11,12 @@ user_order_num_limit: 2000
 debug: false
 
 # Database connections (using TimescaleDB for trading data)
-db_log: postgresql://dingir:ThaliumX2025@thaliumx-timescaledb:5432/exchange
-db_history: postgresql://dingir:ThaliumX2025@thaliumx-timescaledb:5432/exchange
+# IMPORTANT:
+# Do NOT commit real credentials to this repository.
+# Provide production secrets via environment variables, Docker secrets, or Vault and
+# render this config at deploy time.
+db_log: postgresql://dingir:REPLACE_ME@thaliumx-timescaledb:5432/exchange
+db_history: postgresql://dingir:REPLACE_ME@thaliumx-timescaledb:5432/exchange
 
 # Kafka brokers (using thaliumx-kafka)
 brokers: 'thaliumx-kafka:9092'
@@ -20,4 +24,4 @@ brokers: 'thaliumx-kafka:9092'
 # Redis connection (using thaliumx-redis with generated password)
 redis_host: thaliumx-redis
 redis_port: 6379
-redis_password: Nm438X9AykD3BCE492hsDRqHnO0tFxfO
+redis_password: REPLACE_ME

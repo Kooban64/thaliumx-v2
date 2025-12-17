@@ -20,19 +20,21 @@ services:
       - DATABASE_PORT=5432
       - DATABASE_NAME=cex_compliance
       - DATABASE_USER=${DB_USER:-thaliumx}
-      - DATABASE_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
+      # No insecure defaults; must be provided via env/secret manager
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - DATABASE_SSL=${DB_SSL:-false}
       - REDIS_HOST=thaliumx-redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-ThaliumX2025}
+      # No insecure defaults; must be provided via env/secret manager
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - REDIS_DB=0
       - KAFKA_BROKERS=thaliumx-kafka:9092
       - KAFKA_CLIENT_ID=cex-compliance-service
       - KAFKA_GROUP_ID=cex-compliance-group
       - LOG_LEVEL=${LOG_LEVEL:-info}
-      - API_KEY=${API_KEY:-ThaliumX-Compliance-API-Key-2025}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-ThaliumX-Encryption-Key-32-Char-Long-2025}
-      - JWT_SECRET=${JWT_SECRET:-ThaliumX2025SecureJWTSecretKey32CharsMinimum!}
+      - API_KEY=${API_KEY:?API_KEY is required}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
     networks:
       - thaliumx-net
     healthcheck:
@@ -64,32 +66,28 @@ services:
       - DB_PORT=5432
       - DB_NAME=dex_compliance
       - DB_USER=${DB_USER:-thaliumx}
-      - DB_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - DB_SSL=${DB_SSL:-false}
       - DATABASE_HOST=thaliumx-postgres
       - DATABASE_PORT=5432
       - DATABASE_NAME=dex_compliance
       - DATABASE_USER=${DB_USER:-thaliumx}
-      - DATABASE_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - DATABASE_SSL=false
       - DATABASE_SSL_MODE=disable
       - REDIS_HOST=thaliumx-redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-ThaliumX2025}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - REDIS_DB=1
       - KAFKA_BROKERS=thaliumx-kafka:9092
       - KAFKA_CLIENT_ID=dex-compliance-service
       - KAFKA_GROUP_ID=dex-compliance-group
       - LOG_LEVEL=${LOG_LEVEL:-info}
-      - API_KEY=${API_KEY:-ThaliumX-Compliance-API-Key-2025}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-ThaliumX-Encryption-Key-32-Char-Long-2025}
-      - JWT_SECRET=${JWT_SECRET:-ThaliumX2025SecureJWTSecretKey32CharsMinimum!}
-      # Blockchain RPC Providers - configured from .secrets/chain.info
-      # Using Alchemy API key: SztlY3jR1R_HBbKW588ZlWxfAYa1iHgD (Ethereum only)
-      # Using Infura Project ID: 38cb2ace40b3446d900e1c500dd714ab
-      # Using Ankr API: b511d6fbc7c9fd126e6e0b020a1d3578fb8db0fc6f9cf6b0f8ec558e4006db36
-      # Using public RPCs for networks not enabled in Alchemy
-      - BLOCKCHAIN_PROVIDERS=[{"chainId":1,"name":"Ethereum Mainnet","rpcUrl":"https://eth-mainnet.g.alchemy.com/v2/SztlY3jR1R_HBbKW588ZlWxfAYa1iHgD"},{"chainId":56,"name":"BNB Chain","rpcUrl":"https://bsc-dataseed1.binance.org"},{"chainId":137,"name":"Polygon","rpcUrl":"https://polygon-rpc.com"},{"chainId":42161,"name":"Arbitrum One","rpcUrl":"https://arb1.arbitrum.io/rpc"},{"chainId":10,"name":"Optimism","rpcUrl":"https://mainnet.optimism.io"},{"chainId":43114,"name":"Avalanche","rpcUrl":"https://avalanche-mainnet.infura.io/v3/38cb2ace40b3446d900e1c500dd714ab"},{"chainId":250,"name":"Fantom","rpcUrl":"https://rpc.ftm.tools"}]
+      - API_KEY=${API_KEY:?API_KEY is required}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      # Blockchain RPC providers must be injected from a secrets manager / CI.
+      - BLOCKCHAIN_PROVIDERS=${BLOCKCHAIN_PROVIDERS:?BLOCKCHAIN_PROVIDERS is required}
     networks:
       - thaliumx-net
     healthcheck:
@@ -121,11 +119,11 @@ services:
       - DB_PORT=5432
       - DB_NAME=nft_compliance
       - DB_USER=${DB_USER:-thaliumx}
-      - DB_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - DB_SSL=${DB_SSL:-false}
       - REDIS_HOST=thaliumx-redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-ThaliumX2025}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - REDIS_DB=2
       - KAFKA_BROKERS=thaliumx-kafka:9092
       - KAFKA_CLIENT_ID=nft-compliance-service
@@ -133,9 +131,9 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - CONTENT_SCREENING_ENABLED=${CONTENT_SCREENING_ENABLED:-true}
       - WASH_TRADING_DETECTION_ENABLED=${WASH_TRADING_DETECTION_ENABLED:-true}
-      - API_KEY=${API_KEY:-ThaliumX-Compliance-API-Key-2025}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-ThaliumX-Encryption-Key-32-Char-Long-2025}
-      - JWT_SECRET=${JWT_SECRET:-ThaliumX2025SecureJWTSecretKey32CharsMinimum!}
+      - API_KEY=${API_KEY:?API_KEY is required}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
     networks:
       - thaliumx-net
     healthcheck:
@@ -167,26 +165,26 @@ services:
       - DB_PORT=5432
       - DB_NAME=token_compliance
       - DB_USER=${DB_USER:-thaliumx}
-      - DB_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - DB_SSL=${DB_SSL:-false}
       - DATABASE_HOST=thaliumx-postgres
       - DATABASE_PORT=5432
       - DATABASE_NAME=token_compliance
       - DATABASE_USER=${DB_USER:-thaliumx}
-      - DATABASE_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - DATABASE_SSL=${DB_SSL:-false}
       - REDIS_HOST=thaliumx-redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-ThaliumX2025}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - REDIS_DB=3
       - KAFKA_BROKERS=thaliumx-kafka:9092
       - KAFKA_CLIENT_ID=token-compliance-service
       - KAFKA_GROUP_ID=token-compliance-group
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - WALLET_SCREENING_ENABLED=${WALLET_SCREENING_ENABLED:-true}
-      - API_KEY=${API_KEY:-ThaliumX-Compliance-API-Key-2025}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-ThaliumX-Encryption-Key-32-Char-Long-2025}
-      - JWT_SECRET=${JWT_SECRET:-ThaliumX2025SecureJWTSecretKey32CharsMinimum!}
+      - API_KEY=${API_KEY:?API_KEY is required}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
     networks:
       - thaliumx-net
     healthcheck:
@@ -218,17 +216,17 @@ services:
       - DB_PORT=5432
       - DB_NAME=compliance_coordinator
       - DB_USER=${DB_USER:-thaliumx}
-      - DB_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - DB_SSL=${DB_SSL:-false}
       - DATABASE_HOST=thaliumx-postgres
       - DATABASE_PORT=5432
       - DATABASE_NAME=compliance_coordinator
       - DATABASE_USER=${DB_USER:-thaliumx}
-      - DATABASE_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - DATABASE_SSL=${DB_SSL:-false}
       - REDIS_HOST=thaliumx-redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-ThaliumX2025}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - REDIS_DB=4
       - KAFKA_BROKERS=thaliumx-kafka:9092
       - KAFKA_CLIENT_ID=compliance-coordinator-service
@@ -241,9 +239,9 @@ services:
       - AGGREGATION_ENABLED=${AGGREGATION_ENABLED:-true}
       - ALERTS_ENABLED=${ALERTS_ENABLED:-true}
       - REPORTING_ENABLED=${REPORTING_ENABLED:-true}
-      - API_KEY=${API_KEY:-ThaliumX-Compliance-API-Key-2025}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-ThaliumX-Encryption-Key-32-Char-Long-2025}
-      - JWT_SECRET=${JWT_SECRET:-ThaliumX2025SecureJWTSecretKey32CharsMinimum!}
+      - API_KEY=${API_KEY:?API_KEY is required}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
     networks:
       - thaliumx-net
     volumes:

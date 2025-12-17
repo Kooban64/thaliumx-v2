@@ -12,7 +12,8 @@
 set -e
 
 APISIX_ADMIN_URL="${APISIX_ADMIN_URL:-http://localhost:9180/apisix/admin}"
-APISIX_ADMIN_KEY="${APISIX_ADMIN_KEY:-edd1c9f034335f136f87ad84b625c8f1}"
+# NOTE: No insecure defaults. Provide via environment (or CI secret) at deploy time.
+APISIX_ADMIN_KEY="${APISIX_ADMIN_KEY:?APISIX_ADMIN_KEY is required}"
 FRONTEND_UPSTREAM="${FRONTEND_UPSTREAM:-thaliumx-frontend:3000}"
 BACKEND_UPSTREAM="${BACKEND_UPSTREAM:-thaliumx-backend:3002}"
 
@@ -195,11 +196,11 @@ create_route "3" "{
     }
 }"
 
-# Route 4: API endpoints
+# Route 4: API endpoints (with rate limiting)
 create_route "4" "{
     \"id\": \"4\",
     \"name\": \"thaliumx-api\",
-    \"desc\": \"API endpoints\",
+    \"desc\": \"API endpoints with rate limiting\",
     \"hosts\": [\"thaliumx.com\", \"thal.thaliumx.com\", \"api.thaliumx.com\"],
     \"uri\": \"/api/*\",
     \"priority\": 20,
@@ -213,18 +214,32 @@ create_route "4" "{
         \"cors\": {
             \"allow_origins\": \"https://thaliumx.com,https://thal.thaliumx.com,https://api.thaliumx.com\",
             \"allow_methods\": \"GET,POST,PUT,DELETE,OPTIONS,PATCH\",
-            \"allow_headers\": \"Content-Type,Authorization,X-Requested-With,X-API-Key,X-Tenant-ID,X-Broker-ID\",
+            \"allow_headers\": \"Content-Type,Authorization,X-Requested-With,X-API-Key,X-Tenant-ID,X-Broker-ID,X-CSRF-Token\",
             \"expose_headers\": \"X-Rate-Limit-Remaining,X-Rate-Limit-Reset,X-Request-ID\",
             \"max_age\": 3600,
             \"allow_credential\": true
         },
         \"request-id\": {
             \"include_in_response\": true
+        },
+        \"limit-req\": {
+            \"rate\": 60,
+            \"burst\": 30,
+            \"key\": \"remote_addr\",
+            \"rejected_code\": 429,
+            \"rejected_msg\": \"Too many requests. Please try again later.\"
+        },
+        \"limit-count\": {
+            \"count\": 1000,
+            \"time_window\": 60,
+            \"key\": \"remote_addr\",
+            \"rejected_code\": 429,
+            \"rejected_msg\": \"Rate limit exceeded. Please try again later.\"
         }
     }
 }"
 
-# Route 5: Health check endpoint
+# Route 5: Health check endpoint (no rate limiting)
 create_route "5" "{
     \"id\": \"5\",
     \"name\": \"thaliumx-health\",
@@ -236,6 +251,84 @@ create_route "5" "{
     \"plugins\": {}
 }"
 
+# Route 6: Auth endpoints (very strict rate limiting)
+create_route "6" "{
+    \"id\": \"6\",
+    \"name\": \"thaliumx-auth\",
+    \"desc\": \"Authentication endpoints with strict rate limiting\",
+    \"uri\": \"/api/auth/*\",
+    \"priority\": 25,
+    \"status\": 1,
+    \"upstream_id\": \"2\",
+    \"plugins\": {
+        \"redirect\": {
+            \"http_to_https\": true,
+            \"ret_code\": 302
+        },
+        \"cors\": {
+            \"allow_origins\": \"https://thaliumx.com,https://thal.thaliumx.com\",
+            \"allow_methods\": \"GET,POST,PUT,DELETE,OPTIONS\",
+            \"allow_headers\": \"Content-Type,Authorization,X-Requested-With,X-CSRF-Token\",
+            \"expose_headers\": \"X-Rate-Limit-Remaining,X-Rate-Limit-Reset\",
+            \"max_age\": 3600,
+            \"allow_credential\": true
+        },
+        \"limit-req\": {
+            \"rate\": 10,
+            \"burst\": 5,
+            \"key\": \"remote_addr\",
+            \"rejected_code\": 429,
+            \"rejected_msg\": \"Too many authentication attempts. Please try again later.\"
+        },
+        \"limit-count\": {
+            \"count\": 20,
+            \"time_window\": 60,
+            \"key\": \"remote_addr\",
+            \"rejected_code\": 429,
+            \"rejected_msg\": \"Authentication rate limit exceeded.\"
+        }
+    }
+}"
+
+# Route 7: Financial endpoints (strict rate limiting)
+create_route "7" "{
+    \"id\": \"7\",
+    \"name\": \"thaliumx-financial\",
+    \"desc\": \"Financial endpoints with strict rate limiting\",
+    \"uri\": \"/api/financial/*\",
+    \"priority\": 25,
+    \"status\": 1,
+    \"upstream_id\": \"2\",
+    \"plugins\": {
+        \"redirect\": {
+            \"http_to_https\": true,
+            \"ret_code\": 302
+        },
+        \"cors\": {
+            \"allow_origins\": \"https://thaliumx.com,https://thal.thaliumx.com\",
+            \"allow_methods\": \"GET,POST,PUT,DELETE,OPTIONS\",
+            \"allow_headers\": \"Content-Type,Authorization,X-Requested-With,X-CSRF-Token,X-Tenant-ID\",
+            \"expose_headers\": \"X-Rate-Limit-Remaining,X-Rate-Limit-Reset\",
+            \"max_age\": 3600,
+            \"allow_credential\": true
+        },
+        \"limit-req\": {
+            \"rate\": 30,
+            \"burst\": 15,
+            \"key\": \"remote_addr\",
+            \"rejected_code\": 429,
+            \"rejected_msg\": \"Too many financial requests. Please try again later.\"
+        },
+        \"limit-count\": {
+            \"count\": 100,
+            \"time_window\": 60,
+            \"key\": \"remote_addr\",
+            \"rejected_code\": 429,
+            \"rejected_msg\": \"Financial operations rate limit exceeded.\"
+        }
+    }
+}"
+
 echo ""
 echo -e "${GREEN}=== APISIX Route Initialization Complete ===${NC}"
 echo ""
@@ -243,7 +336,13 @@ echo "Routes configured:"
 echo "  ✅ thaliumx.com -> Main landing page (/landing)"
 echo "  ✅ www.thaliumx.com -> Redirect to thaliumx.com"
 echo "  ✅ thal.thaliumx.com -> Token presale page (/token-presale)"
-echo "  ✅ /api/* -> Backend API"
-echo "  ✅ /health -> Health check"
+echo "  ✅ /api/* -> Backend API (60 req/s, 1000/min per IP)"
+echo "  ✅ /api/auth/* -> Auth endpoints (10 req/s, 20/min per IP)"
+echo "  ✅ /api/financial/* -> Financial endpoints (30 req/s, 100/min per IP)"
+echo "  ✅ /health -> Health check (no rate limiting)"
 echo ""
-
+echo "Rate limiting configured:"
+echo "  • API endpoints: 60 req/s, 1000/min per IP"
+echo "  • Auth endpoints: 10 req/s, 20/min per IP (strict)"
+echo "  • Financial endpoints: 30 req/s, 100/min per IP (strict)"
+echo ""

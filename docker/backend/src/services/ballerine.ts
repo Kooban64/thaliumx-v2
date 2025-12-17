@@ -94,8 +94,17 @@ export class BallerineService {
 
   constructor() {
     this.baseURL = process.env.BALLERINE_BASE_URL || 'http://thaliumx-ballerine-workflow:3000';
-    this.apiKey = process.env.BALLERINE_API_KEY || process.env.VAULT_BALLERINE_API_KEY || 'ballerine_oss_api_key_12345';
-    this.webhookSecret = process.env.BALLERINE_WEBHOOK_SECRET || process.env.VAULT_BALLERINE_WEBHOOK_SECRET || 'ballerine_webhook_secret_67890';
+    // Do NOT ship with hard-coded secrets. In production, these must be provided
+    // via env or a secrets manager (Vault).
+    this.apiKey = process.env.BALLERINE_API_KEY || process.env.VAULT_BALLERINE_API_KEY || '';
+    this.webhookSecret = process.env.BALLERINE_WEBHOOK_SECRET || process.env.VAULT_BALLERINE_WEBHOOK_SECRET || '';
+
+    if (!this.apiKey) {
+      LoggerService.warn('Ballerine API key is not configured; Ballerine calls may fail');
+    }
+    if (!this.webhookSecret) {
+      LoggerService.warn('Ballerine webhook secret is not configured; signature verification will fail');
+    }
     
     this.client = axios.create({
       baseURL: this.baseURL,
@@ -108,7 +117,9 @@ export class BallerineService {
     });
 
     // Add request/response interceptors for logging
-    this.client.interceptors.request.use(
+    // Guard for test environments where axios may be mocked.
+    if (this.client?.interceptors?.request?.use) {
+      this.client.interceptors.request.use(
       (config) => {
         LoggerService.info('Ballerine API Request', {
           method: config.method,
@@ -120,9 +131,11 @@ export class BallerineService {
         LoggerService.error('Ballerine API Request Error', { error: error.message });
         return Promise.reject(error);
       }
-    );
+      );
+    }
 
-    this.client.interceptors.response.use(
+    if (this.client?.interceptors?.response?.use) {
+      this.client.interceptors.response.use(
       (response) => {
         LoggerService.info('Ballerine API Response', {
           status: response.status,
@@ -138,7 +151,8 @@ export class BallerineService {
         });
         return Promise.reject(error);
       }
-    );
+      );
+    }
   }
 
   /**
@@ -836,7 +850,13 @@ export class BallerineService {
   }
 }
 
-// Export singleton instance
-export const ballerineService = new BallerineService();
+// Lazy singleton getter (avoids module side-effects during tests and startup).
+let _ballerineService: BallerineService | null = null;
 
+export const getBallerineService = (): BallerineService => {
+  if (!_ballerineService) {
+    _ballerineService = new BallerineService();
+  }
+  return _ballerineService;
+};
 

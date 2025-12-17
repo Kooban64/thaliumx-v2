@@ -9,6 +9,11 @@ import { ConfigService } from '../services/config';
  */
 export const rateLimiter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    // Skip rate limiting in test environment
+    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+      return next();
+    }
+    
     // Health endpoints are exempt
     if (req.path.includes('/health') || req.path.includes('/ready') || req.path.includes('/live')) {
       return next();
@@ -71,6 +76,11 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
  */
 export const authRateLimiter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    // Skip rate limiting in test environment
+    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+      return next();
+    }
+    
     const ip = req.ip || (req.headers['x-forwarded-for'] as string) || 'unknown';
     const key = `auth_ratelimit:${ip}:${new Date().toISOString().slice(0, 16)}`; // minute bucket
     const maxRequests = 5; // 5 auth attempts per minute
@@ -116,6 +126,11 @@ export const authRateLimiter = async (req: Request, res: Response, next: NextFun
  */
 export const apiRateLimiter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    // Skip rate limiting in test environment
+    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+      return next();
+    }
+    
     const tenantId = (req.headers['x-tenant-id'] as string) || 'global';
     const ip = req.ip || (req.headers['x-forwarded-for'] as string) || 'unknown';
     const key = `api_ratelimit:${tenantId}:${ip}:${new Date().toISOString().slice(0, 16)}`; // minute bucket

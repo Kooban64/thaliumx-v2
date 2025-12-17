@@ -72,7 +72,9 @@ export class ConfigService {
   public static getConfig(): AppConfig {
     if (!this.config) {
       this.config = this.loadConfig();
-      if (process.env.NODE_ENV !== 'production') {
+      // In test environments, file watchers keep the process alive and break Jest.
+      // Watchers are only useful for local dev/staging.
+      if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
         this.startWatching();
       }
     }
@@ -479,6 +481,36 @@ export class ConfigService {
   }
 
   private static getDatabaseConfig(): DatabaseConfig {
+    // Prefer a standard DATABASE_URL (or TEST_DATABASE_URL in CI) if provided.
+    // This makes local/dev/CI configuration consistent and avoids duplicating DB_* variables.
+    const databaseUrl = process.env.DATABASE_URL || process.env.TEST_DATABASE_URL;
+    if (databaseUrl) {
+      try {
+        const u = new URL(databaseUrl);
+        // Support postgres:// and postgresql://
+        if (u.protocol === 'postgres:' || u.protocol === 'postgresql:') {
+          const dbName = (u.pathname || '').replace(/^\//, '');
+          return {
+            host: u.hostname || 'localhost',
+            port: parseInt(u.port || '5432', 10),
+            database: dbName || 'thaliumx',
+            username: decodeURIComponent(u.username || 'postgres'),
+            password: decodeURIComponent(u.password || ''),
+            // Common patterns: ?ssl=true or ?sslmode=require
+            ssl: (u.searchParams.get('ssl') || '').toLowerCase() === 'true' ||
+                 (u.searchParams.get('sslmode') || '').toLowerCase() === 'require',
+            pool: {
+              min: parseInt(process.env.DB_POOL_MIN || '2', 10),
+              max: parseInt(process.env.DB_POOL_MAX || '10', 10),
+              idle: parseInt(process.env.DB_POOL_IDLE || '10000', 10)
+            }
+          };
+        }
+      } catch (err) {
+        LoggerService.warn('Failed to parse DATABASE_URL/TEST_DATABASE_URL; falling back to DB_* variables');
+      }
+    }
+
     return {
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432', 10),
@@ -495,6 +527,28 @@ export class ConfigService {
   }
 
   private static getRedisConfig(): RedisConfig {
+    // Prefer REDIS_URL (or TEST_REDIS_URL)
+    const redisUrl = process.env.REDIS_URL || process.env.TEST_REDIS_URL;
+    if (redisUrl) {
+      try {
+        const u = new URL(redisUrl);
+        if (u.protocol === 'redis:' || u.protocol === 'rediss:') {
+          const dbFromPath = (u.pathname || '').replace(/^\//, '');
+          const db = dbFromPath ? parseInt(dbFromPath, 10) : parseInt(process.env.REDIS_DB || '0', 10);
+          return {
+            host: u.hostname || 'localhost',
+            port: parseInt(u.port || '6379', 10),
+            password: decodeURIComponent(u.password || ''),
+            db: Number.isFinite(db) ? db : 0,
+            retryDelayOnFailover: parseInt(process.env.REDIS_RETRY_DELAY || '100', 10),
+            maxRetriesPerRequest: parseInt(process.env.REDIS_MAX_RETRIES || '3', 10)
+          };
+        }
+      } catch (err) {
+        LoggerService.warn('Failed to parse REDIS_URL/TEST_REDIS_URL; falling back to REDIS_* variables');
+      }
+    }
+
     return {
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '6379', 10),

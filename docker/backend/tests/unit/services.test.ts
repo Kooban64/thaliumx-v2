@@ -21,6 +21,10 @@ describe('ConfigService', () => {
     process.env.DB_NAME = 'thaliumx_test';
     process.env.DB_USER = 'postgres';
     process.env.DB_PASSWORD = 'test';
+    // ConfigService prefers DATABASE_URL/TEST_DATABASE_URL over DB_*.
+    // The global Jest setup sets DATABASE_URL to a default test DB; override here
+    // so this unit test asserts the intended DB name.
+    process.env.DATABASE_URL = 'postgresql://postgres:test@localhost:5432/thaliumx_test';
     process.env.REDIS_HOST = 'localhost';
     process.env.REDIS_PORT = '6379';
   });
@@ -171,7 +175,9 @@ describe('Security Utilities', () => {
     ];
 
     it('should detect SQL injection patterns', () => {
-      const sqlInjectionRegex = /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|ALTER|CREATE|TRUNCATE)\b)|(--)|(;)|(')/gi;
+      // NOTE: don't use a global RegExp here; `.test()` with /g mutates `lastIndex`
+      // and can produce false negatives across iterations.
+      const sqlInjectionRegex = /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|ALTER|CREATE|TRUNCATE)\b)|(--)|(;)|(')/i;
       
       sqlInjectionPatterns.forEach(pattern => {
         expect(sqlInjectionRegex.test(pattern)).toBe(true);
@@ -190,7 +196,8 @@ describe('Security Utilities', () => {
     ];
 
     it('should detect XSS patterns', () => {
-      const xssRegex = /<script|<img|<svg|<iframe|javascript:|onerror|onload/gi;
+      // NOTE: avoid /g here for the same reason as above.
+      const xssRegex = /<script|<img|<svg|<iframe|javascript:|onerror|onload/i;
       
       xssPatterns.forEach(pattern => {
         expect(xssRegex.test(pattern)).toBe(true);

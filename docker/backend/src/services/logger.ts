@@ -39,9 +39,16 @@ export class LoggerService {
   private static logger: winston.Logger;
   private static tracer = trace.getTracer('thaliumx-logger');
   private static metrics: Map<string, number> = new Map();
+  private static systemMetricsInterval: NodeJS.Timeout | null = null;
 
   public static initialize(): void {
     const logDir = process.env.LOG_DIR || 'logs';
+
+    // Create logs directory before initializing file transports.
+    const fs = require('fs');
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
     
     // Initialize metrics tracking
     this.initializeMetrics();
@@ -98,14 +105,10 @@ export class LoggerService {
       ]
     });
 
-    // Create logs directory if it doesn't exist
-    const fs = require('fs');
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir, { recursive: true });
+    // Start system metrics collection (disabled in test to avoid open handles)
+    if (process.env.NODE_ENV !== 'test' && process.env.DISABLE_SYSTEM_METRICS !== 'true') {
+      this.startSystemMetricsCollection();
     }
-
-    // Start system metrics collection
-    this.startSystemMetricsCollection();
   }
 
   private static initializeMetrics(): void {
@@ -121,7 +124,9 @@ export class LoggerService {
   }
 
   private static startSystemMetricsCollection(): void {
-    setInterval(() => {
+    if (this.systemMetricsInterval) return;
+
+    this.systemMetricsInterval = setInterval(() => {
       const memUsage = process.memoryUsage();
       const cpuUsage = process.cpuUsage();
       
@@ -144,6 +149,13 @@ export class LoggerService {
         loadAverage: os.loadavg()
       });
     }, 30000); // Every 30 seconds
+  }
+
+  public static shutdown(): void {
+    if (this.systemMetricsInterval) {
+      clearInterval(this.systemMetricsInterval);
+      this.systemMetricsInterval = null;
+    }
   }
 
   public static info(message: string, meta?: any): void {
@@ -171,14 +183,27 @@ export class LoggerService {
   }
 
   public static debug(message: string, meta?: any): void {
+    if (!this.logger) {
+      // Keep consistent behavior with info/warn/error when logger isn't initialized.
+      console.debug(`[Logger not initialized] ${message}`, meta);
+      return;
+    }
     this.logger.debug(message, meta);
   }
 
   public static verbose(message: string, meta?: any): void {
+    if (!this.logger) {
+      console.debug(`[Logger not initialized] ${message}`, meta);
+      return;
+    }
     this.logger.verbose(message, meta);
   }
 
   public static silly(message: string, meta?: any): void {
+    if (!this.logger) {
+      console.debug(`[Logger not initialized] ${message}`, meta);
+      return;
+    }
     this.logger.silly(message, meta);
   }
 

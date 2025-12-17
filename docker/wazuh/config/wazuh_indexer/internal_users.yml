@@ -3,9 +3,10 @@
 # Password hashes generated with: plugins/opensearch-security/tools/hash.sh
 # Passwords are configured in docker/.env file
 #
-# User passwords from .env:
-# - admin: WAZUH_INDEXER_PASSWORD (ThaliumX2025!wazuh@idx)
-# - kibanaserver: WAZUH_DASHBOARD_PASSWORD (ThaliumX2025!wazuh@dash)
+# NOTE:
+# Do NOT document plaintext passwords in-repo.
+# If you change Wazuh Indexer/Dashboard credentials, regenerate the bcrypt hashes
+# using the OpenSearch security tooling and update this file.
 
 ---
 _meta:
@@ -13,7 +14,7 @@ _meta:
   config_version: 2
 
 # Admin user - full access
-# Password: ThaliumX2025!wazuh@idx (from WAZUH_INDEXER_PASSWORD)
+# Password: set out-of-band (hash must match)
 admin:
   hash: "$2y$12$erOCeDKu6eV2G3GjuyKnRO5/GQEuImjaOs6FfSRxXqyzxB3Dfehbi"
   reserved: true
@@ -22,7 +23,7 @@ admin:
   description: "Admin user"
 
 # Kibanaserver user - for dashboard
-# Password: ThaliumX2025!wazuh@dash (from WAZUH_DASHBOARD_PASSWORD)
+# Password: set out-of-band (hash must match)
 kibanaserver:
   hash: "$2y$12$vxDSSULurHdEY2ttbATESuJjXhzzA/m3L8omvMVEfGfz6Hys.G5ie"
   reserved: true

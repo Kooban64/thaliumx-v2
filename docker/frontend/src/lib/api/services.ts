@@ -60,7 +60,7 @@ export class AuthService {
   }
 
   static async getCurrentUser(): Promise<ApiResponse<User>> {
-    return apiClient.get<User>('/api/auth/me');
+    return apiClient.get<User>('/api/auth/profile');
   }
 
   static async forgotPassword(email: string): Promise<ApiResponse<void>> {

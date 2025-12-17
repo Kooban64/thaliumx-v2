@@ -1,0 +1,112 @@
+{
+  "report": {
+    "timestamp": "2025-12-15T06:46:07.523Z",
+    "duration": 92,
+    "totalTests": 8,
+    "passedTests": 0,
+    "failedTests": 8,
+    "suites": [],
+    "summary": {
+      "byCategory": {
+        "authentication": {
+          "passed": 0,
+          "failed": 8,
+          "total": 8
+        }
+      },
+      "byFeature": {
+        "Login": {
+          "passed": 0,
+          "failed": 7,
+          "total": 7
+        },
+        "Registration": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "category": "authentication",
+      "feature": "Login",
+      "testName": "Login as platformAdmin",
+      "passed": false,
+      "details": "Status: 429, Role: admin",
+      "error": "Login failed: {\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.459Z\",\"requestId\":\"unknown\"}",
+      "response": "{\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.459Z\",\"requestId\":\"unknown\"}",
+      "timestamp": "2025-12-15T06:46:07.472Z"
+    },
+    {
+      "category": "authentication",
+      "feature": "Login",
+      "testName": "Login as brokerAdmin",
+      "passed": false,
+      "details": "Status: 429, Role: broker-admin",
+      "error": "Login failed: {\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.478Z\",\"requestId\":\"unknown\"}",
+      "response": "{\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.478Z\",\"requestId\":\"unknown\"}",
+      "timestamp": "2025-12-15T06:46:07.480Z"
+    },
+    {
+      "category": "authentication",
+      "feature": "Login",
+      "testName": "Login as compliance",
+      "passed": false,
+      "details": "Status: 429, Role: compliance",
+      "error": "Login failed: {\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.483Z\",\"requestId\":\"unknown\"}",
+      "response": "{\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.483Z\",\"requestId\":\"unknown\"}",
+      "timestamp": "2025-12-15T06:46:07.484Z"
+    },
+    {
+      "category": "authentication",
+      "feature": "Login",
+      "testName": "Login as finance",
+      "passed": false,
+      "details": "Status: 429, Role: finance",
+      "error": "Login failed: {\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.487Z\",\"requestId\":\"unknown\"}",
+      "response": "{\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.487Z\",\"requestId\":\"unknown\"}",
+      "timestamp": "2025-12-15T06:46:07.491Z"
+    },
+    {
+      "category": "authentication",
+      "feature": "Login",
+      "testName": "Login as trader",
+      "passed": false,
+      "details": "Status: 429, Role: user",
+      "error": "Login failed: {\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.498Z\",\"requestId\":\"unknown\"}",
+      "response": "{\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.498Z\",\"requestId\":\"unknown\"}",
+      "timestamp": "2025-12-15T06:46:07.500Z"
+    },
+    {
+      "category": "authentication",
+      "feature": "Login",
+      "testName": "Login as basicUser",
+      "passed": false,
+      "details": "Status: 429, Role: user",
+      "error": "Login failed: {\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.503Z\",\"requestId\":\"unknown\"}",
+      "response": "{\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.503Z\",\"requestId\":\"unknown\"}",
+      "timestamp": "2025-12-15T06:46:07.505Z"
+    },
+    {
+      "category": "authentication",
+      "feature": "Login",
+      "testName": "Invalid Credentials Rejection",
+      "passed": false,
+      "details": "Status: 429",
+      "response": "{\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.509Z\",\"requestId\":\"unknown\"}",
+      "timestamp": "2025-12-15T06:46:07.510Z"
+    },
+    {
+      "category": "authentication",
+      "feature": "Registration",
+      "testName": "User Registration",
+      "passed": false,
+      "details": "Status: 429",
+      "error": "Registration failed: {\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.513Z\",\"requestId\":\"unknown\"}",
+      "response": "{\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:07.513Z\",\"requestId\":\"unknown\"}",
+      "timestamp": "2025-12-15T06:46:07.516Z"
+    }
+  ]
+}

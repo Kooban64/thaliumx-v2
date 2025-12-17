@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThaliumX Test Report</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header .meta { opacity: 0.9; font-size: 0.9em; }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .summary-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .summary-card h3 { color: #666; font-size: 0.9em; margin-bottom: 10px; }
+        .summary-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .summary-card.total .value { color: #667eea; }
+        .summary-card.passed .value { color: #10b981; }
+        .summary-card.failed .value { color: #ef4444; }
+        .summary-card.rate .value { color: #f59e0b; }
+        .suite {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .suite-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .suite-header h2 { color: #333; font-size: 1.5em; }
+        .suite-stats {
+            display: flex;
+            gap: 15px;
+        }
+        .stat {
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .stat.total { background: #e0e7ff; color: #667eea; }
+        .stat.passed { background: #d1fae5; color: #10b981; }
+        .stat.failed { background: #fee2e2; color: #ef4444; }
+        .test {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border-left: 4px solid;
+        }
+        .test.passed {
+            background: #f0fdf4;
+            border-color: #10b981;
+        }
+        .test.failed {
+            background: #fef2f2;
+            border-color: #ef4444;
+        }
+        .test-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .test-name {
+            font-weight: bold;
+            color: #333;
+        }
+        .test-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+        .test-status.passed {
+            background: #10b981;
+            color: white;
+        }
+        .test-status.failed {
+            background: #ef4444;
+            color: white;
+        }
+        .test-details {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 8px;
+        }
+        .test-error {
+            background: #fee2e2;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 8px;
+            color: #991b1b;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+        .category-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .category-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .category-card h3 {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .category-stats {
+            display: flex;
+            gap: 10px;
+        }
+        .category-stat {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        .category-stat.passed { background: #d1fae5; color: #10b981; }
+        .category-stat.failed { background: #fee2e2; color: #ef4444; }
+        .category-stat.total { background: #e0e7ff; color: #667eea; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 ThaliumX Test Report</h1>
+            <div class="meta">
+                <div>Generated: 12/15/2025, 5:56:58 AM</div>
+                <div>Duration: 2.62s</div>
+            </div>
+        </div>
+
+        <div class="summary">
+            <div class="summary-card total">
+                <h3>Total Tests</h3>
+                <div class="value">47</div>
+            </div>
+            <div class="summary-card passed">
+                <h3>Passed</h3>
+                <div class="value">11</div>
+            </div>
+            <div class="summary-card failed">
+                <h3>Failed</h3>
+                <div class="value">36</div>
+            </div>
+            <div class="summary-card rate">
+                <h3>Pass Rate</h3>
+                <div class="value">23.40%</div>
+            </div>
+        </div>
+
+        <h2 style="margin-bottom: 20px; color: #333;">📊 Summary by Category</h2>
+        <div class="category-summary">
+
+            <div class="category-card">
+                <h3>Infrastructure</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 3</div>
+                    <div class="category-stat passed">✓ 3</div>
+                    <div class="category-stat failed">✗ 0</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    100.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Authentication</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 9</div>
+                    <div class="category-stat passed">✓ 5</div>
+                    <div class="category-stat failed">✗ 4</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    55.6% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>User Management</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 3</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 3</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Trading</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 5</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 5</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Wallet</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Fiat</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Margin</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Advanced Margin</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Dex</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Nft</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Kyc</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Token Sale</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Presale</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Rbac</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 11</div>
+                    <div class="category-stat passed">✓ 3</div>
+                    <div class="category-stat failed">✗ 8</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    27.3% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Admin</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 2</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 2</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Broker</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Smart Contracts</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Ledger</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Native Cex</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+            <div class="category-card">
+                <h3>Market Data</h3>
+                <div class="category-stats">
+                    <div class="category-stat total">Total: 1</div>
+                    <div class="category-stat passed">✓ 0</div>
+                    <div class="category-stat failed">✗ 1</div>
+                </div>
+                <div style="margin-top: 8px; text-align: center; color: #666; font-size: 0.9em;">
+                    0.0% pass rate
+                </div>
+            </div>
+
+        </div>
+
+        <h2 style="margin-bottom: 20px; color: #333;">📋 Detailed Test Results</h2>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Infrastructure</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 3</div>
+                    <div class="stat passed">Passed: 3</div>
+                    <div class="stat failed">Failed: 0</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 100.0%</div>
+                </div>
+            </div>
+
+            <div class="test passed">
+                <div class="test-header">
+                    <div class="test-name">Public Health Check</div>
+                    <div class="test-status passed">
+                        ✓ PASSED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Health Check<br>
+                    <strong>Details:</strong> Status: 200<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:55 AM
+                </div>
+
+            </div>
+
+            <div class="test passed">
+                <div class="test-header">
+                    <div class="test-name">Internal Health Check</div>
+                    <div class="test-status passed">
+                        ✓ PASSED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Health Check<br>
+                    <strong>Details:</strong> Status: 200 (403 expected if no auth)<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:55 AM
+                </div>
+
+            </div>
+
+            <div class="test passed">
+                <div class="test-header">
+                    <div class="test-name">API Docs Endpoint</div>
+                    <div class="test-status passed">
+                        ✓ PASSED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> API Documentation<br>
+                    <strong>Details:</strong> Status: 200<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:55 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Authentication</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 9</div>
+                    <div class="stat passed">Passed: 5</div>
+                    <div class="stat failed">Failed: 4</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 55.6%</div>
+                </div>
+            </div>
+
+            <div class="test passed">
+                <div class="test-header">
+                    <div class="test-name">Login as platformAdmin</div>
+                    <div class="test-status passed">
+                        ✓ PASSED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Login<br>
+                    <strong>Details:</strong> Status: 200, Role: admin<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:56 AM
+                </div>
+
+            </div>
+
+            <div class="test passed">
+                <div class="test-header">
+                    <div class="test-name">Login as brokerAdmin</div>
+                    <div class="test-status passed">
+                        ✓ PASSED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Login<br>
+                    <strong>Details:</strong> Status: 200, Role: broker-admin<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:56 AM
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Login as compliance</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Login<br>
+                    <strong>Details:</strong> Status: 401, Role: compliance<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:56 AM
+                </div>
+
+                <div class="test-error">
+                    <strong>Error:</strong> Login failed: {"success":false,"error":{"code":"LOGIN_FAILED","message":"Login failed"},"timestamp":"2025-12-15T05:56:56.732Z","requestId":"unknown"}
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"LOGIN_FAILED","message":"Login failed"},"timestamp":"2025-12-15T05:56:56.732Z","requestId":"unknown"}</pre>
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Login as finance</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Login<br>
+                    <strong>Details:</strong> Status: 401, Role: finance<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:56 AM
+                </div>
+
+                <div class="test-error">
+                    <strong>Error:</strong> Login failed: {"success":false,"error":{"code":"LOGIN_FAILED","message":"Login failed"},"timestamp":"2025-12-15T05:56:56.744Z","requestId":"unknown"}
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"LOGIN_FAILED","message":"Login failed"},"timestamp":"2025-12-15T05:56:56.744Z","requestId":"unknown"}</pre>
+                </div>
+
+            </div>
+
+            <div class="test passed">
+                <div class="test-header">
+                    <div class="test-name">Login as trader</div>
+                    <div class="test-status passed">
+                        ✓ PASSED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Login<br>
+                    <strong>Details:</strong> Status: 200, Role: user<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:57 AM
+                </div>
+
+            </div>
+
+            <div class="test passed">
+                <div class="test-header">
+                    <div class="test-name">Login as basicUser</div>
+                    <div class="test-status passed">
+                        ✓ PASSED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Login<br>
+                    <strong>Details:</strong> Status: 200, Role: user<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:57 AM
+                </div>
+
+            </div>
+
+            <div class="test passed">
+                <div class="test-header">
+                    <div class="test-name">Invalid Credentials Rejection</div>
+                    <div class="test-status passed">
+                        ✓ PASSED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Login<br>
+                    <strong>Details:</strong> Status: 401<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:57 AM
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">User Registration</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Registration<br>
+                    <strong>Details:</strong> Status: 500<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:57 AM
+                </div>
+
+                <div class="test-error">
+                    <strong>Error:</strong> Registration failed: {"success":false,"error":{"code":"INTERNAL_ERROR","message":"Internal Server Error"},"timestamp":"2025-12-15T05:56:57.679Z","requestId":"unknown"}
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"INTERNAL_ERROR","message":"Internal Server Error"},"timestamp":"2025-12-15T05:56:57.679Z","requestId":"unknown"}</pre>
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Token Refresh</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Token Management<br>
+                    <strong>Details:</strong> Status: 429<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+                <div class="test-error">
+                    <strong>Error:</strong> Refresh failed: {"success":false,"error":{"code":"RATE_LIMIT_EXCEEDED","message":"Too many requests from this IP, please try again later."},"timestamp":"2025-12-15T05:56:58.125Z","retryAfter":1}
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"RATE_LIMIT_EXCEEDED","message":"Too many requests from this IP, please try again later."},"timestamp":"2025-12-15T05:56:58.125Z","retryAfter":1}</pre>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>User Management</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 3</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 3</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Get All Users</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> User Management<br>
+                    <strong>Details:</strong> Status: 401<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+                <div class="test-error">
+                    <strong>Error:</strong> Failed: {"success":false,"error":{"code":"INVALID_TOKEN","message":"Invalid token"},"timestamp":"2025-12-15T05:56:58.135Z","requestId":"unknown"}
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"INVALID_TOKEN","message":"Invalid token"},"timestamp":"2025-12-15T05:56:58.135Z","requestId":"unknown"}</pre>
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Get User by ID</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> User Management<br>
+                    <strong>Details:</strong> Status: 401<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"INVALID_TOKEN","message":"Invalid token"},"timestamp":"2025-12-15T05:56:58.146Z","requestId":"unknown"}</pre>
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Update User Profile</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> User Management<br>
+                    <strong>Details:</strong> Status: 500<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+                <div class="test-error">
+                    <strong>Error:</strong> Failed: {"success":false,"error":{"code":"INTERNAL_ERROR","message":"Internal Server Error"},"timestamp":"2025-12-15T05:56:58.151Z","requestId":"unknown"}
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"INTERNAL_ERROR","message":"Internal Server Error"},"timestamp":"2025-12-15T05:56:58.151Z","requestId":"unknown"}</pre>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Trading</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 5</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 5</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Trader Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Trading<br>
+                    <strong>Details:</strong> Failed to authenticate trader<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Step 1: Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Complete Trading Flow<br>
+                    <strong>Details:</strong> Failed to authenticate<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Step 1: Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Complete Wallet Flow<br>
+                    <strong>Details:</strong> Failed to authenticate<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Step 1: Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Complete KYC Flow<br>
+                    <strong>Details:</strong> Failed to authenticate<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Step 1: Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Complete Admin Flow<br>
+                    <strong>Details:</strong> Failed to authenticate<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Wallet</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Trader Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Wallet<br>
+                    <strong>Details:</strong> Failed to authenticate trader<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Fiat</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Trader Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Fiat<br>
+                    <strong>Details:</strong> Failed to authenticate trader<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Margin</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Trader Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Margin Trading<br>
+                    <strong>Details:</strong> Failed to authenticate trader<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Advanced Margin</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Trader Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Advanced Margin<br>
+                    <strong>Details:</strong> Failed to authenticate trader<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Dex</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Trader Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> DEX<br>
+                    <strong>Details:</strong> Failed to authenticate trader<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Nft</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Trader Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> NFT<br>
+                    <strong>Details:</strong> Failed to authenticate trader<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Kyc</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Trader Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> KYC<br>
+                    <strong>Details:</strong> Failed to authenticate trader<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Token Sale</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Trader Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Token Sale<br>
+                    <strong>Details:</strong> Failed to authenticate trader<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Presale</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Trader Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Presale<br>
+                    <strong>Details:</strong> Failed to authenticate trader<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Rbac</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 11</div>
+                    <div class="stat passed">Passed: 3</div>
+                    <div class="stat failed">Failed: 8</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 27.3%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Get Roles</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> RBAC<br>
+                    <strong>Details:</strong> Status: 401<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+                <div class="test-error">
+                    <strong>Error:</strong> Failed: {"success":false,"error":{"code":"INVALID_TOKEN","message":"Invalid token"},"timestamp":"2025-12-15T05:56:58.220Z","requestId":"unknown"}
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"INVALID_TOKEN","message":"Invalid token"},"timestamp":"2025-12-15T05:56:58.220Z","requestId":"unknown"}</pre>
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Assign Role to User</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> RBAC<br>
+                    <strong>Details:</strong> Status: 500<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+                <div class="test-error">
+                    <strong>Error:</strong> Failed: {"success":false,"error":{"code":"INTERNAL_ERROR","message":"Internal Server Error"},"timestamp":"2025-12-15T05:56:58.224Z","requestId":"unknown"}
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"INTERNAL_ERROR","message":"Internal Server Error"},"timestamp":"2025-12-15T05:56:58.224Z","requestId":"unknown"}</pre>
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Check Permissions</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> RBAC<br>
+                    <strong>Details:</strong> Status: 500<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+                <div class="test-error">
+                    <strong>Error:</strong> Failed: {"success":false,"error":{"code":"INTERNAL_ERROR","message":"Internal Server Error"},"timestamp":"2025-12-15T05:56:58.227Z","requestId":"unknown"}
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"INTERNAL_ERROR","message":"Internal Server Error"},"timestamp":"2025-12-15T05:56:58.227Z","requestId":"unknown"}</pre>
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Platform Admin<br>
+                    <strong>Details:</strong> Failed to authenticate<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Broker Admin<br>
+                    <strong>Details:</strong> Failed to authenticate<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Compliance<br>
+                    <strong>Details:</strong> Failed to authenticate<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Regular User<br>
+                    <strong>Details:</strong> Failed to authenticate<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+            <div class="test passed">
+                <div class="test-header">
+                    <div class="test-name">Denied Users</div>
+                    <div class="test-status passed">
+                        ✓ PASSED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Unauthenticated<br>
+                    <strong>Details:</strong> Status: 401 (should be 401/403)<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+            <div class="test passed">
+                <div class="test-header">
+                    <div class="test-name">Denied Admin Stats</div>
+                    <div class="test-status passed">
+                        ✓ PASSED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Unauthenticated<br>
+                    <strong>Details:</strong> Status: 401 (should be 401/403)<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Denied Wallets</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Unauthenticated<br>
+                    <strong>Details:</strong> Status: 404 (should be 401/403)<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"NOT_FOUND","message":"Route /api/wallets not found"},"timestamp":"2025-12-15T05:56:58.289Z","requestId":"unknown"}</pre>
+                </div>
+
+            </div>
+
+            <div class="test passed">
+                <div class="test-header">
+                    <div class="test-name">Denied Orders</div>
+                    <div class="test-status passed">
+                        ✓ PASSED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Unauthenticated<br>
+                    <strong>Details:</strong> Status: 401 (should be 401/403)<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Admin</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 2</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 2</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Get Admin Stats</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Admin Stats<br>
+                    <strong>Details:</strong> Status: 401<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+                <div class="test-error">
+                    <strong>Error:</strong> Failed: {"success":false,"error":{"code":"INVALID_TOKEN","message":"Invalid token"},"timestamp":"2025-12-15T05:56:58.231Z","requestId":"unknown"}
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"INVALID_TOKEN","message":"Invalid token"},"timestamp":"2025-12-15T05:56:58.231Z","requestId":"unknown"}</pre>
+                </div>
+
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Get Admin Dashboard</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Admin Dashboard<br>
+                    <strong>Details:</strong> Status: 401<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+                <div class="test-error">
+                    <strong>Error:</strong> Failed: {"success":false,"error":{"code":"INVALID_TOKEN","message":"Invalid token"},"timestamp":"2025-12-15T05:56:58.236Z","requestId":"unknown"}
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"INVALID_TOKEN","message":"Invalid token"},"timestamp":"2025-12-15T05:56:58.236Z","requestId":"unknown"}</pre>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Broker</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Broker Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Broker<br>
+                    <strong>Details:</strong> Failed to authenticate broker<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Smart Contracts</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Get Token Info</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Smart Contracts<br>
+                    <strong>Details:</strong> Status: 401<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+                <div class="test-details" style="margin-top: 8px;">
+                    <strong>Response:</strong> <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto;">{"success":false,"error":{"code":"INVALID_TOKEN","message":"Invalid token"},"timestamp":"2025-12-15T05:56:58.244Z","requestId":"unknown"}</pre>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Ledger</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Trader Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Ledger<br>
+                    <strong>Details:</strong> Failed to authenticate trader<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Native Cex</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Trader Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Native CEX<br>
+                    <strong>Details:</strong> Failed to authenticate trader<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="suite">
+            <div class="suite-header">
+                <h2>Market Data</h2>
+                <div class="suite-stats">
+                    <div class="stat total">Total: 1</div>
+                    <div class="stat passed">Passed: 0</div>
+                    <div class="stat failed">Failed: 1</div>
+                    <div class="stat" style="background: #fef3c7; color: #f59e0b;">Rate: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="test failed">
+                <div class="test-header">
+                    <div class="test-name">Trader Authentication</div>
+                    <div class="test-status failed">
+                        ✗ FAILED
+                    </div>
+                </div>
+                <div class="test-details">
+                    <strong>Feature:</strong> Market Data<br>
+                    <strong>Details:</strong> Failed to authenticate trader<br>
+                    <strong>Time:</strong> 12/15/2025, 5:56:58 AM
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+</body>
+</html>

@@ -1,0 +1,60 @@
+{
+  "report": {
+    "timestamp": "2025-12-15T07:20:52.070Z",
+    "duration": 65,
+    "totalTests": 3,
+    "passedTests": 0,
+    "failedTests": 3,
+    "suites": [],
+    "summary": {
+      "byCategory": {
+        "infrastructure": {
+          "passed": 0,
+          "failed": 3,
+          "total": 3
+        }
+      },
+      "byFeature": {
+        "Health Check": {
+          "passed": 0,
+          "failed": 2,
+          "total": 2
+        },
+        "API Documentation": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "category": "infrastructure",
+      "feature": "Health Check",
+      "testName": "Public Health Check",
+      "passed": false,
+      "details": "Request failed",
+      "error": "read ECONNRESET",
+      "timestamp": "2025-12-15T07:20:52.061Z"
+    },
+    {
+      "category": "infrastructure",
+      "feature": "Health Check",
+      "testName": "Internal Health Check",
+      "passed": false,
+      "details": "Request failed",
+      "error": "socket hang up",
+      "timestamp": "2025-12-15T07:20:52.067Z"
+    },
+    {
+      "category": "infrastructure",
+      "feature": "API Documentation",
+      "testName": "API Docs Endpoint",
+      "passed": false,
+      "details": "Request failed",
+      "error": "read ECONNRESET",
+      "timestamp": "2025-12-15T07:20:52.070Z"
+    }
+  ]
+}

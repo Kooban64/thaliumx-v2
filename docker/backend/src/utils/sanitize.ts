@@ -11,12 +11,13 @@
 export function sanitizeHtml(dirty: string): string {
   if (typeof dirty !== 'string') return '';
 
-  // Escape all HTML entities
+  // Escape HTML entities (minimal, safe defaults).
+  // IMPORTANT: order matters; `&` must be escaped first.
   return dirty
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>')
-    .replace(/"/g, '"')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;')
     .replace(/\//g, '&#x2F;')
     .replace(/\\/g, '&#x5C;')

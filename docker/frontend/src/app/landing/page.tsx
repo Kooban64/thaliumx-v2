@@ -1,9 +1,24 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function LandingPage() {
+  // Set default tenant ID for landing page (platform-default-tenant)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const defaultTenantId = '10000000-0000-0000-0000-000000000000';
+      // Check if tenant ID is in URL (for tenant-specific landing pages)
+      const urlParams = new URLSearchParams(window.location.search);
+      const tenantIdFromUrl = urlParams.get('tenantId');
+      const tenantId = tenantIdFromUrl || defaultTenantId;
+      
+      // Store in localStorage for API client to use
+      localStorage.setItem('tenantId', tenantId);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

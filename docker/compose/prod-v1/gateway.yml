@@ -1,0 +1,11 @@
+# ThaliumX Production v1 - Gateway Layer
+# ====================================
+# API Gateway and routing: APISIX, etcd
+# Status: Planned for infrastructure phase
+# Updated: 2025-12-17T08:59:50.000Z
+
+version: '3.8'
+
+# TODO: Add APISIX API Gateway
+# TODO: Add etcd cluster for configuration
+# TODO: Configure SSL termination

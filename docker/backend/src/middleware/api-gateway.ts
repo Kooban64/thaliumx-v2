@@ -216,15 +216,56 @@ export const apiGateway = (config: Partial<APIGatewayConfig> = {}) => {
 
 // Validate request origin
 function validateOrigin(req: Request, config: APIGatewayConfig): boolean {
-  const origin = req.headers.origin || req.headers.referer;
+  const headerOrigin = (req.headers.origin as string | undefined) || undefined;
+  const referer = (req.headers.referer as string | undefined) || undefined;
 
-  // Allow requests without origin (mobile apps, API clients)
-  if (!origin) return true;
+  // Allow requests without an Origin header (mobile apps, server-to-server, CLI clients).
+  // NOTE: Browser requests should include Origin.
+  if (!headerOrigin && !referer) return true;
 
-  // Check against allowed origins
-  return config.allowedOrigins.some(allowed => {
+  const requestOrigin = (() => {
+    if (headerOrigin) return headerOrigin;
+    if (!referer) return undefined;
+    try {
+      return new URL(referer).origin;
+    } catch {
+      return undefined;
+    }
+  })();
+
+  if (!requestOrigin) return false;
+
+  const normalizeExact = (value: string): string | null => {
+    try {
+      return new URL(value).origin;
+    } catch {
+      return null;
+    }
+  };
+
+  // Check against allowed origins.
+  // SECURITY: do NOT use startsWith checks (e.g., https://thaliumx.com.evil.com).
+  return config.allowedOrigins.some((allowed) => {
     if (allowed === '*') return true;
-    return origin.startsWith(allowed);
+
+    // Wildcard subdomain support (e.g., https://*.thaliumx.com)
+    const wildcardMatch = allowed.match(/^(https?:\/\/)?\*\.(.+)$/i);
+    if (wildcardMatch) {
+      const scheme = (wildcardMatch[1] || '').toLowerCase();
+      const domain = (wildcardMatch[2] || '').toLowerCase();
+      try {
+        const u = new URL(requestOrigin);
+        const host = u.hostname.toLowerCase();
+        const schemeOk = scheme ? `${u.protocol}//` === scheme : true;
+        return schemeOk && (host === domain || host.endsWith(`.${domain}`));
+      } catch {
+        return false;
+      }
+    }
+
+    const allowedOrigin = normalizeExact(allowed);
+    if (!allowedOrigin) return false;
+    return allowedOrigin === requestOrigin;
   });
 }
 
@@ -263,12 +304,16 @@ function updateCircuitBreaker(isFailure: boolean): void {
       });
     }
   } else {
-    // Success - reset failures
-    circuitBreakerState.failures = Math.max(0, circuitBreakerState.failures - 1);
+    // Success - reset failures more aggressively
+    circuitBreakerState.failures = Math.max(0, circuitBreakerState.failures - 2); // Decrease by 2 on success
 
     if (circuitBreakerState.state === 'half-open' && circuitBreakerState.failures === 0) {
       circuitBreakerState.state = 'closed';
       LoggerService.info('Circuit breaker closed - service recovered');
+    } else if (circuitBreakerState.state === 'open' && circuitBreakerState.failures === 0) {
+      // Auto-recover if failures reset
+      circuitBreakerState.state = 'half-open';
+      LoggerService.info('Circuit breaker transitioning to half-open after recovery');
     }
   }
 }

@@ -1,0 +1,123 @@
+================================================================================
+📊 FINAL TEST REPORT SUMMARY
+================================================================================
+
+Generated: 12/15/2025, 7:46:10 AM
+Total Tests: 42
+✅ Passed: 8
+❌ Failed: 34
+📈 Pass Rate: 19.05%
+
+================================================================================
+📋 SECTION SUMMARY
+================================================================================
+
+Admin Operations:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.00%
+
+Authentication:
+  Total: 8 | Passed: 0 | Failed: 8 | Rate: 0.00%
+
+Broker Operations:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.00%
+
+DEX & NFT:
+  Total: 2 | Passed: 0 | Failed: 2 | Rate: 0.00%
+
+Infrastructure:
+  Total: 3 | Passed: 3 | Failed: 0 | Rate: 100.00%
+
+Integration Flows:
+  Total: 4 | Passed: 0 | Failed: 4 | Rate: 0.00%
+
+KYC & Compliance:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.00%
+
+Margin Trading:
+  Total: 2 | Passed: 0 | Failed: 2 | Rate: 0.00%
+
+Native CEX & Market Data:
+  Total: 2 | Passed: 0 | Failed: 2 | Rate: 0.00%
+
+RBAC:
+  Total: 8 | Passed: 3 | Failed: 5 | Rate: 37.50%
+
+Smart Contracts & Ledger:
+  Total: 2 | Passed: 0 | Failed: 2 | Rate: 0.00%
+
+Token Sales:
+  Total: 2 | Passed: 0 | Failed: 2 | Rate: 0.00%
+
+Trading & Exchange:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.00%
+
+User Management:
+  Total: 3 | Passed: 2 | Failed: 1 | Rate: 66.67%
+
+Wallet & Fiat:
+  Total: 2 | Passed: 0 | Failed: 2 | Rate: 0.00%
+
+================================================================================
+📊 BY CATEGORY
+================================================================================
+
+admin:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+authentication:
+  Total: 8 | Passed: 0 | Failed: 8 | Rate: 0.0%
+
+broker:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+dex:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+nft:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+infrastructure:
+  Total: 3 | Passed: 3 | Failed: 0 | Rate: 100.0%
+
+trading:
+  Total: 5 | Passed: 0 | Failed: 5 | Rate: 0.0%
+
+kyc:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+margin:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+advanced-margin:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+native-cex:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+market-data:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+rbac:
+  Total: 8 | Passed: 3 | Failed: 5 | Rate: 37.5%
+
+smart-contracts:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+ledger:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+token-sale:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+presale:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+user-management:
+  Total: 3 | Passed: 2 | Failed: 1 | Rate: 66.7%
+
+wallet:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+
+fiat:
+  Total: 1 | Passed: 0 | Failed: 1 | Rate: 0.0%
+

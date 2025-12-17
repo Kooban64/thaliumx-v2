@@ -427,6 +427,14 @@ export class AdvancedMarginTradingService {
     initialDeposit?: { asset: string; amount: number }
   ): Promise<MarginAccount> {
     try {
+      // Basic input validation (prevents creating unusable/ambiguous accounts).
+      if (!userId || !tenantId || !brokerId) {
+        throw createError('userId, tenantId, and brokerId are required', 400, 'VALIDATION_ERROR');
+      }
+      if (accountType === 'isolated' && !symbol) {
+        throw createError('symbol is required for isolated margin accounts', 400, 'VALIDATION_ERROR');
+      }
+
       const accountKey = `${userId}:${tenantId}:${brokerId}`;
       
       if (this.accounts.has(accountKey)) {
@@ -571,6 +579,8 @@ export class AdvancedMarginTradingService {
     price?: number
   ): Promise<MarginPosition> {
     try {
+      const symbolForPricing = this.normalizeSymbolForPricing(symbol);
+
       // Get account
       const account = await this.getMarginAccount(userId, tenantId, brokerId);
       if (!account) {
@@ -583,7 +593,7 @@ export class AdvancedMarginTradingService {
       }
       
       // Get current market price
-      const currentPrice = price || await this.getCurrentPrice(symbol);
+      const currentPrice = price || await this.getCurrentPrice(symbolForPricing);
       
       // Calculate required margin
       const positionValue = size * currentPrice;
@@ -595,7 +605,7 @@ export class AdvancedMarginTradingService {
       }
       
       // Advanced risk validation
-      const riskValidation = await this.validatePositionRisk(account, symbol, side, size, leverage, currentPrice);
+      const riskValidation = await this.validatePositionRisk(account, symbolForPricing, side, size, leverage, currentPrice);
       if (!riskValidation.isValid) {
         const errorMessage: string = (riskValidation.errors && riskValidation.errors.length > 0 && riskValidation.errors[0])
           ? riskValidation.errors[0]
@@ -604,7 +614,7 @@ export class AdvancedMarginTradingService {
       }
       
       // Calculate liquidation price
-      const liquidationPrice = this.calculateLiquidationPrice(side, currentPrice, leverage, requiredMargin);
+      const liquidationPrice = this.calculateLiquidationPrice(side, currentPrice, leverage);
       
       // Create position
       const position: MarginPosition = {
@@ -613,6 +623,8 @@ export class AdvancedMarginTradingService {
         tenantId,
         brokerId,
         accountId,
+        // Preserve the incoming symbol for external consistency (UI/exchange-style),
+        // while all pricing/risk uses a normalized symbol.
         symbol,
         side,
         size,
@@ -640,7 +652,7 @@ export class AdvancedMarginTradingService {
         // Risk metrics
         marginRatio: 100,
         riskScore: riskValidation.riskScore,
-        volatility: await this.getAssetVolatility(symbol),
+        volatility: await this.getAssetVolatility(symbolForPricing),
         maxDrawdown: 0,
         
         // USER-LEVEL FUND SEGREGATION
@@ -752,11 +764,13 @@ export class AdvancedMarginTradingService {
       }
       
       // Calculate close size
-      const finalCloseSize = closeSize || position.size;
-      const isFullClose = finalCloseSize >= position.size;
+      const originalSize = position.size;
+      const finalCloseSize = closeSize || originalSize;
+      const isFullClose = finalCloseSize >= originalSize;
       
       // Get current market price
       const currentPrice = await this.getCurrentPrice(position.symbol);
+      position.currentPrice = currentPrice;
       
       // Calculate realized P&L
       const realizedPnl = this.calculateRealizedPnl(position, currentPrice, finalCloseSize);
@@ -768,9 +782,9 @@ export class AdvancedMarginTradingService {
         position.realizedPnl += realizedPnl;
         position.unrealizedPnl = 0;
       } else {
-        position.size -= finalCloseSize;
+        position.size = Math.max(0, originalSize - finalCloseSize);
         position.realizedPnl += realizedPnl;
-        position.marginUsed = (position.size / position.size) * position.initialMargin;
+        position.marginUsed = originalSize > 0 ? (position.size / originalSize) * position.initialMargin : 0;
       }
 
       position.updatedAt = new Date();
@@ -792,7 +806,7 @@ export class AdvancedMarginTradingService {
       // Update account
       const account = await this.getMarginAccount(userId, tenantId, brokerId);
       if (account) {
-        const marginToReturn = (finalCloseSize / position.size) * position.initialMargin;
+        const marginToReturn = originalSize > 0 ? (finalCloseSize / originalSize) * position.initialMargin : 0;
         account.usedMargin -= marginToReturn;
         account.totalEquity += realizedPnl;
         account.updatedAt = new Date();
@@ -1078,6 +1092,10 @@ export class AdvancedMarginTradingService {
    */
   public static async updateUserRiskScore(userId: string, tenantId: string, brokerId: string, riskScore: number): Promise<void> {
     try {
+      if (!Number.isFinite(riskScore) || riskScore < 0 || riskScore > 100) {
+        throw createError('Risk score must be between 0 and 100', 400, 'INVALID_RISK_SCORE');
+      }
+
       const account = await this.getMarginAccount(userId, tenantId, brokerId);
       if (!account) {
         throw createError('Margin account not found', 404, 'ACCOUNT_NOT_FOUND');
@@ -1499,16 +1517,39 @@ export class AdvancedMarginTradingService {
     }
   }
 
-  private static calculateLiquidationPrice(side: string, entryPrice: number, leverage: number, initialMargin: number): number {
+  /**
+   * Conservative liquidation-price approximation.
+   * NOTE: This is not a full liquidation engine; it is used for UI/risk hints.
+   */
+  private static calculateLiquidationPrice(side: string, entryPrice: number, leverage: number): number {
     const entry = entryPrice;
-    const margin = initialMargin;
-    const size = 1; // Assuming size of 1 for calculation
-    
+    const priceMoveToWipeMargin = entry / Math.max(1, leverage);
+
     if (side === 'long') {
-      return entry - (margin / size);
-    } else {
-      return entry + (margin / size);
+      return Math.max(0, entry - priceMoveToWipeMargin);
     }
+    return entry + priceMoveToWipeMargin;
+  }
+
+  /**
+   * Normalize symbols for pricing/risk/market-data lookups.
+   * Accepts both `BTCUSDT` and `BTC/USDT` (and similar) and returns `BTCUSDT`.
+   */
+  private static normalizeSymbolForPricing(symbol: string): string {
+    return (symbol || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  private static getFallbackPrice(symbol: string): number {
+    const s = this.normalizeSymbolForPricing(symbol);
+    const basePrices: Record<string, number> = {
+      BTCUSDT: 45000,
+      ETHUSDT: 3000,
+      BNBUSDT: 300,
+      ADAUSDT: 0.5,
+      SOLUSDT: 100
+    };
+
+    return basePrices[s] ?? 1000;
   }
 
   private static calculateRealizedPnl(position: MarginPosition, currentPrice: number, closeSize: number): number {
@@ -1661,22 +1702,14 @@ export class AdvancedMarginTradingService {
 
   private static async getCurrentPrice(symbol: string): Promise<number> {
     try {
+      const symbolForPricing = this.normalizeSymbolForPricing(symbol);
       // Get price from Omni Exchange
-      const priceData = await this.getCurrentPriceStub(symbol);
+      const priceData = await this.getCurrentPriceStub(symbolForPricing);
       return parseFloat(priceData);
     } catch (error) {
       LoggerService.warn('Failed to get price from Omni Exchange, using fallback', { symbol, error });
-      
-      // Fallback prices
-      const basePrices: { [key: string]: number } = {
-        'BTC/USDT': 45000,
-        'ETH/USDT': 3000,
-        'BNB/USDT': 300,
-        'ADA/USDT': 0.5,
-        'SOL/USDT': 100
-      };
-      
-      return basePrices[symbol] || 1000;
+
+      return this.getFallbackPrice(symbol);
     }
   }
 
@@ -1990,39 +2023,32 @@ export class AdvancedMarginTradingService {
 
   private static async getCurrentPriceStub(symbol: string): Promise<string> {
     // Real implementation - get price from market data services
+    const symbolForPricing = this.normalizeSymbolForPricing(symbol);
     try {
       // Try NativeCEXService first (Dingir/Liquibook)
       const { NativeCEXService } = await import('./native-cex');
       const nativeCEX = new NativeCEXService(DatabaseService.getSequelize());
-      const marketData = await nativeCEX.getMarketData(symbol);
+      const marketData = await nativeCEX.getMarketData(symbolForPricing);
       if (marketData && marketData.price) {
         return marketData.price;
       }
     } catch (error) {
-      LoggerService.warn('NativeCEXService price fetch failed, trying ExchangeService', { symbol, error });
+      LoggerService.warn('NativeCEXService price fetch failed, trying ExchangeService', { symbol: symbolForPricing, error });
     }
 
     try {
       // Try ExchangeService (external APIs)
       const { ExchangeService } = await import('./exchange');
-      const marketData = await ExchangeService.getMarketData(symbol);
+      const marketData = await ExchangeService.getMarketData(symbolForPricing);
       if (marketData && marketData.price) {
         return marketData.price.toString();
       }
     } catch (error) {
-      LoggerService.warn('ExchangeService price fetch failed, using fallback', { symbol, error });
+      LoggerService.warn('ExchangeService price fetch failed, using fallback', { symbol: symbolForPricing, error });
     }
 
-    // Fallback prices (only if all services fail)
-    const basePrices: { [key: string]: number } = {
-      'BTC/USDT': 45000,
-      'ETH/USDT': 3000,
-      'BNB/USDT': 300,
-      'ADA/USDT': 0.5,
-      'SOL/USDT': 100
-    };
-    LoggerService.warn('Using fallback price for symbol', { symbol });
-    return (basePrices[symbol] || 1000).toString();
+    LoggerService.warn('Using fallback price for symbol', { symbol: symbolForPricing });
+    return this.getFallbackPrice(symbolForPricing).toString();
   }
 
   private static async getVolatilityDataStub(symbol: string): Promise<{ volatility: number }> {
@@ -2067,104 +2093,70 @@ export class AdvancedMarginTradingService {
   }
 
   private static async calculatePositionRiskStub(data: any): Promise<{ riskScore: number }> {
-    // Real implementation - calculate risk score based on position metrics
+    // Real implementation should calculate risk score based on historical data.
+    // IMPORTANT: this stub must be deterministic (no Math.random) to avoid
+    // nondeterministic trade rejection in production and flaky tests.
     try {
-      const { QuantLibService } = await import('./quantlib');
-      
-      // Get current price and volatility
-      const currentPrice = data.currentPrice || await this.getCurrentPrice(data.symbol);
-      const volatility = (await this.getVolatilityDataStub(data.symbol)).volatility;
-      const entryPrice = data.entryPrice || currentPrice;
-      
-      // Generate synthetic returns based on volatility and price movement
-      // This simulates historical returns for risk calculation
-      const returns: number[] = [];
-      const numPeriods = 30; // 30 periods
-      const meanReturn = (currentPrice - entryPrice) / entryPrice / numPeriods;
-      
-      for (let i = 0; i < numPeriods; i++) {
-        // Generate return with volatility
-        const randomReturn = meanReturn + (Math.random() - 0.5) * volatility * 2;
-        returns.push(randomReturn);
-      }
-      
-      // Calculate risk metrics using QuantLib service
-      const riskMetrics = await QuantLibService.calculateRiskMetrics(
-        data.symbol || 'POSITION',
-        returns,
-        undefined, // No benchmark
-        0.02, // 2% risk-free rate
-        [0.95, 0.99] // Confidence levels
-      );
+      const symbolForPricing = this.normalizeSymbolForPricing(data.symbol);
+      const currentPrice = Number(data.price ?? data.currentPrice) || await this.getCurrentPrice(symbolForPricing);
+      const size = Number(data.size) || 0;
+      const leverage = Math.max(1, Number(data.leverage) || 1);
+      const accountEquity = Math.max(0, Number(data.accountEquity) || 0);
 
-      // Calculate risk score from metrics: 0-100 (0 = no risk, 100 = maximum risk)
-      const positionValue = currentPrice * parseFloat(data.size || '0');
-      const var95Normalized = positionValue > 0 ? Math.min(1, Math.abs(riskMetrics.var95) / (positionValue * 0.1)) : 0; // Normalize to 10% of position value
-      const volatilityNormalized = Math.min(1, riskMetrics.volatility / 1.0); // Normalize to 100% volatility
-      const drawdownNormalized = Math.min(1, Math.abs(riskMetrics.maxDrawdown) / 0.5); // Normalize to 50% drawdown
-      
-      const riskScore = Math.min(100, Math.max(0,
-        var95Normalized * 40 +
-        volatilityNormalized * 30 +
-        drawdownNormalized * 20 +
-        (data.leverage || 1) * 10 // Leverage adds to risk
-      ));
+      const volatility = (await this.getVolatilityDataStub(symbolForPricing)).volatility;
 
+      // Deterministic scoring:
+      // - leverageFactor: 0..1
+      // - sizeFactor: position value relative to equity (softened by *10)
+      // - volatilityFactor: 0..1
+      const positionValue = currentPrice * size;
+      const leverageFactor = Math.min(1, leverage / 20);
+      const sizeFactor = accountEquity > 0 ? Math.min(1, positionValue / (accountEquity * 10)) : 1;
+      const volatilityFactor = Math.min(1, volatility / 1.0);
+
+      const score =
+        leverageFactor * 40 +
+        sizeFactor * 35 +
+        volatilityFactor * 25;
+
+      const riskScore = Math.max(0, Math.min(100, Math.round(score)));
       return { riskScore };
     } catch (error) {
       LoggerService.warn('QuantLib risk calculation failed, using fallback', { error, data });
-      // Fallback: simple risk calculation
-      const leverage = data.leverage || 1;
-      const volatility = (await this.getVolatilityDataStub(data.symbol)).volatility;
-      const riskScore = Math.min(100, leverage * volatility * 50);
-      return { riskScore };
+      // Fallback: simple deterministic risk calculation
+      const leverage = Math.max(1, Number(data.leverage) || 1);
+      const volatility = (await this.getVolatilityDataStub(this.normalizeSymbolForPricing(data.symbol))).volatility;
+      return { riskScore: Math.max(0, Math.min(100, Math.round(leverage * volatility * 10))) };
     }
   }
 
   private static async calculateVaRStub(data: any): Promise<number> {
     // Real implementation - calculate Value at Risk (VaR)
+    // IMPORTANT: deterministic implementation for production safety and test stability.
     try {
-      const { QuantLibService } = await import('./quantlib');
-      
-      // Get current price and volatility
-      const currentPrice = data.currentPrice || await this.getCurrentPrice(data.symbol);
-      const volatility = (await this.getVolatilityDataStub(data.symbol)).volatility;
-      const entryPrice = data.entryPrice || currentPrice;
-      
-      // Generate synthetic returns based on volatility
-      const returns: number[] = [];
-      const numPeriods = 30;
-      const meanReturn = (currentPrice - entryPrice) / entryPrice / numPeriods;
-      
-      for (let i = 0; i < numPeriods; i++) {
-        const randomReturn = meanReturn + (Math.random() - 0.5) * volatility * 2;
-        returns.push(randomReturn);
-      }
-      
-      // Calculate risk metrics using QuantLib service
-      const riskMetrics = await QuantLibService.calculateRiskMetrics(
-        data.symbol || 'POSITION',
-        returns,
-        undefined,
-        0.02,
-        [0.95, 0.99]
-      );
+      const symbolForPricing = this.normalizeSymbolForPricing(data.symbol);
+      const currentPrice = Number(data.currentPrice) || await this.getCurrentPrice(symbolForPricing);
+      const volatility = (await this.getVolatilityDataStub(symbolForPricing)).volatility;
+      const size = Number(data.size) || 0;
+      const positionValue = size * currentPrice;
 
-      // Return VaR at requested confidence level
-      const confidenceLevel = data.confidenceLevel || 0.95;
-      const varValue = confidenceLevel >= 0.99 ? riskMetrics.var99 : riskMetrics.var95;
-      
-      // Scale VaR to position value
-      const positionValue = currentPrice * parseFloat(data.size || '0');
-      return Math.abs(varValue * positionValue);
+      const confidenceLevel = Number(data.confidenceLevel) || 0.95;
+      const zScore = confidenceLevel >= 0.99 ? 2.33 : 1.96; // 99% or 95% confidence
+      const timeHorizon = Math.max(1, Number(data.timeHorizon) || 1);
+
+      // Normal approximation: VaR = value * sigma * z * sqrt(t)
+      const varValue = positionValue * volatility * zScore * Math.sqrt(timeHorizon) / Math.sqrt(252);
+      return Math.max(0, varValue);
     } catch (error) {
       LoggerService.warn('QuantLib VaR calculation failed, using fallback', { error, data });
       // Fallback: simple VaR calculation (normal distribution assumption)
-      const volatility = (await this.getVolatilityDataStub(data.symbol)).volatility;
-      const currentPrice = data.currentPrice || await this.getCurrentPrice(data.symbol);
-      const positionValue = parseFloat(data.size || '0') * currentPrice;
-      const zScore = data.confidenceLevel >= 0.99 ? 2.33 : 1.96; // 99% or 95% confidence
-      const varValue = positionValue * volatility * zScore * Math.sqrt(data.timeHorizon || 1) / Math.sqrt(252);
+      const symbolForPricing = this.normalizeSymbolForPricing(data.symbol);
+      const volatility = (await this.getVolatilityDataStub(symbolForPricing)).volatility;
+      const currentPrice = Number(data.currentPrice) || await this.getCurrentPrice(symbolForPricing);
+      const positionValue = (Number(data.size) || 0) * currentPrice;
+      const confidenceLevel = Number(data.confidenceLevel) || 0.95;
+      const zScore = confidenceLevel >= 0.99 ? 2.33 : 1.96;
+      const varValue = positionValue * volatility * zScore * Math.sqrt(Number(data.timeHorizon) || 1) / Math.sqrt(252);
       return Math.max(0, varValue);
     }
   }

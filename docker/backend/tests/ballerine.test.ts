@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, jest } from '@jest/globals';
-import { ballerineService, BallerineService } from '../src/services/ballerine';
+import { BallerineService } from '../src/services/ballerine';
 import axios from 'axios';
 
 // Mock axios for testing
@@ -31,15 +31,15 @@ interface MockedAxiosInstance {
 }
 
 describe('BallerineService', () => {
-  let service: BallerineService;
+  let service!: BallerineService;
 
   beforeAll(() => {
     // Set test environment variables
     process.env.BALLERINE_BASE_URL = 'http://test-ballerine:4000';
     process.env.BALLERINE_API_KEY = 'test-api-key';
     process.env.BALLERINE_WEBHOOK_SECRET = 'test-webhook-secret';
-    
-    service = ballerineService;
+
+    // Service instances are created per-test after axios.create is configured.
   });
 
   afterAll(() => {
@@ -60,6 +60,8 @@ describe('BallerineService', () => {
       };
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
 
+      service = new BallerineService();
+
       const result = await service.healthCheck();
       expect(result).toBe(true);
     });
@@ -76,6 +78,8 @@ describe('BallerineService', () => {
         }
       };
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
+
+      service = new BallerineService();
 
       const result = await service.healthCheck();
       expect(result).toBe(false);
@@ -102,6 +106,8 @@ describe('BallerineService', () => {
 
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
 
+      service = new BallerineService();
+
       const definitions = await service.getWorkflowDefinitions();
       expect(definitions).toEqual(mockDefinitions);
       expect(mockClient.get).toHaveBeenCalledWith('/workflow-definition');
@@ -122,6 +128,8 @@ describe('BallerineService', () => {
       };
 
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
+
+      service = new BallerineService();
 
       const definition = await service.getWorkflowDefinition('kyc-workflow');
       expect(definition).toEqual(mockDefinition);
@@ -146,6 +154,8 @@ describe('BallerineService', () => {
       };
 
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
+
+      service = new BallerineService();
 
       const definition = await service.findWorkflowDefinitionByType('kyc');
       expect(definition).toBeTruthy();
@@ -174,6 +184,8 @@ describe('BallerineService', () => {
       };
 
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
+
+      service = new BallerineService();
 
       const result = await service.createCollectionFlowUrl({
         workflowId: 'workflow-123',
@@ -206,6 +218,8 @@ describe('BallerineService', () => {
 
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
 
+      service = new BallerineService();
+
       const state = await service.getCollectionFlowState('workflow-123');
       expect(state).toEqual(mockState);
       expect(mockClient.get).toHaveBeenCalledWith('/external/workflows/workflow-123/collection-flow/state');
@@ -228,6 +242,8 @@ describe('BallerineService', () => {
       };
 
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
+
+      service = new BallerineService();
 
       const result = await service.sendWorkflowEvent('workflow-123', {
         name: 'document.uploaded',
@@ -265,6 +281,8 @@ describe('BallerineService', () => {
 
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
 
+      service = new BallerineService();
+
       const logs = await service.getWorkflowLogs('workflow-123', { type: 'state-change', limit: 10 });
       expect(logs).toEqual(mockLogs);
       expect(mockClient.get).toHaveBeenCalledWith(
@@ -295,6 +313,8 @@ describe('BallerineService', () => {
 
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
 
+      service = new BallerineService();
+
       const metrics = await service.getMetrics();
       expect(metrics).toEqual(mockMetrics);
       expect(mockClient.get).toHaveBeenCalledWith('/metrics');
@@ -315,6 +335,8 @@ describe('BallerineService', () => {
       };
 
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
+
+      service = new BallerineService();
 
       const metrics = await service.getPrometheusMetrics();
       expect(metrics).toBe(mockPrometheusMetrics);
@@ -347,6 +369,8 @@ describe('BallerineService', () => {
       };
 
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
+
+      service = new BallerineService();
 
       const caseData = {
         id: 'case-123',
@@ -391,6 +415,8 @@ describe('BallerineService', () => {
 
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
 
+      service = new BallerineService();
+
       const result = await service.getWorkflowStatus('workflow-123');
       expect(result).toEqual(mockWorkflow);
       expect(mockClient.get).toHaveBeenCalledWith('/external/workflows/workflow-123');
@@ -420,6 +446,8 @@ describe('BallerineService', () => {
 
       (mockedAxios.create as jest.Mock) = jest.fn(() => mockClient);
 
+      service = new BallerineService();
+
       const result = await service.listWorkflows({
         status: 'active',
         page: 1,
@@ -443,8 +471,8 @@ describe('BallerineService', () => {
       
       // This test would need crypto to be properly mocked
       // For now, we'll just test the method exists
+      service = new BallerineService();
       expect(typeof service.verifyWebhookSignature).toBe('function');
     });
   });
 });
-

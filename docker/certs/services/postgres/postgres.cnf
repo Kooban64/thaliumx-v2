@@ -7,19 +7,11 @@ req_extensions = req_ext
 
 [dn]
 C = US
-ST = California
-L = San Francisco
+ST = CA
+L = SanFrancisco
 O = ThaliumX
-OU = postgres
-CN = postgres
+OU = development
+CN = thaliumx-postgres
 
 [req_ext]
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = postgres
-DNS.2 = citus-coordinator
-DNS.3 = citus-worker-1
-DNS.4 = citus-worker-2
-DNS.5 = localhost
-IP.1 = 127.0.0.1
+subjectAltName = DNS:thaliumx-postgres,DNS:postgres,DNS:localhost,IP:127.0.0.1

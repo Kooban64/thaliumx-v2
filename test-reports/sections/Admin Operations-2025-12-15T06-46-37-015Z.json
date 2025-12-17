@@ -1,0 +1,36 @@
+{
+  "report": {
+    "timestamp": "2025-12-15T06:46:37.015Z",
+    "duration": 50,
+    "totalTests": 1,
+    "passedTests": 0,
+    "failedTests": 1,
+    "suites": [],
+    "summary": {
+      "byCategory": {
+        "admin": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        }
+      },
+      "byFeature": {
+        "Admin": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "category": "admin",
+      "feature": "Admin",
+      "testName": "Admin Authentication",
+      "passed": false,
+      "details": "Failed to authenticate admin",
+      "timestamp": "2025-12-15T06:46:37.014Z"
+    }
+  ]
+}

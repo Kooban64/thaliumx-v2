@@ -10,7 +10,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-thaliumx}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ThaliumX2025}
+      # No insecure defaults; must be provided via env/secret manager
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-thaliumx}
       TIMESCALEDB_TELEMETRY: "off"
     ports:
@@ -63,7 +64,7 @@ services:
       - "-c"
       - "log_min_duration_statement=1000"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d thaliumx"]
+      test: ["CMD-SHELL", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
       interval: 10s
       timeout: 5s
       retries: 5

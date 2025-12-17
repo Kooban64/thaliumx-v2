@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  vault:
+    image: hashicorp/vault:latest
+    container_name: vault-temp
+    ports:
+      - "8200:8200"
+    environment:
+      VAULT_API_ADDR: https://0.0.0.0:8200
+      VAULT_CACERT: /vault/userconfig/tls/ca.crt
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - ./data:/vault/data
+      - ./config/vault.hcl:/vault/config/vault.hcl
+      - ./tls:/vault/userconfig/tls
+    command: sh -c "chown -R vault:vault /vault/data && exec vault server -config=/vault/config/vault.hcl"
+
+volumes:
+  vault-data:

@@ -17,9 +17,43 @@ import { NedbankService } from '../services/nedbank';
 import { authenticateToken, requireRole } from '../middleware/error-handler';
 import { LoggerService } from '../services/logger';
 import { DatabaseService } from '../services/database';
+import { UserRole } from '../types';
+import { createError } from '../utils';
 
 const router: Router = Router();
 let walletSystemService: WalletSystemService;
+
+const getAuthUserId = (req: Request): string | undefined => {
+  return (req as any).user?.userId;
+};
+
+const hasPrivilegedRole = (req: Request): boolean => {
+  const role = (req as any).user?.role as string | undefined;
+  const roles = ((req as any).user?.roles as string[] | undefined) || [];
+  const all = new Set<string>([...(role ? [role] : []), ...roles]);
+  const privileged = new Set<string>([
+    UserRole.SUPER_ADMIN,
+    UserRole.ADMIN,
+    UserRole.PLATFORM_ADMIN,
+    UserRole.PLATFORM_OPERATIONS,
+    UserRole.BROKER_ADMIN,
+    UserRole.BROKER_OPERATIONS,
+  ]);
+  for (const r of all) {
+    if (privileged.has(r)) return true;
+  }
+  return false;
+};
+
+const assertCanAccessUser = (req: Request, targetUserId: string): void => {
+  const authUserId = getAuthUserId(req);
+  if (!authUserId) {
+    throw createError('Unauthorized', 401, 'UNAUTHORIZED');
+  }
+  if (authUserId !== targetUserId && !hasPrivilegedRole(req)) {
+    throw createError('Forbidden', 403, 'FORBIDDEN');
+  }
+};
 
 // Initialize service
 export const initializeWalletSystem = async () => {
@@ -48,6 +82,9 @@ router.post('/infrastructure', authenticateToken, async (req: Request, res: Resp
       });
       return;
     }
+
+    // Prevent IDOR: only the user themselves or privileged roles can create infra for a user.
+    assertCanAccessUser(req, userId);
     
     const wallets = await walletSystemService.createUserWalletInfrastructure(
       userId,
@@ -91,6 +128,9 @@ router.get('/user/:userId', authenticateToken, async (req: Request, res: Respons
       });
       return;
     }
+
+    // Prevent IDOR
+    assertCanAccessUser(req, userId);
     
     const wallets = walletSystemService.getUserWallets(userId);
     
@@ -142,6 +182,9 @@ router.get('/wallet/:walletId', authenticateToken, async (req: Request, res: Res
       return;
     }
 
+    // Prevent IDOR
+    assertCanAccessUser(req, wallet.userId);
+
     res.json({
       success: true,
       data: {
@@ -172,7 +215,7 @@ router.get('/wallet/:walletId', authenticateToken, async (req: Request, res: Res
 // Get wallet balance by currency
 router.get('/balance/:currency', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = getAuthUserId(req);
     const { currency } = req.params;
 
     if (!userId) {
@@ -235,6 +278,9 @@ router.post('/reference/generate', authenticateToken, async (req: Request, res: 
       });
       return;
     }
+
+    // Prevent IDOR
+    assertCanAccessUser(req, userId);
     
     const reference = await walletSystemService.generateUniqueReference(
       userId,
@@ -268,7 +314,7 @@ router.post('/reference/generate', authenticateToken, async (req: Request, res: 
 // Get persistent FIAT deposit reference (alphanumeric)
 router.get('/reference/persistent/:currency', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = getAuthUserId(req);
     const tenantId = (req as any).tenantId || 'default-tenant';
     const brokerId = (req as any).brokerId || 'default-broker';
     const { currency } = req.params;
@@ -695,6 +741,9 @@ router.post('/cex/orders', authenticateToken, async (req: Request, res: Response
       });
       return;
     }
+
+    // Prevent IDOR
+    assertCanAccessUser(req, userId);
     
     const order = await walletSystemService.placeCEXOrder(
       userId,
@@ -754,6 +803,9 @@ router.get('/cex/orders/:userId', authenticateToken, async (req: Request, res: R
       });
       return;
     }
+
+    // Prevent IDOR
+    assertCanAccessUser(req, userId);
     
     const orders = walletSystemService.getUserCEXOrders(userId);
     
@@ -801,6 +853,9 @@ router.get('/thal/rewards/:userId', authenticateToken, async (req: Request, res:
       });
       return;
     }
+
+    // Prevent IDOR
+    assertCanAccessUser(req, userId);
     
     const rewards = walletSystemService.getUserTHALRewards(userId);
     
@@ -843,6 +898,9 @@ router.post('/recovery/hot-wallet', authenticateToken, async (req: Request, res:
       });
       return;
     }
+
+    // Prevent IDOR
+    assertCanAccessUser(req, userId);
     
     const result = await walletSystemService.recoverHotWallet(
       userId,
@@ -881,6 +939,9 @@ router.get('/dashboard/:userId', authenticateToken, async (req: Request, res: Re
       });
       return;
     }
+
+    // Prevent IDOR
+    assertCanAccessUser(req, userId);
     
     const wallets = walletSystemService.getUserWallets(userId);
     const cexOrders = walletSystemService.getUserCEXOrders(userId);
@@ -931,6 +992,14 @@ router.get('/statements', authenticateToken, async (req: Request, res: Response,
       return;
     }
 
+    // Prevent IDOR: ensure wallet belongs to the authenticated user unless privileged.
+    const wallet = walletSystemService.getWallet(String(walletId));
+    if (!wallet) {
+      res.status(404).json({ success: false, error: 'Wallet not found' });
+      return;
+    }
+    assertCanAccessUser(req, wallet.userId);
+
     const csv = await walletSystemService.generateWalletStatementCSV({ walletId: String(walletId), from: from ? String(from) : undefined, to: to ? String(to) : undefined });
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=statement_${walletId}.csv`);
@@ -943,7 +1012,7 @@ router.get('/statements', authenticateToken, async (req: Request, res: Response,
 // Generate tax report CSV for a date range and method
 router.get('/tax-report', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = getAuthUserId(req);
     const { from, to, method = 'fifo', baseCurrency = 'ZAR' } = req.query as any;
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });

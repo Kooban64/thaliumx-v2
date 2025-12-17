@@ -1,0 +1,56 @@
+{
+  "report": {
+    "timestamp": "2025-12-15T07:41:41.728Z",
+    "duration": 1288,
+    "totalTests": 3,
+    "passedTests": 2,
+    "failedTests": 1,
+    "suites": [],
+    "summary": {
+      "byCategory": {
+        "user-management": {
+          "passed": 2,
+          "failed": 1,
+          "total": 3
+        }
+      },
+      "byFeature": {
+        "User Management": {
+          "passed": 2,
+          "failed": 1,
+          "total": 3
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "category": "user-management",
+      "feature": "User Management",
+      "testName": "Get All Users",
+      "passed": true,
+      "details": "Status: 200",
+      "response": "{\"success\":true,\"data\":[{\"id\":\"00000000-0000-0000-0000-000000000006\",\"email\":\"suspended@thaliumx.com\",\"username\":\"suspended\",\"firstName\":\"Suspended\",\"lastName\":\"User\",\"phone\":null,\"dateOfBirth\":null,\"address\":null,\"kycStatus\":\"verified\",\"kycLevel\":\"basic\",\"isActive\":false,\"isVerified\":true,\"lastLoginAt\":null,\"mfaEnabled\":false,\"role\":\"user\",\"permissions\":[],\"tenantId\":\"10000000-0000-0000-0000-000000000000\",\"createdAt\":\"2025-12-14T19:25:41.864Z\",\"updatedAt\":\"2025-12-14T19:25:41.864Z\"},{\"id\":\"0000",
+      "timestamp": "2025-12-15T07:41:41.658Z"
+    },
+    {
+      "category": "user-management",
+      "feature": "User Management",
+      "testName": "Get User by ID",
+      "passed": true,
+      "details": "Status: 200",
+      "response": "{\"success\":true,\"data\":{\"id\":\"00000000-0000-0000-0000-000000000001\",\"email\":\"admin@thaliumx.com\",\"username\":\"admin\",\"firstName\":\"Platform\",\"lastName\":\"Admin\",\"phone\":null,\"dateOfBirth\":null,\"address\":null,\"kycStatus\":\"verified\",\"kycLevel\":\"basic\",\"isActive\":true,\"isVerified\":true,\"lastLoginAt\":\"2025-12-15T07:41:41.508Z\",\"mfaEnabled\":false,\"role\":\"admin\",\"permissions\":[],\"tenantId\":\"10000000-0000-0000-0000-000000000000\",\"createdAt\":\"2025-12-14T19:25:41.821Z\",\"updatedAt\":\"2025-12-15T07:41:41.508Z\"",
+      "timestamp": "2025-12-15T07:41:41.722Z"
+    },
+    {
+      "category": "user-management",
+      "feature": "User Management",
+      "testName": "Update User Profile",
+      "passed": false,
+      "details": "Status: 500",
+      "error": "Failed: {\"success\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"Internal Server Error\"},\"timestamp\":\"2025-12-15T07:41:41.726Z\",\"requestId\":\"unknown\"}",
+      "response": "{\"success\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"Internal Server Error\"},\"timestamp\":\"2025-12-15T07:41:41.726Z\",\"requestId\":\"unknown\"}",
+      "timestamp": "2025-12-15T07:41:41.727Z"
+    }
+  ]
+}

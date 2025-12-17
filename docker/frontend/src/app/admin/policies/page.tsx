@@ -73,7 +73,7 @@ export default function PolicyManagement() {
       } else {
         setError(data.error || 'Failed to fetch parameters');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to connect to API');
     } finally {
       setLoading(false);
@@ -142,7 +142,7 @@ export default function PolicyManagement() {
       } else {
         setError(data.error || 'Failed to save parameters');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to save parameters');
     } finally {
       setSaving(false);
@@ -169,7 +169,7 @@ export default function PolicyManagement() {
       } else {
         setError(data.error || 'Failed to apply preset');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to apply preset');
     } finally {
       setSaving(false);
@@ -193,7 +193,7 @@ export default function PolicyManagement() {
       } else {
         setError(data.error || 'Policy evaluation failed');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Invalid JSON input or evaluation failed');
     }
   };
@@ -203,13 +203,23 @@ export default function PolicyManagement() {
     setEditedParameters(prev => {
       const updated = { ...prev };
       let current: Record<string, unknown> = updated;
+
+      if (path.length === 0) return updated;
+
       for (let i = 0; i < path.length - 1; i++) {
-        if (typeof current[path[i]] !== 'object' || current[path[i]] === null) {
-          current[path[i]] = {};
+        const key = path[i];
+        if (!key) continue;
+
+        if (typeof current[key] !== 'object' || current[key] === null) {
+          current[key] = {};
         }
-        current = current[path[i]] as Record<string, unknown>;
+        current = current[key] as Record<string, unknown>;
       }
-      current[path[path.length - 1]] = value;
+
+      const lastKey = path[path.length - 1];
+      if (!lastKey) return updated;
+
+      current[lastKey] = value;
       return updated;
     });
   };

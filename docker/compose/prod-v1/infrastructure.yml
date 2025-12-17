@@ -1,0 +1,166 @@
+# ThaliumX Production v1 - Infrastructure Layer
+# ===========================================
+# Core infrastructure services: Vault, PostgreSQL, Redis
+# Updated: 2025-12-17T08:58:30.000Z
+
+version: '3.8'
+
+services:
+  # ============================================
+  # VAULT - Secrets Management
+  # ============================================
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: thaliumx-vault
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_API_ADDR: https://0.0.0.0:8200
+      VAULT_CACERT: /vault/userconfig/tls/ca.crt
+    volumes:
+      - vault-data:/vault/data
+      - ./../../vault/config:/vault/config:ro
+      - ./../../vault/tls:/vault/userconfig/tls
+      - ./../../vault/scripts:/vault/scripts:ro
+    command: sh -c "chown -R vault:vault /vault/data && exec vault server -config=/vault/config/vault.hcl"
+    ports:
+      - "8200:8200"
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "vault", "status", "--tls-skip-verify"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # ============================================
+  # POSTGRESQL - Primary Database
+  # ============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: thaliumx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: thaliumx
+      POSTGRES_USER: thaliumx
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./../../certs/services/postgres:/var/lib/postgresql/certs
+      - ./../../certs/ca/ca.crt:/var/lib/postgresql/ca.crt
+    secrets:
+      - postgres-password
+    command: >
+      postgres
+      -c ssl=on
+      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
+      -c ssl_key_file=/var/lib/postgresql/certs/server.key
+      -c ssl_ca_file=/var/lib/postgresql/ca.crt
+      -c max_connections=500
+      -c shared_buffers=1GB
+      -c effective_cache_size=3GB
+      -c maintenance_work_mem=256MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=500
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c max_worker_processes=4
+      -c max_parallel_workers_per_gather=2
+      -c max_parallel_workers=4
+      -c max_parallel_maintenance_workers=2
+      -c log_statement=mod
+      -c log_connections=on
+      -c log_disconnections=on
+      -c log_line_prefix='%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
+      -c log_lock_waits=on
+      -c log_temp_files=0
+      -c track_io_timing=on
+      -c track_functions=pl
+      -c autovacuum=on
+      -c autovacuum_max_workers=3
+      -c autovacuum_naptime=20s
+      -c autovacuum_vacuum_threshold=50
+      -c autovacuum_analyze_threshold=50
+    ports:
+      - "5432:5432"
+    networks:
+      - thaliumx-net
+      - database-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thaliumx -d thaliumx"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+  # ============================================
+  # REDIS - Caching and Sessions
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: thaliumx-redis
+    restart: unless-stopped
+    command: >
+      sh -c "
+      redis-server
+      --requirepass \"$$(cat /run/secrets/redis-password)\"
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 300
+      --timeout 0
+      --port 6379
+      --maxclients 10000
+      --tcp-backlog 511
+      --databases 16
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      "
+    volumes:
+      - redis-data:/data
+    secrets:
+      - redis-password
+    ports:
+      - "6379:6379"
+    networks:
+      - thaliumx-net
+      - database-network
+    healthcheck:
+      test: ["CMD", "sh", "-c", "redis-cli -a \"$$(cat /run/secrets/redis-password)\" ping | grep -q PONG"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 1G

@@ -1,0 +1,61 @@
+{
+  "report": {
+    "timestamp": "2025-12-15T06:46:04.067Z",
+    "duration": 69,
+    "totalTests": 3,
+    "passedTests": 1,
+    "failedTests": 2,
+    "suites": [],
+    "summary": {
+      "byCategory": {
+        "infrastructure": {
+          "passed": 1,
+          "failed": 2,
+          "total": 3
+        }
+      },
+      "byFeature": {
+        "Health Check": {
+          "passed": 1,
+          "failed": 1,
+          "total": 2
+        },
+        "API Documentation": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "category": "infrastructure",
+      "feature": "Health Check",
+      "testName": "Public Health Check",
+      "passed": true,
+      "details": "Status: 200",
+      "response": "{\"status\":\"ok\",\"timestamp\":\"2025-12-15T06:46:04.027Z\",\"uptime\":718.127880375,\"version\":\"1.0.0\",\"environment\":\"production\",\"services\":{\"database\":\"connected\",\"redis\":\"connected\",\"keycloak\":\"not_initialized\",\"brokerManagement\":\"healthy\",\"smartContracts\":\"healthy\",\"blnkfinance\":\"healthy\",\"nft\":\"healthy\",\"kyc\":\"healthy\",\"rbac\":\"healthy\",\"tokenSale\":\"healthy\",\"multiTierLedger\":\"healthy\",\"dex\":\"healthy\",\"aiMl\":\"healthy\",\"presale\":\"healthy\",\"securityOversight\":\"healthy\",\"mpcSigner\":\"healthy\",\"graphSens",
+      "timestamp": "2025-12-15T06:46:04.041Z"
+    },
+    {
+      "category": "infrastructure",
+      "feature": "Health Check",
+      "testName": "Internal Health Check",
+      "passed": false,
+      "details": "Status: 429 (403 expected if no auth)",
+      "response": "{\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests from this IP, please try again later.\"},\"timestamp\":\"2025-12-15T06:46:04.049Z\",\"retryAfter\":1}",
+      "timestamp": "2025-12-15T06:46:04.054Z"
+    },
+    {
+      "category": "infrastructure",
+      "feature": "API Documentation",
+      "testName": "API Docs Endpoint",
+      "passed": false,
+      "details": "Status: 429",
+      "error": "Expected 200, got 429",
+      "response": "{\"success\":false,\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"},\"timestamp\":\"2025-12-15T06:46:04.063Z\",\"requestId\":\"unknown\"}",
+      "timestamp": "2025-12-15T06:46:04.066Z"
+    }
+  ]
+}

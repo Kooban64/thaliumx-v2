@@ -1,0 +1,103 @@
+# ThaliumX Production v1 - Base Configuration
+# ============================================
+# Shared networks, volumes, and secrets for all services
+# Updated: 2025-12-17T08:58:00.000Z
+
+version: '3.8'
+
+networks:
+  thaliumx-net:
+    external: true
+    name: thaliumx-net
+
+  database-network:
+    external: true
+    name: docker_database-network
+
+  monitoring-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+
+volumes:
+  # Infrastructure
+  vault-data:
+    driver: local
+  vault-audit-logs:
+    driver: local
+
+  # Databases
+  postgres-data:
+    driver: local
+  citus_coordinator_data:
+    driver: local
+  citus_worker1_data:
+    driver: local
+  citus_worker2_data:
+    driver: local
+  timescaledb_data:
+    driver: local
+  mongodb-data:
+    driver: local
+
+  # Caching & Messaging
+  redis-data:
+    driver: local
+  kafka-data:
+    driver: local
+  zookeeper-data:
+    driver: local
+
+  # API Gateway
+  etcd-data:
+    driver: local
+  apisix-logs:
+    driver: local
+
+  # Authentication
+  keycloak-data:
+    driver: local
+
+  # Monitoring
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  loki-data:
+    driver: local
+
+secrets:
+  # Database credentials
+  postgres-password:
+    file: ../../../.secrets/generated/postgres-password
+  mongodb-password:
+    file: ../../../.secrets/generated/mongodb-password
+
+  # Caching
+  redis-password:
+    file: ../../../.secrets/generated/redis-password
+
+  # Security
+  jwt-secret:
+    file: ../../../.secrets/generated/jwt-secret
+  encryption-key:
+    file: ../../../.secrets/generated/encryption-key
+
+  # Authentication
+  keycloak-admin-password:
+    file: ../../../.secrets/generated/keycloak-admin-password
+
+  # Vault
+  vault-role-id:
+    file: ../../../.secrets/generated/vault-role-id
+  vault-secret-id:
+    file: ../../../.secrets/generated/vault-secret-id
+
+  # Monitoring
+  grafana-admin-password:
+    file: ../../../.secrets/generated/grafana-admin-password
+
+  # Messaging
+  kafka-password:
+    file: ../../../.secrets/generated/kafka-password

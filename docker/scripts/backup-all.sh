@@ -30,6 +30,15 @@ if [ -f "${ENV_FILE}" ]; then
     set +a
 fi
 
+# Refuse to proceed with hardcoded default secrets.
+require_env() {
+    local name="$1"
+    if [ -z "${!name}" ]; then
+        echo -e "${RED}Error: required env var not set: ${name}${NC}"
+        exit 1
+    fi
+}
+
 # Create backup directory
 mkdir -p "${BACKUP_DIR}"
 
@@ -38,12 +47,14 @@ mkdir -p "${BACKUP_DIR}"
 # ===========================================
 echo "Backing up PostgreSQL..."
 if docker ps --format '{{.Names}}' | grep -q "thaliumx-postgres"; then
-    docker exec thaliumx-postgres pg_dumpall -U ${POSTGRES_USER:-thaliumx} > "${BACKUP_DIR}/postgres_all.sql" 2>/dev/null
+    require_env POSTGRES_USER
+    require_env POSTGRES_PASSWORD
+    docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" thaliumx-postgres pg_dumpall -U "${POSTGRES_USER}" > "${BACKUP_DIR}/postgres_all.sql" 2>/dev/null
     
     # Individual database backups
     for db in thaliumx keycloak ballerine exchange; do
-        if docker exec thaliumx-postgres psql -U ${POSTGRES_USER:-thaliumx} -lqt | cut -d \| -f 1 | grep -qw "$db"; then
-            docker exec thaliumx-postgres pg_dump -U ${POSTGRES_USER:-thaliumx} -Fc "$db" > "${BACKUP_DIR}/postgres_${db}.dump" 2>/dev/null
+        if docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" thaliumx-postgres psql -U "${POSTGRES_USER}" -lqt | cut -d \| -f 1 | grep -qw "$db"; then
+            docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" thaliumx-postgres pg_dump -U "${POSTGRES_USER}" -Fc "$db" > "${BACKUP_DIR}/postgres_${db}.dump" 2>/dev/null
             echo -e "  ${GREEN}✓ ${db} database backed up${NC}"
         fi
     done
@@ -56,7 +67,9 @@ fi
 # ===========================================
 echo "Backing up TimescaleDB..."
 if docker ps --format '{{.Names}}' | grep -q "thaliumx-timescaledb"; then
-    docker exec thaliumx-timescaledb pg_dumpall -U ${TIMESCALE_USER:-dingir} > "${BACKUP_DIR}/timescaledb_all.sql" 2>/dev/null
+    require_env TIMESCALE_USER
+    require_env TIMESCALE_PASSWORD
+    docker exec -e PGPASSWORD="${TIMESCALE_PASSWORD}" thaliumx-timescaledb pg_dumpall -U "${TIMESCALE_USER}" > "${BACKUP_DIR}/timescaledb_all.sql" 2>/dev/null
     echo -e "  ${GREEN}✓ TimescaleDB backed up${NC}"
 else
     echo -e "  ${YELLOW}⚠ TimescaleDB not running, skipping${NC}"
@@ -67,9 +80,11 @@ fi
 # ===========================================
 echo "Backing up MongoDB..."
 if docker ps --format '{{.Names}}' | grep -q "thaliumx-mongodb"; then
+    require_env MONGO_INITDB_ROOT_USERNAME
+    require_env MONGO_INITDB_ROOT_PASSWORD
     docker exec thaliumx-mongodb mongodump \
-        --username=${MONGO_INITDB_ROOT_USERNAME:-thaliumx} \
-        --password=${MONGO_INITDB_ROOT_PASSWORD:-ThaliumX2025} \
+        --username="${MONGO_INITDB_ROOT_USERNAME}" \
+        --password="${MONGO_INITDB_ROOT_PASSWORD}" \
         --authenticationDatabase=admin \
         --archive > "${BACKUP_DIR}/mongodb.archive" 2>/dev/null
     echo -e "  ${GREEN}✓ MongoDB backed up${NC}"
@@ -82,8 +97,9 @@ fi
 # ===========================================
 echo "Backing up Redis..."
 if docker ps --format '{{.Names}}' | grep -q "thaliumx-redis"; then
+    require_env REDIS_PASSWORD
     # Trigger background save
-    docker exec thaliumx-redis redis-cli -a "${REDIS_PASSWORD:-ThaliumX2025}" BGSAVE 2>/dev/null || true
+    docker exec thaliumx-redis redis-cli -a "${REDIS_PASSWORD}" BGSAVE 2>/dev/null || true
     sleep 2
     # Copy the dump file
     docker cp thaliumx-redis:/data/dump.rdb "${BACKUP_DIR}/redis.rdb" 2>/dev/null || true

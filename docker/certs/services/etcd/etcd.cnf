@@ -7,19 +7,11 @@ req_extensions = req_ext
 
 [dn]
 C = US
-ST = California
-L = San Francisco
+ST = CA
+L = SanFrancisco
 O = ThaliumX
-OU = etcd
-CN = etcd
+OU = development
+CN = thaliumx-etcd
 
 [req_ext]
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = etcd
-DNS.2 = etcd-1
-DNS.3 = etcd-2
-DNS.4 = etcd-3
-DNS.5 = localhost
-IP.1 = 127.0.0.1
+subjectAltName = DNS:thaliumx-etcd,DNS:etcd,DNS:localhost,IP:127.0.0.1

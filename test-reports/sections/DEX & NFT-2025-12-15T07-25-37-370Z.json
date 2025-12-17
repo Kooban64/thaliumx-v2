@@ -1,0 +1,54 @@
+{
+  "report": {
+    "timestamp": "2025-12-15T07:25:37.370Z",
+    "duration": 40,
+    "totalTests": 2,
+    "passedTests": 0,
+    "failedTests": 2,
+    "suites": [],
+    "summary": {
+      "byCategory": {
+        "dex": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        },
+        "nft": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        }
+      },
+      "byFeature": {
+        "DEX": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        },
+        "NFT": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "category": "dex",
+      "feature": "DEX",
+      "testName": "Trader Authentication",
+      "passed": false,
+      "details": "Failed to authenticate trader",
+      "timestamp": "2025-12-15T07:25:37.361Z"
+    },
+    {
+      "category": "nft",
+      "feature": "NFT",
+      "testName": "Trader Authentication",
+      "passed": false,
+      "details": "Failed to authenticate trader",
+      "timestamp": "2025-12-15T07:25:37.369Z"
+    }
+  ]
+}

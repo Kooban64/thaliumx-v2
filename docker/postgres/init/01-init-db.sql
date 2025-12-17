@@ -2,8 +2,10 @@
 -- ==========================================
 -- This script runs on first container startup
 
--- Create application user (credentials stored in Vault)
-CREATE USER thaliumx WITH PASSWORD 'ThaliumX2025';
+-- Create application user
+-- NOTE: Do NOT hardcode credentials in SQL/init scripts.
+-- The official postgres image creates the user defined by POSTGRES_USER/POSTGRES_PASSWORD.
+-- Ensure POSTGRES_USER=thaliumx and POSTGRES_PASSWORD is provided via secrets manager.
 
 -- Grant privileges
 ALTER USER thaliumx CREATEDB;

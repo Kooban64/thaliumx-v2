@@ -11,7 +11,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${BALLERINE_DB_USER:-ballerine}
-      POSTGRES_PASSWORD: ${BALLERINE_DB_PASSWORD:-ThaliumX2025}
+      # No insecure defaults; must be provided via env/secret manager
+      POSTGRES_PASSWORD: ${BALLERINE_DB_PASSWORD:?BALLERINE_DB_PASSWORD is required}
       POSTGRES_DB: ${BALLERINE_DB_NAME:-ballerine}
     ports:
       - "5433:5432"
@@ -34,7 +35,8 @@ services:
     environment:
       # Vault configuration for secrets
       VAULT_ADDR: http://thaliumx-vault:8200
-      VAULT_TOKEN: ${VAULT_TOKEN:-<VAULT_TOKEN>}
+      # No insecure defaults; must be provided via env/secret manager (or use AppRole/Vault Agent).
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN is required}
       VAULT_SECRET_PATH: kv/data/fintech/ballerine
       # Database configuration (DB_URL is built from Vault secrets in entrypoint)
       DB_USER: ballerine
@@ -58,32 +60,27 @@ services:
       JWT_EXPIRATION: 1d
       # Mail adapter (use log for development)
       MAIL_ADAPTER: log
-      # Hardcoded Ballerine configuration for production stability
+      # Secrets must be injected at deploy time (Vault/CI/secret manager). No hardcoded credentials.
       # Ballerine uses DB_URL for Prisma (not DATABASE_URL)
-      DB_URL: postgresql://ballerine:ThaliumX2025@thaliumx-ballerine-postgres:5432/ballerine
-      DATABASE_URL: postgresql://ballerine:ThaliumX2025@thaliumx-ballerine-postgres:5432/ballerine
-      REDIS_URL: redis://thaliumx-redis:6379
-      JWT_SECRET_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiYWxsZXJpbmUifQ.signature
-      SESSION_SECRET: ballerine-session-secret-production-key
-      API_KEY: ballerine-api-key-production-secure
+      DB_URL: ${BALLERINE_DB_URL:?BALLERINE_DB_URL is required}
+      DATABASE_URL: ${BALLERINE_DATABASE_URL:?BALLERINE_DATABASE_URL is required}
+      REDIS_URL: ${BALLERINE_REDIS_URL:?BALLERINE_REDIS_URL is required}
+      JWT_SECRET_KEY: ${BALLERINE_JWT_SECRET_KEY:?BALLERINE_JWT_SECRET_KEY is required}
+      SESSION_SECRET: ${BALLERINE_SESSION_SECRET:?BALLERINE_SESSION_SECRET is required}
+      API_KEY: ${BALLERINE_API_KEY:?BALLERINE_API_KEY is required}
       # BCRYPT_SALT must be a valid bcrypt salt string (29 chars): $Vers$log2(NumRounds)$saltvalue
       # Generated with: bcrypt.genSaltSync(10) - must be exactly 29 characters
       BCRYPT_SALT: "$2b$10$.8CHAioRfbSk8KiRGNqNyu"
       # HASHING_KEY_SECRET must be a valid bcrypt salt - use base64 encoded version
       # Decoded: $2b$10$BTo0mwjVDZWpkq4sqQj3Ze
-      HASHING_KEY_SECRET_BASE64: "JDJiJDEwJEJUbzBtd2pWRFpXcGtxNHNxUWozWmU="
-      WEBHOOK_SECRET: ballerine-webhook-secret-production
-      ENCRYPTION_KEY: ballerine-encryption-key-32bytes-production!
-      WORKFLOW_TOKEN: ballerine-workflow-token-production
-      COLLECTION_FLOW_TOKEN: ballerine-collection-flow-token-production
-      NOTION_API_KEY: placeholder-notion-api-key
-      MAGIC_LINK_JWT_SECRET: ballerine-magic-link-jwt-secret-production
-      MAGIC_LINK_AUTH_JWT_SECRET: ballerine-magic-link-auth-jwt-secret-production
-    # Disable Vault loading and use hardcoded environment variables
-    # volumes:
-    #   - ./scripts/ballerine-entrypoint.sh:/entrypoint.sh:ro
-    #   - ./scripts/vault-secrets.js:/vault-secrets.js:ro
-    # entrypoint: ["/bin/sh", "/entrypoint.sh"]
+      HASHING_KEY_SECRET_BASE64: ${BALLERINE_HASHING_KEY_SECRET_BASE64:?BALLERINE_HASHING_KEY_SECRET_BASE64 is required}
+      WEBHOOK_SECRET: ${BALLERINE_WEBHOOK_SECRET:?BALLERINE_WEBHOOK_SECRET is required}
+      ENCRYPTION_KEY: ${BALLERINE_ENCRYPTION_KEY:?BALLERINE_ENCRYPTION_KEY is required}
+      WORKFLOW_TOKEN: ${BALLERINE_WORKFLOW_TOKEN:?BALLERINE_WORKFLOW_TOKEN is required}
+      COLLECTION_FLOW_TOKEN: ${BALLERINE_COLLECTION_FLOW_TOKEN:?BALLERINE_COLLECTION_FLOW_TOKEN is required}
+      NOTION_API_KEY: ${BALLERINE_NOTION_API_KEY:-}
+      MAGIC_LINK_JWT_SECRET: ${BALLERINE_MAGIC_LINK_JWT_SECRET:?BALLERINE_MAGIC_LINK_JWT_SECRET is required}
+      MAGIC_LINK_AUTH_JWT_SECRET: ${BALLERINE_MAGIC_LINK_AUTH_JWT_SECRET:?BALLERINE_MAGIC_LINK_AUTH_JWT_SECRET is required}
     command: ["dumb-init", "npm", "run", "prod"]
     ports:
       - "${BALLERINE_API_PORT:-3003}:3000"
@@ -107,7 +104,8 @@ services:
     restart: unless-stopped
     environment:
       VITE_API_URL: http://localhost:3003
-      VITE_AUTH_ENABLED: "false"
+      # For production, auth should be enabled unless explicitly disabled.
+      VITE_AUTH_ENABLED: ${BALLERINE_BACKOFFICE_AUTH_ENABLED:-true}
     ports:
       - "${BALLERINE_BACKOFFICE_PORT:-3004}:80"
     networks:

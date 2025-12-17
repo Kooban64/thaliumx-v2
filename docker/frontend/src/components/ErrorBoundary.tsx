@@ -42,7 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.setState({
       error,
       errorInfo,
@@ -77,7 +77,7 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.reload();
   };
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       // Custom fallback UI
       if (this.props.fallback) {
@@ -157,7 +157,7 @@ export class AsyncErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Handle async errors (promises, async operations)
     if (error instanceof Promise) {
       error.catch((asyncError) => {
@@ -176,7 +176,7 @@ export class AsyncErrorBoundary extends Component<Props, State> {
     }
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       return this.props.fallback || (
         <div className="p-4 border border-red-200 rounded-lg bg-red-50">
@@ -205,7 +205,7 @@ export class NetworkErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Check if it's a network error
     if (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('Failed to fetch')) {
       this.setState({
@@ -219,7 +219,7 @@ export class NetworkErrorBoundary extends Component<Props, State> {
     }
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       return this.props.fallback || (
         <div className="p-4 border border-yellow-200 rounded-lg bg-yellow-50">

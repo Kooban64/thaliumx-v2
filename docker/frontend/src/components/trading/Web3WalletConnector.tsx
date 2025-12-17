@@ -129,7 +129,7 @@ export function Web3WalletConnector() {
         setSuccess('Wallet disconnected successfully!');
         loadConnectedWallets();
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to disconnect wallet');
     }
   };

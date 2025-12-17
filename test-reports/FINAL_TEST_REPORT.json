@@ -1,0 +1,222 @@
+{
+  "timestamp": "2025-12-15T07:46:10.624Z",
+  "totalTests": 42,
+  "passedTests": 8,
+  "failedTests": 34,
+  "passRate": "19.05",
+  "sections": [
+    {
+      "name": "Admin Operations",
+      "totalTests": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "passRate": "0.00"
+    },
+    {
+      "name": "Authentication",
+      "totalTests": 8,
+      "passedTests": 0,
+      "failedTests": 8,
+      "passRate": "0.00"
+    },
+    {
+      "name": "Broker Operations",
+      "totalTests": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "passRate": "0.00"
+    },
+    {
+      "name": "DEX & NFT",
+      "totalTests": 2,
+      "passedTests": 0,
+      "failedTests": 2,
+      "passRate": "0.00"
+    },
+    {
+      "name": "Infrastructure",
+      "totalTests": 3,
+      "passedTests": 3,
+      "failedTests": 0,
+      "passRate": "100.00"
+    },
+    {
+      "name": "Integration Flows",
+      "totalTests": 4,
+      "passedTests": 0,
+      "failedTests": 4,
+      "passRate": "0.00"
+    },
+    {
+      "name": "KYC & Compliance",
+      "totalTests": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "passRate": "0.00"
+    },
+    {
+      "name": "Margin Trading",
+      "totalTests": 2,
+      "passedTests": 0,
+      "failedTests": 2,
+      "passRate": "0.00"
+    },
+    {
+      "name": "Native CEX & Market Data",
+      "totalTests": 2,
+      "passedTests": 0,
+      "failedTests": 2,
+      "passRate": "0.00"
+    },
+    {
+      "name": "RBAC",
+      "totalTests": 8,
+      "passedTests": 3,
+      "failedTests": 5,
+      "passRate": "37.50"
+    },
+    {
+      "name": "Smart Contracts & Ledger",
+      "totalTests": 2,
+      "passedTests": 0,
+      "failedTests": 2,
+      "passRate": "0.00"
+    },
+    {
+      "name": "Token Sales",
+      "totalTests": 2,
+      "passedTests": 0,
+      "failedTests": 2,
+      "passRate": "0.00"
+    },
+    {
+      "name": "Trading & Exchange",
+      "totalTests": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "passRate": "0.00"
+    },
+    {
+      "name": "User Management",
+      "totalTests": 3,
+      "passedTests": 2,
+      "failedTests": 1,
+      "passRate": "66.67"
+    },
+    {
+      "name": "Wallet & Fiat",
+      "totalTests": 2,
+      "passedTests": 0,
+      "failedTests": 2,
+      "passRate": "0.00"
+    }
+  ],
+  "byCategory": {
+    "admin": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "authentication": {
+      "passed": 0,
+      "failed": 8,
+      "total": 8
+    },
+    "broker": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "dex": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "nft": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "infrastructure": {
+      "passed": 3,
+      "failed": 0,
+      "total": 3
+    },
+    "trading": {
+      "passed": 0,
+      "failed": 5,
+      "total": 5
+    },
+    "kyc": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "margin": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "advanced-margin": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "native-cex": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "market-data": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "rbac": {
+      "passed": 3,
+      "failed": 5,
+      "total": 8
+    },
+    "smart-contracts": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "ledger": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "token-sale": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "presale": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "user-management": {
+      "passed": 2,
+      "failed": 1,
+      "total": 3
+    },
+    "wallet": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    },
+    "fiat": {
+      "passed": 0,
+      "failed": 1,
+      "total": 1
+    }
+  },
+  "summary": {
+    "totalTests": 42,
+    "passedTests": 8,
+    "failedTests": 34,
+    "passRate": "19.05"
+  }
+}

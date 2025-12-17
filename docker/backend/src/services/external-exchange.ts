@@ -286,17 +286,35 @@ export class ExternalExchangeService {
   private static async initializeExchangeConfigurations(): Promise<void> {
     try {
       LoggerService.info('Initializing exchange configurations...');
+
+      // SECURITY: Never ship hardcoded exchange API keys/secrets.
+      // If credentials are missing, the exchange integration is disabled.
+      const bybitApiKey = process.env.BYBIT_API_KEY;
+      const bybitApiSecret = process.env.BYBIT_API_SECRET;
+      const kucoinApiKey = process.env.KUCOIN_API_KEY;
+      const kucoinApiSecret = process.env.KUCOIN_API_SECRET;
+      const okxApiKey = process.env.OKX_API_KEY;
+      const okxApiSecret = process.env.OKX_API_SECRET;
+      const okxPassphrase = process.env.OKX_PASSPHRASE;
+      const krakenApiKey = process.env.KRAKEN_API_KEY;
+      const krakenApiSecret = process.env.KRAKEN_API_SECRET;
+      const valrApiKey = process.env.VALR_API_KEY;
+      const valrApiSecret = process.env.VALR_API_SECRET;
+      const bitstampApiKey = process.env.BITSTAMP_API_KEY;
+      const bitstampApiSecret = process.env.BITSTAMP_API_SECRET;
+      const cryptoComApiKey = process.env.CRYPTO_COM_API_KEY;
+      const cryptoComApiSecret = process.env.CRYPTO_COM_API_SECRET;
       
       // Bybit
       this.exchanges.set('bybit', {
         type: ExchangeType.BYBIT,
         name: 'Bybit',
         credentials: {
-          apiKey: process.env.BYBIT_API_KEY || '4OUlLHWF1TZOIybbmB',
-          apiSecret: process.env.BYBIT_API_SECRET || 'mgOU4dkyqo2UpSGUEWlofOYgppYZMQyjzmpi',
+          apiKey: bybitApiKey || '',
+          apiSecret: bybitApiSecret || '',
           sandbox: false
         },
-        enabled: true,
+        enabled: Boolean(bybitApiKey && bybitApiSecret),
         rateLimit: 120,
         baseUrl: 'https://api.bybit.com',
         sandboxUrl: 'https://api-testnet.bybit.com',
@@ -309,11 +327,11 @@ export class ExternalExchangeService {
         type: ExchangeType.KUCOIN,
         name: 'KuCoin',
         credentials: {
-          apiKey: process.env.KUCOIN_API_KEY || '6811caa1c1dfd9000105165a',
-          apiSecret: process.env.KUCOIN_API_SECRET || '7358e659-5cc7-4f6c-b284-673eddfc9a07',
+          apiKey: kucoinApiKey || '',
+          apiSecret: kucoinApiSecret || '',
           sandbox: false
         },
-        enabled: true,
+        enabled: Boolean(kucoinApiKey && kucoinApiSecret),
         rateLimit: 1800,
         baseUrl: 'https://api.kucoin.com',
         sandboxUrl: 'https://openapi-sandbox.kucoin.com',
@@ -326,12 +344,12 @@ export class ExternalExchangeService {
         type: ExchangeType.OKX,
         name: 'OKX',
         credentials: {
-          apiKey: process.env.OKX_API_KEY || 'ff25371c-653e-4c1d-9761-376eb76960b9',
-          apiSecret: process.env.OKX_API_SECRET || '5738F7B9C962420CFCB148B08A10A6A3',
-          passphrase: process.env.OKX_PASSPHRASE || 'ThaliumX2025!',
+          apiKey: okxApiKey || '',
+          apiSecret: okxApiSecret || '',
+          passphrase: okxPassphrase,
           sandbox: false
         },
-        enabled: true,
+        enabled: Boolean(okxApiKey && okxApiSecret && okxPassphrase),
         rateLimit: 20,
         baseUrl: 'https://www.okx.com',
         sandboxUrl: 'https://www.okx.com',
@@ -344,11 +362,11 @@ export class ExternalExchangeService {
         type: ExchangeType.KRAKEN,
         name: 'Kraken',
         credentials: {
-          apiKey: process.env.KRAKEN_API_KEY || 'HJWPi4DUG78y4r/JlUxRolUNgC2QL93/Ia5FVipRRnLSL6/551uifFaE',
-          apiSecret: process.env.KRAKEN_API_SECRET || 'FYilsCPtlDbirUpphL73OIC/yRE0euuq3KnziF9CJHiiznwaU1P5AiY8KRd0uTVKBnvL+kiWs5eneZGi+SYAtQ==',
+          apiKey: krakenApiKey || '',
+          apiSecret: krakenApiSecret || '',
           sandbox: false
         },
-        enabled: true,
+        enabled: Boolean(krakenApiKey && krakenApiSecret),
         rateLimit: 1,
         baseUrl: 'https://api.kraken.com',
         timeout: 30000,
@@ -360,11 +378,11 @@ export class ExternalExchangeService {
         type: ExchangeType.VALR,
         name: 'VALR',
         credentials: {
-          apiKey: process.env.VALR_API_KEY || '9f8175dbc6e65b4958319bbb5b60c4d2cf109c26b37f5384b91fd56581b2dd92',
-          apiSecret: process.env.VALR_API_SECRET || '23e45cb7b90394ab474ae6ca7b3bf9ea329aebbe7b26503c1b489716fd74ed5d',
+          apiKey: valrApiKey || '',
+          apiSecret: valrApiSecret || '',
           sandbox: false
         },
-        enabled: true,
+        enabled: Boolean(valrApiKey && valrApiSecret),
         rateLimit: 1000,
         baseUrl: 'https://api.valr.com',
         timeout: 30000,
@@ -376,11 +394,11 @@ export class ExternalExchangeService {
         type: ExchangeType.BITSTAMP,
         name: 'Bitstamp',
         credentials: {
-          apiKey: process.env.BITSTAMP_API_KEY || '9egeB3Lj6mH5KwGTjVYnI6Z6i7XCbXJ3',
-          apiSecret: process.env.BITSTAMP_API_SECRET || '36zIuhVH4RLF5ypZ0b9szhXlUg4iT9Uk',
+          apiKey: bitstampApiKey || '',
+          apiSecret: bitstampApiSecret || '',
           sandbox: false
         },
-        enabled: true,
+        enabled: Boolean(bitstampApiKey && bitstampApiSecret),
         rateLimit: 8000,
         baseUrl: 'https://www.bitstamp.net/api',
         timeout: 30000,
@@ -392,11 +410,11 @@ export class ExternalExchangeService {
         type: ExchangeType.CRYPTO_COM,
         name: 'Crypto.com',
         credentials: {
-          apiKey: process.env.CRYPTO_COM_API_KEY || 'cxakp_yZFBXiGNEfFiPJY2SbV8wY',
-          apiSecret: process.env.CRYPTO_COM_API_SECRET || 'cxakp_yZFBXiGNEfFiPJY2SbV8wY',
+          apiKey: cryptoComApiKey || '',
+          apiSecret: cryptoComApiSecret || '',
           sandbox: false
         },
-        enabled: true,
+        enabled: Boolean(cryptoComApiKey && cryptoComApiSecret),
         rateLimit: 100,
         baseUrl: 'https://api.crypto.com/v2',
         timeout: 30000,

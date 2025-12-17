@@ -26,11 +26,19 @@ fi
 
 # Default credentials (override with environment variables)
 POSTGRES_USER="${POSTGRES_USER:-thaliumx}"
-POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-ThaliumX2025}"
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
 POSTGRES_DB="${POSTGRES_DB:-thaliumx}"
-MONGO_USER="${MONGO_INITDB_ROOT_USERNAME:-admin}"
-MONGO_PASSWORD="${MONGO_INITDB_ROOT_PASSWORD:-ThaliumX2025}"
-REDIS_PASSWORD="${REDIS_PASSWORD:-ThaliumX2025}"
+MONGO_USER="${MONGO_INITDB_ROOT_USERNAME:-}"
+MONGO_PASSWORD="${MONGO_INITDB_ROOT_PASSWORD:-}"
+REDIS_PASSWORD="${REDIS_PASSWORD:-}"
+
+require_env() {
+    local name="$1"
+    if [ -z "${!name}" ]; then
+        print_error "Required env var not set: ${name} (refusing to use hardcoded defaults)"
+        exit 1
+    fi
+}
 
 # Functions
 print_header() {
@@ -60,6 +68,8 @@ create_backup_dir() {
 # Backup PostgreSQL (Citus)
 backup_postgres() {
     print_header "Backing up PostgreSQL (Citus)"
+
+    require_env POSTGRES_PASSWORD
     
     local backup_file="$BACKUP_DIR/postgres_${TIMESTAMP}.sql.gz"
     
@@ -79,6 +89,9 @@ backup_postgres() {
 # Backup MongoDB
 backup_mongo() {
     print_header "Backing up MongoDB"
+
+    require_env MONGO_USER
+    require_env MONGO_PASSWORD
     
     local backup_dir="$BACKUP_DIR/mongo_${TIMESTAMP}"
     
@@ -106,6 +119,8 @@ backup_mongo() {
 # Backup Redis
 backup_redis() {
     print_header "Backing up Redis"
+
+    require_env REDIS_PASSWORD
     
     local backup_file="$BACKUP_DIR/redis_${TIMESTAMP}.rdb"
     
@@ -187,6 +202,7 @@ restore_postgres() {
     fi
     
     echo "Restoring PostgreSQL..."
+    require_env POSTGRES_PASSWORD
     gunzip -c "$backup_file" | docker exec -i -e PGPASSWORD="$POSTGRES_PASSWORD" "$POSTGRES_CONTAINER" \
         psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
     
@@ -217,6 +233,8 @@ restore_mongo() {
     fi
     
     echo "Restoring MongoDB..."
+    require_env MONGO_USER
+    require_env MONGO_PASSWORD
     local temp_dir=$(mktemp -d)
     tar -xzf "$backup_file" -C "$temp_dir"
     
@@ -257,6 +275,7 @@ restore_redis() {
     fi
     
     echo "Restoring Redis..."
+    require_env REDIS_PASSWORD
     docker cp "$backup_file" "$REDIS_CONTAINER:/data/dump.rdb"
     docker restart "$REDIS_CONTAINER"
     

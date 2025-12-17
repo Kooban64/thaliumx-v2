@@ -8,21 +8,27 @@ apisix:
   enable_admin: true
   enable_http2: true
   
-  # Allow admin access from Docker network
+  # Admin API MUST NOT be exposed publicly.
+  # Restrict to localhost + private Docker networks only.
   allow_admin:
-    - 0.0.0.0/0
+    - 127.0.0.1/32
+    - 172.28.0.0/16
+    - 172.29.0.0/16
+    - 172.30.0.0/16
   
   admin_listen:
-    ip: 0.0.0.0
+    ip: 127.0.0.1
     port: 9180
   
-  # Admin API key (stored in Vault: kv/thaliumx/gateway/apisix)
+  # Admin API keys
+  # NOTE: Do not commit real values. Render this file during deployment (e.g., envsubst in CI)
+  # or mount it from a secrets manager.
   admin_key:
     - name: admin
-      key: ThaliumX2025AdminKey
+      key: __REPLACE_WITH_SECURE_VALUE__
       role: admin
     - name: viewer
-      key: ThaliumX2025ViewerKey
+      key: __REPLACE_WITH_SECURE_VALUE__
       role: viewer
 
   # SSL configuration

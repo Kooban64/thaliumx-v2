@@ -57,8 +57,13 @@ export default function TokenPresalePage() {
 
   const loadPresaleData = async () => {
     try {
+      // Use platform-default-tenant for token presale
+      const defaultTenantId = '10000000-0000-0000-0000-000000000000';
       const response = await fetch('/api/presale/status', {
         credentials: 'include', // Include cookies
+        headers: {
+          'X-Tenant-ID': defaultTenantId
+        }
       });
 
       if (response.ok) {
@@ -92,10 +97,13 @@ export default function TokenPresalePage() {
     }
 
     try {
+      // Use platform-default-tenant for token presale
+      const defaultTenantId = '10000000-0000-0000-0000-000000000000';
       const response = await fetch('/api/presale/investments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Tenant-ID': defaultTenantId,
           ...(brokerCode ? { 'X-Broker-Code': brokerCode } : {})
         },
         credentials: 'include', // Include cookies
@@ -297,7 +305,7 @@ export default function TokenPresalePage() {
                   {amount && (
                     <>
                       <div className="flex justify-between text-sm mb-2">
-                        <span>You'll receive:</span>
+                        <span>You&apos;ll receive:</span>
                         <span className="font-medium">
                           {(parseFloat(amount) / thalPrice).toLocaleString()} THAL
                         </span>

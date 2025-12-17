@@ -4,7 +4,9 @@
 
 conf:
   listen:
-    host: 0.0.0.0
+    # Dashboard MUST NOT be exposed publicly.
+    # Bind to localhost; if remote access is needed, use VPN/SSH tunnel.
+    host: 127.0.0.1
     port: 9000
   
   etcd:
@@ -20,11 +22,12 @@ conf:
       file_path: /dev/stdout
 
 authentication:
-  secret: ThaliumX2025DashboardSecret
+  # Do not commit real values.
+  secret: __REPLACE_WITH_SECURE_VALUE__
   expire_time: 3600
   users:
     - username: admin
-      password: ThaliumX2025
+      password: __REPLACE_WITH_SECURE_VALUE__
 
 plugins:
   - api-breaker

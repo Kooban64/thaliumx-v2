@@ -1,0 +1,33 @@
+.git
+.github
+node_modules
+.pnpm-store
+
+# Never bake secrets into images
+.env
+.env.*
+docker/.env*
+docker/**/.env*
+.secrets
+.secrets/**
+.git-credentials
+
+# Local artifacts
+backups
+backups/**
+test-results
+test-results/**
+playwright-report
+playwright-report/**
+coverage
+coverage/**
+tmp
+tmp/**
+temp
+temp/**
+
+# PKI material (generate at deploy time)
+certs
+certs/**
+docker/certs
+docker/certs/**

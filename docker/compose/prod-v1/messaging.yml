@@ -1,0 +1,11 @@
+# ThaliumX Production v1 - Messaging Layer
+# ======================================
+# Message queue services: Kafka, Zookeeper
+# Status: Planned for infrastructure phase
+# Updated: 2025-12-17T08:59:40.000Z
+
+version: '3.8'
+
+# TODO: Add Kafka cluster
+# TODO: Add Zookeeper ensemble
+# TODO: Configure Redis for additional queuing if needed

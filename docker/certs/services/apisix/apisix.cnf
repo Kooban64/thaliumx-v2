@@ -7,18 +7,11 @@ req_extensions = req_ext
 
 [dn]
 C = US
-ST = California
-L = San Francisco
+ST = CA
+L = SanFrancisco
 O = ThaliumX
-OU = apisix
-CN = apisix
+OU = development
+CN = thaliumx-apisix
 
 [req_ext]
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = apisix
-DNS.2 = api.thaliumx.local
-DNS.3 = gateway.thaliumx.local
-DNS.4 = localhost
-IP.1 = 127.0.0.1
+subjectAltName = DNS:thaliumx-apisix,DNS:apisix,DNS:localhost,DNS:*.thaliumx.local,IP:127.0.0.1

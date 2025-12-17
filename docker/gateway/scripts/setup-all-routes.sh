@@ -15,7 +15,8 @@
 set -e
 
 APISIX_ADMIN_URL="${APISIX_ADMIN_URL:-http://localhost:9180}"
-APISIX_ADMIN_KEY="${APISIX_ADMIN_KEY:-thaliumx-admin-key}"
+# NOTE: No insecure defaults. Provide via environment (or CI secret) at deploy time.
+APISIX_ADMIN_KEY="${APISIX_ADMIN_KEY:?APISIX_ADMIN_KEY is required}"
 FRONTEND_UPSTREAM="${FRONTEND_UPSTREAM:-thaliumx-frontend:3000}"
 BACKEND_UPSTREAM="${BACKEND_UPSTREAM:-thaliumx-backend:3002}"
 

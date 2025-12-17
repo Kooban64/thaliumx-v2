@@ -1,0 +1,36 @@
+{
+  "report": {
+    "timestamp": "2025-12-15T07:41:57.100Z",
+    "duration": 81,
+    "totalTests": 1,
+    "passedTests": 0,
+    "failedTests": 1,
+    "suites": [],
+    "summary": {
+      "byCategory": {
+        "trading": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        }
+      },
+      "byFeature": {
+        "Trading": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "category": "trading",
+      "feature": "Trading",
+      "testName": "Trader Authentication",
+      "passed": false,
+      "details": "Failed to authenticate trader",
+      "timestamp": "2025-12-15T07:41:57.099Z"
+    }
+  ]
+}

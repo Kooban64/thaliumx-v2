@@ -39,9 +39,9 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
       interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+      timeout: 30s
+      retries: 10
+      start_period: 120s
     labels:
       - "com.thaliumx.service=kafka"
       - "com.thaliumx.component=messaging"

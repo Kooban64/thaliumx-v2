@@ -14,20 +14,20 @@ export default function AuthPage() {
     // Since tokens are in httpOnly cookies, we need to check with the server
     const checkAuth = async () => {
       try {
-        const response = await fetch('/api/auth/me', {
+        const response = await fetch('/api/auth/profile', {
           credentials: 'include' // Include cookies
         });
         if (response.ok) {
           setIsAuthenticated(true);
         }
-      } catch (error) {
+      } catch (_error) {
         // User is not authenticated
       }
     };
     checkAuth();
   }, []);
 
-  const handleAuthSuccess = (token: string) => {
+  const handleAuthSuccess = (_token: string) => {
     setIsAuthenticated(true);
     // Fire-and-forget device fingerprint submission
     submitDeviceFingerprint();

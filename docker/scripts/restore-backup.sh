@@ -42,6 +42,15 @@ if [ -f "${ENV_FILE}" ]; then
     set +a
 fi
 
+# Refuse to proceed with hardcoded defaults.
+require_env() {
+    local name="$1"
+    if [ -z "${!name}" ]; then
+        echo -e "${RED}Error: required env var not set: ${name}${NC}"
+        exit 1
+    fi
+}
+
 # Create temp directory for extraction
 TEMP_DIR=$(mktemp -d)
 trap "rm -rf ${TEMP_DIR}" EXIT
@@ -87,8 +96,10 @@ echo ""
 echo "Restoring PostgreSQL..."
 if [ -f "${BACKUP_DIR}/postgres_all.sql" ]; then
     if docker ps --format '{{.Names}}' | grep -q "thaliumx-postgres"; then
+        require_env POSTGRES_USER
+        require_env POSTGRES_PASSWORD
         # Restore full dump
-        docker exec -i thaliumx-postgres psql -U ${POSTGRES_USER:-thaliumx} < "${BACKUP_DIR}/postgres_all.sql" 2>/dev/null || true
+        docker exec -i -e PGPASSWORD="${POSTGRES_PASSWORD}" thaliumx-postgres psql -U "${POSTGRES_USER}" < "${BACKUP_DIR}/postgres_all.sql" 2>/dev/null || true
         echo -e "  ${GREEN}✓ PostgreSQL restored from full dump${NC}"
     else
         echo -e "  ${YELLOW}⚠ PostgreSQL not running${NC}"
@@ -98,7 +109,9 @@ elif ls "${BACKUP_DIR}"/postgres_*.dump 1>/dev/null 2>&1; then
     for dump_file in "${BACKUP_DIR}"/postgres_*.dump; do
         db_name=$(basename "$dump_file" .dump | sed 's/postgres_//')
         if docker ps --format '{{.Names}}' | grep -q "thaliumx-postgres"; then
-            docker exec -i thaliumx-postgres pg_restore -U ${POSTGRES_USER:-thaliumx} -d "$db_name" -c < "$dump_file" 2>/dev/null || true
+            require_env POSTGRES_USER
+            require_env POSTGRES_PASSWORD
+            docker exec -i -e PGPASSWORD="${POSTGRES_PASSWORD}" thaliumx-postgres pg_restore -U "${POSTGRES_USER}" -d "$db_name" -c < "$dump_file" 2>/dev/null || true
             echo -e "  ${GREEN}✓ ${db_name} database restored${NC}"
         fi
     done
@@ -113,7 +126,9 @@ echo ""
 echo "Restoring TimescaleDB..."
 if [ -f "${BACKUP_DIR}/timescaledb_all.sql" ]; then
     if docker ps --format '{{.Names}}' | grep -q "thaliumx-timescaledb"; then
-        docker exec -i thaliumx-timescaledb psql -U ${TIMESCALE_USER:-dingir} < "${BACKUP_DIR}/timescaledb_all.sql" 2>/dev/null || true
+        require_env TIMESCALE_USER
+        require_env TIMESCALE_PASSWORD
+        docker exec -i -e PGPASSWORD="${TIMESCALE_PASSWORD}" thaliumx-timescaledb psql -U "${TIMESCALE_USER}" < "${BACKUP_DIR}/timescaledb_all.sql" 2>/dev/null || true
         echo -e "  ${GREEN}✓ TimescaleDB restored${NC}"
     else
         echo -e "  ${YELLOW}⚠ TimescaleDB not running${NC}"
@@ -129,9 +144,11 @@ echo ""
 echo "Restoring MongoDB..."
 if [ -f "${BACKUP_DIR}/mongodb.archive" ]; then
     if docker ps --format '{{.Names}}' | grep -q "thaliumx-mongodb"; then
+        require_env MONGO_INITDB_ROOT_USERNAME
+        require_env MONGO_INITDB_ROOT_PASSWORD
         docker exec -i thaliumx-mongodb mongorestore \
-            --username=${MONGO_INITDB_ROOT_USERNAME:-thaliumx} \
-            --password=${MONGO_INITDB_ROOT_PASSWORD:-ThaliumX2025} \
+            --username="${MONGO_INITDB_ROOT_USERNAME}" \
+            --password="${MONGO_INITDB_ROOT_PASSWORD}" \
             --authenticationDatabase=admin \
             --archive --drop < "${BACKUP_DIR}/mongodb.archive" 2>/dev/null || true
         echo -e "  ${GREEN}✓ MongoDB restored${NC}"
@@ -149,6 +166,7 @@ echo ""
 echo "Restoring Redis..."
 if [ -f "${BACKUP_DIR}/redis.rdb" ]; then
     if docker ps --format '{{.Names}}' | grep -q "thaliumx-redis"; then
+        require_env REDIS_PASSWORD
         # Stop Redis, copy dump, restart
         docker stop thaliumx-redis 2>/dev/null || true
         docker cp "${BACKUP_DIR}/redis.rdb" thaliumx-redis:/data/dump.rdb 2>/dev/null || true

@@ -1,0 +1,19 @@
+{
+  "name": "@thaliumx/comprehensive-tests",
+  "version": "1.0.0",
+  "description": "Comprehensive test suite for ThaliumX platform",
+  "main": "test-runner.ts",
+  "scripts": {
+    "test": "ts-node test-runner.ts",
+    "test:api": "ts-node api-comprehensive.test.ts",
+    "test:rbac": "ts-node role-based-access.test.ts"
+  },
+  "dependencies": {
+    "axios": "^1.7.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

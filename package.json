@@ -66,7 +66,7 @@
     "docker:down:typesense": "docker compose -f docker/typesense/compose.yaml down",
     "docker:logs:typesense": "docker compose -f docker/typesense/compose.yaml logs -f",
     "postgres:shell": "docker exec -it thaliumx-postgres psql -U postgres -d thaliumx",
-    "mongodb:shell": "docker exec -it thaliumx-mongodb mongosh -u thaliumx -p ThaliumX2025 --authenticationDatabase admin thaliumx",
+    "mongodb:shell": "docker exec -it thaliumx-mongodb mongosh -u ${MONGO_INITDB_ROOT_USERNAME:-thaliumx} -p ${MONGO_INITDB_ROOT_PASSWORD:?set MONGO_INITDB_ROOT_PASSWORD} --authenticationDatabase admin ${MONGO_INITDB_DATABASE:-thaliumx}",
     "vault:init": "docker exec -it thaliumx-vault /vault/scripts/init-vault.sh",
     "vault:unseal": "docker exec -it thaliumx-vault /vault/scripts/unseal-vault.sh",
     "vault:setup": "docker exec -it thaliumx-vault /vault/scripts/setup-secrets.sh",

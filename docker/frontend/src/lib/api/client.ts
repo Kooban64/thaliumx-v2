@@ -1,6 +1,42 @@
 // API Configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+// In browser: Use relative URLs (Next.js will proxy via API routes)
+// In SSR: Use NEXT_PUBLIC_API_URL or default to backend service name
+const getApiBaseUrl = (): string => {
+  // Always check NEXT_PUBLIC_API_URL first (set at build time)
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  
+  if (typeof window !== 'undefined') {
+    // Browser: Use relative URLs - Next.js API routes will proxy to backend
+    // This maintains same-origin policy and avoids CORS issues
+    return '';
+  }
+  
+  // SSR: Use environment variable or default to backend service name
+  return envUrl || 'http://thaliumx-backend:3002';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 const API_TIMEOUT = 10000; // 10 seconds
+
+// Default tenant ID (platform-default-tenant)
+const DEFAULT_TENANT_ID = '10000000-0000-0000-0000-000000000000';
+
+// Get tenant ID from URL params, localStorage, or use default
+function getTenantId(): string {
+  if (typeof window === 'undefined') return DEFAULT_TENANT_ID;
+  
+  // Check URL query parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const tenantIdFromUrl = urlParams.get('tenantId');
+  if (tenantIdFromUrl) return tenantIdFromUrl;
+  
+  // Check localStorage
+  const tenantIdFromStorage = localStorage.getItem('tenantId');
+  if (tenantIdFromStorage) return tenantIdFromStorage;
+  
+  // Use default
+  return DEFAULT_TENANT_ID;
+}
 
 // CSRF token management
 let csrfToken: string | null = null;
@@ -26,6 +62,7 @@ export interface ApiResponse<T = any> {
   data?: T;
   error?: string;
   message?: string;
+  code?: string;
   timestamp: string;
 }
 
@@ -35,6 +72,10 @@ export interface ApiError {
   code?: string;
 }
 
+// Token refresh state management
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
 // API Client Class
 class ApiClient {
   private baseURL: string;
@@ -43,17 +84,91 @@ class ApiClient {
   constructor(baseURL: string = API_BASE_URL, timeout: number = API_TIMEOUT) {
     this.baseURL = baseURL;
     this.timeout = timeout;
+    
+    // Set up automatic token pre-refresh
+    if (typeof window !== 'undefined') {
+      this.setupTokenPreRefresh();
+    }
+  }
+
+  /**
+   * Set up automatic token pre-refresh
+   * Checks token expiration and refreshes before it expires
+   */
+  private setupTokenPreRefresh(): void {
+    // Check token status every minute
+    setInterval(async () => {
+      try {
+        // Check if token needs refresh by making a lightweight request
+        // If we get 401, token is expired and we should refresh
+        const response = await fetch(`${this.baseURL}/api/auth/profile`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'X-Tenant-ID': getTenantId(),
+          },
+        });
+
+        if (response.status === 401) {
+          // Token expired, try to refresh
+          await this.refreshTokenIfNeeded();
+        }
+      } catch (error) {
+        // Silently fail - token refresh will happen on next API call
+        console.debug('Token pre-refresh check failed:', error);
+      }
+    }, 60000); // Check every minute
+  }
+
+  /**
+   * Refresh token if needed (prevents multiple simultaneous refresh calls)
+   */
+  private async refreshTokenIfNeeded(): Promise<boolean> {
+    // Prevent multiple simultaneous refresh calls
+    if (isRefreshing && refreshPromise) {
+      return refreshPromise;
+    }
+
+    isRefreshing = true;
+    refreshPromise = (async () => {
+      try {
+        // Call refresh endpoint (uses httpOnly cookies)
+        const response = await fetch(`${this.baseURL}/api/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Tenant-ID': getTenantId(),
+          },
+        });
+
+        if (response.ok) {
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Token refresh failed:', error);
+        return false;
+      } finally {
+        isRefreshing = false;
+        refreshPromise = null;
+      }
+    })();
+
+    return refreshPromise;
   }
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retryOn401: boolean = true
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
 
     const defaultHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      'X-Tenant-ID': getTenantId(), // Always include tenant ID
     };
 
     // Add CSRF token for non-GET requests
@@ -86,6 +201,15 @@ class ApiClient {
       });
 
       clearTimeout(timeoutId);
+
+      // Handle token expiration (401) - automatically refresh and retry
+      if (response.status === 401 && retryOn401 && endpoint !== '/api/auth/refresh' && endpoint !== '/api/auth/login') {
+        const refreshed = await this.refreshTokenIfNeeded();
+        if (refreshed) {
+          // Retry the original request once
+          return this.request<T>(endpoint, options, false);
+        }
+      }
 
       // Handle both success and error responses
       const data = await response.json();

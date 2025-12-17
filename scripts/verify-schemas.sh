@@ -17,9 +17,10 @@ CITUS_COORDINATOR="${CITUS_COORDINATOR:-thaliumx-citus-coordinator}"
 TIMESCALEDB="${TIMESCALEDB:-thaliumx-timescaledb}"
 KEYCLOAK_DB="${KEYCLOAK_DB:-thaliumx-keycloak-postgres}"
 POSTGRES_USER="${POSTGRES_USER:-thaliumx}"
-POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-ThaliumX2025}"
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
 TIMESCALE_USER="${TIMESCALE_USER:-dingir}"
-TIMESCALE_PASSWORD="${TIMESCALE_PASSWORD:-ThaliumX2025}"
+TIMESCALE_PASSWORD="${TIMESCALE_PASSWORD:-}"
+REDIS_PASSWORD="${REDIS_PASSWORD:-}"
 
 # Counters
 TOTAL_CHECKS=0
@@ -55,7 +56,7 @@ check_table_exists() {
     local database=$2
     local table=$3
     local user=${4:-postgres}
-    local password=${5:-ThaliumX2025}
+    local password=${5:-}
     
     result=$(docker exec -e PGPASSWORD="$password" "$container" \
         psql -U "$user" -d "$database" -t -c \
@@ -73,7 +74,7 @@ check_extension_exists() {
     local database=$2
     local extension=$3
     local user=${4:-postgres}
-    local password=${5:-ThaliumX2025}
+    local password=${5:-}
     
     result=$(docker exec -e PGPASSWORD="$password" "$container" \
         psql -U "$user" -d "$database" -t -c \
@@ -90,7 +91,7 @@ get_table_count() {
     local container=$1
     local database=$2
     local user=${3:-postgres}
-    local password=${4:-ThaliumX2025}
+    local password=${4:-}
     
     docker exec -e PGPASSWORD="$password" "$container" \
         psql -U "$user" -d "$database" -t -c \
@@ -102,6 +103,11 @@ get_table_count() {
 # ============================================
 verify_citus_schema() {
     print_header "Verifying Citus Coordinator Schema"
+
+    if [ -z "${POSTGRES_PASSWORD}" ]; then
+        print_error "POSTGRES_PASSWORD is not set (refusing to use hardcoded defaults)"
+        return 1
+    fi
     
     # Check if container is running
     if ! docker ps --format '{{.Names}}' | grep -q "$CITUS_COORDINATOR"; then
@@ -185,6 +191,11 @@ verify_citus_schema() {
 # ============================================
 verify_timescaledb_schema() {
     print_header "Verifying TimescaleDB Schema (Dingir Trading Engine)"
+
+    if [ -z "${TIMESCALE_PASSWORD}" ]; then
+        print_error "TIMESCALE_PASSWORD is not set (refusing to use hardcoded defaults)"
+        return 1
+    fi
     
     # Check if container is running
     if ! docker ps --format '{{.Names}}' | grep -q "$TIMESCALEDB"; then
@@ -396,8 +407,13 @@ verify_redis() {
         return 1
     fi
     
+    if [ -z "${REDIS_PASSWORD}" ]; then
+        print_error "REDIS_PASSWORD is not set (refusing to use hardcoded defaults)"
+        return 1
+    fi
+
     # Check Redis connectivity
-    redis_ping=$(docker exec "$redis_container" redis-cli -a "$POSTGRES_PASSWORD" PING 2>/dev/null || echo "FAIL")
+    redis_ping=$(docker exec "$redis_container" redis-cli -a "$REDIS_PASSWORD" PING 2>/dev/null || echo "FAIL")
     
     if [ "$redis_ping" = "PONG" ]; then
         print_success "Redis is responding"
@@ -406,7 +422,7 @@ verify_redis() {
     fi
     
     # Check Redis info
-    redis_keys=$(docker exec "$redis_container" redis-cli -a "$POSTGRES_PASSWORD" DBSIZE 2>/dev/null | grep -oP '\d+' || echo "0")
+    redis_keys=$(docker exec "$redis_container" redis-cli -a "$REDIS_PASSWORD" DBSIZE 2>/dev/null | grep -oP '\d+' || echo "0")
     print_success "Redis keys: $redis_keys"
 }
 

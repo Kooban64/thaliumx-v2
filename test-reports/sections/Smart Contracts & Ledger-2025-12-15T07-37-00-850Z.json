@@ -1,0 +1,54 @@
+{
+  "report": {
+    "timestamp": "2025-12-15T07:37:00.850Z",
+    "duration": 719,
+    "totalTests": 2,
+    "passedTests": 0,
+    "failedTests": 2,
+    "suites": [],
+    "summary": {
+      "byCategory": {
+        "smart-contracts": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        },
+        "ledger": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        }
+      },
+      "byFeature": {
+        "Smart Contracts": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        },
+        "Ledger": {
+          "passed": 0,
+          "failed": 1,
+          "total": 1
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "category": "smart-contracts",
+      "feature": "Smart Contracts",
+      "testName": "Admin Authentication",
+      "passed": false,
+      "details": "Failed to authenticate admin",
+      "timestamp": "2025-12-15T07:37:00.845Z"
+    },
+    {
+      "category": "ledger",
+      "feature": "Ledger",
+      "testName": "Trader Authentication",
+      "passed": false,
+      "details": "Failed to authenticate trader",
+      "timestamp": "2025-12-15T07:37:00.850Z"
+    }
+  ]
+}

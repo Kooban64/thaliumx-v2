@@ -6,7 +6,7 @@
       "dom.iterable",
       "esnext"
     ],
-    "allowJs": true,
+    "allowJs": false,
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
@@ -48,6 +48,7 @@
   ],
   "exclude": [
     "node_modules",
+    "e2e",
     "playwright.config.ts"
   ]
 }

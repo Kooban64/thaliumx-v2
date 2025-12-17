@@ -14,7 +14,7 @@ services:
       context: ..
       dockerfile: frontend/Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://thaliumx-backend:3002
+        - NEXT_PUBLIC_API_URL=http://localhost:3002
         - NEXT_PUBLIC_KEYCLOAK_URL=http://thaliumx-keycloak:8080
         - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx
         - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
@@ -44,7 +44,7 @@ services:
       - PORT=3000
       - HOSTNAME=0.0.0.0
       # Runtime environment variables
-      - NEXT_PUBLIC_API_URL=http://thaliumx-backend:3002
+      - NEXT_PUBLIC_API_URL=http://localhost:3002
       - NEXT_PUBLIC_KEYCLOAK_URL=http://thaliumx-keycloak:8080
       - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx
       - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
@@ -122,16 +122,17 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3002
+      - DISABLE_RATE_LIMIT=${DISABLE_RATE_LIMIT:-false}
+      # API Gateway Configuration
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:3002,https://thaliumx.com,https://thal.thaliumx.com
       # Vault Configuration (primary secrets source)
       - VAULT_ADDR=http://thaliumx-vault:8200
-      - VAULT_TOKEN=${VAULT_TOKEN:-thaliumx-vault-token-2025}
       - VAULT_MOUNT_PATH=secret
       # Database Configuration (Citus for multi-tenant)
       - DB_HOST=thaliumx-citus-coordinator
       - DB_PORT=5432
       - DB_NAME=thaliumx
       - DB_USER=thaliumx
-      - DB_PASSWORD=${DB_PASSWORD:-ThaliumX2025}
       # Redis Configuration - uses REDIS_PASSWORD from core.env
       # Do not override here to allow env_file to take precedence
       # Keycloak Configuration - uses values from core.env
@@ -139,7 +140,7 @@ services:
       # Kafka Configuration
       - KAFKA_BROKERS=thaliumx-kafka:9092
       # MongoDB Configuration
-      - MONGODB_URI=mongodb://thaliumx:${MONGO_INITDB_ROOT_PASSWORD:-ThaliumX2025}@thaliumx-mongodb:27017/thaliumx?authSource=admin
+      # MongoDB URI is provided via env_file (core.env) to avoid leaking credentials in compose.
       # OPA Configuration
       - OPA_URL=http://thaliumx-opa:8181
       # Trading Services

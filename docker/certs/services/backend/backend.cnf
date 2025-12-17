@@ -7,17 +7,11 @@ req_extensions = req_ext
 
 [dn]
 C = US
-ST = California
-L = San Francisco
+ST = CA
+L = SanFrancisco
 O = ThaliumX
-OU = backend
-CN = backend
+OU = development
+CN = thaliumx-backend
 
 [req_ext]
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = backend
-DNS.2 = api-backend
-DNS.3 = localhost
-IP.1 = 127.0.0.1
+subjectAltName = DNS:thaliumx-backend,DNS:backend,DNS:localhost,IP:127.0.0.1

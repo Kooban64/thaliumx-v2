@@ -44,7 +44,7 @@ const router: Router = Router();
 router.post('/login', validateLogin, async (req, res, next) => {
   try {
     const { email, password, mfaCode, rememberMe } = req.body;
-    const result = await AuthService.login(email, password, mfaCode, rememberMe);
+    const result = await AuthService.login(email, password, mfaCode, rememberMe, res);
     res.json({ success: true, data: result, timestamp: new Date() });
   } catch (error) {
     next(error);
@@ -60,11 +60,60 @@ router.post('/register', validateRegister, async (req, res, next) => {
   }
 });
 
-router.post('/refresh', validateRefreshToken, async (req, res, next) => {
+router.post('/refresh', async (req, res, next) => {
   try {
-    const { refreshToken } = req.body;
+    // Support both cookie-based and body-based refresh tokens
+    // Note: req.cookies requires cookie-parser middleware
+    // For now, we'll get from body, but can be enhanced with cookie-parser
+    let refreshToken = req.body?.refreshToken;
+    
+    // Try to get from cookies if available (requires cookie-parser)
+    if (!refreshToken && (req as any).cookies?.refreshToken) {
+      refreshToken = (req as any).cookies.refreshToken;
+    }
+    
+    if (!refreshToken) {
+      res.status(401).json({
+        success: false,
+        error: { code: 'REFRESH_TOKEN_MISSING', message: 'Refresh token required' },
+        timestamp: new Date()
+      });
+      return;
+    }
+    
     const result = await AuthService.refreshToken(refreshToken);
-    res.json({ success: true, data: result, timestamp: new Date() });
+    
+    // Set new tokens as httpOnly cookies
+    const isProduction = process.env.NODE_ENV === 'production';
+    const expiresIn = result.expiresIn || 900; // 15 minutes default
+    
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict' as const,
+      maxAge: expiresIn * 1000,
+      path: '/'
+    };
+
+    res.cookie('accessToken', result.accessToken, cookieOptions);
+
+    // Refresh token with longer expiration
+    const refreshCookieOptions = {
+      ...cookieOptions,
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    };
+    res.cookie('refreshToken', result.refreshToken, refreshCookieOptions);
+    
+    res.json({ 
+      success: true, 
+      data: {
+        user: result.user,
+        expiresIn: result.expiresIn,
+        tokenType: result.tokenType
+        // Don't return tokens if using cookies
+      }, 
+      timestamp: new Date() 
+    });
   } catch (error) {
     next(error);
   }

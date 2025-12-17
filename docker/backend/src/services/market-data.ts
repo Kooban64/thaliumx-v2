@@ -15,6 +15,29 @@
 import { LoggerService } from './logger';
 import { RedisService } from './redis';
 
+type CoinGeckoSimplePrice = {
+  usd: number;
+  usd_24h_change?: number;
+  usd_24h_vol?: number;
+  usd_market_cap?: number;
+};
+
+type CoinGeckoSimplePriceResponse = Record<string, CoinGeckoSimplePrice>;
+
+type CoinGeckoMarketChartResponse = {
+  prices?: Array<[number, number]>;
+  total_volumes?: Array<[number, number]>;
+};
+
+type CoinGeckoGlobalResponse = {
+  data?: {
+    total_market_cap?: { usd?: number };
+    total_volume?: { usd?: number };
+    market_cap_percentage?: { btc?: number; eth?: number };
+    active_cryptocurrencies?: number;
+  };
+};
+
 export interface MarketPrice {
   symbol: string;
   price: number;
@@ -87,7 +110,7 @@ export class MarketDataService {
         throw new Error(`CoinGecko API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as CoinGeckoSimplePriceResponse;
 
       if (!data[coinId]) {
         LoggerService.warn(`No data found for coin: ${coinId}`);
@@ -182,7 +205,7 @@ export class MarketDataService {
         throw new Error(`CoinGecko API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as CoinGeckoMarketChartResponse;
 
       if (!data.prices || !Array.isArray(data.prices)) {
         return [];
@@ -232,7 +255,7 @@ export class MarketDataService {
         throw new Error(`CoinGecko API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as CoinGeckoGlobalResponse;
 
       if (!data.data) {
         return null;

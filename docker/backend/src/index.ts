@@ -26,22 +26,13 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import * as crypto from 'crypto';
 
-// Load environment variables first (before any service initialization)
-dotenv.config();
-
-// Initialize Logger FIRST before any other services that might log
 import { LoggerService } from './services/logger';
-LoggerService.initialize();
-
-// Initialize OpenTelemetry BEFORE any other imports
-// This ensures all subsequent imports are automatically instrumented
-// Must be called before any other service imports to enable tracing
 import { TelemetryService } from './services/telemetry';
-TelemetryService.initialize();
 
 // Import middleware
 import { globalErrorHandler, notFoundHandler, requestLogger, securityHeaders, sanitizeInput, sqlInjectionProtection, xssProtection, requestSizeLimit } from './middleware/error-handler';
@@ -51,6 +42,9 @@ import { apiGateway, gatewayHealthCheck, cleanupRateLimits } from './middleware/
 import { SecurityMiddleware } from './middleware/security-middleware';
 // validateRequest imported but not used in this file - used in route handlers
 import { metricsMiddleware } from './middleware/metrics';
+
+// Import middleware
+import { optionalTenantMiddleware } from './middleware/tenant';
 
 // Import routes
 import authRouter from './routes/auth-router';
@@ -122,21 +116,6 @@ import { web3WalletService } from './services/web3-wallet';
 import { DeviceFingerprintService } from './services/device-fingerprint';
 import { KafkaService } from './services/kafka';
 
-// Global error handlers
-process.on('uncaughtException', (error: Error) => {
-  console.error('🚨 UNCAUGHT EXCEPTION - Shutting down gracefully');
-  console.error('Error:', error.message);
-  console.error('Stack:', error.stack);
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
-  console.error('🚨 UNHANDLED REJECTION - Shutting down gracefully');
-  console.error('Reason:', reason);
-  console.error('Promise:', promise);
-  process.exit(1);
-});
-
 class ThaliumXBackend {
   private app: express.Application;
   private server!: http.Server;
@@ -146,6 +125,8 @@ class ThaliumXBackend {
   private isShuttingDown = false;
 
   constructor() {
+    // Ensure logger is available even when this module is imported (e.g. tests)
+    LoggerService.initialize();
     LoggerService.info('Initializing ThaliumX Backend Server');
 
     // Initialize Express app
@@ -157,11 +138,14 @@ class ThaliumXBackend {
       ConfigService.validateConfig();
     } catch (e) {
       LoggerService.error('Configuration validation failed', e);
-      process.exit(1);
+      throw e;
     }
 
-    // Setup graceful shutdown
-    this.setupGracefulShutdown();
+    // Build the app immediately so [`ThaliumXBackend.getApp()`](docker/backend/src/index.ts:889) is usable in tests.
+    // `start()` will still initialize services + bind the HTTP server.
+    this.setupMiddleware();
+    this.setupRoutes();
+    this.setupErrorHandling();
 
     LoggerService.info('Backend Server initialized');
   }
@@ -370,6 +354,9 @@ class ThaliumXBackend {
     this.app.use(threatDetection);
     this.app.use(behavioralAnalysis);
 
+    // Cookie parsing (required for cookie-based auth + CSRF validation)
+    this.app.use(cookieParser());
+
     // CSRF protection
     this.app.use(SecurityMiddleware.csrfProtection(['/api/auth/login', '/api/auth/logout', '/api/auth/refresh']));
 
@@ -557,9 +544,20 @@ class ThaliumXBackend {
     this.app.get('/health/gateway', gatewayHealthCheck);
 
     // CSRF token endpoint
-    this.app.get('/api/csrf-token', SecurityMiddleware.getCSRFToken);
+    this.app.get('/api/csrf-token', async (req, res) => {
+      try {
+        await SecurityMiddleware.getCSRFToken(req, res);
+      } catch (error) {
+        LoggerService.error('CSRF token generation error:', error);
+        res.status(500).json({
+          success: false,
+          error: { code: 'INTERNAL_ERROR', message: 'Failed to generate CSRF token' },
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
 // Secure Prometheus metrics endpoint
-this.app.get('/metrics', async (req, res) => {
+ this.app.get('/metrics', async (req, res) => {
   try {
     // Only allow internal/monitoring requests
     if (!this.isInternalRequest(req)) {
@@ -575,10 +573,17 @@ this.app.get('/metrics', async (req, res) => {
     const token = headerToken || bearerToken;
     const requiredToken = process.env.METRICS_TOKEN || '';
 
-    // Require token in production
-    if (process.env.NODE_ENV === 'production' && requiredToken && token !== requiredToken) {
-      res.status(403).send('Forbidden');
-      return;
+    // In production, require an explicit metrics token and validate it.
+    if (process.env.NODE_ENV === 'production') {
+      if (!requiredToken) {
+        LoggerService.error('METRICS_TOKEN is not set in production; refusing to serve /metrics');
+        res.status(500).send('metrics_misconfigured');
+        return;
+      }
+      if (token !== requiredToken) {
+        res.status(403).send('Forbidden');
+        return;
+      }
     }
 
     const { MetricsService } = await import('./services/metrics');
@@ -783,9 +788,11 @@ this.app.get('/metrics', async (req, res) => {
    * Check if the request is from an internal/monitoring system
    */
   private isInternalRequest(req: express.Request): boolean {
-    const clientIp = (req.ip || (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '') as string;
+    // Express computes req.ip based on trust proxy.
+    // Do not rely on raw X-Forwarded-For strings here.
+    const clientIp = (req.ip || req.socket.remoteAddress || '') as string;
 
-    // Allow requests from localhost/private IPs
+    // Allow requests from localhost/private IPs in non-production only.
     const privateIpPatterns = [
       /^127\./,      // localhost
       /^10\./,       // private class A
@@ -797,24 +804,16 @@ this.app.get('/metrics', async (req, res) => {
     ];
 
     // Check if IP is private
-    if (privateIpPatterns.some(pattern => pattern.test(clientIp))) {
-      return true;
+    if (process.env.NODE_ENV !== 'production') {
+      if (privateIpPatterns.some(pattern => pattern.test(clientIp))) {
+        return true;
+      }
     }
 
-    // Check for internal headers (set by reverse proxy/load balancer)
-    const internalHeaders = [
-      req.headers['x-internal-request'],
-      req.headers['x-monitoring-token']
-    ];
-
-    if (internalHeaders.some(header => header === 'true' || header === process.env.INTERNAL_REQUEST_TOKEN)) {
-      return true;
-    }
-
-    // Check user agent for monitoring tools
-    const userAgent = req.headers['user-agent'] as string || '';
-    const monitoringAgents = ['Prometheus', 'DataDog', 'New Relic', 'Grafana', 'curl'];
-    if (monitoringAgents.some(agent => userAgent.includes(agent))) {
+    // In production, require a shared secret header for internal endpoints.
+    const token = String(req.headers['x-monitoring-token'] || req.headers['x-internal-request-token'] || '').trim();
+    const required = (process.env.INTERNAL_REQUEST_TOKEN || '').trim();
+    if (required && token && token === required) {
       return true;
     }
 
@@ -825,23 +824,23 @@ this.app.get('/metrics', async (req, res) => {
     const PORT = process.env.PORT || 3002;
 
     try {
+      // Process-level init only for the running server (not when imported).
+      if (process.env.NODE_ENV !== 'test') {
+        dotenv.config();
+        TelemetryService.initialize();
+      }
+
       // Initialize services
       await this.initializeServices();
-
-      // Setup middleware
-      this.setupMiddleware();
-
-      // Setup routes
-      this.setupRoutes();
-
-      // Setup error handling
-      this.setupErrorHandling();
 
       // Initialize Socket.IO
       this.initializeSocketIO();
 
       // Setup periodic cleanup tasks
       this.setupPeriodicTasks();
+
+      // Setup graceful shutdown (requires this.server)
+      this.setupGracefulShutdown();
 
       this.server.listen(PORT, () => {
         LoggerService.info('Backend Server Started Successfully', {
@@ -881,9 +880,32 @@ this.app.get('/metrics', async (req, res) => {
 // Export for testing
 export { ThaliumXBackend };
 
-// Start the server
-const server = new ThaliumXBackend();
-server.start().catch((error) => {
-  console.error('Failed to start server:', error);
-  process.exit(1);
-});
+// Start the server only when executed as the entrypoint.
+// This avoids side effects when importing [`ThaliumXBackend`](docker/backend/src/index.ts:143) in tests.
+if (require.main === module) {
+  // Load environment variables first (before service initialization)
+  dotenv.config();
+  LoggerService.initialize();
+  TelemetryService.initialize();
+
+  // Global error handlers
+  process.on('uncaughtException', (error: Error) => {
+    console.error('🚨 UNCAUGHT EXCEPTION - Shutting down gracefully');
+    console.error('Error:', error.message);
+    console.error('Stack:', error.stack);
+    process.exit(1);
+  });
+
+  process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+    console.error('🚨 UNHANDLED REJECTION - Shutting down gracefully');
+    console.error('Reason:', reason);
+    console.error('Promise:', promise);
+    process.exit(1);
+  });
+
+  const server = new ThaliumXBackend();
+  server.start().catch((error) => {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  });
+}

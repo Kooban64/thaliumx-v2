@@ -74,7 +74,8 @@ services:
       DYNAMIC_CONFIG_ENABLED: "true"
       AUTH_TYPE: "LOGIN_FORM"
       SPRING_SECURITY_USER_NAME: ${KAFKA_UI_USERNAME:-admin}
-      SPRING_SECURITY_USER_PASSWORD: ${KAFKA_UI_PASSWORD:-ThaliumX2025}
+      # No insecure defaults; must be provided via env/secret manager
+      SPRING_SECURITY_USER_PASSWORD: ${KAFKA_UI_PASSWORD:?KAFKA_UI_PASSWORD is required}
     ports:
       - "8081:8080"
     networks:

@@ -40,6 +40,13 @@ import { UserService } from './user';
 import { MFAService } from './mfa';
 import { generateAccessToken, generateRefreshToken, verifyToken } from '../utils';
 import { Response } from 'express';
+import type { Model, ModelCtor } from 'sequelize';
+
+type TenantModelInstance = Model & {
+  id: string;
+  slug: string;
+  isActive: boolean;
+};
 
 export class AuthService {
   private static readonly REFRESH_TOKEN_PREFIX = 'refresh_token:';
@@ -194,8 +201,9 @@ export class AuthService {
 
   /**
    * Register a new user
+   * Uses platform-default-tenant as default if tenantId not provided
    */
-  static async register(userData: { email: string; password: string; firstName?: string; lastName?: string; brokerCode?: string; [key: string]: any }): Promise<User> {
+  static async register(userData: { email: string; password: string; firstName?: string; lastName?: string; brokerCode?: string; tenantId?: string; [key: string]: any }): Promise<User> {
     try {
       // Validate email
       const existingUser = await UserService.getUserByEmail(userData.email);
@@ -214,14 +222,47 @@ export class AuthService {
       // Hash password
       const passwordHash = await bcrypt.hash(userData.password, 12);
 
-      // Get default tenant (platform tenant)
-      const TenantModel = DatabaseService.getModel('Tenant');
-      const platformTenant = await TenantModel.findOne({
-        where: { tenantType: 'platform', isActive: true }
-      });
-
-      if (!platformTenant) {
-        throw createError('Platform tenant not found', 500, 'PLATFORM_TENANT_NOT_FOUND');
+      // Get tenant ID - priority: provided tenantId > brokerCode > default tenant (platform-default-tenant)
+      let tenantId = userData.tenantId;
+      
+      if (!tenantId && userData.brokerCode) {
+        // If brokerCode provided, find or create broker tenant
+        const TenantModel = DatabaseService.getModel('Tenant') as unknown as ModelCtor<TenantModelInstance>;
+        let tenant = await TenantModel.findOne({ where: { slug: userData.brokerCode } });
+        
+        if (!tenant) {
+          // Create tenant if it doesn't exist (for broker signups)
+          tenant = await TenantModel.create({
+            name: `${userData.brokerCode} Broker`,
+            slug: userData.brokerCode,
+            tenantType: 'broker',
+            isActive: true,
+            settings: {}
+          });
+          LoggerService.info('Created new broker tenant', { brokerCode: userData.brokerCode, tenantId: tenant.id });
+        }
+        tenantId = tenant.id;
+      }
+      
+      // If still no tenantId, use default: platform-default-tenant
+      if (!tenantId) {
+        const TenantModel = DatabaseService.getModel('Tenant') as unknown as ModelCtor<TenantModelInstance>;
+        const defaultTenant = await TenantModel.findOne({
+          where: { slug: 'platform-default-tenant' }
+        });
+        
+        if (defaultTenant) {
+          tenantId = defaultTenant.id;
+          LoggerService.debug('Using default tenant: platform-default-tenant', { tenantId });
+        } else {
+          LoggerService.warn('Default tenant not found, using first available tenant');
+          const firstTenant = await TenantModel.findOne({ where: { isActive: true } });
+          if (firstTenant) {
+            tenantId = firstTenant.id;
+          } else {
+            throw createError('No active tenant available', 500, 'NO_TENANT');
+          }
+        }
       }
 
       // Create user
@@ -232,7 +273,7 @@ export class AuthService {
         lastName: userData.lastName || '',
         passwordHash,
         role: UserRole.USER,
-        tenantId: platformTenant.get('id') as string,
+        tenantId: tenantId,
         kycStatus: 'pending' as any,
         kycLevel: 'basic' as any,
         isActive: true,

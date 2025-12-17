@@ -7,11 +7,30 @@ dist/
 .next/
 *.tsbuildinfo
 
+# Build outputs (monorepo)
+**/dist/
+**/.next/
+**/coverage/
+
 # Environment files with secrets (use .env.staging as template)
 docker/.env
+docker/**/.env
 .env
+.env.staging
 .env.local
 .env.*.local
+
+# Docker service env files (local-only)
+docker/core/core.env
+docker/core/*.env.local
+docker/backend/.env.production
+
+# Service env files that often contain credentials
+docker/trading/trading.env
+docker/fintech/config/ballerine.env
+
+# Vault keys / bootstrap tokens (must never be committed)
+docker/security/.vault-keys/
 
 # Secrets directory (contains generated passwords)
 .secrets/
@@ -32,15 +51,48 @@ logs/
 
 # Docker volumes data (local development)
 data/
+vault-data/
 
 # Backups (large files)
 backups/
 
 # Certificates (generated locally)
-certs/*.pem
-certs/*.key
-certs/*.crt
-certs/*.csr
+
+# NOTE: For production, certificates/keys must be generated at deploy time and
+# stored outside the repository (e.g., Vault, secrets manager, or host-mounted).
+# Never commit PKI/private-key material.
+
+# Legacy root certs directory (recursive)
+certs/**/*.pem
+certs/**/*.key
+certs/**/*.crt
+certs/**/*.csr
+certs/**/*.srl
+certs/**/*.p12
+certs/**/*.pfx
+
+# Docker PKI material (recursive)
+docker/certs/**/*.pem
+docker/certs/**/*.key
+docker/certs/**/*.crt
+docker/certs/**/*.csr
+docker/certs/**/*.srl
+docker/certs/**/*.p12
+docker/certs/**/*.pfx
+
+# Gateway TLS material (generated via certbot or scripts)
+docker/gateway/config/ssl/**/*.pem
+docker/gateway/config/ssl/**/*.key
+docker/gateway/config/ssl/**/*.crt
+
+# Wazuh generated TLS material
+docker/wazuh/config/wazuh_indexer_ssl_certs/**/*.pem
+docker/wazuh/config/wazuh_indexer_ssl_certs/**/*.key
+docker/wazuh/config/wazuh_indexer_ssl_certs/**/*.crt
+docker/wazuh/config/wazuh_indexer_ssl_certs/**/*.srl
+
+# Certbot runtime data (never commit)
+docker/ssl-certs/data/
 
 # Coverage reports
 coverage/
@@ -59,3 +111,8 @@ temp/
 
 # Git credentials (stored locally, never commit)
 .git-credentials
+
+# Generated credential dumps (must never be committed)
+.credentials.*
+docker/.credentials.*
+docker/.env.backup.*

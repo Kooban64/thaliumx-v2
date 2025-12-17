@@ -14,7 +14,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${TIMESCALE_USER:-dingir}
-      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:-ThaliumX2025}
+      # No insecure defaults; must be provided via env/secret manager
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:?TIMESCALE_PASSWORD is required}
       POSTGRES_DB: ${TIMESCALE_DB:-exchange}
       TIMESCALEDB_TELEMETRY: "off"
     ports:

@@ -6,9 +6,8 @@
 # Based on official Wazuh Docker single-node deployment
 # https://documentation.wazuh.com/current/deployment-options/docker/wazuh-container.html
 #
-# Default credentials:
-# - Dashboard: admin / SecretPassword (change after first login)
-# - API: wazuh-wui / MyS3cr37P450r.*-
+# Credentials:
+# - Provide via environment variables (do not hardcode in-repo)
 
 services:
   # Wazuh Manager
@@ -31,14 +30,14 @@ services:
       - "55000:55000"    # Wazuh API
     environment:
       - INDEXER_URL=https://thaliumx-wazuh-indexer:9200
-      - INDEXER_USERNAME=${WAZUH_INDEXER_USERNAME:-admin}
-      - INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD:-ThaliumX2025!wazuh@idx}
+      - INDEXER_USERNAME=${WAZUH_INDEXER_USERNAME:?WAZUH_INDEXER_USERNAME is required}
+      - INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD:?WAZUH_INDEXER_PASSWORD is required}
       - FILEBEAT_SSL_VERIFICATION_MODE=full
       - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
       - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
       - SSL_KEY=/etc/ssl/filebeat.key
-      - API_USERNAME=${WAZUH_API_USERNAME:-wazuh-wui}
-      - API_PASSWORD=${WAZUH_API_PASSWORD:-MyS3cr37P450r.*-}
+      - API_USERNAME=${WAZUH_API_USERNAME:?WAZUH_API_USERNAME is required}
+      - API_PASSWORD=${WAZUH_API_PASSWORD:?WAZUH_API_PASSWORD is required}
     volumes:
       - wazuh_api_configuration:/var/ossec/api/configuration
       - wazuh_etc:/var/ossec/etc
@@ -98,7 +97,7 @@ services:
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD-SHELL", "curl -s -k -u admin:ThaliumX2025!wazuh@idx https://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      test: ["CMD-SHELL", "curl -s -k -u \"${WAZUH_INDEXER_USERNAME}:${WAZUH_INDEXER_PASSWORD}\" https://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -115,13 +114,13 @@ services:
     hostname: thaliumx-wazuh-dashboard
     restart: unless-stopped
     environment:
-      - INDEXER_USERNAME=${WAZUH_INDEXER_USERNAME:-admin}
-      - INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD:-ThaliumX2025!wazuh@idx}
+      - INDEXER_USERNAME=${WAZUH_INDEXER_USERNAME:?WAZUH_INDEXER_USERNAME is required}
+      - INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD:?WAZUH_INDEXER_PASSWORD is required}
       - WAZUH_API_URL=https://thaliumx-wazuh-manager
-      - DASHBOARD_USERNAME=${WAZUH_DASHBOARD_USERNAME:-kibanaserver}
-      - DASHBOARD_PASSWORD=${WAZUH_DASHBOARD_PASSWORD:-ThaliumX2025!wazuh@dash}
-      - API_USERNAME=${WAZUH_API_USERNAME:-wazuh-wui}
-      - API_PASSWORD=${WAZUH_API_PASSWORD:-MyS3cr37P450r.*-}
+      - DASHBOARD_USERNAME=${WAZUH_DASHBOARD_USERNAME:?WAZUH_DASHBOARD_USERNAME is required}
+      - DASHBOARD_PASSWORD=${WAZUH_DASHBOARD_PASSWORD:?WAZUH_DASHBOARD_PASSWORD is required}
+      - API_USERNAME=${WAZUH_API_USERNAME:?WAZUH_API_USERNAME is required}
+      - API_PASSWORD=${WAZUH_API_PASSWORD:?WAZUH_API_PASSWORD is required}
     volumes:
       - ./config/wazuh_indexer_ssl_certs/wazuh.dashboard.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard.pem
       - ./config/wazuh_indexer_ssl_certs/wazuh.dashboard-key.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard-key.pem

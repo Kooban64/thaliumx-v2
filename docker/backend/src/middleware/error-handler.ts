@@ -35,7 +35,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { AppError, createError } from '../utils';
+import { AppError, createError, verifyToken } from '../utils';
 import { LoggerService } from '../services/logger';
 import { JWTPayload } from '../types';
 
@@ -170,6 +170,11 @@ import { RedisService } from '../services/redis';
 export const rateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: (req: Request) => {
+    // Skip rate limiting in test environment
+    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+      return Number.MAX_SAFE_INTEGER; // Effectively disable rate limiting
+    }
+
     // Dynamic limits based on user role and endpoint
     const user = req.user;
     const path = req.path;
@@ -205,7 +210,14 @@ export const rateLimiter = rateLimit({
   legacyHeaders: false,
   skip: (req: Request) => {
     // Skip rate limiting for health checks and metrics
-    return req.path === '/health' || req.path === '/metrics';
+    if (req.path === '/health' || req.path === '/metrics') {
+      return true;
+    }
+    // Skip rate limiting in test environment
+    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+      return true;
+    }
+    return false;
   },
   handler: (req: Request, res: Response) => {
     LoggerService.warn('Rate limit exceeded:', {
@@ -231,7 +243,13 @@ export const rateLimiter = rateLimit({
 // Additional rate limiter for sensitive financial operations
 export const financialRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 10, // 10 requests per minute for financial operations
+  max: (req: Request) => {
+    // Skip rate limiting in test environment
+    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+      return Number.MAX_SAFE_INTEGER; // Effectively disable rate limiting
+    }
+    return 10; // 10 requests per minute for financial operations
+  },
   message: {
     success: false,
     error: {
@@ -241,6 +259,13 @@ export const financialRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req: Request) => {
+    // Skip rate limiting in test environment
+    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+      return true;
+    }
+    return false;
+  },
   handler: (req: Request, res: Response) => {
     LoggerService.warn('Financial rate limit exceeded:', {
       ip: req.ip,
@@ -274,15 +299,20 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    // Accept tokens from either Authorization header (Bearer) or httpOnly cookie.
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
+    const bearer = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
+    const cookieToken = (req as any).cookies?.accessToken as string | undefined;
+    const headerToken = (req.headers['x-access-token'] as string | undefined) || undefined;
+
+    const token = bearer || cookieToken || headerToken;
 
     if (!token) {
       throw createError('Access token required', 401, 'MISSING_TOKEN');
     }
 
-    const secret = process.env.JWT_SECRET || '';
-    const payload = jwt.verify(token, secret) as JWTPayload;
+    // Verify token with issuer/audience validation.
+    const payload = verifyToken(token, false);
 
     // Add user info to request
     req.user = payload;
@@ -448,18 +478,23 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
 // INPUT SANITIZATION MIDDLEWARE
 // =============================================================================
 
-import * as DOMPurifyModule from 'dompurify';
-import { JSDOM } from 'jsdom';
-
-const window = new JSDOM('').window;
-const DOMPurify = (DOMPurifyModule as any).default || DOMPurifyModule;
-const DOMPurifyInstance = DOMPurify(window as any);
+// IMPORTANT:
+// - This backend compiles to CommonJS ([`tsconfig.json`](docker/backend/tsconfig.json:1)).
+// - Recent versions of jsdom/parse5 are ESM and will fail to load via `require()`.
+// To keep production runtime stable and Jest-compatible, use the lightweight `xss`
+// library (already a dependency) to strip tags from untrusted input.
+import xss from 'xss';
 
 export const sanitizeInput = (req: Request, res: Response, next: NextFunction): void => {
   // Sanitize string fields in body
   const sanitizeObject = (obj: any): any => {
     if (typeof obj === 'string') {
-      return DOMPurifyInstance.sanitize(obj, { ALLOWED_TAGS: [] });
+      // Strip all tags/attributes while preserving text.
+      return xss(obj, {
+        whiteList: {},
+        stripIgnoreTag: true,
+        stripIgnoreTagBody: ['script']
+      });
     } else if (Array.isArray(obj)) {
       return obj.map(sanitizeObject);
     } else if (obj && typeof obj === 'object') {

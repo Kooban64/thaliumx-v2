@@ -40,6 +40,7 @@ echo -e "${YELLOW}Generating new secure credentials...${NC}"
 
 POSTGRES_PASSWORD=$(generate_alphanum_password 32)
 MONGO_PASSWORD=$(generate_alphanum_password 32)
+MONGO_APP_PASSWORD=$(generate_alphanum_password 32)
 REDIS_PASSWORD=$(generate_alphanum_password 32)
 KEYCLOAK_ADMIN_PASSWORD=$(generate_password 24)
 VAULT_TOKEN=$(generate_hex_token 32)
@@ -49,10 +50,12 @@ JWT_SECRET=$(generate_hex_token 64)
 SESSION_SECRET=$(generate_hex_token 64)
 MAGIC_LINK_SECRET=$(generate_hex_token 64)
 HASHING_KEY=$(generate_alphanum_password 32)
+ENCRYPTION_KEY=$(generate_hex_token 64)
 BLNK_SECRET_KEY=$(generate_hex_token 32)
 KEYCLOAK_BACKEND_SECRET=$(generate_hex_token 32)
 KEYCLOAK_TRADING_SECRET=$(generate_hex_token 32)
 KEYCLOAK_FINTECH_SECRET=$(generate_hex_token 32)
+APISIX_ADMIN_KEY=$(generate_hex_token 32)
 
 # Backup existing .env file
 ENV_FILE="docker/.env"
@@ -76,6 +79,8 @@ POSTGRES_DB=thaliumx
 
 MONGO_INITDB_ROOT_USERNAME=thaliumx
 MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+MONGO_APP_USERNAME=thaliumx
+MONGO_APP_PASSWORD=${MONGO_APP_PASSWORD}
 
 REDIS_PASSWORD=${REDIS_PASSWORD}
 
@@ -92,6 +97,7 @@ KEYCLOAK_FINTECH_CLIENT_SECRET=${KEYCLOAK_FINTECH_SECRET}
 # SECRETS MANAGEMENT
 # ===========================================
 VAULT_DEV_ROOT_TOKEN_ID=${VAULT_TOKEN}
+VAULT_TOKEN=${VAULT_TOKEN}
 
 # ===========================================
 # APPLICATION SECRETS
@@ -100,6 +106,7 @@ JWT_SECRET=${JWT_SECRET}
 SESSION_SECRET=${SESSION_SECRET}
 MAGIC_LINK_AUTH_JWT_SECRET=${MAGIC_LINK_SECRET}
 HASHING_KEY_SECRET=${HASHING_KEY}
+ENCRYPTION_KEY=${ENCRYPTION_KEY}
 BLNK_SECRET_KEY=${BLNK_SECRET_KEY}
 
 # ===========================================
@@ -116,6 +123,7 @@ BACKEND_PORT=3002
 FRONTEND_PORT=3000
 APISIX_PORT=9080
 APISIX_SSL_PORT=9443
+APISIX_ADMIN_KEY=${APISIX_ADMIN_KEY}
 PROMETHEUS_PORT=9090
 GRAFANA_PORT=3001
 ALERTMANAGER_PORT=9093
@@ -152,6 +160,48 @@ ENABLE_TRADING=true
 ENABLE_MARGIN_TRADING=false
 EOF
 
+# Also write backend env_file used by docker/core/compose.yaml (gitignored)
+CORE_ENV_FILE="docker/core/core.env"
+mkdir -p docker/core
+cat > "$CORE_ENV_FILE" << EOF
+# GENERATED FILE (local-only)
+# Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+# WARNING: do not commit
+
+NODE_ENV=production
+PORT=3002
+
+DB_HOST=thaliumx-citus-coordinator
+DB_PORT=5432
+DB_NAME=thaliumx
+DB_USER=thaliumx
+DB_PASSWORD=${POSTGRES_PASSWORD}
+DB_SSL=false
+
+REDIS_HOST=thaliumx-redis
+REDIS_PORT=6379
+REDIS_PASSWORD=${REDIS_PASSWORD}
+
+JWT_SECRET=${JWT_SECRET}
+ENCRYPTION_KEY=${ENCRYPTION_KEY}
+
+VAULT_ADDR=http://thaliumx-vault:8200
+VAULT_TOKEN=${VAULT_TOKEN}
+
+MONGO_APP_USERNAME=thaliumx
+MONGO_APP_PASSWORD=${MONGO_APP_PASSWORD}
+MONGODB_URI=mongodb://thaliumx:${MONGO_APP_PASSWORD}@thaliumx-mongodb:27017/thaliumx?authSource=admin
+
+TYPESENSE_API_KEY=${TYPESENSE_API_KEY}
+EOF
+
+# Compose v2 "include" uses per-subproject directories; ensure each has a .env for interpolation.
+for d in core databases security gateway observability trading fintech compliance wazuh apisix kafka keycloak mongodb postgres redis timescaledb citus; do
+  if [ -d "docker/$d" ]; then
+    cp -f "$ENV_FILE" "docker/$d/.env" || true
+  fi
+done
+
 echo -e "${GREEN}✓ Created new .env file with rotated credentials${NC}"
 
 # Create a secure credentials file for reference (store securely!)
@@ -163,15 +213,18 @@ cat > "$CREDS_FILE" << EOF
 
 PostgreSQL Password: ${POSTGRES_PASSWORD}
 MongoDB Password: ${MONGO_PASSWORD}
+MongoDB App Password: ${MONGO_APP_PASSWORD}
 Redis Password: ${REDIS_PASSWORD}
 Keycloak Admin Password: ${KEYCLOAK_ADMIN_PASSWORD}
 Vault Token: ${VAULT_TOKEN}
+APISIX Admin Key: ${APISIX_ADMIN_KEY}
 Typesense API Key: ${TYPESENSE_API_KEY}
 Grafana Admin Password: ${GRAFANA_ADMIN_PASSWORD}
 JWT Secret: ${JWT_SECRET}
 Session Secret: ${SESSION_SECRET}
 Magic Link Secret: ${MAGIC_LINK_SECRET}
 Hashing Key: ${HASHING_KEY}
+Encryption Key: ${ENCRYPTION_KEY}
 BLNK Secret Key: ${BLNK_SECRET_KEY}
 Keycloak Backend Client Secret: ${KEYCLOAK_BACKEND_SECRET}
 Keycloak Trading Client Secret: ${KEYCLOAK_TRADING_SECRET}
