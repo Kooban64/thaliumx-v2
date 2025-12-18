@@ -60,11 +60,32 @@ services:
   #     file: applications.yml
   #     service: backend
 
-  # Messaging Layer (when populated)
-  # kafka:
-  #   extends:
-  #     file: messaging.yml
-  #     service: kafka
+  # Messaging Layer
+  kafka:
+    extends:
+      file: messaging.yml
+      service: kafka
+
+  kafka-init:
+    extends:
+      file: messaging.yml
+      service: kafka-init
+
+  kafka-ui:
+    extends:
+      file: messaging.yml
+      service: kafka-ui
+
+  schema-registry:
+    extends:
+      file: messaging.yml
+      service: schema-registry
+
+  # Security Layer
+  opa:
+    extends:
+      file: security.yml
+      service: opa
 
   # Gateway Layer (when populated)
   # apisix:
@@ -72,8 +93,38 @@ services:
   #     file: gateway.yml
   #     service: apisix
 
-  # Monitoring Layer (when populated)
-  # prometheus:
-  #   extends:
-  #     file: monitoring.yml
-  #     service: prometheus
+  # Monitoring Layer
+  prometheus:
+    extends:
+      file: monitoring.yml
+      service: prometheus
+
+  grafana:
+    extends:
+      file: monitoring.yml
+      service: grafana
+
+  loki:
+    extends:
+      file: monitoring.yml
+      service: loki
+
+  tempo:
+    extends:
+      file: monitoring.yml
+      service: tempo
+
+  promtail:
+    extends:
+      file: monitoring.yml
+      service: promtail
+
+  alertmanager:
+    extends:
+      file: monitoring.yml
+      service: alertmanager
+
+  otel-collector:
+    extends:
+      file: monitoring.yml
+      service: otel-collector

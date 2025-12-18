@@ -10,7 +10,7 @@ C = US
 ST = CA
 L = SanFrancisco
 O = ThaliumX
-OU = development
+OU = production
 CN = thaliumx-backend
 
 [req_ext]

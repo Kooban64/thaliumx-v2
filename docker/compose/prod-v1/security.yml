@@ -1,0 +1,63 @@
+# ThaliumX Production v1 - Security Layer
+# =======================================
+# Policy engine and security services
+# Status: Production Ready
+# Updated: 2025-12-18T06:35:00.000Z
+
+version: '3.8'
+
+services:
+  # ============================================
+  # OPA - Open Policy Agent
+  # ============================================
+  opa:
+    image: openpolicyagent/opa:0.64.0
+    container_name: thaliumx-opa
+    hostname: thaliumx-opa
+    restart: unless-stopped
+    command:
+      - "run"
+      - "--server"
+      - "--addr=http://0.0.0.0:8181"
+      - "--log-level=info"
+      - "--log-format=json"
+      - "--set=decision_logs.console=true"
+      - "--set=status.console=true"
+      - "--bundle"
+      - "/policies"
+    ports:
+      - "8181:8181"
+    volumes:
+      - ./../../opa/policies:/policies:ro
+      - ./../../certs/services/opa:/certs/opa:ro
+      - opa_data:/data
+    environment:
+      - OPA_LOG_LEVEL=info
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "opa", "run", "--help"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    labels:
+      - "com.thaliumx.service=opa"
+      - "com.thaliumx.component=security"
+      - "com.thaliumx.description=Open Policy Agent for Authorization"
+
+volumes:
+  opa_data:
+    name: thaliumx-opa-data
+
+networks:
+  thaliumx-net:
+    external: true

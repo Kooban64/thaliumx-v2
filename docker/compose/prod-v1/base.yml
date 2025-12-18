@@ -56,7 +56,11 @@ volumes:
     driver: local
 
   # Authentication
-  keycloak-data:
+  keycloak_data:
+    driver: local
+
+  # Security
+  opa_data:
     driver: local
 
   # Monitoring
@@ -101,7 +105,11 @@ secrets:
   # Monitoring
   grafana-admin-password:
     file: ../../../.secrets/generated/grafana-admin-password
+  grafana-admin-username:
+    file: ../../../.secrets/generated/grafana-admin-username
 
   # Messaging
   kafka-password:
     file: ../../../.secrets/generated/kafka-password
+  kafka-ui-password:
+    file: ../../../.secrets/generated/kafka-ui-password

@@ -10,8 +10,8 @@ C = US
 ST = CA
 L = SanFrancisco
 O = ThaliumX
-OU = development
+OU = production
 CN = thaliumx-apisix
 
 [req_ext]
-subjectAltName = DNS:thaliumx-apisix,DNS:apisix,DNS:localhost,DNS:*.thaliumx.local,IP:127.0.0.1
+subjectAltName = DNS:thaliumx-apisix,DNS:apisix,DNS:localhost,DNS:*.thaliumx.com,IP:127.0.0.1

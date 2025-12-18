@@ -9,8 +9,6 @@ services:
   # ============================================
   # CITUS - Distributed PostgreSQL
   # ============================================
-  # STABLE CONFIG: SSL temporarily disabled due to certificate permission issues
-  # Production TODO: Re-enable SSL with proper certificate ownership
   citus-coordinator:
     image: citusdata/citus:12.1
     container_name: thaliumx-citus-coordinator
@@ -27,9 +25,17 @@ services:
     volumes:
       - citus_coordinator_data:/var/lib/postgresql/data
       - ./../../citus/init:/docker-entrypoint-initdb.d:ro
+      - ./../../certs/services/citus:/var/lib/postgresql/certs:ro
+      - ./../../certs/ca/ca.crt:/var/lib/postgresql/ca.crt:ro
     secrets:
       - postgres-password
-    command: postgres -c shared_preload_libraries=citus
+    command: >
+      postgres
+      -c shared_preload_libraries=citus
+      -c ssl=on
+      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
+      -c ssl_key_file=/var/lib/postgresql/certs/server.key
+      -c ssl_ca_file=/var/lib/postgresql/ca.crt
     networks:
       - thaliumx-net
       - database-network
@@ -60,9 +66,17 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - citus_worker1_data:/var/lib/postgresql/data
+      - ./../../certs/services/citus:/var/lib/postgresql/certs:ro
+      - ./../../certs/ca/ca.crt:/var/lib/postgresql/ca.crt:ro
     secrets:
       - postgres-password
-    command: postgres -c shared_preload_libraries=citus
+    command: >
+      postgres
+      -c shared_preload_libraries=citus
+      -c ssl=on
+      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
+      -c ssl_key_file=/var/lib/postgresql/certs/server.key
+      -c ssl_ca_file=/var/lib/postgresql/ca.crt
     networks:
       - thaliumx-net
       - database-network
@@ -96,9 +110,17 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - citus_worker2_data:/var/lib/postgresql/data
+      - ./../../certs/services/citus:/var/lib/postgresql/certs:ro
+      - ./../../certs/ca/ca.crt:/var/lib/postgresql/ca.crt:ro
     secrets:
       - postgres-password
-    command: postgres -c shared_preload_libraries=citus
+    command: >
+      postgres
+      -c shared_preload_libraries=citus
+      -c ssl=on
+      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
+      -c ssl_key_file=/var/lib/postgresql/certs/server.key
+      -c ssl_ca_file=/var/lib/postgresql/ca.crt
     networks:
       - thaliumx-net
       - database-network
@@ -123,8 +145,6 @@ services:
   # ============================================
   # TIMESCALEDB - Time-Series Database
   # ============================================
-  # STABLE CONFIG: SSL temporarily disabled due to certificate permission issues
-  # Production TODO: Re-enable SSL with proper certificate ownership
   timescaledb:
     image: timescale/timescaledb:latest-pg16
     container_name: thaliumx-timescaledb
@@ -139,9 +159,16 @@ services:
       - "5435:5432"
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
+      - ./../../certs/services/timescaledb:/var/lib/postgresql/certs:ro
+      - ./../../certs/ca/ca.crt:/var/lib/postgresql/ca.crt:ro
     secrets:
       - postgres-password
-    command: postgres
+    command: >
+      postgres
+      -c ssl=on
+      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
+      -c ssl_key_file=/var/lib/postgresql/certs/server.key
+      -c ssl_ca_file=/var/lib/postgresql/ca.crt
     networks:
       - thaliumx-net
       - database-network
@@ -163,8 +190,6 @@ services:
   # ============================================
   # MONGODB - Document Store
   # ============================================
-  # STABLE CONFIG: SSL temporarily disabled due to certificate permission issues
-  # Production TODO: Re-enable SSL with proper certificate ownership
   mongodb:
     image: mongo:7
     container_name: thaliumx-mongodb
@@ -175,6 +200,7 @@ services:
       MONGO_INITDB_DATABASE: thaliumx
     volumes:
       - mongodb-data:/data/db
+      - ./../../certs/services/mongodb:/certs:ro
     secrets:
       - mongodb-password
     command: >
@@ -186,6 +212,9 @@ services:
       --maxConns 1000
       --wiredTigerCacheSizeGB 2
       --setParameter ttlMonitorSleepSecs=60
+      --tlsMode requireTLS
+      --tlsCertificateKeyFile /certs/mongodb.pem
+      --tlsCAFile /certs/ca.crt
     ports:
       - "27017:27017"
     networks:

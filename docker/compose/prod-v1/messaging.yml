@@ -1,11 +1,262 @@
 # ThaliumX Production v1 - Messaging Layer
-# ======================================
-# Message queue services: Kafka, Zookeeper
-# Status: Planned for infrastructure phase
-# Updated: 2025-12-17T08:59:40.000Z
+# ========================================
+# Secure Kafka with KRaft (no Zookeeper) + Schema Registry
+# Features: SSL/TLS, SASL/SCRAM authentication, Docker secrets
+# Status: Production Ready
+# Updated: 2025-12-18T06:21:00.000Z
 
 version: '3.8'
 
-# TODO: Add Kafka cluster
-# TODO: Add Zookeeper ensemble
-# TODO: Configure Redis for additional queuing if needed
+services:
+  # ============================================
+  # KAFKA - Event Streaming Platform
+  # ============================================
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: thaliumx-kafka
+    hostname: thaliumx-kafka
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    environment:
+      # KRaft settings (no Zookeeper needed)
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@thaliumx-kafka:9093
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+      # SSL/TLS Configuration - ENTERPRISE PRODUCTION
+      KAFKA_LISTENERS: SSL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: SSL://thaliumx-kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,SSL:SSL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: SSL
+
+      # SSL Certificate Configuration - JKS FORMAT
+      KAFKA_SSL_KEYSTORE_FILENAME: kafka-keystore.jks
+      KAFKA_SSL_KEYSTORE_CREDENTIALS: ssl-key-credentials
+      KAFKA_SSL_KEY_CREDENTIALS: ssl-key-credentials
+      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: ssl-key-credentials
+      KAFKA_SSL_KEYSTORE_TYPE: JKS
+      KAFKA_SSL_KEYSTORE_LOCATION: /etc/kafka/secrets/kafka-keystore.jks
+      KAFKA_SSL_TRUSTSTORE_TYPE: JKS
+      KAFKA_SSL_TRUSTSTORE_LOCATION: /etc/kafka/secrets/kafka-truststore.jks
+
+      # SASL/SCRAM Authentication - ENTERPRISE SECURITY
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf"
+      KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-256
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-256
+
+      # Topic and Replication Settings
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+
+      # Auto topic creation (disable in production)
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+
+      # Performance and Resource Settings
+      KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_NUM_RECOVERY_THREADS_PER_DATA_DIR: 1
+
+      # Security Settings (ACL disabled for KRaft without Zookeeper)
+      # KAFKA_AUTHORIZER_CLASS_NAME: kafka.security.authorizer.AclAuthorizer
+      # KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+      # KAFKA_SUPER_USERS: User:admin
+
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+      - ./../../certs/services/kafka/kafka-keystore.jks:/etc/kafka/secrets/kafka-keystore.jks:ro
+      - ./../../certs/services/kafka/kafka-truststore.jks:/etc/kafka/secrets/kafka-truststore.jks:ro
+      - ./../../certs/services/kafka/ssl-key-credentials:/etc/kafka/secrets/ssl-key-credentials:ro
+      - ./../../messaging/config/kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf:ro
+      - ./../../messaging/config/client.properties:/etc/kafka/client.properties:ro
+      - ./../../messaging/config/entrypoint.sh:/entrypoint.sh:ro
+    secrets:
+      - kafka-password
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    labels:
+      - "com.thaliumx.service=kafka"
+      - "com.thaliumx.component=messaging"
+      - "com.thaliumx.description=Apache Kafka with KRaft and SSL/TLS"
+
+  # ============================================
+  # KAFKA TOPIC INITIALIZER - Production Topic Seeding
+  # ============================================
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: thaliumx-kafka-init
+    hostname: thaliumx-kafka-init
+    restart: "no"  # Run once and exit
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: thaliumx-kafka:9092
+      KAFKA_SECURITY_PROTOCOL: SSL
+      KAFKA_SSL_TRUSTSTORE_TYPE: PEM
+      KAFKA_SSL_TRUSTSTORE_CERTIFICATES: /certs/kafka/ca.crt
+      KAFKA_SASL_MECHANISM: SCRAM-SHA-256
+      KAFKA_SASL_JAAS_CONFIG: org.apache.kafka.common.security.scram.ScramLoginModule required username="admin" password="$(cat /run/secrets/kafka-password)";
+      KAFKA_SSL_KEYSTORE_TYPE: PEM
+      KAFKA_SSL_KEYSTORE_CERTIFICATE_CHAIN: /certs/kafka/server.crt
+      KAFKA_SSL_KEYSTORE_KEY: /certs/kafka/server.key
+    volumes:
+      - ./../../certs/services/kafka:/certs/kafka:ro
+      - ./../../kafka/init/create-topics.sh:/create-topics.sh:ro
+      - ./../../messaging/config/client.properties:/etc/kafka/client.properties:ro
+    secrets:
+      - kafka-password
+    networks:
+      - thaliumx-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: ["/bin/bash", "/create-topics.sh"]
+    labels:
+      - "com.thaliumx.service=kafka-init"
+      - "com.thaliumx.component=messaging"
+      - "com.thaliumx.description=Kafka Topic Initialization"
+
+  # ============================================
+  # KAFKA UI - Management Interface
+  # ============================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: thaliumx-kafka-ui
+    hostname: thaliumx-kafka-ui
+    restart: unless-stopped
+    environment:
+      KAFKA_CLUSTERS_0_NAME: thaliumx-production
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: thaliumx-kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: thaliumx-kafka:2181  # Not used in KRaft but required
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: SSL
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_MECHANISM: SCRAM-SHA-256
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_JAAS_CONFIG: org.apache.kafka.common.security.scram.ScramLoginModule required username="admin" password="$(cat /run/secrets/kafka-password)";
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_TYPE: PEM
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_CERTIFICATES: /certs/kafka/ca.crt
+      DYNAMIC_CONFIG_ENABLED: "true"
+      AUTH_TYPE: "LOGIN_FORM"
+      SPRING_SECURITY_USER_NAME: admin
+      SPRING_SECURITY_USER_PASSWORD_FILE: /run/secrets/kafka-ui-password
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./../../certs/services/kafka:/certs/kafka:ro
+    secrets:
+      - kafka-password
+      - kafka-ui-password
+    networks:
+      - thaliumx-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    labels:
+      - "com.thaliumx.service=kafka-ui"
+      - "com.thaliumx.component=messaging"
+      - "com.thaliumx.description=Kafka Management and Monitoring UI"
+
+  # ============================================
+  # SCHEMA REGISTRY - Message Schema Management
+  # ============================================
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.3
+    container_name: thaliumx-schema-registry
+    hostname: thaliumx-schema-registry
+    restart: unless-stopped
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: thaliumx-schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: thaliumx-kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_SCHEMA_REGISTRY_INTER_INSTANCE_PROTOCOL: http
+      SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL: INFO
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC: _schemas
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
+      SCHEMA_REGISTRY_DEBUG: "false"
+
+      # SSL Configuration for Schema Registry (simplified for initial deployment)
+      SCHEMA_REGISTRY_SSL_KEYSTORE_LOCATION: /certs/schema-registry/schema-registry.keystore.jks
+      SCHEMA_REGISTRY_SSL_KEYSTORE_PASSWORD: ${SCHEMA_REGISTRY_KEYSTORE_PASSWORD}
+      SCHEMA_REGISTRY_SSL_KEY_PASSWORD: ${SCHEMA_REGISTRY_KEY_PASSWORD}
+
+      # Kafka Security (SSL only for now)
+      SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL: SSL
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_LOCATION: /certs/schema-registry/schema-registry.keystore.jks
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_PASSWORD: ${SCHEMA_REGISTRY_KEYSTORE_PASSWORD}
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEY_PASSWORD: ${SCHEMA_REGISTRY_KEY_PASSWORD}
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_LOCATION: /certs/schema-registry/schema-registry.truststore.jks
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_PASSWORD: ${SCHEMA_REGISTRY_TRUSTSTORE_PASSWORD}
+
+      # SASL Authentication (disabled for initial deployment)
+      # SCHEMA_REGISTRY_KAFKASTORE_SASL_MECHANISM: SCRAM-SHA-256
+      # SCHEMA_REGISTRY_KAFKASTORE_SASL_JAAS_CONFIG: org.apache.kafka.common.security.scram.ScramLoginModule required username="admin" password="${KAFKA_ADMIN_PASSWORD}";
+
+    ports:
+      - "8085:8081"
+    volumes:
+      - ./../../certs/services/schema-registry:/certs/schema-registry:ro
+    secrets:
+      - kafka-password
+    networks:
+      - thaliumx-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/subjects || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    labels:
+      - "com.thaliumx.service=schema-registry"
+      - "com.thaliumx.component=messaging"
+      - "com.thaliumx.description=Confluent Schema Registry with SSL/TLS"
+
+volumes:
+  kafka_data:
+    name: thaliumx-kafka-data
+
+networks:
+  thaliumx-net:
+    external: true

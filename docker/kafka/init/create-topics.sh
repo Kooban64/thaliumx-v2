@@ -39,12 +39,12 @@ print_error() {
 # Wait for Kafka to be ready
 wait_for_kafka() {
     print_header "Waiting for Kafka to be ready..."
-    
+
     local max_attempts=30
     local attempt=1
-    
+
     while [ $attempt -le $max_attempts ]; do
-        if kafka-broker-api-versions --bootstrap-server "$KAFKA_BOOTSTRAP" > /dev/null 2>&1; then
+        if kafka-broker-api-versions --bootstrap-server "$KAFKA_BOOTSTRAP" --command-config /etc/kafka/client.properties > /dev/null 2>&1; then
             print_success "Kafka is ready"
             return 0
         fi
@@ -52,7 +52,7 @@ wait_for_kafka() {
         sleep 2
         ((attempt++))
     done
-    
+
     print_error "Kafka failed to become ready"
     return 1
 }
@@ -74,13 +74,14 @@ create_topic() {
     echo "  Cleanup: $cleanup_policy"
     
     # Check if topic exists
-    if kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" --list 2>/dev/null | grep -q "^${topic_name}$"; then
+    if kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" --command-config /etc/kafka/client.properties --list 2>/dev/null | grep -q "^${topic_name}$"; then
         print_warning "Topic already exists: $topic_name"
         return 0
     fi
-    
+
     # Create topic
     kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" \
+        --command-config /etc/kafka/client.properties \
         --create \
         --topic "$topic_name" \
         --partitions "$partitions" \
@@ -306,11 +307,11 @@ create_compacted_topics() {
 # ============================================================================
 list_topics() {
     print_header "Listing All Kafka Topics"
-    
-    kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" --list 2>/dev/null | sort
-    
+
+    kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" --command-config /etc/kafka/client.properties --list 2>/dev/null | sort
+
     echo ""
-    topic_count=$(kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" --list 2>/dev/null | wc -l)
+    topic_count=$(kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" --command-config /etc/kafka/client.properties --list 2>/dev/null | wc -l)
     print_success "Total topics: $topic_count"
 }
 

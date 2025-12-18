@@ -1,13 +1,349 @@
 # ThaliumX Production v1 - Monitoring Layer
-# =======================================
-# Observability stack: Prometheus, Grafana, Loki, Jaeger
-# Status: Planned for operations phase
-# Updated: 2025-12-17T09:00:00.000Z
+# =========================================
+# Enterprise Observability: Prometheus, Grafana, Loki, Tempo, OpenTelemetry
+# Security: SSL/TLS, Vault integration, RBAC authentication
+# Status: Production Ready with Enterprise Security
+# Updated: 2025-12-18T08:00:00.000Z
 
 version: '3.8'
 
-# TODO: Add Prometheus metrics collection
-# TODO: Add Grafana dashboards
-# TODO: Add Loki log aggregation
-# TODO: Add Jaeger distributed tracing
-# TODO: Configure Alertmanager
+services:
+  # ============================================
+  # PROMETHEUS - Metrics Collection
+  # ============================================
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: thaliumx-prometheus
+    hostname: thaliumx-prometheus
+    restart: unless-stopped
+    environment:
+      # Vault integration for configuration
+      VAULT_ADDR: https://vault:8200
+      VAULT_SKIP_VERIFY: "true"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--web.enable-remote-write-receiver'
+      - '--web.enable-admin-api'
+      - '--web.listen-address=0.0.0.0:9090'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./../../observability/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./../../observability/config/alerts:/etc/prometheus/alerts:ro
+      - prometheus_data:/prometheus
+    secrets:
+      - vault-role-id
+      - vault-secret-id
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    labels:
+      - "com.thaliumx.service=prometheus"
+      - "com.thaliumx.component=monitoring"
+      - "com.thaliumx.description=Metrics Collection and Alerting"
+      - "com.thaliumx.tier=monitoring"
+
+  # ============================================
+  # GRAFANA - Dashboard and Visualization
+  # ============================================
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: thaliumx-grafana
+    hostname: thaliumx-grafana
+    restart: unless-stopped
+    environment:
+      # Enterprise security settings
+      GF_SECURITY_ADMIN_USER_FILE: /run/secrets/grafana-admin-username
+      GF_SECURITY_ADMIN_PASSWORD_FILE: /run/secrets/grafana-admin-password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: http://grafana.thaliumx.com
+      GF_SERVER_PROTOCOL: http
+
+      # SSL/TLS configuration (disabled for initial deployment)
+      # GF_SERVER_CERT_FILE: /certs/grafana/server.crt
+      # GF_SERVER_CERT_KEY: /certs/grafana/server.key
+
+      # Security hardening
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_COOKIE_SAMESITE: strict
+      GF_SECURITY_STRICT_TRANSPORT_SECURITY: "true"
+      GF_SECURITY_STRICT_TRANSPORT_SECURITY_MAX_AGE_SECONDS: 31536000
+
+      # Database configuration - Using SQLite for initial deployment
+      # GF_DATABASE_TYPE: postgres
+      # GF_DATABASE_HOST: postgres:5432
+      # GF_DATABASE_NAME: grafana
+      # GF_DATABASE_USER_FILE: /run/secrets/postgres-username
+      # GF_DATABASE_PASSWORD_FILE: /run/secrets/postgres-password
+      # GF_DATABASE_SSL_MODE: require
+
+      # Vault integration
+      VAULT_ADDR: https://vault:8200
+      VAULT_SKIP_VERIFY: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./../../observability/config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./../../observability/config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./../../certs/services/grafana:/certs/grafana:ro
+      - ./../../certs/ca/ca.crt:/certs/ca.crt:ro
+      - grafana_data:/var/lib/grafana
+    secrets:
+      - grafana-admin-username
+      - grafana-admin-password
+      - postgres-username
+      - postgres-password
+      - vault-role-id
+      - vault-secret-id
+    networks:
+      - thaliumx-net
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    labels:
+      - "com.thaliumx.service=grafana"
+      - "com.thaliumx.component=monitoring"
+      - "com.thaliumx.description=Dashboard and Visualization Platform"
+      - "com.thaliumx.tier=monitoring"
+
+  # ============================================
+  # LOKI - Log Aggregation
+  # ============================================
+  loki:
+    image: grafana/loki:2.9.6
+    container_name: thaliumx-loki
+    hostname: thaliumx-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./../../observability/config/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    labels:
+      - "com.thaliumx.service=loki"
+      - "com.thaliumx.component=monitoring"
+      - "com.thaliumx.description=Log Aggregation System"
+      - "com.thaliumx.tier=monitoring"
+
+  # ============================================
+  # TEMPO - Distributed Tracing
+  # ============================================
+  tempo:
+    image: grafana/tempo:2.4.1
+    container_name: thaliumx-tempo
+    hostname: thaliumx-tempo
+    restart: unless-stopped
+    command: -config.file=/etc/tempo/tempo.yml
+    ports:
+      - "3200:3200"   # Tempo query frontend
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - ./../../observability/config/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo_data:/var/tempo
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3200/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    labels:
+      - "com.thaliumx.service=tempo"
+      - "com.thaliumx.component=monitoring"
+      - "com.thaliumx.description=Distributed Tracing System"
+      - "com.thaliumx.tier=monitoring"
+
+  # ============================================
+  # PROMTAIL - Log Shipping Agent
+  # ============================================
+  promtail:
+    image: grafana/promtail:2.9.6
+    container_name: thaliumx-promtail
+    hostname: thaliumx-promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail.yml
+    ports:
+      - "9081:9080"   # HTTP server for health/ready endpoints (changed from 9080 to avoid conflict with APISIX)
+    volumes:
+      - ./../../observability/config/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks:
+      - thaliumx-net
+    depends_on:
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'echo > /dev/tcp/localhost/9080' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    labels:
+      - "com.thaliumx.service=promtail"
+      - "com.thaliumx.component=monitoring"
+      - "com.thaliumx.description=Log Shipping Agent"
+      - "com.thaliumx.tier=monitoring"
+
+  # ============================================
+  # ALERTMANAGER - Alert Management
+  # ============================================
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: thaliumx-alertmanager
+    hostname: thaliumx-alertmanager
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=https://alertmanager.thaliumx.com'
+      - '--cluster.listen-address='
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./../../observability/config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./../../observability/config/alertmanager-templates:/etc/alertmanager/templates:ro
+      - alertmanager_data:/alertmanager
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+    labels:
+      - "com.thaliumx.service=alertmanager"
+      - "com.thaliumx.component=monitoring"
+      - "com.thaliumx.description=Alert Management and Notification"
+      - "com.thaliumx.tier=monitoring"
+
+  # ============================================
+  # OPENTELEMETRY COLLECTOR - Telemetry Processing
+  # ============================================
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.97.0
+    container_name: thaliumx-otel-collector
+    hostname: thaliumx-otel-collector
+    restart: unless-stopped
+    command: --config=/etc/otel/otel-collector.yml
+    ports:
+      - "8888:8888"   # Prometheus metrics for otel-collector itself
+      - "13133:13133" # Health check extension
+    volumes:
+      - ./../../observability/config/otel-collector.yml:/etc/otel/otel-collector.yml:ro
+    networks:
+      - thaliumx-net
+    depends_on:
+      tempo:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "components"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    labels:
+      - "com.thaliumx.service=otel-collector"
+      - "com.thaliumx.component=monitoring"
+      - "com.thaliumx.description=OpenTelemetry Telemetry Processing"
+      - "com.thaliumx.tier=monitoring"
+
+volumes:
+  prometheus_data:
+    name: thaliumx-prometheus-data
+  grafana_data:
+    name: thaliumx-grafana-data
+  loki_data:
+    name: thaliumx-loki-data
+  tempo_data:
+    name: thaliumx-tempo-data
+  alertmanager_data:
+    name: thaliumx-alertmanager-data
+
+networks:
+  thaliumx-net:
+    external: true

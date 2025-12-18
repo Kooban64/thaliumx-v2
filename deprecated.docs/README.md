@@ -1,303 +1,672 @@
-# ThaliumX Platform
+# Core Services Overview
 
-A comprehensive, production-ready infrastructure backbone for building modern financial applications.
+This document describes all the core backbone services in the ThaliumX platform and the value they provide.
 
-[![Version](https://img.shields.io/badge/version-0.6.0--production--ready-blue.svg)](https://github.com/thaliumx/thaliumx)
-[![Services](https://img.shields.io/badge/services-36-green.svg)](#services)
-[![Security](https://img.shields.io/badge/security-hardened-brightgreen.svg)](#security)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
-## 🚀 Overview
-
-ThaliumX provides a complete Docker-based infrastructure with 36 pre-configured services covering:
-
-- **Core Applications**: Next.js Frontend, Node.js/Express Backend
-- **Data Storage**: PostgreSQL (TimescaleDB), MongoDB, Redis, Typesense
-- **Messaging**: Kafka (KRaft), Schema Registry
-- **Security**: Keycloak, Vault, OPA, Wazuh SIEM
-- **API Gateway**: APISIX with Dashboard
-- **Observability**: Prometheus, Grafana, Loki, Tempo, OpenTelemetry
-- **Fintech**: Ballerine (KYC/KYB), BlinkFinance (Ledger)
-- **Trading**: Dingir Exchange, Liquibook, QuantLib
-
-## 📊 Project Status
-
-| Category | Status | Services |
-|----------|--------|----------|
-| Core Apps | ✅ Complete | Frontend (Next.js), Backend (Node.js) |
-| Data Layer | ✅ Complete | PostgreSQL, MongoDB, Redis, Typesense |
-| Messaging | ✅ Complete | Kafka, Schema Registry, Kafka UI |
-| Security | ✅ Hardened | Keycloak, Vault, OPA, Wazuh (3) |
-| Gateway | ✅ Complete | APISIX, etcd, Dashboard |
-| Observability | ✅ Complete | 10 services |
-| Fintech | ✅ Complete | Ballerine (3), BlinkFinance |
-| Trading | ✅ Complete | Dingir (2), Liquibook, QuantLib |
-
-**Total: 36 services running and healthy**
-
-## 🔒 Security Features
-
-ThaliumX implements comprehensive security hardening:
-
-| Feature | Implementation |
-|---------|----------------|
-| **Non-root Containers** | All services run as UID 1001 |
-| **Read-only Filesystems** | Immutable container filesystems |
-| **Capability Dropping** | All capabilities dropped (CAP_DROP: ALL) |
-| **Privilege Escalation** | Prevented via no-new-privileges |
-| **Secrets Management** | HashiCorp Vault integration |
-| **Signal Handling** | dumb-init for proper PID 1 handling |
-| **Resource Limits** | CPU and memory constraints |
-| **Network Isolation** | Dedicated bridge network (172.28.0.0/16) |
-
-See [Security Documentation](docs/SECURITY.md) for details.
-
-## 🏗️ Architecture
+## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        THALIUMX PLATFORM                         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
-│   │ Frontend │  │ Backend  │  │Ballerine │  │BlinkFin. │       │
-│   │ (Next.js)│  │(Express) │  │  (KYC)   │  │ (Ledger) │       │
-│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘       │
-│        └──────────────┴──────────────┴──────────────┘           │
-│                           │                                      │
-│   ┌───────────────────────┼───────────────────────┐             │
-│   │              Trading Layer                     │             │
-│   │  Dingir Exchange │ Liquibook │ QuantLib       │             │
-│   └───────────────────────────────────────────────┘             │
-│                           │                                      │
-│                    ┌──────┴──────┐                              │
-│                    │   APISIX    │                              │
-│                    │   Gateway   │                              │
-│                    └──────┬──────┘                              │
-│                           │                                      │
-│   ┌───────────────────────┼───────────────────────┐             │
-│   │              Security Layer                    │             │
-│   │  Keycloak │ Vault │ OPA │ Wazuh SIEM         │             │
-│   └───────────────────────────────────────────────┘             │
-│                                                                  │
-│   ┌───────────────────────┬───────────────────────┐             │
-│   │      Data Layer       │    Messaging Layer    │             │
-│   │ PostgreSQL │ MongoDB  │  Kafka │ Schema Reg.  │             │
-│   │ Redis │ Typesense     │  Kafka UI             │             │
-│   └───────────────────────┴───────────────────────┘             │
-│                                                                  │
-│   ┌───────────────────────────────────────────────┐             │
-│   │            Observability Layer                 │             │
-│   │ Prometheus │ Grafana │ Loki │ Tempo │ OTEL   │             │
-│   └───────────────────────────────────────────────┘             │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              THALIUMX PLATFORM                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │  Frontend   │  │   Backend   │  │  Ballerine  │  │ BlinkFinance│        │
+│  │  (React)    │  │  (Node.js)  │  │  (Workflow) │  │  (Ledger)   │        │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │
+│         │                │                │                │                │
+│  ┌──────┴────────────────┴────────────────┴────────────────┴──────┐        │
+│  │                        APISIX Gateway                          │        │
+│  └────────────────────────────┬───────────────────────────────────┘        │
+│                               │                                             │
+│  ┌────────────────────────────┼───────────────────────────────────┐        │
+│  │                    Security Layer                               │        │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐           │        │
+│  │  │Keycloak │  │  Vault  │  │   OPA   │  │  Wazuh  │           │        │
+│  │  │  (IAM)  │  │(Secrets)│  │(Policy) │  │ (SIEM)  │           │        │
+│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘           │        │
+│  └────────────────────────────────────────────────────────────────┘        │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────┐        │
+│  │                      Data Layer                                 │        │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐           │        │
+│  │  │PostgreSQL│ │ MongoDB │  │  Redis  │  │Typesense│           │        │
+│  │  │TimescaleDB│ │(Document)│ │ (Cache) │  │(Search) │           │        │
+│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘           │        │
+│  └────────────────────────────────────────────────────────────────┘        │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────┐        │
+│  │                    Messaging Layer                              │        │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐                        │        │
+│  │  │  Kafka  │  │ Schema  │  │Kafka UI │                        │        │
+│  │  │ (KRaft) │  │Registry │  │         │                        │        │
+│  │  └─────────┘  └─────────┘  └─────────┘                        │        │
+│  └────────────────────────────────────────────────────────────────┘        │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────┐        │
+│  │                   Observability Layer                           │        │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐           │        │
+│  │  │Prometheus│ │ Grafana │  │  Loki   │  │  Tempo  │           │        │
+│  │  │(Metrics)│  │(Dashboards)│ │ (Logs) │  │(Traces) │           │        │
+│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘           │        │
+│  └────────────────────────────────────────────────────────────────┘        │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
-
-## 🚀 Quick Start
-
-```bash
-# Clone the repository
-git clone <repository-url> thaliumx
-cd thaliumx
-
-# Create Docker network
-docker network create --driver bridge --subnet 172.28.0.0/16 thaliumx-net
-
-# Generate Wazuh certificates
-cd docker/wazuh && chmod +x scripts/generate-certs.sh && ./scripts/generate-certs.sh && cd ../..
-
-# Start all services
-cd docker && docker compose up -d
-
-# Check status (wait 5-10 minutes for all services)
-docker ps --filter name=thaliumx --format "table {{.Names}}\t{{.Status}}"
-```
-
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Installation Guide](docs/INSTALLATION_GUIDE.md) | Complete setup from zero |
-| [Core Services](docs/core-services/README.md) | Service descriptions and value |
-| [Security Guide](docs/SECURITY.md) | Security hardening details |
-| [Architecture](docs/ARCHITECTURE.md) | System architecture overview |
-| [Docker Guide](docker/README.md) | Docker configuration details |
-| [Installation Tips](docs/installation-tips/README.md) | Fixes and workarounds |
-
-## 🔗 Access Points
-
-### Web Interfaces
-
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| **Frontend** | http://localhost:3000 | - |
-| **Backend API** | http://localhost:3002 | - |
-| Grafana | http://localhost:3001 | admin / ThaliumX2025 |
-| Keycloak | http://localhost:8080 | admin / ThaliumX2025 |
-| Vault | http://localhost:8200 | Token: <VAULT_TOKEN> |
-| APISIX Dashboard | http://localhost:9000 | admin / ThaliumX2025 |
-| Kafka UI | http://localhost:8081 | - |
-| Wazuh Dashboard | https://localhost:5601 | admin / SecretPassword |
-| Ballerine Backoffice | http://localhost:3004 | - |
-| Prometheus | http://localhost:9090 | - |
-
-### Trading APIs
-
-| Service | URL | Description |
-|---------|-----|-------------|
-| Dingir REST API | http://localhost:50053/api/exchange/panel | Trading engine REST interface |
-| Dingir gRPC | localhost:50051 | High-performance gRPC interface |
-| Liquibook | http://localhost:8083 | Order book engine |
-| QuantLib | http://localhost:3010 | Financial calculations |
-
-### Backend API Endpoints
-
-| Endpoint | Description |
-|----------|-------------|
-| GET /health | Health check endpoint |
-| GET /api/docs | API documentation |
-| POST /api/auth/* | Authentication endpoints |
-| GET /api/users/* | User management |
-| GET /api/trading/* | Trading operations |
-
-### Databases
-
-| Service | Connection |
-|---------|------------|
-| PostgreSQL | `postgres://thaliumx:ThaliumX2025@localhost:5432/thaliumx` |
-| MongoDB | `mongodb://thaliumx:ThaliumX2025@localhost:27017` |
-| Redis | `redis://:ThaliumX2025@localhost:6379` |
-
-## 📁 Project Structure
-
-```
-thaliumx/
-├── docker/                    # Docker Compose configurations
-│   ├── compose.yaml          # Master orchestrator
-│   ├── package.json          # pnpm workspace root
-│   ├── pnpm-workspace.yaml   # Workspace configuration
-│   ├── shared/               # Shared TypeScript types/utilities
-│   ├── frontend/             # Next.js frontend application
-│   ├── backend/              # Node.js/Express backend API
-│   ├── databases/            # PostgreSQL, MongoDB, Redis, Typesense
-│   ├── messaging/            # Kafka, Schema Registry
-│   ├── security/             # Keycloak, Vault, OPA
-│   ├── gateway/              # APISIX, etcd
-│   ├── observability/        # Prometheus, Grafana, Loki, etc.
-│   ├── wazuh/                # Wazuh SIEM/XDR
-│   ├── fintech/              # Ballerine, BlinkFinance
-│   ├── core/                 # Core services compose
-│   └── trading/              # Dingir, Liquibook, QuantLib
-├── docs/                      # Documentation
-│   ├── INSTALLATION_GUIDE.md
-│   ├── SECURITY.md
-│   ├── ARCHITECTURE.md
-│   ├── core-services/
-│   └── installation-tips/
-├── blockchain-contracts/      # Smart contracts (Solidity)
-└── README.md                  # This file
-```
-
-## 🏷️ Version History
-
-| Version | Tag | Description |
-|---------|-----|-------------|
-| 0.6.0 | v0.6.0-production-ready | Production readiness fixes, API completion, security hardening |
-| 0.5.0 | v0.5.0-security-hardening | Security hardening, Vault integration, pnpm workspace |
-| 0.4.0 | v0.4.0-core-apps | Frontend/Backend integration |
-| 0.3.0 | v0.3.0-trading | Trading services (Dingir, Liquibook, QuantLib) |
-| 0.2.0 | v0.2.0-backbone | Complete backbone with 32 services |
-| 0.1.0 | v0.1.0-core-services | Initial 28 services |
-
-## 🗺️ Roadmap
-
-### Completed ✅
-- [x] Data Layer (PostgreSQL/TimescaleDB, MongoDB, Redis, Typesense)
-- [x] Messaging Layer (Kafka KRaft, Schema Registry, Kafka UI)
-- [x] Security Layer (Keycloak, Vault, OPA, Wazuh SIEM)
-- [x] Gateway Layer (APISIX, etcd, Dashboard)
-- [x] Observability Layer (10 services)
-- [x] Fintech Layer (Ballerine, BlinkFinance)
-- [x] Core Layer (Frontend Next.js, Backend Express)
-- [x] Trading Layer (Dingir Exchange, Liquibook, QuantLib)
-- [x] Security Hardening (non-root, read-only, capabilities)
-- [x] Vault Integration for secrets management
-- [x] pnpm Workspace configuration
-- [x] Documentation
-
-### Planned 🔲
-- [ ] Citus for multi-tenancy
-- [ ] Kubernetes deployment
-- [ ] CI/CD pipelines
-- [ ] Helm charts
-- [ ] Terraform modules
-
-## 🛠️ Development
-
-### Prerequisites
-
-- Docker 24.0+
-- Docker Compose v2.20+
-- Node.js 20+ (for local development)
-- pnpm 9.14+ (for local development)
-
-### Local Development
-
-```bash
-# Install dependencies
-cd docker
-pnpm install
-
-# Build all packages
-pnpm build
-
-# Run in development mode
-pnpm dev
-```
-
-### Building Images
-
-```bash
-# Build frontend
-cd docker/core && docker compose build frontend
-
-# Build backend
-cd docker/core && docker compose build backend
-
-# Build with no cache
-docker compose build --no-cache
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## 🙏 Acknowledgments
-
-This platform integrates the following open-source projects:
-- [PostgreSQL](https://www.postgresql.org/) / [TimescaleDB](https://www.timescale.com/)
-- [Apache Kafka](https://kafka.apache.org/)
-- [Keycloak](https://www.keycloak.org/)
-- [HashiCorp Vault](https://www.vaultproject.io/)
-- [Apache APISIX](https://apisix.apache.org/)
-- [Prometheus](https://prometheus.io/) / [Grafana](https://grafana.com/)
-- [Wazuh](https://wazuh.com/)
-- [Ballerine](https://www.ballerine.com/)
-- [BlinkFinance](https://github.com/blnkfinance/blnk)
-- [Dingir Exchange](https://github.com/fluidex/dingir-exchange)
-- [Liquibook](https://github.com/objectcomputing/liquibook)
-- [QuantLib](https://www.quantlib.org/)
-- [Next.js](https://nextjs.org/)
-- [Express.js](https://expressjs.com/)
 
 ---
 
-**Built with ❤️ for the fintech community**
+## Data Layer Services
+
+### PostgreSQL with TimescaleDB
+**Port**: 5432 | **Container**: `thaliumx-postgres`
+
+**Purpose**: Primary relational database with time-series capabilities.
+
+**Value to Platform**:
+- **ACID Compliance**: Ensures data integrity for financial transactions
+- **TimescaleDB Extension**: Optimized storage and queries for time-series data (market data, audit logs, metrics)
+- **Hypertables**: Automatic partitioning for high-volume time-series data
+- **Continuous Aggregates**: Pre-computed rollups for fast analytics
+- **Data Retention Policies**: Automatic data lifecycle management
+
+**Use Cases**:
+- User accounts and profiles
+- Transaction records
+- Market data history
+- Audit trails
+- Configuration storage
+
+---
+
+### MongoDB
+**Port**: 27017 | **Container**: `thaliumx-mongodb`
+
+**Purpose**: Document database for flexible, schema-less data storage.
+
+**Value to Platform**:
+- **Flexible Schema**: Store complex, nested documents without rigid schemas
+- **Horizontal Scaling**: Easy sharding for large datasets
+- **Rich Queries**: Powerful aggregation framework
+- **Change Streams**: Real-time data change notifications
+
+**Use Cases**:
+- User preferences and settings
+- Session data
+- Workflow state storage
+- Complex nested configurations
+- Event sourcing
+
+---
+
+### Redis
+**Port**: 6379 | **Container**: `thaliumx-redis`
+
+**Purpose**: In-memory data store for caching and real-time operations.
+
+**Value to Platform**:
+- **Sub-millisecond Latency**: Extremely fast read/write operations
+- **Pub/Sub**: Real-time messaging between services
+- **Data Structures**: Lists, sets, sorted sets, hashes for various use cases
+- **TTL Support**: Automatic expiration for cache entries
+- **Persistence Options**: RDB snapshots and AOF for durability
+
+**Use Cases**:
+- Session caching
+- API response caching
+- Rate limiting
+- Real-time leaderboards
+- Distributed locks
+- Message queues
+
+---
+
+### Typesense
+**Port**: 8108 | **Container**: `thaliumx-typesense`
+
+**Purpose**: Fast, typo-tolerant search engine.
+
+**Value to Platform**:
+- **Instant Search**: Sub-50ms search responses
+- **Typo Tolerance**: Handles misspellings gracefully
+- **Faceted Search**: Filter and aggregate results
+- **Geo Search**: Location-based queries
+- **Easy Setup**: No complex configuration required
+
+**Use Cases**:
+- Product/asset search
+- User search
+- Transaction search
+- Autocomplete suggestions
+- Full-text search across documents
+
+---
+
+## Messaging Layer Services
+
+### Apache Kafka (KRaft Mode)
+**Port**: 9092 | **Container**: `thaliumx-kafka`
+
+**Purpose**: Distributed event streaming platform.
+
+**Value to Platform**:
+- **High Throughput**: Millions of messages per second
+- **Durability**: Persistent message storage with replication
+- **Ordering Guarantees**: Partition-level message ordering
+- **Replay Capability**: Re-process historical events
+- **KRaft Mode**: No Zookeeper dependency, simplified operations
+
+**Use Cases**:
+- Event-driven architecture
+- Real-time data pipelines
+- Audit logging
+- Service-to-service communication
+- Market data distribution
+- Transaction event streaming
+
+---
+
+### Schema Registry
+**Port**: 8085 | **Container**: `thaliumx-schema-registry`
+
+**Purpose**: Centralized schema management for Kafka messages.
+
+**Value to Platform**:
+- **Schema Evolution**: Manage schema changes safely
+- **Compatibility Checks**: Prevent breaking changes
+- **Multiple Formats**: Avro, Protobuf, JSON Schema support
+- **Serialization**: Efficient binary encoding
+- **Documentation**: Self-documenting message formats
+
+**Use Cases**:
+- Define message contracts between services
+- Ensure backward/forward compatibility
+- Reduce message size with binary encoding
+- API versioning for events
+
+---
+
+### Kafka UI
+**Port**: 8081 | **Container**: `thaliumx-kafka-ui`
+
+**Purpose**: Web interface for Kafka management.
+
+**Value to Platform**:
+- **Visual Management**: Browse topics, partitions, consumers
+- **Message Inspection**: View and search messages
+- **Consumer Lag Monitoring**: Track consumer health
+- **Topic Management**: Create, configure, delete topics
+
+---
+
+## Security Layer Services
+
+### Keycloak
+**Port**: 8080 | **Container**: `thaliumx-keycloak`
+
+**Purpose**: Identity and Access Management (IAM).
+
+**Value to Platform**:
+- **Single Sign-On (SSO)**: One login for all services
+- **OAuth 2.0 / OIDC**: Industry-standard authentication
+- **User Federation**: Connect to LDAP, Active Directory
+- **Social Login**: Google, GitHub, Facebook integration
+- **Multi-Factor Authentication**: Enhanced security
+- **Fine-grained Authorization**: Role-based access control
+
+**Use Cases**:
+- User authentication
+- API authentication
+- Service-to-service authentication
+- User management
+- Role and permission management
+
+---
+
+### HashiCorp Vault
+**Port**: 8200 | **Container**: `thaliumx-vault`
+
+**Purpose**: Secrets management and encryption.
+
+**Value to Platform**:
+- **Centralized Secrets**: Single source of truth for credentials
+- **Dynamic Secrets**: Generate short-lived credentials on demand
+- **Encryption as a Service**: Encrypt/decrypt without exposing keys
+- **Audit Logging**: Track all secret access
+- **Secret Rotation**: Automatic credential rotation
+
+**Use Cases**:
+- Database credentials
+- API keys
+- TLS certificates
+- Encryption keys
+- Service tokens
+
+---
+
+### Open Policy Agent (OPA)
+**Port**: 8181 | **Container**: `thaliumx-opa`
+
+**Purpose**: Policy-based access control.
+
+**Value to Platform**:
+- **Unified Policy Language**: Rego for all authorization decisions
+- **Decoupled Authorization**: Separate policy from application code
+- **Fine-grained Control**: Attribute-based access control (ABAC)
+- **Audit Trail**: Log all policy decisions
+- **Policy Testing**: Unit test your policies
+
+**Use Cases**:
+- API authorization
+- Resource access control
+- Data filtering
+- Compliance enforcement
+- Multi-tenancy isolation
+
+---
+
+### Wazuh SIEM/XDR
+**Ports**: 9200, 1514, 5601 | **Containers**: `thaliumx-wazuh-*`
+
+**Purpose**: Security Information and Event Management.
+
+**Value to Platform**:
+- **Threat Detection**: Real-time security monitoring
+- **Log Analysis**: Centralized security log analysis
+- **Compliance**: PCI-DSS, GDPR, HIPAA compliance reporting
+- **Vulnerability Detection**: Identify system vulnerabilities
+- **File Integrity Monitoring**: Detect unauthorized changes
+- **Incident Response**: Automated response to threats
+
+**Use Cases**:
+- Security monitoring
+- Intrusion detection
+- Compliance auditing
+- Forensic analysis
+- Vulnerability management
+
+---
+
+## Gateway Layer Services
+
+### Apache APISIX
+**Ports**: 9080, 9443, 9180 | **Container**: `thaliumx-apisix`
+
+**Purpose**: High-performance API gateway.
+
+**Value to Platform**:
+- **Traffic Management**: Load balancing, rate limiting, circuit breaking
+- **Security**: Authentication, authorization, IP filtering
+- **Observability**: Request logging, metrics, tracing
+- **Protocol Support**: HTTP, gRPC, WebSocket, TCP/UDP
+- **Plugin Ecosystem**: 80+ plugins for various use cases
+- **Dynamic Configuration**: Hot-reload without restarts
+
+**Use Cases**:
+- API routing
+- Rate limiting
+- Authentication proxy
+- Request/response transformation
+- Canary deployments
+- A/B testing
+
+---
+
+### etcd
+**Port**: 2379 | **Container**: `thaliumx-etcd`
+
+**Purpose**: Distributed key-value store for APISIX configuration.
+
+**Value to Platform**:
+- **Consistency**: Strong consistency guarantees
+- **High Availability**: Distributed consensus
+- **Watch API**: Real-time configuration updates
+- **APISIX Backend**: Stores gateway configuration
+
+---
+
+### APISIX Dashboard
+**Port**: 9000 | **Container**: `thaliumx-apisix-dashboard`
+
+**Purpose**: Web UI for APISIX management.
+
+**Value to Platform**:
+- **Visual Configuration**: Manage routes, upstreams, plugins
+- **Monitoring**: View traffic and health metrics
+- **Plugin Management**: Enable/disable plugins easily
+
+---
+
+## Observability Layer Services
+
+### Prometheus
+**Port**: 9090 | **Container**: `thaliumx-prometheus`
+
+**Purpose**: Metrics collection and alerting.
+
+**Value to Platform**:
+- **Pull-based Metrics**: Scrape metrics from all services
+- **PromQL**: Powerful query language for metrics
+- **Alerting**: Define alert rules and notifications
+- **Service Discovery**: Auto-discover new services
+- **Long-term Storage**: Historical metrics retention
+
+**Use Cases**:
+- System metrics (CPU, memory, disk)
+- Application metrics (requests, latency, errors)
+- Business metrics (transactions, users)
+- SLA monitoring
+- Capacity planning
+
+---
+
+### Grafana
+**Port**: 3000 | **Container**: `thaliumx-grafana`
+
+**Purpose**: Visualization and dashboards.
+
+**Value to Platform**:
+- **Rich Visualizations**: Graphs, tables, heatmaps, gauges
+- **Multiple Data Sources**: Prometheus, Loki, Tempo, PostgreSQL
+- **Alerting**: Visual alert configuration
+- **Dashboards as Code**: Version-controlled dashboards
+- **Annotations**: Mark events on graphs
+
+**Use Cases**:
+- System dashboards
+- Application performance monitoring
+- Business intelligence
+- SLA reporting
+- Incident investigation
+
+---
+
+### Loki
+**Port**: 3100 | **Container**: `thaliumx-loki`
+
+**Purpose**: Log aggregation system.
+
+**Value to Platform**:
+- **Cost-effective**: Index-free design, stores only metadata
+- **Prometheus-like**: Same label-based approach
+- **LogQL**: Query language similar to PromQL
+- **Grafana Integration**: Native log exploration in Grafana
+
+**Use Cases**:
+- Centralized logging
+- Log search and analysis
+- Error tracking
+- Audit logging
+- Debugging
+
+---
+
+### Promtail
+**Container**: `thaliumx-promtail`
+
+**Purpose**: Log collector for Loki.
+
+**Value to Platform**:
+- **Auto-discovery**: Automatically find and tail log files
+- **Label Extraction**: Parse and label log entries
+- **Pipeline Processing**: Transform logs before sending
+
+---
+
+### Tempo
+**Port**: 3200 | **Container**: `thaliumx-tempo`
+
+**Purpose**: Distributed tracing backend.
+
+**Value to Platform**:
+- **Trace Storage**: Store and query distributed traces
+- **Cost-effective**: Object storage backend
+- **Grafana Integration**: Native trace exploration
+- **OpenTelemetry Support**: Industry-standard instrumentation
+
+**Use Cases**:
+- Request tracing across services
+- Latency analysis
+- Error root cause analysis
+- Service dependency mapping
+
+---
+
+### OpenTelemetry Collector
+**Ports**: 4317, 4318 | **Container**: `thaliumx-otel-collector`
+
+**Purpose**: Telemetry data collection and processing.
+
+**Value to Platform**:
+- **Vendor Agnostic**: Single collector for all telemetry
+- **Protocol Support**: OTLP, Jaeger, Zipkin, Prometheus
+- **Processing Pipeline**: Filter, transform, batch data
+- **Multiple Exporters**: Send to multiple backends
+
+**Use Cases**:
+- Collect traces from applications
+- Collect metrics from applications
+- Protocol translation
+- Data enrichment
+
+---
+
+### cAdvisor
+**Port**: 8088 | **Container**: `thaliumx-cadvisor`
+
+**Purpose**: Container resource monitoring.
+
+**Value to Platform**:
+- **Container Metrics**: CPU, memory, network, disk per container
+- **Real-time Data**: Live resource usage
+- **Prometheus Integration**: Export metrics for scraping
+
+---
+
+### Blackbox Exporter
+**Port**: 9115 | **Container**: `thaliumx-blackbox-exporter`
+
+**Purpose**: Endpoint probing and monitoring.
+
+**Value to Platform**:
+- **HTTP Probes**: Check endpoint availability and response
+- **TCP Probes**: Verify port connectivity
+- **DNS Probes**: Monitor DNS resolution
+- **SSL Certificate Monitoring**: Track certificate expiration
+
+**Use Cases**:
+- Uptime monitoring
+- SSL certificate alerts
+- External service monitoring
+- SLA verification
+
+---
+
+### PostgreSQL Exporter
+**Port**: 9187 | **Container**: `thaliumx-postgres-exporter`
+
+**Purpose**: PostgreSQL metrics for Prometheus.
+
+**Value to Platform**:
+- **Database Metrics**: Connections, queries, locks, replication
+- **Custom Queries**: Define custom metric queries
+- **Performance Insights**: Query performance statistics
+
+---
+
+### Redis Exporter
+**Port**: 9121 | **Container**: `thaliumx-redis-exporter`
+
+**Purpose**: Redis metrics for Prometheus.
+
+**Value to Platform**:
+- **Redis Metrics**: Memory, connections, commands, keys
+- **Cluster Support**: Monitor Redis clusters
+- **Latency Tracking**: Command latency histograms
+
+---
+
+## Core Application Layer
+
+### Frontend (Next.js)
+**Port**: 3001 | **Container**: `thaliumx-frontend`
+
+**Purpose**: Modern web application for user interaction.
+
+**Value to Platform**:
+- **Server-Side Rendering**: Fast initial page loads with SEO benefits
+- **React Server Components**: Efficient data fetching and rendering
+- **Keycloak Integration**: Secure authentication via OAuth 2.0/OIDC
+- **Real-time Updates**: WebSocket support for live data
+- **Responsive Design**: Mobile-first approach with Tailwind CSS
+
+**Technology Stack**:
+- Next.js 15 with App Router
+- React 19
+- TypeScript
+- Tailwind CSS
+- shadcn/ui components
+
+**Use Cases**:
+- User authentication and registration
+- Trading dashboard
+- Portfolio management
+- Admin interfaces
+- KYC/KYB workflows
+
+---
+
+### Backend (Express.js)
+**Port**: 3002 | **Container**: `thaliumx-backend`
+
+**Purpose**: RESTful API server for business logic and data access.
+
+**Value to Platform**:
+- **RESTful API**: Clean, documented API endpoints
+- **Vault Integration**: Secure secrets management
+- **OpenTelemetry**: Full observability with traces and metrics
+- **Database Migrations**: Automated schema management
+- **Health Checks**: Kubernetes-ready health endpoints
+
+**Technology Stack**:
+- Node.js 20
+- Express.js
+- TypeScript
+- Sequelize ORM
+- Winston logging
+
+**Security Features**:
+- Non-root container execution (UID 1001)
+- Read-only filesystem
+- Dropped Linux capabilities
+- No privilege escalation
+- dumb-init for signal handling
+
+**API Endpoints**:
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/api/docs` | GET | API documentation |
+| `/api/auth/*` | * | Authentication |
+| `/api/users/*` | * | User management |
+| `/api/trading/*` | * | Trading operations |
+
+**Use Cases**:
+- User authentication and authorization
+- Trading order management
+- Portfolio calculations
+- KYC/KYB processing
+- Audit logging
+
+---
+
+## Fintech Layer Services
+
+### Ballerine Workflow Engine
+**Port**: 3003 | **Container**: `thaliumx-ballerine-workflow`
+
+**Purpose**: KYC/KYB workflow automation.
+
+**Value to Platform**:
+- **Workflow Orchestration**: Define complex verification flows
+- **Rule Engine**: Configurable business rules
+- **Integration Ready**: Connect to verification providers
+- **Audit Trail**: Complete workflow history
+
+**Use Cases**:
+- Customer onboarding (KYC)
+- Business verification (KYB)
+- Document verification
+- Risk assessment workflows
+- Compliance workflows
+
+---
+
+### Ballerine Backoffice
+**Port**: 3001 | **Container**: `thaliumx-ballerine-backoffice`
+
+**Purpose**: Admin interface for workflow management.
+
+**Value to Platform**:
+- **Case Management**: Review and approve cases
+- **Workflow Monitoring**: Track workflow progress
+- **Manual Review**: Handle edge cases
+- **Reporting**: Compliance reports
+
+---
+
+### BlinkFinance (Blnk)
+**Port**: 5001 | **Container**: `thaliumx-blinkfinance`
+
+**Purpose**: Double-entry ledger system.
+
+**Value to Platform**:
+- **Double-Entry Accounting**: Proper financial record keeping
+- **Multi-currency Support**: Handle multiple currencies
+- **Transaction History**: Complete audit trail
+- **Balance Tracking**: Real-time balance calculations
+- **Idempotency**: Safe transaction retries
+
+**Use Cases**:
+- Wallet management
+- Payment processing
+- Account balances
+- Transaction history
+- Financial reporting
+
+---
+
+## Service Ports Summary
+
+| Service | Port | Protocol | Purpose |
+|---------|------|----------|---------|
+| PostgreSQL | 5432 | TCP | Database |
+| MongoDB | 27017 | TCP | Document DB |
+| Redis | 6379 | TCP | Cache |
+| Typesense | 8108 | HTTP | Search |
+| Kafka | 9092 | TCP | Messaging |
+| Schema Registry | 8085 | HTTP | Schema Management |
+| Kafka UI | 8081 | HTTP | Kafka Management |
+| Keycloak | 8080 | HTTP | IAM |
+| Vault | 8200 | HTTP | Secrets |
+| OPA | 8181 | HTTP | Policy |
+| APISIX | 9080/9443 | HTTP/HTTPS | Gateway |
+| APISIX Admin | 9180 | HTTP | Gateway Admin |
+| APISIX Dashboard | 9000 | HTTP | Gateway UI |
+| etcd | 2379 | HTTP | Config Store |
+| Prometheus | 9090 | HTTP | Metrics |
+| Grafana | 3000 | HTTP | Dashboards |
+| Loki | 3100 | HTTP | Logs |
+| Tempo | 3200 | HTTP | Traces |
+| OTEL Collector | 4317/4318 | gRPC/HTTP | Telemetry |
+| cAdvisor | 8088 | HTTP | Container Metrics |
+| Blackbox Exporter | 9115 | HTTP | Probing |
+| PostgreSQL Exporter | 9187 | HTTP | DB Metrics |
+| Redis Exporter | 9121 | HTTP | Cache Metrics |
+| Wazuh Indexer | 9200 | HTTPS | SIEM Storage |
+| Wazuh Manager | 1514/55000 | TCP | SIEM Engine |
+| Wazuh Dashboard | 5601 | HTTPS | SIEM UI |
+| Ballerine Workflow | 3003 | HTTP | KYC Workflow |
+| Ballerine Backoffice | 3004 | HTTP | KYC Admin |
+| BlinkFinance | 5001 | HTTP | Ledger |
+| **Frontend** | 3001 | HTTP | Web UI (Next.js) |
+| **Backend** | 3002 | HTTP | REST API (Express) |
