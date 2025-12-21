@@ -1,0 +1,439 @@
+# ThaliumX Compliance Services Stack
+# Docker Compose configuration for all compliance microservices
+
+services:
+  # ==================== CEX COMPLIANCE SERVICE ====================
+  compliance-cex:
+    build:
+      context: /home/ubuntu/thaliumx-v1/docker/compliance-cex
+      dockerfile: Dockerfile
+    container_name: thaliumx-compliance-cex
+    restart: unless-stopped
+    # Remove external port exposure - accessed via reverse proxy
+    expose:
+      - "3001"
+    environment:
+      - NODE_ENV=production
+      - SERVICE_NAME=cex-compliance-service
+      - PORT=3001
+      - DATABASE_HOST=thaliumx-postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=cex_compliance
+      - DATABASE_USER=thaliumx
+      - DATABASE_PASSWORD_FILE=/run/secrets/postgres-password
+      - DATABASE_PASSWORD=dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7
+      - DATABASE_SSL=true
+      - DATABASE_SSL_MODE=require
+      - DATABASE_SSL_CERT=/etc/ssl/certs/client.crt
+      - DATABASE_SSL_KEY=/etc/ssl/private/client.key
+      - REDIS_HOST=thaliumx-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD_FILE=/run/secrets/redis-password
+      - REDIS_DB=0
+      - KAFKA_BROKERS=thaliumx-kafka:9092
+      - KAFKA_CLIENT_ID=cex-compliance-service
+      - KAFKA_GROUP_ID=cex-compliance-group
+      - LOG_LEVEL=info
+      - API_KEY_FILE=/run/secrets/api-key
+      - ENCRYPTION_KEY_FILE=/run/secrets/encryption-key
+      - JWT_SECRET_FILE=/run/secrets/jwt-secret
+      - VAULT_ADDR=https://vault:8200
+      - VAULT_SKIP_VERIFY=true
+      - KEYCLOAK_URL=https://keycloak:8443
+      - KEYCLOAK_REALM=thaliumx
+      - KEYCLOAK_CLIENT_ID=thaliumx-compliance-cex
+      - KEYCLOAK_CLIENT_SECRET_FILE=/run/secrets/keycloak-compliance-cex-secret
+      - METRICS_ENABLED=true
+      - PROMETHEUS_METRICS_PORT=9092
+      - AUDIT_LOG_ENABLED=true
+      - AUDIT_LOG_LEVEL=info
+      - THREAT_DETECTION_ENABLED=true
+      - THREAT_DETECTION_SENSITIVITY=medium
+      - API_KEY=c8f7ecfcfdc37ce3e566569839160ac1315f827d3675653c73048c2631a93440
+      - ENCRYPTION_KEY=secure-encryption-key-for-production-2025-32-chars!
+      - JWT_SECRET=secure-jwt-secret-for-production-environment-2025-32-chars!
+      - DATABASE_PASSWORD=secure-postgres-password-for-production-2025
+      - /home/ubuntu/thaliumx-v1/.secrets:/run/secrets:ro
+    volumes:
+  postgres-data:
+    name: thaliumx-compliance-postgres-data
+  redis-data:
+    name: thaliumx-compliance-redis-data
+  kafka-data:
+    name: thaliumx-compliance-kafka-data
+  compliance-reports:
+    name: thaliumx-compliance-reports
+
+networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "com.thaliumx.service=compliance-cex"
+      - "com.thaliumx.component=compliance"
+      - "com.thaliumx.description=CEX Compliance Service"
+      - "com.thaliumx.tier=application"
+
+  # ==================== DEX COMPLIANCE SERVICE ====================
+  compliance-dex:
+    build:
+      context: /home/ubuntu/thaliumx-v1/docker/compliance-dex
+      dockerfile: Dockerfile
+    container_name: thaliumx-compliance-dex
+    restart: unless-stopped
+    # Remove external port exposure - accessed via reverse proxy
+    expose:
+      - "3002"
+    environment:
+      - NODE_ENV=production
+      - SERVICE_NAME=dex-compliance-service
+      - PORT=3002
+      - DATABASE_HOST=thaliumx-postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=dex_compliance
+      - DATABASE_USER=thaliumx
+      - DATABASE_PASSWORD_FILE=/run/secrets/postgres-password
+      - DATABASE_PASSWORD=dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7
+      - DATABASE_SSL=true
+      - DATABASE_SSL_MODE=require
+      - DATABASE_SSL_CERT=/etc/ssl/certs/client.crt
+      - DATABASE_SSL_KEY=/etc/ssl/private/client.key
+      - REDIS_HOST=thaliumx-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD_FILE=/run/secrets/redis-password
+      - REDIS_DB=1
+      - KAFKA_BROKERS=thaliumx-kafka:9092
+      - KAFKA_CLIENT_ID=dex-compliance-service
+      - KAFKA_GROUP_ID=dex-compliance-group
+      - LOG_LEVEL=info
+      - API_KEY_FILE=/run/secrets/api-key
+      - ENCRYPTION_KEY_FILE=/run/secrets/encryption-key
+      - JWT_SECRET_FILE=/run/secrets/jwt-secret
+      - VAULT_ADDR=https://vault:8200
+      - VAULT_SKIP_VERIFY=true
+      - KEYCLOAK_URL=https://keycloak:8443
+      - KEYCLOAK_REALM=thaliumx
+      - KEYCLOAK_CLIENT_ID=thaliumx-compliance-dex
+      - KEYCLOAK_CLIENT_SECRET_FILE=/run/secrets/keycloak-compliance-dex-secret
+      - METRICS_ENABLED=true
+      - PROMETHEUS_METRICS_PORT=9093
+      - AUDIT_LOG_ENABLED=true
+      - AUDIT_LOG_LEVEL=info
+      - THREAT_DETECTION_ENABLED=true
+      - THREAT_DETECTION_SENSITIVITY=medium
+      # Blockchain RPC providers - configured via environment
+      - BLOCKCHAIN_PROVIDERS='{"ethereum":"https://mainnet.infura.io/v3/YOUR_PROJECT_ID","polygon":"https://polygon-rpc.com"}'
+      - API_KEY=c8f7ecfcfdc37ce3e566569839160ac1315f827d3675653c73048c2631a93440
+      - ENCRYPTION_KEY=secure-encryption-key-for-production-2025-32-chars!
+      - JWT_SECRET=secure-jwt-secret-for-production-environment-2025-32-chars!
+      - DATABASE_PASSWORD=secure-postgres-password-for-production-2025
+      - /home/ubuntu/thaliumx-v1/.secrets:/run/secrets:ro
+      - /home/ubuntu/thaliumx-v1/docker/certs/services/postgres/ca.crt:/etc/ssl/certs/postgres-ca.crt:ro
+      - /home/ubuntu/thaliumx-v1/docker/certs/ca/ca.crt:/etc/ssl/certs/ca.crt:ro
+      - /home/ubuntu/thaliumx-v1/docker/certs/client/compliance-service/compliance-service.crt:/etc/ssl/certs/client.crt:ro
+      - /home/ubuntu/thaliumx-v1/docker/certs/client/compliance-service/compliance-service.key:/etc/ssl/private/client.key:ro
+    volumes:
+  postgres-data:
+    name: thaliumx-compliance-postgres-data
+  redis-data:
+    name: thaliumx-compliance-redis-data
+  kafka-data:
+    name: thaliumx-compliance-kafka-data
+  compliance-reports:
+    name: thaliumx-compliance-reports
+
+networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "com.thaliumx.service=compliance-dex"
+      - "com.thaliumx.component=compliance"
+      - "com.thaliumx.description=DEX Compliance Service"
+      - "com.thaliumx.tier=application"
+
+  # ==================== NFT COMPLIANCE SERVICE ====================
+  compliance-nft:
+    build:
+      context: /home/ubuntu/thaliumx-v1/docker/compliance-nft
+      dockerfile: Dockerfile
+    container_name: thaliumx-compliance-nft
+    restart: unless-stopped
+    # Remove external port exposure - accessed via reverse proxy
+    expose:
+      - "3003"
+    environment:
+      - NODE_ENV=production
+      - SERVICE_NAME=nft-compliance-service
+      - PORT=3003
+      - DATABASE_HOST=thaliumx-postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=nft_compliance
+      - DATABASE_USER=thaliumx
+      - DATABASE_PASSWORD_FILE=/run/secrets/postgres-password
+      - DATABASE_PASSWORD=dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7
+      - DATABASE_SSL=true
+      - DATABASE_SSL_MODE=require
+      - DATABASE_SSL_CERT=/etc/ssl/certs/client.crt
+      - DATABASE_SSL_KEY=/etc/ssl/private/client.key
+      - REDIS_HOST=thaliumx-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD_FILE=/run/secrets/redis-password
+      - REDIS_DB=2
+      - KAFKA_BROKERS=thaliumx-kafka:9092
+      - KAFKA_CLIENT_ID=nft-compliance-service
+      - KAFKA_GROUP_ID=nft-compliance-group
+      - LOG_LEVEL=info
+      - CONTENT_SCREENING_ENABLED=true
+      - WASH_TRADING_DETECTION_ENABLED=true
+      - API_KEY_FILE=/run/secrets/api-key
+      - ENCRYPTION_KEY_FILE=/run/secrets/encryption-key
+      - JWT_SECRET_FILE=/run/secrets/jwt-secret
+      - API_KEY=c8f7ecfcfdc37ce3e566569839160ac1315f827d3675653c73048c2631a93440
+      - ENCRYPTION_KEY=secure-encryption-key-for-production-2025-32-chars!
+      - JWT_SECRET=secure-jwt-secret-for-production-environment-2025-32-chars!
+      - VAULT_ADDR=https://vault:8200
+      - VAULT_SKIP_VERIFY=true
+      - KEYCLOAK_URL=https://keycloak:8443
+      - KEYCLOAK_REALM=thaliumx
+      - KEYCLOAK_CLIENT_ID=thaliumx-compliance-nft
+      - KEYCLOAK_CLIENT_SECRET_FILE=/run/secrets/keycloak-compliance-nft-secret
+      - METRICS_ENABLED=true
+      - PROMETHEUS_METRICS_PORT=9094
+      - AUDIT_LOG_ENABLED=true
+      - AUDIT_LOG_LEVEL=info
+      - THREAT_DETECTION_ENABLED=true
+      - THREAT_DETECTION_SENSITIVITY=medium
+      - API_KEY=c8f7ecfcfdc37ce3e566569839160ac1315f827d3675653c73048c2631a93440
+      - ENCRYPTION_KEY=secure-encryption-key-for-production-2025-32-chars!
+      - JWT_SECRET=secure-jwt-secret-for-production-environment-2025-32-chars!
+      - DATABASE_PASSWORD=secure-postgres-password-for-production-2025
+      - /home/ubuntu/thaliumx-v1/.secrets:/run/secrets:ro
+      - /home/ubuntu/thaliumx-v1/docker/certs/services/postgres/ca.crt:/etc/ssl/certs/postgres-ca.crt:ro
+      - /home/ubuntu/thaliumx-v1/docker/certs/ca/ca.crt:/etc/ssl/certs/ca.crt:ro
+      - /home/ubuntu/thaliumx-v1/docker/certs/client/compliance-service/compliance-service.crt:/etc/ssl/certs/client.crt:ro
+      - /home/ubuntu/thaliumx-v1/docker/certs/client/compliance-service/compliance-service.key:/etc/ssl/private/client.key:ro
+    volumes:
+  postgres-data:
+    name: thaliumx-compliance-postgres-data
+  redis-data:
+    name: thaliumx-compliance-redis-data
+  kafka-data:
+    name: thaliumx-compliance-kafka-data
+  compliance-reports:
+    name: thaliumx-compliance-reports
+
+networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "com.thaliumx.service=compliance-nft"
+      - "com.thaliumx.component=compliance"
+      - "com.thaliumx.description=NFT Compliance Service"
+      - "com.thaliumx.tier=application"
+
+  # ==================== TOKEN COMPLIANCE SERVICE ====================
+  compliance-token:
+    build:
+      context: /home/ubuntu/thaliumx-v1/docker/compliance-token
+      dockerfile: Dockerfile
+    container_name: thaliumx-compliance-token
+    restart: unless-stopped
+    # Remove external port exposure - accessed via reverse proxy
+    expose:
+      - "3004"
+    environment:
+      - NODE_ENV=production
+      - SERVICE_NAME=token-compliance-service
+      - PORT=3004
+      - DATABASE_HOST=thaliumx-postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=token_compliance
+      - DATABASE_USER=thaliumx
+      - DATABASE_PASSWORD_FILE=/run/secrets/postgres-password
+      - DATABASE_PASSWORD=dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7
+      - DATABASE_SSL=true
+      - DATABASE_SSL_MODE=require
+      - DATABASE_SSL_CERT=/etc/ssl/certs/client.crt
+      - DATABASE_SSL_KEY=/etc/ssl/private/client.key
+      - REDIS_HOST=thaliumx-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD_FILE=/run/secrets/redis-password
+      - REDIS_DB=3
+      - KAFKA_BROKERS=thaliumx-kafka:9092
+      - KAFKA_CLIENT_ID=token-compliance-service
+      - KAFKA_GROUP_ID=token-compliance-group
+      - LOG_LEVEL=info
+      - WALLET_SCREENING_ENABLED=true
+      - API_KEY_FILE=/run/secrets/api-key
+      - ENCRYPTION_KEY_FILE=/run/secrets/encryption-key
+      - JWT_SECRET_FILE=/run/secrets/jwt-secret
+      - VAULT_ADDR=https://vault:8200
+      - VAULT_SKIP_VERIFY=true
+      - KEYCLOAK_URL=https://keycloak:8443
+      - KEYCLOAK_REALM=thaliumx
+      - KEYCLOAK_CLIENT_ID=thaliumx-compliance-token
+      - KEYCLOAK_CLIENT_SECRET_FILE=/run/secrets/keycloak-compliance-token-secret
+      - METRICS_ENABLED=true
+      - PROMETHEUS_METRICS_PORT=9095
+      - AUDIT_LOG_ENABLED=true
+      - AUDIT_LOG_LEVEL=info
+      - THREAT_DETECTION_ENABLED=true
+      - THREAT_DETECTION_SENSITIVITY=medium
+      - API_KEY=c8f7ecfcfdc37ce3e566569839160ac1315f827d3675653c73048c2631a93440
+      - ENCRYPTION_KEY=secure-encryption-key-for-production-2025-32-chars!
+      - JWT_SECRET=secure-jwt-secret-for-production-environment-2025-32-chars!
+      - DATABASE_PASSWORD=secure-postgres-password-for-production-2025
+      - /home/ubuntu/thaliumx-v1/.secrets:/run/secrets:ro
+    volumes:
+  postgres-data:
+    name: thaliumx-compliance-postgres-data
+  redis-data:
+    name: thaliumx-compliance-redis-data
+  kafka-data:
+    name: thaliumx-compliance-kafka-data
+  compliance-reports:
+    name: thaliumx-compliance-reports
+
+networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "com.thaliumx.service=compliance-token"
+      - "com.thaliumx.component=compliance"
+      - "com.thaliumx.description=Token Compliance Service"
+      - "com.thaliumx.tier=application"
+
+  # ==================== COMPLIANCE COORDINATOR SERVICE ====================
+  compliance-coordinator:
+    build:
+      context: /home/ubuntu/thaliumx-v1/docker/compliance-coordinator
+      dockerfile: Dockerfile
+    container_name: thaliumx-compliance-coordinator
+    restart: unless-stopped
+    # Remove external port exposure - accessed via reverse proxy
+    expose:
+      - "3005"
+    environment:
+      - NODE_ENV=production
+      - SERVICE_NAME=compliance-coordinator-service
+      - PORT=3005
+      - DATABASE_HOST=thaliumx-postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=compliance_coordinator
+      - DATABASE_USER=thaliumx
+      - DATABASE_PASSWORD_FILE=/run/secrets/postgres-password
+      - DATABASE_PASSWORD=dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7
+      - DATABASE_SSL=true
+      - DATABASE_SSL_MODE=require
+      - DATABASE_SSL_CERT=/etc/ssl/certs/client.crt
+      - DATABASE_SSL_KEY=/etc/ssl/private/client.key
+      - REDIS_HOST=thaliumx-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD_FILE=/run/secrets/redis-password
+      - REDIS_DB=4
+      - KAFKA_BROKERS=thaliumx-kafka:9092
+      - KAFKA_CLIENT_ID=compliance-coordinator-service
+      - KAFKA_GROUP_ID=compliance-coordinator-group
+      - CEX_COMPLIANCE_URL=http://thaliumx-compliance-cex:3001
+      - DEX_COMPLIANCE_URL=http://thaliumx-compliance-dex:3002
+      - NFT_COMPLIANCE_URL=http://thaliumx-compliance-nft:3003
+      - TOKEN_COMPLIANCE_URL=http://thaliumx-compliance-token:3004
+      - LOG_LEVEL=info
+      - AGGREGATION_ENABLED=true
+      - ALERTS_ENABLED=true
+      - REPORTING_ENABLED=true
+      - API_KEY_FILE=/run/secrets/api-key
+      - ENCRYPTION_KEY_FILE=/run/secrets/encryption-key
+      - JWT_SECRET_FILE=/run/secrets/jwt-secret
+      - VAULT_ADDR=https://vault:8200
+      - VAULT_SKIP_VERIFY=true
+      - KEYCLOAK_URL=https://keycloak:8443
+      - KEYCLOAK_REALM=thaliumx
+      - KEYCLOAK_CLIENT_ID=thaliumx-compliance-coordinator
+      - KEYCLOAK_CLIENT_SECRET_FILE=/run/secrets/keycloak-compliance-coordinator-secret
+      - METRICS_ENABLED=true
+      - PROMETHEUS_METRICS_PORT=9096
+      - AUDIT_LOG_ENABLED=true
+      - AUDIT_LOG_LEVEL=info
+      - THREAT_DETECTION_ENABLED=true
+      - THREAT_DETECTION_SENSITIVITY=medium
+      - /home/ubuntu/thaliumx-v1/.secrets:/run/secrets:ro
+      - compliance-reports:/data/reports
+    volumes:
+  postgres-data:
+    name: thaliumx-compliance-postgres-data
+  redis-data:
+    name: thaliumx-compliance-redis-data
+  kafka-data:
+    name: thaliumx-compliance-kafka-data
+  compliance-reports:
+    name: thaliumx-compliance-reports
+
+networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "com.thaliumx.service=compliance-coordinator"
+      - "com.thaliumx.component=compliance"
+      - "com.thaliumx.description=Compliance Coordinator Service"
+      - "com.thaliumx.tier=application"
+
+  # ==================== SUPPORTING SERVICES ====================
+
+volumes:
+  postgres-data:
+    name: thaliumx-compliance-postgres-data
+  redis-data:
+    name: thaliumx-compliance-redis-data
+  kafka-data:
+    name: thaliumx-compliance-kafka-data
+  compliance-reports:
+    name: thaliumx-compliance-reports
+
+networks:
+volumes:
+  postgres-data:
+    name: thaliumx-compliance-postgres-data
+  redis-data:
+    name: thaliumx-compliance-redis-data
+  kafka-data:
+    name: thaliumx-compliance-kafka-data
+  compliance-reports:
+    name: thaliumx-compliance-reports
+
+networks:
+  thaliumx-net:
+    external: true
+
+  postgres-data:
+    name: thaliumx-compliance-postgres-data
+  redis-data:
+    name: thaliumx-compliance-redis-data
+  kafka-data:
+    name: thaliumx-compliance-kafka-data
+  compliance-reports:
+    name: thaliumx-compliance-reports

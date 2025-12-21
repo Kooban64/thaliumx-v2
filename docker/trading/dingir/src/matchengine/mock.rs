@@ -26,12 +26,36 @@ pub fn get_integer_prec_market_config() -> config::Market {
     }
 }
 
+// TODO: implement and use Into for MockAsset
 pub fn get_simple_asset_config(prec: u32) -> Vec<config::Asset> {
-    vec![MockAsset::USDT.into_asset(prec), MockAsset::ETH.into_asset(prec)]
+    vec![
+        config::Asset {
+            id: MockAsset::USDT.id(),
+            symbol: MockAsset::USDT.symbol(),
+            name: MockAsset::USDT.name(),
+            chain_id: 1,
+            token_address: MockAsset::USDT.token_address(),
+            rollup_token_id: MockAsset::USDT.rollup_token_id(),
+            prec_save: prec,
+            prec_show: prec,
+            logo_uri: String::default(),
+        },
+        config::Asset {
+            id: MockAsset::ETH.id(),
+            symbol: MockAsset::ETH.symbol(),
+            name: MockAsset::ETH.name(),
+            chain_id: 1,
+            token_address: MockAsset::ETH.token_address(),
+            rollup_token_id: MockAsset::ETH.rollup_token_id(),
+            prec_save: prec,
+            prec_show: prec,
+            logo_uri: String::default(),
+        },
+    ]
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub enum MockAsset {
     ETH,
     USDT,
@@ -65,19 +89,6 @@ impl MockAsset {
         match self {
             MockAsset::ETH => 0,
             MockAsset::USDT => 1,
-        }
-    }
-    pub fn into_asset(self, prec: u32) -> config::Asset {
-        config::Asset {
-            id: self.id(),
-            symbol: self.symbol(),
-            name: self.name(),
-            chain_id: 1,
-            token_address: self.token_address(),
-            rollup_token_id: self.rollup_token_id(),
-            prec_save: prec,
-            prec_show: prec,
-            logo_uri: String::default(),
         }
     }
 }

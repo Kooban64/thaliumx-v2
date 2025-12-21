@@ -58,11 +58,11 @@ pub struct Symbol {
     session: String,
     exchange: String,
     listed_exchange: String,
-    // Timezone as string for TradingView compatibility
+    //TODO: we can use a enum
     timezone: String,
     minmov: u32,
     pricescale: u32,
-    // These fields are kept for backward compatibility with older TradingView versions
+    //TODO: this two field may has been deprecated
     minmovement2: u32,
     minmov2: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -121,7 +121,7 @@ fn symbology(origin: &MarketDesc) -> (SymNameAndTicker, FullName) {
 impl From<MarketDesc> for Symbol {
     fn from(origin: MarketDesc) -> Self {
         let (name, _) = symbology(&origin);
-        let pricescale = 10_u32.pow(origin.min_amount.scale());
+        let pricescale = 10u32.pow(origin.min_amount.scale());
         //simply pick the lo part
         let minmov = origin.min_amount.unpack().lo;
 
@@ -217,7 +217,8 @@ pub async fn symbols(
     } else {
         log::debug!("query market from name {}", rsymbol);
         let symbol_query_2 = format!("select * from {} where market_name = $1", MARKET);
-        // Fallback query for market_name - this is correct as it allows symbol lookup by market name
+        //TODO: would this returning correct? should we just
+        //response 404?
         sqlx::query_as(&symbol_query_2)
             .bind(&symbol)
             .fetch_one(&app_state.db)
@@ -385,7 +386,7 @@ pub async fn ticker(
     let cache = req.app_data::<state::AppCache>().expect("App cache not found");
     let now_ts: DateTime<Utc> = SystemTime::now().into();
     let update_inv = app_state.config.trading.ticker_update_interval;
-    let ticker_ret_cache = &mut cache.trading.write().unwrap().ticker_ret_cache;
+    let ticker_ret_cache = &mut cache.trading.borrow_mut().ticker_ret_cache;
 
     if let Some(cached_resp) = ticker_ret_cache.get(&market_name) {
         //consider systemtime may wraparound, we set the valid
@@ -541,7 +542,7 @@ pub async fn history(req_origin: HttpRequest, app_state: web::Data<state::AppSta
     );
 
     let mut query_rows = sqlx::query_as::<_, KlineItem>(&core_query)
-        .bind(std::time::Duration::new(req.resolution as u64 * 60, 0)) // resolution is in minutes, convert to seconds
+        .bind(std::time::Duration::new(req.resolution as u64 * 60, 0)) // TODO: remove this magic number
         .bind(&req.symbol)
         .bind(NaiveDateTime::from_timestamp(req.from as i64, 0))
         .bind(NaiveDateTime::from_timestamp(req.to as i64, 0))

@@ -13,9 +13,8 @@ type OrderWriter = DatabaseWriter<models::OrderHistory>;
 type TradeWriter = DatabaseWriter<models::UserTrade>;
 
 pub trait HistoryWriter: Sync + Send {
-    // Check if writer is blocked/full
     fn is_block(&self) -> bool;
-    // Takes ownership as data is moved into the async writer queue
+    //TODO: don't take the ownership?
     fn append_balance_history(&mut self, data: models::BalanceHistory);
     fn append_internal_transfer(&mut self, data: models::InternalTx);
     fn append_user(&mut self, user: models::AccountDesc);

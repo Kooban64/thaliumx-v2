@@ -12,7 +12,7 @@ services:
   # KAFKA - Event Streaming Platform
   # ============================================
   kafka:
-    image: confluentinc/cp-kafka:7.6.0
+    image: confluentinc/cp-kafka:7.8.0
     container_name: thaliumx-kafka
     hostname: thaliumx-kafka
     restart: unless-stopped
@@ -21,25 +21,30 @@ services:
       # KRaft settings (no Zookeeper needed)
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@thaliumx-kafka:9093
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@thaliumx-kafka:9095
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
 
       # SSL/TLS Configuration - ENTERPRISE PRODUCTION
-      KAFKA_LISTENERS: SSL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: SSL://thaliumx-kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,SSL:SSL
+      KAFKA_LISTENERS: SSL://0.0.0.0:9092,PLAINTEXT://0.0.0.0:9094,CONTROLLER://0.0.0.0:9095
+      KAFKA_ADVERTISED_LISTENERS: SSL://thaliumx-kafka:9092,PLAINTEXT://thaliumx-kafka:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,SSL:SSL,PLAINTEXT:PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_INTER_BROKER_LISTENER_NAME: SSL
 
-      # SSL Certificate Configuration - JKS FORMAT
-      KAFKA_SSL_KEYSTORE_FILENAME: kafka-keystore.jks
-      KAFKA_SSL_KEYSTORE_CREDENTIALS: ssl-key-credentials
-      KAFKA_SSL_KEY_CREDENTIALS: ssl-key-credentials
-      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: ssl-key-credentials
+      # SSL Certificate Configuration - PEM FORMAT
+      # Confluent cp-kafka expects keystore/truststore filenames + credentials files when SSL is enabled.
+      # We use JKS keystores generated from our PEM material; the passwords are injected at runtime
+      # from the `kafka-password` Docker secret via ./../../messaging/config/entrypoint.sh.
       KAFKA_SSL_KEYSTORE_TYPE: JKS
-      KAFKA_SSL_KEYSTORE_LOCATION: /etc/kafka/secrets/kafka-keystore.jks
+      KAFKA_SSL_KEYSTORE_FILENAME: kafka.keystore.jks
+      KAFKA_SSL_KEYSTORE_CREDENTIALS: kafka_keystore_creds
+      KAFKA_SSL_KEY_CREDENTIALS: kafka_sslkey_creds
       KAFKA_SSL_TRUSTSTORE_TYPE: JKS
-      KAFKA_SSL_TRUSTSTORE_LOCATION: /etc/kafka/secrets/kafka-truststore.jks
+      KAFKA_SSL_TRUSTSTORE_FILENAME: kafka.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: kafka_truststore_creds
+
+      # Disable client certificate requirement for initial deployment
+      KAFKA_SSL_CLIENT_AUTH: none
 
       # SASL/SCRAM Authentication - ENTERPRISE SECURITY
       KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf"
@@ -68,13 +73,12 @@ services:
       # KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
       # KAFKA_SUPER_USERS: User:admin
 
-    ports:
-      - "9092:9092"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - kafka_data:/var/lib/kafka/data
-      - ./../../certs/services/kafka/kafka-keystore.jks:/etc/kafka/secrets/kafka-keystore.jks:ro
-      - ./../../certs/services/kafka/kafka-truststore.jks:/etc/kafka/secrets/kafka-truststore.jks:ro
-      - ./../../certs/services/kafka/ssl-key-credentials:/etc/kafka/secrets/ssl-key-credentials:ro
+      - ./../../certs/services/kafka/kafka.keystore.jks:/etc/kafka/secrets/kafka.keystore.jks:ro
+      - ./../../certs/services/kafka/kafka.truststore.jks:/etc/kafka/secrets/kafka.truststore.jks:ro
+      - ./../../certs/services/kafka/ca.crt:/etc/kafka/secrets/ca.crt:ro
       - ./../../messaging/config/kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf:ro
       - ./../../messaging/config/client.properties:/etc/kafka/client.properties:ro
       - ./../../messaging/config/entrypoint.sh:/entrypoint.sh:ro
@@ -83,7 +87,7 @@ services:
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 --command-config /etc/kafka/client.properties || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -105,7 +109,7 @@ services:
   # KAFKA TOPIC INITIALIZER - Production Topic Seeding
   # ============================================
   kafka-init:
-    image: confluentinc/cp-kafka:7.6.0
+    image: confluentinc/cp-kafka:7.8.0
     container_name: thaliumx-kafka-init
     hostname: thaliumx-kafka-init
     restart: "no"  # Run once and exit
@@ -120,6 +124,9 @@ services:
       KAFKA_SSL_KEYSTORE_CERTIFICATE_CHAIN: /certs/kafka/server.crt
       KAFKA_SSL_KEYSTORE_KEY: /certs/kafka/server.key
     volumes:
+      - ./../../certs/services/kafka/kafka.keystore.jks:/etc/kafka/secrets/kafka.keystore.jks:ro
+      - ./../../certs/services/kafka/kafka.truststore.jks:/etc/kafka/secrets/kafka.truststore.jks:ro
+      - ./../../certs/services/kafka/ca.crt:/etc/kafka/secrets/ca.crt:ro
       - ./../../certs/services/kafka:/certs/kafka:ro
       - ./../../kafka/init/create-topics.sh:/create-topics.sh:ro
       - ./../../messaging/config/client.properties:/etc/kafka/client.properties:ro
@@ -149,16 +156,17 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: thaliumx-kafka:9092
       KAFKA_CLUSTERS_0_ZOOKEEPER: thaliumx-kafka:2181  # Not used in KRaft but required
       KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: SSL
-      KAFKA_CLUSTERS_0_PROPERTIES_SASL_MECHANISM: SCRAM-SHA-256
-      KAFKA_CLUSTERS_0_PROPERTIES_SASL_JAAS_CONFIG: org.apache.kafka.common.security.scram.ScramLoginModule required username="admin" password="$(cat /run/secrets/kafka-password)";
       KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_TYPE: PEM
-      KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_CERTIFICATES: /certs/kafka/ca.crt
+      # Kafka Java clients expect `ssl.truststore.location` for PEM trust material.
+      # (`ssl.truststore.certificates` expects inline PEM content, not a file path.)
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION: /certs/kafka/ca.crt
+      # Keep hostname verification permissive in-container (matches `docker/messaging/config/client.properties`).
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
       DYNAMIC_CONFIG_ENABLED: "true"
       AUTH_TYPE: "LOGIN_FORM"
       SPRING_SECURITY_USER_NAME: admin
       SPRING_SECURITY_USER_PASSWORD_FILE: /run/secrets/kafka-ui-password
-    ports:
-      - "8082:8080"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - ./../../certs/services/kafka:/certs/kafka:ro
     secrets:
@@ -170,7 +178,8 @@ services:
       kafka:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      # Image includes `wget` but not `curl`.
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -192,7 +201,7 @@ services:
   # SCHEMA REGISTRY - Message Schema Management
   # ============================================
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.5.3
+    image: confluentinc/cp-schema-registry:7.8.0
     container_name: thaliumx-schema-registry
     hostname: thaliumx-schema-registry
     restart: unless-stopped
@@ -206,27 +215,22 @@ services:
       SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
       SCHEMA_REGISTRY_DEBUG: "false"
 
-      # SSL Configuration for Schema Registry (simplified for initial deployment)
-      SCHEMA_REGISTRY_SSL_KEYSTORE_LOCATION: /certs/schema-registry/schema-registry.keystore.jks
-      SCHEMA_REGISTRY_SSL_KEYSTORE_PASSWORD: ${SCHEMA_REGISTRY_KEYSTORE_PASSWORD}
-      SCHEMA_REGISTRY_SSL_KEY_PASSWORD: ${SCHEMA_REGISTRY_KEY_PASSWORD}
-
-      # Kafka Security (SSL only for now)
+      # Kafka Security (SSL, server-auth only)
+      # Kafka is configured with SSL listeners; clients trust the Kafka CA.
+      # Client certificates are not required unless Kafka enforces mTLS.
       SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL: SSL
-      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_LOCATION: /certs/schema-registry/schema-registry.keystore.jks
-      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_PASSWORD: ${SCHEMA_REGISTRY_KEYSTORE_PASSWORD}
-      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEY_PASSWORD: ${SCHEMA_REGISTRY_KEY_PASSWORD}
-      SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_LOCATION: /certs/schema-registry/schema-registry.truststore.jks
-      SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_PASSWORD: ${SCHEMA_REGISTRY_TRUSTSTORE_PASSWORD}
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_TYPE: PEM
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_LOCATION: /certs/kafka/ca.crt
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
 
       # SASL Authentication (disabled for initial deployment)
       # SCHEMA_REGISTRY_KAFKASTORE_SASL_MECHANISM: SCRAM-SHA-256
       # SCHEMA_REGISTRY_KAFKASTORE_SASL_JAAS_CONFIG: org.apache.kafka.common.security.scram.ScramLoginModule required username="admin" password="${KAFKA_ADMIN_PASSWORD}";
 
-    ports:
-      - "8085:8081"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
-      - ./../../certs/services/schema-registry:/certs/schema-registry:ro
+      # Reuse Kafka CA material for trust (schema-registry specific certs/JKS are not required for server-auth).
+      - ./../../certs/services/kafka:/certs/kafka:ro
     secrets:
       - kafka-password
     networks:

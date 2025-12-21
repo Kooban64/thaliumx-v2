@@ -12,55 +12,116 @@ import { QueryInterface, DataTypes } from 'sequelize';
 
 export async function up(queryInterface: QueryInterface): Promise<void> {
   // Step 1: Add tenantType field to tenants table
-  await queryInterface.addColumn('tenants', 'tenantType', {
-    type: DataTypes.ENUM('regular', 'broker', 'platform'),
-    allowNull: false,
-    defaultValue: 'regular',
-    comment: 'Type of tenant: regular (users sign up), broker (manages clients), platform (platform oversight)'
-  });
-
-  // Step 2: Add index on tenantType for fast queries
-  await queryInterface.addIndex('tenants', ['tenantType'], {
-    name: 'idx_tenants_tenant_type'
-  });
-
-  // Step 3: Add composite index for common queries
-  await queryInterface.addIndex('tenants', ['tenantType', 'isActive'], {
-    name: 'idx_tenants_type_active'
-  });
-
-  // Step 4: For existing data, try to infer tenantType from existing clients
-  // If tenant has clients, it's likely a broker
-  const [results] = await queryInterface.sequelize.query(`
-    SELECT DISTINCT t.id
-    FROM tenants t
-    INNER JOIN clients c ON c."tenantId" = t.id
-  `);
-  
-  const brokerTenantIds = (results as any[]).map(r => r.id);
-  if (brokerTenantIds.length > 0) {
+  // Check if column already exists
+  const tableDescription = await queryInterface.describeTable('tenants');
+  if (!tableDescription.tenantType) {
+    // Use raw SQL to avoid Sequelize ENUM issues
     await queryInterface.sequelize.query(`
-      UPDATE tenants
-      SET "tenantType" = 'broker'
-      WHERE id IN (${brokerTenantIds.map(id => `'${id}'`).join(',')})
+      DO $$
+      BEGIN
+        CREATE TYPE "enum_tenants_tenantType" AS ENUM('regular', 'broker', 'platform');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END
+      $$;
     `);
+
+    await queryInterface.sequelize.query(`
+      ALTER TABLE tenants ADD COLUMN "tenantType" "enum_tenants_tenantType" NOT NULL DEFAULT 'regular';
+    `);
+
+    await queryInterface.sequelize.query(`
+      COMMENT ON COLUMN tenants."tenantType" IS 'Type of tenant: regular (users sign up), broker (manages clients), platform (platform oversight)';
+    `);
+  } else {
+    console.log('tenantType column already exists, skipping addition');
   }
 
-  // Step 5: Remove brokerId column from clients table
-  // First, ensure all clients belong to broker-tenants
-  await queryInterface.sequelize.query(`
-    UPDATE clients
-    SET "tenantId" = COALESCE(
-      (SELECT t.id FROM tenants t WHERE t.id::text = clients."brokerId" LIMIT 1),
-      clients."tenantId"
-    )
-    WHERE "brokerId" IS NOT NULL
-  `);
+  // Step 2: Add index on tenantType for fast queries
+  try {
+    await queryInterface.addIndex('tenants', ['tenantType'], {
+      name: 'idx_tenants_tenant_type'
+    });
+  } catch (error: any) {
+    if (!error.message?.includes('already exists')) {
+      throw error;
+    }
+    console.log('idx_tenants_tenant_type index already exists, skipping');
+  }
 
-  await queryInterface.removeColumn('clients', 'brokerId');
+  // Step 3: Add composite index for common queries
+  // NOTE: legacy schemas used `status`; current schema uses `isActive`.
+  const activeColumn = tableDescription.status
+    ? 'status'
+    : (tableDescription.isActive ? 'isActive' : null);
 
-  // Step 6: Remove brokerId column from accounts table (FinancialAccount)
-  await queryInterface.removeColumn('accounts', 'brokerId');
+  if (activeColumn) {
+    try {
+      await queryInterface.addIndex('tenants', ['tenantType', activeColumn], {
+        name: 'idx_tenants_type_active'
+      });
+    } catch (error: any) {
+      if (!error.message?.includes('already exists')) {
+        throw error;
+      }
+      console.log('idx_tenants_type_active index already exists, skipping');
+    }
+  } else {
+    console.log('No active flag column found on tenants (expected status or isActive); skipping idx_tenants_type_active');
+  }
+
+  // Step 4: For existing data, try to infer tenantType from existing users/accounts
+  // If tenant has users, it's likely a broker.
+  // NOTE: schemas differ between legacy (tenant_id) and current (tenantId).
+  let userTenantJoinColumn: string | null = null;
+  try {
+    const usersDescription = await queryInterface.describeTable('users');
+    userTenantJoinColumn = usersDescription.tenant_id
+      ? 'tenant_id'
+      : (usersDescription.tenantId ? '"tenantId"' : null);
+  } catch {
+    // users table might not exist in some minimal deployments
+    userTenantJoinColumn = null;
+  }
+
+  if (userTenantJoinColumn) {
+    const [results] = await queryInterface.sequelize.query(`
+      SELECT DISTINCT t.id
+      FROM tenants t
+      INNER JOIN users u ON u.${userTenantJoinColumn} = t.id
+    `);
+
+    const brokerTenantIds = (results as any[]).map(r => r.id);
+    if (brokerTenantIds.length > 0) {
+      await queryInterface.sequelize.query(`
+        UPDATE tenants
+        SET "tenantType" = 'broker'
+        WHERE id IN (${brokerTenantIds.map(id => `'${id}'`).join(',')})
+      `);
+    }
+  } else {
+    console.log('users.tenantId/tenant_id column not found; skipping broker tenant inference');
+  }
+
+  // Step 5: Check if clients table exists and handle brokerId removal
+  const tables = await queryInterface.showAllTables();
+  if (tables.includes('clients')) {
+    // Remove brokerId column from clients table if it exists
+    const clientTableDescription = await queryInterface.describeTable('clients');
+    if (clientTableDescription.brokerId) {
+      await queryInterface.removeColumn('clients', 'brokerId');
+    }
+  }
+
+  // Step 6: Remove brokerId column from accounts table if it exists
+  if (tables.includes('accounts')) {
+    const accountTableDescription = await queryInterface.describeTable('accounts');
+    if (accountTableDescription.brokerId) {
+      await queryInterface.removeColumn('accounts', 'brokerId');
+    }
+  } else {
+    console.log('accounts table not found; skipping brokerId removal');
+  }
 
   // Step 7: Remove indexes that included brokerId
   try {
@@ -121,4 +182,3 @@ export async function down(queryInterface: QueryInterface): Promise<void> {
     // Indexes might not exist, ignore
   }
 }
-

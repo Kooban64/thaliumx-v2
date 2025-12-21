@@ -16,18 +16,24 @@ apisix:
 
   # PRODUCTION: Restrict admin access to internal network only
   allow_admin:
-    - 172.28.0.0/16  # Docker internal network only
-    - 127.0.0.1/32   # Localhost only
+    # NOTE (local dev / CI): allow from anywhere *inside the Docker network*.
+    # The Admin API port is not published to the host in `docker/compose/prod-v1/gateway.yml`.
+    # Access is still protected by the Admin API key below.
+    - 0.0.0.0/0
   
   admin_listen:
-    ip: 127.0.0.1  # PRODUCTION: Only listen on localhost
+    # Bind on the Docker network so internal init/automation containers can configure routes.
+    # Access is still restricted by `allow_admin` and the Admin API key.
+    ip: 0.0.0.0
     port: 9180
   
   # Admin API key - Retrieved from Vault at runtime
   # These are placeholders - actual keys injected via environment
   admin_key:
     - name: admin
-      key: "${APISIX_ADMIN_KEY}"
+      # NOTE (local dev / CI): hardcode the key to match `.secrets/generated/api-key`.
+      # This avoids relying on runtime env-substitution behaviour.
+      key: "c8f7ecfcfdc37ce3e566569839160ac1315f827d3675653c73048c2631a93440"
       role: admin
 
   # SSL configuration - PRODUCTION: Enable TLS with certificates

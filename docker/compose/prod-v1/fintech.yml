@@ -1,0 +1,145 @@
+# ThaliumX Production v1 - Fintech Layer
+# =====================================
+# Ballerine (KYC/KYB workflow) + BlinkFinance
+# Note: Fintech stack retains env-var injection for secrets (provided at deploy time).
+
+version: '3.8'
+
+services:
+  ballerine-postgres:
+    profiles: ["non-audit"]
+    image: sibedge/postgres-plv8:15.3-3.1.7
+    container_name: thaliumx-ballerine-postgres
+    hostname: thaliumx-ballerine-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${BALLERINE_DB_USER:-ballerine}
+      POSTGRES_PASSWORD: ${BALLERINE_DB_PASSWORD:?BALLERINE_DB_PASSWORD is required}
+      POSTGRES_DB: ${BALLERINE_DB_NAME:-ballerine}
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
+    volumes:
+      - ballerine_postgres_data:/var/lib/postgresql/data
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ballerine -d ballerine"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ballerine-workflow:
+    profiles: ["non-audit"]
+    image: ghcr.io/ballerine-io/workflows-service:latest
+    container_name: thaliumx-ballerine-workflow
+    hostname: thaliumx-ballerine-workflow
+    restart: unless-stopped
+    environment:
+      VAULT_ADDR: https://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN is required}
+      VAULT_SECRET_PATH: kv/data/fintech/ballerine
+      DB_USER: ballerine
+      DB_HOST: thaliumx-ballerine-postgres
+      DB_PORT: "5432"
+      DB_NAME: ballerine
+      NODE_ENV: production
+      LOG_LEVEL: info
+      PORT: "3000"
+      COMPOSE_PROJECT_NAME: thaliumx
+      ENVIRONMENT_NAME: production
+      BACKOFFICE_CORS_ORIGIN: http://localhost:3004
+      WORKFLOW_DASHBOARD_CORS_ORIGIN: http://localhost:3004
+      HEADLESS_EXAMPLE_CORS_ORIGIN: http://localhost:3004
+      KYB_EXAMPLE_CORS_ORIGIN: http://localhost:3004
+      UNIFIED_API_URL: http://thaliumx-ballerine-workflow:3000
+      APP_API_URL: http://localhost:3003
+      JWT_EXPIRATION: 1d
+      MAIL_ADAPTER: log
+      DB_URL: ${BALLERINE_DB_URL:?BALLERINE_DB_URL is required}
+      DATABASE_URL: ${BALLERINE_DATABASE_URL:?BALLERINE_DATABASE_URL is required}
+      REDIS_URL: ${BALLERINE_REDIS_URL:?BALLERINE_REDIS_URL is required}
+      JWT_SECRET_KEY: ${BALLERINE_JWT_SECRET_KEY:?BALLERINE_JWT_SECRET_KEY is required}
+      SESSION_SECRET: ${BALLERINE_SESSION_SECRET:?BALLERINE_SESSION_SECRET is required}
+      API_KEY: ${BALLERINE_API_KEY:?BALLERINE_API_KEY is required}
+      BCRYPT_SALT: "$2b$10$.8CHAioRfbSk8KiRGNqNyu"
+      HASHING_KEY_SECRET_BASE64: ${BALLERINE_HASHING_KEY_SECRET_BASE64:?BALLERINE_HASHING_KEY_SECRET_BASE64 is required}
+      WEBHOOK_SECRET: ${BALLERINE_WEBHOOK_SECRET:?BALLERINE_WEBHOOK_SECRET is required}
+      ENCRYPTION_KEY: ${BALLERINE_ENCRYPTION_KEY:?BALLERINE_ENCRYPTION_KEY is required}
+      WORKFLOW_TOKEN: ${BALLERINE_WORKFLOW_TOKEN:?BALLERINE_WORKFLOW_TOKEN is required}
+      COLLECTION_FLOW_TOKEN: ${BALLERINE_COLLECTION_FLOW_TOKEN:?BALLERINE_COLLECTION_FLOW_TOKEN is required}
+      NOTION_API_KEY: ${BALLERINE_NOTION_API_KEY:-}
+      MAGIC_LINK_JWT_SECRET: ${BALLERINE_MAGIC_LINK_JWT_SECRET:?BALLERINE_MAGIC_LINK_JWT_SECRET is required}
+      MAGIC_LINK_AUTH_JWT_SECRET: ${BALLERINE_MAGIC_LINK_AUTH_JWT_SECRET:?BALLERINE_MAGIC_LINK_AUTH_JWT_SECRET is required}
+    command: ["dumb-init", "npm", "run", "prod"]
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
+    networks:
+      - thaliumx-net
+    depends_on:
+      ballerine-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); http.get('http://localhost:3000/api/v1/_health/live', (res) => { process.exit(res.statusCode === 204 || res.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  ballerine-backoffice:
+    profiles: ["non-audit"]
+    image: ghcr.io/ballerine-io/backoffice:latest
+    container_name: thaliumx-ballerine-backoffice
+    hostname: thaliumx-ballerine-backoffice
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:3003
+      VITE_AUTH_ENABLED: ${BALLERINE_BACKOFFICE_AUTH_ENABLED:-true}
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
+    networks:
+      - thaliumx-net
+    depends_on:
+      ballerine-workflow:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  blinkfinance:
+    profiles: ["non-audit"]
+    build:
+      context: ./../../fintech/blinkfinance
+      dockerfile: Dockerfile
+      args:
+        BLNK_VERSION: v0.7.0
+    image: thaliumx/blinkfinance:latest
+    container_name: thaliumx-blinkfinance
+    hostname: thaliumx-blinkfinance
+    restart: unless-stopped
+    environment:
+      TZ: UTC
+      BLNK_SERVER_PORT: "5001"
+      BLNK_ENABLE_TELEMETRY: "false"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
+    volumes:
+      - ./../../fintech/blinkfinance/blnk.json:/app/blnk.json:ro
+      - blinkfinance_data:/app/data
+    networks:
+      - thaliumx-net
+    depends_on:
+      - ballerine-postgres
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:5001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  ballerine_postgres_data:
+    name: thaliumx-ballerine-postgres-data
+  blinkfinance_data:
+    name: thaliumx-blinkfinance-data
+
+networks:
+  thaliumx-net:
+    external: true

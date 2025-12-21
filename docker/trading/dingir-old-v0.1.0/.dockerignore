@@ -1,0 +1,8 @@
+orchestra
+target/release
+target/debug
+examples
+logs
+.git
+.gitignore
+*.md

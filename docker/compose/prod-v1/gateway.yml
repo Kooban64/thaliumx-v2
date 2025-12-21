@@ -9,7 +9,7 @@ version: '3.8'
 services:
   # etcd - Configuration Store for APISIX
   etcd:
-    image: quay.io/coreos/etcd:v3.5.12
+    image: quay.io/coreos/etcd:v3.5.15
     container_name: thaliumx-etcd
     hostname: thaliumx-etcd
     command:
@@ -21,9 +21,7 @@ services:
       - --initial-advertise-peer-urls=http://thaliumx-etcd:2380
       - --listen-peer-urls=http://0.0.0.0:2380
       - --initial-cluster=thaliumx-etcd=http://thaliumx-etcd:2380
-    ports:
-      - "2379:2379"
-      - "2380:2380"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - etcd_data:/etcd-data
       - ./certs/services/etcd/server.crt:/certs/server.crt:ro
@@ -53,21 +51,29 @@ services:
 
   # APISIX - API Gateway
   apisix:
-    image: apache/apisix:3.9.1-debian
+    image: apache/apisix:3.11.0-debian
     container_name: thaliumx-apisix
     hostname: thaliumx-apisix
     environment:
       APISIX_STAND_ALONE: "false"
+    # Strict audit mode: load the Admin API key from Docker secrets at runtime.
+    secrets:
+      - api-key
+    entrypoint: ["/bin/sh", "-lc"]
+    command:
+      - |
+        export APISIX_ADMIN_KEY="$(cat /run/secrets/api-key)";
+        exec /docker-entrypoint.sh docker-start
     volumes:
       - /home/ubuntu/thaliumx-v1/docker/apisix/config/apisix-production.yaml:/usr/local/apisix/conf/config.yaml:ro
       - /home/ubuntu/thaliumx-v1/docker/certs/services/apisix:/usr/local/apisix/certs:ro
       - /home/ubuntu/thaliumx-v1/docker/certs/ca/ca.crt:/usr/local/apisix/certs/ca.crt:ro
       - apisix_logs:/usr/local/apisix/logs
+    # Strict audit mode: APISIX is the ONLY externally exposed entrypoint.
+    # Map host 80/443 to APISIX 9080/9443.
     ports:
-      - "9080:9080"      # HTTP
-      - "9443:9443"      # HTTPS
-      - "9180:9180"      # Admin API (internal only)
-      - "9091:9091"      # Prometheus metrics (internal only)
+      - "80:9080"        # HTTP
+      - "443:9443"       # HTTPS
     networks:
       - thaliumx-net
     depends_on:
@@ -102,15 +108,15 @@ services:
       APISIX_DASHBOARD_CONFIG_FILE: /usr/local/apisix-dashboard/conf/conf.yaml
     volumes:
       - /home/ubuntu/thaliumx-v1/docker/apisix/config/dashboard.yaml:/usr/local/apisix-dashboard/conf/conf.yaml:ro
-    ports:
-      - "9000:9000"
+    # Strict audit mode: no host-exposed ports (access via internal network / gateway routes only).
     networks:
       - thaliumx-net
     depends_on:
       apisix:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/ping"]
+      # NOTE: `localhost` may resolve to IPv6 (::1) first. The dashboard binds 127.0.0.1 only.
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:9000/ping"]
       interval: 30s
       timeout: 10s
       retries: 5

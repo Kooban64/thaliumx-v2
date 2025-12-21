@@ -1,0 +1,221 @@
+# ThaliumX Production v1 - Trading Layer
+# =====================================
+# Dingir (matchengine + restapi), Liquibook, QuantLib
+# Security goals:
+# - Remove env_file that may contain secrets
+# - Read runtime secrets from Docker secrets
+
+version: '3.8'
+
+services:
+  dingir-matchengine:
+    build:
+      context: ./../../trading/dingir
+      dockerfile: Dockerfile
+    image: thaliumx/dingir:latest
+    container_name: thaliumx-dingir-matchengine
+    hostname: thaliumx-dingir-matchengine
+    restart: unless-stopped
+    command:
+      - sh
+      - -lc
+      - |
+        # Strict audit mode: keep defaults in-container (avoid docker-compose interpolation).
+        export TIMESCALE_USER="dingir";
+        export TIMESCALE_DB="exchange";
+        export TIMESCALE_PASSWORD="$(cat /run/secrets/postgres-password)";
+        # Use $$ to prevent docker-compose variable substitution; container shell will expand $TIMESCALE_*.
+        export DATABASE_URL="postgresql://$$TIMESCALE_USER:$$TIMESCALE_PASSWORD@timescaledb:5432/$$TIMESCALE_DB";
+        # Set Dingir config environment variables
+        export DB_PASSWORD="$(cat /run/secrets/postgres-password)";
+        export DB_LOG="postgresql://$$TIMESCALE_USER:$$DB_PASSWORD@timescaledb:5432/$$TIMESCALE_DB";
+        export DB_HISTORY="postgresql://$$TIMESCALE_USER:$$DB_PASSWORD@timescaledb:5432/$$TIMESCALE_DB";
+        echo "DB_LOG=$DB_LOG";
+        export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
+        export REDIS_HOST="redis";
+        export REDIS_PORT=6379;
+        # Use PLAINTEXT Kafka (as in working legacy config)
+        export BROKERS="thaliumx-kafka:9094";
+        echo "DB_LOG=$DB_LOG";
+        echo "BROKERS=$BROKERS";
+        # Use HTTP Vault (as in working legacy config)
+        export VAULT_ADDR="http://vault:8200";
+        export VAULT_TOKEN="a0f1ad52a21cc1342c7f603d134e0f0e";
+        # Disable Kafka persistence to avoid startup issues
+        export DINGIR_PERSIST_TO_MQ="false";
+        exec ./matchengine
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      RUN_MODE: ${RUN_MODE:-production}
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
+    volumes:
+      - dingir_data:/app/data
+      - dingir_logs:/app/logs
+      - ./../../certs/ca/ca.crt:/etc/ssl/certs/thaliumx-ca.crt:ro
+    secrets:
+      - postgres-password
+      - redis-password
+    networks:
+      - thaliumx-net
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep matchengine || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  dingir-restapi:
+    build:
+      context: ./../../trading/dingir
+      dockerfile: Dockerfile
+    image: thaliumx/dingir:latest
+    container_name: thaliumx-dingir-restapi
+    hostname: thaliumx-dingir-restapi
+    restart: unless-stopped
+    command:
+      - sh
+      - -lc
+      - |
+        # Strict audit mode: keep defaults in-container (avoid docker-compose interpolation).
+        export TIMESCALE_USER="dingir";
+        export TIMESCALE_DB="exchange";
+        export TIMESCALE_PASSWORD="$(cat /run/secrets/postgres-password)";
+        # Use $$ to prevent docker-compose variable substitution; container shell will expand $TIMESCALE_*.
+        export DATABASE_URL="postgresql://$$TIMESCALE_USER:$$TIMESCALE_PASSWORD@timescaledb:5432/$$TIMESCALE_DB";
+        export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
+        export REDIS_HOST="redis";
+        export REDIS_PORT=6379;
+        # Use PLAINTEXT Kafka (as in working legacy config)
+        export BROKERS="thaliumx-kafka:9094";
+        # Use HTTP Vault (as in working legacy config)
+        export VAULT_ADDR="http://vault:8200";
+        export VAULT_TOKEN="a0f1ad52a21cc1342c7f603d134e0f0e";
+        # Disable Kafka persistence to avoid startup issues
+        export DINGIR_PERSIST_TO_MQ="false";
+        exec ./restapi
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      RUN_MODE: ${RUN_MODE:-production}
+      DB_LOG: postgres://dingir:$(cat /run/secrets/postgres-password)@timescaledb:5432/exchange
+      DB_HISTORY: postgres://dingir:$(cat /run/secrets/postgres-password)@timescaledb:5432/exchange
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
+    volumes:
+      - dingir_data:/app/data
+      - dingir_logs:/app/logs
+      - ./../../certs/ca/ca.crt:/etc/ssl/certs/thaliumx-ca.crt:ro
+    secrets:
+      - postgres-password
+      - redis-password
+    networks:
+      - thaliumx-net
+    depends_on:
+      dingir-matchengine:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/api/exchange/panel/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  liquibook:
+    build:
+      context: ./../../trading/liquibook
+      dockerfile: Dockerfile
+    image: thaliumx/liquibook:latest
+    container_name: thaliumx-liquibook
+    hostname: thaliumx-liquibook
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      NODE_ENV: production
+      EXCHANGE_ENDPOINT: thaliumx-dingir-matchengine:50051
+      VAULT_ADDR: https://vault:8200
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
+    volumes:
+      - liquibook_data:/app/data
+      - liquibook_logs:/app/logs
+    networks:
+      - thaliumx-net
+    depends_on:
+      dingir-matchengine:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  quantlib:
+    build:
+      context: ./../../trading/quantlib
+      dockerfile: Dockerfile
+    image: thaliumx/quantlib:latest
+    container_name: thaliumx-quantlib
+    hostname: thaliumx-quantlib
+    restart: unless-stopped
+    command:
+      - sh
+      - -lc
+      - |
+        export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
+        export MONGO_INITDB_ROOT_PASSWORD="$(cat /run/secrets/mongodb-password)";
+        export REDIS_URL="redis://:${REDIS_PASSWORD}@redis:6379/0";
+        # Avoid docker-compose interpolation inside this script (use explicit defaults)
+        export MONGO_USER="thaliumx";
+        export MONGO_DB="thaliumx";
+        export MONGODB_URL="mongodb://${MONGO_USER}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGO_DB}?authSource=admin";
+        export VAULT_ADDR="https://vault:8200";
+        exec uvicorn src.main:app --host 0.0.0.0 --port 3010
+    environment:
+      PYTHONUNBUFFERED: 1
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
+    volumes:
+      - quantlib_data:/app/data
+      - quantlib_cache:/app/cache
+      - quantlib_models:/app/models
+    secrets:
+      - redis-password
+      - mongodb-password
+    networks:
+      - thaliumx-net
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  dingir_data:
+    name: thaliumx-dingir-data
+  dingir_logs:
+    name: thaliumx-dingir-logs
+  liquibook_data:
+    name: thaliumx-liquibook-data
+  liquibook_logs:
+    name: thaliumx-liquibook-logs
+  quantlib_data:
+    name: thaliumx-quantlib-data
+  quantlib_cache:
+    name: thaliumx-quantlib-cache
+  quantlib_models:
+    name: thaliumx-quantlib-models
+
+networks:
+  thaliumx-net:
+    external: true

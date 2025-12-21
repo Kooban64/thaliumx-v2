@@ -1,0 +1,4 @@
+debug: true
+db_log: postgres://thaliumx:password123@thaliumx-postgres:5432/thaliumx
+db_history: postgres://thaliumx:password123@thaliumx-postgres:5432/thaliumx
+brokers: 'thaliumx-mq-kafka:9092'

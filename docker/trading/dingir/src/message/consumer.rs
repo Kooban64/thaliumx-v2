@@ -78,7 +78,7 @@ impl<'c, C: RdConsumerExt> SimpleConsumer<'c, C> {
     pub fn add_topic<'a: 'c>(mut self, topic: &str, h: impl MessageHandlerAsync<'c, C> + 'a) -> Result<SimpleConsumer<'c, C>> {
         // kafka server health and topic check, fetch metadata
         self.consumer
-            .fetch_metadata(Some(topic), Duration::from_millis(2000_u64))
+            .fetch_metadata(Some(topic), Duration::from_millis(2000u64))
             .map_err(|e| format_err!("kafka topic & health check: {}", e))?;
 
         self.handlers.insert(topic.to_string(), Box::pin(h));

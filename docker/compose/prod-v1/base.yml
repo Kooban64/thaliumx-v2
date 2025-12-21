@@ -59,6 +59,10 @@ volumes:
   keycloak_data:
     driver: local
 
+  # Applications
+  backend_logs:
+    driver: local
+
   # Security
   opa_data:
     driver: local
@@ -81,6 +85,9 @@ secrets:
   # Caching
   redis-password:
     file: ../../../.secrets/generated/redis-password
+  # Redis exporter expects a JSON map (see `oliver006/redis_exporter` v1.58+).
+  redis-exporter-passwords:
+    file: ../../../.secrets/generated/redis-exporter-passwords.json
 
   # Security
   jwt-secret:
@@ -113,3 +120,65 @@ secrets:
     file: ../../../.secrets/generated/kafka-password
   kafka-ui-password:
     file: ../../../.secrets/generated/kafka-ui-password
+
+  # Search
+  typesense-api-key:
+    file: ../../../.secrets/generated/typesense-api-key
+
+  # Backend
+  keycloak-backend-secret:
+    file: ../../../.secrets/generated/keycloak-backend-secret
+  bybit-api-key:
+    file: ../../../.secrets/generated/bybit-api-key
+  bybit-api-secret:
+    file: ../../../.secrets/generated/bybit-api-secret
+  kucoin-api-key:
+    file: ../../../.secrets/generated/kucoin-api-key
+  kucoin-api-secret:
+    file: ../../../.secrets/generated/kucoin-api-secret
+  okx-api-key:
+    file: ../../../.secrets/generated/okx-api-key
+  okx-api-secret:
+    file: ../../../.secrets/generated/okx-api-secret
+  kraken-api-key:
+    file: ../../../.secrets/generated/kraken-api-key
+  kraken-api-secret:
+    file: ../../../.secrets/generated/kraken-api-secret
+  valr-api-key:
+    file: ../../../.secrets/generated/valr-api-key
+  valr-api-secret:
+    file: ../../../.secrets/generated/valr-api-secret
+  bitstamp-api-key:
+    file: ../../../.secrets/generated/bitstamp-api-key
+  bitstamp-api-secret:
+    file: ../../../.secrets/generated/bitstamp-api-secret
+  crypto-com-api-key:
+    file: ../../../.secrets/generated/crypto-com-api-key
+  crypto-com-api-secret:
+    file: ../../../.secrets/generated/crypto-com-api-secret
+  nedbank-api-key:
+    file: ../../../.secrets/generated/nedbank-api-key
+  nedbank-api-secret:
+    file: ../../../.secrets/generated/nedbank-api-secret
+
+  # API Keys and Service Secrets
+  api-key:
+    file: ../../../.secrets/generated/api-key
+
+  # SMTP (backend email) - required for production config validation
+  smtp-user:
+    file: ../../../.secrets/generated/smtp-user
+  smtp-password:
+    file: ../../../.secrets/generated/smtp-password
+
+  # Keycloak Client Secrets for Compliance Services
+  keycloak-compliance-cex-secret:
+    file: ../../../.secrets/generated/keycloak-compliance-cex-secret
+  keycloak-compliance-dex-secret:
+    file: ../../../.secrets/generated/keycloak-compliance-dex-secret
+  keycloak-compliance-nft-secret:
+    file: ../../../.secrets/generated/keycloak-compliance-nft-secret
+  keycloak-compliance-token-secret:
+    file: ../../../.secrets/generated/keycloak-compliance-token-secret
+  keycloak-compliance-coordinator-secret:
+    file: ../../../.secrets/generated/keycloak-compliance-coordinator-secret

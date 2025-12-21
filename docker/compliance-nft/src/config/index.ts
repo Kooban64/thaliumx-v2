@@ -179,12 +179,13 @@ export function buildConfig(): NFTComplianceConfig {
     port: getEnvInt('PORT', 3003),
 
     database: {
-      host: getEnv('DB_HOST', 'localhost'),
+      host: getEnv('DATABASE_HOST', 'thaliumx-postgres'),
       port: getEnvInt('DB_PORT', 5432),
-      database: getEnv('DB_NAME', 'nft_compliance'),
-      user: getEnv('DB_USER', 'postgres'),
-      password: getEnv('DB_PASSWORD', ''),
-      ssl: getEnvBool('DB_SSL', environment === 'production'),
+      database: getEnv('DATABASE_NAME', 'nft_compliance'),
+      user: getEnv('DATABASE_USER', 'thaliumx'),
+      // Required: injected by Vault/secret manager in production.
+      password: getEnv('DATABASE_PASSWORD'),
+      ssl: getEnvBool('DATABASE_SSL', environment === 'production'),
       maxConnections: getEnvInt('DB_MAX_CONNECTIONS', 20),
     },
 

@@ -721,7 +721,7 @@ async function initializeServices(): Promise<void> {
   appLogger.info('Event consumer connected');
 
   // Subscribe to events
-  await consumer.subscribe(['token-compliance-events']);
+  await consumer.subscribe(['token.compliance.events']);
   appLogger.info('Event consumer subscribed');
 
   // Initialize other services (they initialize lazily)

@@ -3,8 +3,7 @@
 #![allow(clippy::let_and_return)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::single_char_pattern)]
-// Clippy lint temporarily disabled for RefCell usage in async context
-// #![allow(clippy::await_holding_refcell_ref)]
+//#![allow(clippy::await_holding_refcell_ref)] // FIXME
 
 use dingir_exchange::config;
 use dingir_exchange::controller::create_controller;

@@ -215,7 +215,7 @@ pub async fn load_operation_log_from_db(conn: &mut ConnectionType, operation_log
         operation_log_start_id = operation_logs.last().unwrap().id;
         for log in operation_logs {
             log::info!("replay {} {}", &log.method, &log.params);
-            controller.replay(&log.method, &log.params.to_string()).unwrap();
+            controller.replay(&log.method, &log.params).unwrap();
         }
     }
     controller.sequencer.set_operation_log_id(operation_log_start_id as u64);
@@ -248,7 +248,7 @@ pub async fn init_from_db(conn: &mut ConnectionType, controller: &mut Controller
     Ok(())
 }
 
-const DUMPING_SET_LIMIT: usize = 100_000;
+const DUMPING_SET_LIMIT: usize = 100000;
 
 fn collect_n<T: std::iter::Iterator>(iter: &mut T, n: usize, mut record: Vec<T::Item>) -> Vec<T::Item> {
     if record.len() >= n {
@@ -511,9 +511,7 @@ pub unsafe fn fork_and_make_slice(controller: *const Controller) /*-> SimpleResu
             .expect("build another runtime for slice-making");
 
         if let Err(e) = rt.block_on(make_slice(controller)) {
-            // In forked child process, stderr/stdout may not be visible due to buffering
-            // Force flush before panic to ensure error visibility
-            let _ = std::io::Write::flush(&mut std::io::stderr());
+            // TODO: it seems sometimes no stderr/stdout is printed here. check it later
             panic!("panic {:?}", e);
         }
     });

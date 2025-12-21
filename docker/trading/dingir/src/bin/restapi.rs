@@ -42,7 +42,6 @@ async fn main() -> std::io::Result<()> {
         manage_channel,
         db: Pool::<Postgres>::connect(&db_url).await.unwrap(),
         config,
-        cache: AppCache::new(),
     });
 
     let workers = user_map.config.workers;
@@ -50,11 +49,11 @@ async fn main() -> std::io::Result<()> {
     let server = HttpServer::new(move || {
         App::new()
             .app_data(user_map.clone())
+            .app_data(AppCache::new())
             .wrap_api()
             .service(
                 web::scope("/api/exchange/panel")
                     .route("/ping", web::get().to(ping))
-                    .route("/health", web::get().to(health))
                     .route("/user/{l1addr_or_l2pubkey}", web::get().to(get_user))
                     .route("/recenttrades/{market}", web::get().to(recent_trades))
                     .route("/ordertrades/{market}/{order_id}", web::get().to(order_trades))
@@ -90,22 +89,10 @@ async fn main() -> std::io::Result<()> {
         None => server,
     };
 
-    let http_port = std::env::var("HTTP_PORT").unwrap_or_else(|_| "8080".to_string());
-    let bind_addr = format!("0.0.0.0:{}", http_port);
-    log::info!("Starting HTTP server on {}", bind_addr);
-    server.bind(&bind_addr)?.run().await
+    server.bind("0.0.0.0:50053")?.run().await
 }
 
 #[api_v2_operation]
 async fn ping() -> Result<&'static str, actix_web::Error> {
     Ok("pong")
-}
-
-#[api_v2_operation]
-async fn health() -> Result<HttpResponse, actix_web::Error> {
-    Ok(HttpResponse::Ok().json(serde_json::json!({
-        "status": "healthy",
-        "service": "dingir-exchange-restapi",
-        "timestamp": chrono::Utc::now().to_rfc3339()
-    })))
 }

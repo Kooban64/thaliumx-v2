@@ -37,6 +37,11 @@ const envSchema = z.object({
   KAFKA_BROKERS: z.string().default('localhost:9092'),
   KAFKA_CLIENT_ID: z.string().default('cex-compliance-service'),
   KAFKA_GROUP_ID: z.string().default('cex-compliance-group'),
+  KAFKA_SSL: z.coerce.boolean().default(false),
+  KAFKA_SSL_CA: z.string().optional(),
+  KAFKA_SASL_MECHANISM: z.string().optional(),
+  KAFKA_SASL_USERNAME: z.string().optional(),
+  KAFKA_SASL_PASSWORD: z.string().optional(),
 
   // Risk Assessment Configuration
   RISK_LOW_THRESHOLD: z.coerce.number().min(0).max(100).default(30),
@@ -119,6 +124,11 @@ export const config: ComplianceConfig = {
     brokers: env.KAFKA_BROKERS.split(','),
     clientId: env.KAFKA_CLIENT_ID,
     groupId: env.KAFKA_GROUP_ID,
+    ...(env.KAFKA_SSL && { ssl: env.KAFKA_SSL }),
+    ...(env.KAFKA_SSL_CA && { sslCa: env.KAFKA_SSL_CA }),
+    ...(env.KAFKA_SASL_MECHANISM && { saslMechanism: env.KAFKA_SASL_MECHANISM }),
+    ...(env.KAFKA_SASL_USERNAME && { saslUsername: env.KAFKA_SASL_USERNAME }),
+    ...(env.KAFKA_SASL_PASSWORD && { saslPassword: env.KAFKA_SASL_PASSWORD }),
   },
 
   riskThresholds: {

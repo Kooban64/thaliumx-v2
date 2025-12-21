@@ -10,7 +10,7 @@ services:
   # VAULT - Secrets Management
   # ============================================
   vault:
-    image: hashicorp/vault:1.15
+    image: hashicorp/vault:1.21.1
     container_name: thaliumx-vault
     restart: unless-stopped
     cap_add:
@@ -24,16 +24,15 @@ services:
       - ./../../vault/tls:/vault/userconfig/tls
       - ./../../vault/scripts:/vault/scripts:ro
     command: sh -c "chown -R vault:vault /vault/data && exec vault server -config=/vault/config/vault.hcl"
-    ports:
-      - "8200:8200"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD", "vault", "status", "--tls-skip-verify"]
+      test: ["CMD", "nc", "-z", "127.0.0.1", "8200"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -42,6 +41,27 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+
+  # ============================================
+  # VAULT AUTO-UNSEAL - Automatic Unsealing Service
+  # ============================================
+  vault-unseal:
+    image: hashicorp/vault:1.21.1
+    container_name: thaliumx-vault-unseal
+    restart: "no"  # Run once and exit
+    depends_on:
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: https://thaliumx-vault:8200
+      VAULT_CACERT: /vault/userconfig/tls/ca.crt
+    volumes:
+      - ./../../vault/tls:/vault/userconfig/tls:ro
+      - ./../../vault/unseal.sh:/vault/unseal.sh:ro
+      - vault-keys:/vault/keys:rw
+    command: sh -c "/vault/unseal.sh"
+    networks:
+      - thaliumx-net
 
   # ============================================
   # POSTGRESQL - Primary Database
@@ -96,8 +116,7 @@ services:
       -c autovacuum_naptime=20s
       -c autovacuum_vacuum_threshold=50
       -c autovacuum_analyze_threshold=50
-    ports:
-      - "5432:5432"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     networks:
       - thaliumx-net
       - database-network
@@ -145,8 +164,7 @@ services:
       - redis-data:/data
     secrets:
       - redis-password
-    ports:
-      - "6379:6379"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     networks:
       - thaliumx-net
       - database-network
@@ -164,3 +182,7 @@ services:
         reservations:
           cpus: '0.25'
           memory: 1G
+
+volumes:
+  vault-keys:
+    name: thaliumx-vault-keys

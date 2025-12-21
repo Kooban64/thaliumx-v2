@@ -54,11 +54,16 @@ services:
       file: databases.yml
       service: mongodb
 
-  # Applications Layer (when populated)
-  # backend:
-  #   extends:
-  #     file: applications.yml
-  #     service: backend
+  # Applications Layer
+  backend:
+    extends:
+      file: applications.yml
+      service: backend
+
+  frontend:
+    extends:
+      file: applications.yml
+      service: frontend
 
   # Messaging Layer
   kafka:
@@ -128,3 +133,114 @@ services:
     extends:
       file: monitoring.yml
       service: otel-collector
+
+  # Monitoring Extras
+  blackbox-exporter:
+    extends:
+      file: monitoring-extras.yml
+      service: blackbox-exporter
+
+  cadvisor:
+    extends:
+      file: monitoring-extras.yml
+      service: cadvisor
+
+  postgres-exporter:
+    extends:
+      file: monitoring-extras.yml
+      service: postgres-exporter
+
+  redis-exporter:
+    extends:
+      file: monitoring-extras.yml
+      service: redis-exporter
+
+  # Search
+  typesense:
+    extends:
+      file: search.yml
+      service: typesense
+
+  # Trading
+  dingir-matchengine:
+    extends:
+      file: trading.yml
+      service: dingir-matchengine
+
+  dingir-restapi:
+    extends:
+      file: trading.yml
+      service: dingir-restapi
+
+  liquibook:
+    extends:
+      file: trading.yml
+      service: liquibook
+
+  quantlib:
+    extends:
+      file: trading.yml
+      service: quantlib
+
+  # Fintech
+  ballerine-postgres:
+    extends:
+      file: fintech.yml
+      service: ballerine-postgres
+
+  ballerine-workflow:
+    extends:
+      file: fintech.yml
+      service: ballerine-workflow
+
+  ballerine-backoffice:
+    extends:
+      file: fintech.yml
+      service: ballerine-backoffice
+
+  blinkfinance:
+    extends:
+      file: fintech.yml
+      service: blinkfinance
+
+  # Compliance
+  compliance-cex:
+    extends:
+      file: compliance.yml
+      service: compliance-cex
+
+  compliance-dex:
+    extends:
+      file: compliance.yml
+      service: compliance-dex
+
+  compliance-nft:
+    extends:
+      file: compliance.yml
+      service: compliance-nft
+
+  compliance-token:
+    extends:
+      file: compliance.yml
+      service: compliance-token
+
+  compliance-coordinator:
+    extends:
+      file: compliance.yml
+      service: compliance-coordinator
+
+  # Wazuh SIEM/XDR
+  wazuh-manager:
+    extends:
+      file: wazuh.yml
+      service: wazuh-manager
+
+  wazuh-indexer:
+    extends:
+      file: wazuh.yml
+      service: wazuh-indexer
+
+  wazuh-dashboard:
+    extends:
+      file: wazuh.yml
+      service: wazuh-dashboard

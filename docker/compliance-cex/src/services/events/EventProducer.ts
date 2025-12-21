@@ -44,7 +44,7 @@ export class EventProducer {
     }
 
     try {
-      this.kafka = new Kafka({
+      const kafkaConfig: any = {
         clientId: config.kafka.clientId,
         brokers: config.kafka.brokers,
         retry: {
@@ -53,7 +53,23 @@ export class EventProducer {
         },
         connectionTimeout: 10000,
         requestTimeout: 30000,
-      });
+      };
+
+      // Add SSL configuration if enabled
+      if (config.kafka.ssl) {
+        kafkaConfig.ssl = true;
+      }
+
+      // Add SASL configuration if enabled
+      if (config.kafka.saslMechanism && config.kafka.saslUsername && config.kafka.saslPassword) {
+        kafkaConfig.sasl = {
+          mechanism: config.kafka.saslMechanism,
+          username: config.kafka.saslUsername,
+          password: config.kafka.saslPassword,
+        };
+      }
+
+      this.kafka = new Kafka(kafkaConfig);
 
       this.producer = this.kafka.producer({
         allowAutoTopicCreation: true,

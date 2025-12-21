@@ -28,8 +28,6 @@ use tonic::{self, Status};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::str::FromStr;
-use std::time::Duration;
-use ttl_cache::TtlCache;
 
 type MarketName = String;
 type BaseAsset = String;
@@ -49,7 +47,7 @@ impl OperationLogConsumer for OperationLogSender {
     }
 }
 
-// Database connection reuse optimization could be implemented if log and history DBs are the same
+// TODO: reuse pool of two dbs when they are same?
 fn create_persistor(settings: &config::Settings) -> Box<dyn PersistExector> {
     let persist_to_mq = true;
     let persist_to_mq_full_order = true;
@@ -100,15 +98,13 @@ pub struct Controller {
     pub update_controller: BalanceUpdateController,
     pub markets: HashMap<MarketName, market::Market>,
     pub asset_market_names: HashMap<(BaseAsset, QuoteAsset), MarketName>,
-    // Using dynamic dispatch for flexibility with different log handler implementations
+    // TODO: is it worth to use generics rather than dynamic pointer?
     pub log_handler: Box<dyn OperationLogConsumer + Send + Sync>,
     pub persistor: Box<dyn PersistExector>,
-    // Dummy persistor for replay operations that shouldn't persist data
+    // TODO: is this needed?
     pub dummy_persistor: Box<dyn PersistExector>,
     db_pool: sqlx::Pool<DbType>,
     market_load_cfg: MarketConfigs,
-    // Cache for order book depth to reduce computation overhead
-    order_book_cache: TtlCache<String, OrderBookDepthResponse>,
 }
 
 const ORDER_LIST_MAX_LEN: usize = 100;
@@ -145,8 +141,6 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
     })
     .start_schedule(&main_pool)
     .unwrap();
-    let order_book_cache = TtlCache::new(1000); // Cache up to 1000 entries
-
     Controller {
         settings,
         sequencer,
@@ -162,7 +156,6 @@ pub fn create_controller(cfgs: (config::Settings, MarketConfigs)) -> Controller 
         dummy_persistor: DummyPersistor::new_box(),
         db_pool: main_pool,
         market_load_cfg: cfgs.1,
-        order_book_cache,
     }
 }
 
@@ -230,12 +223,13 @@ impl Controller {
         if req.user_id == 0 {
             return Err(Status::invalid_argument("invalid user_id"));
         }
-        let max_order_num = self.settings.user_order_num_limit;
+        // TODO: magic number
+        let max_order_num = 100;
         let default_order_num = 10;
         let limit = if req.limit <= 0 {
             default_order_num
-        } else if req.limit > max_order_num as i32 {
-            max_order_num as i32
+        } else if req.limit > max_order_num {
+            max_order_num
         } else {
             req.limit
         };
@@ -256,7 +250,7 @@ impl Controller {
                     .unwrap_or_else(|| Box::new(Vec::new().into_iter()) as Box<dyn Iterator<Item = Order>>)
             })
             .collect();
-        // Currently only DESC ordering is supported - ASC could be added in future API versions
+        // TODO: support ASC in the API
         let orders = MergeSortIterator::compare_by(orders_by_market, SortOrder::Desc, |a, b| a.id.cmp(&b.id))
             .skip(req.offset as usize)
             .take(limit as usize)
@@ -270,20 +264,13 @@ impl Controller {
         };
         Ok(result)
     }
-    pub fn order_book_depth(&mut self, req: OrderBookDepthRequest) -> Result<OrderBookDepthResponse, Status> {
-        // Create cache key from request parameters
-        let cache_key = format!("{}:{}:{}", req.market, req.limit, req.interval);
-
-        // Check cache first
-        if let Some(cached_response) = self.order_book_cache.get(&cache_key) {
-            return Ok(cached_response.clone());
-        }
-
+    pub fn order_book_depth(&self, req: OrderBookDepthRequest) -> Result<OrderBookDepthResponse, Status> {
+        // TODO cache
         let market = self
             .markets
             .get(&req.market)
             .ok_or_else(|| Status::invalid_argument("invalid market"))?;
-        // Interval validation - empty means no grouping
+        // TODO check interval
         let interval = if req.interval.is_empty() {
             Decimal::zero()
         } else {
@@ -299,15 +286,10 @@ impl Controller {
                 })
                 .collect::<Vec<_>>()
         };
-        let response = OrderBookDepthResponse {
+        Ok(OrderBookDepthResponse {
             asks: convert(&depth.asks),
             bids: convert(&depth.bids),
-        };
-
-        // Cache the response (TTL is set in constructor)
-        self.order_book_cache.insert(cache_key, response.clone(), Duration::from_millis(100));
-
-        Ok(response)
+        })
     }
 
     pub fn order_detail(&self, req: OrderDetailRequest) -> Result<OrderInfo, Status> {
@@ -387,7 +369,10 @@ impl Controller {
 
         let last_user_id = self.user_manager.users.len() as u32;
         req.user_id = last_user_id + 1;
-        // User ID is auto-assigned sequentially - no need to validate client-provided ID
+        // TODO: check user_id
+        // if last_user_id + 1 != req.user_id {
+        //     return Err(Status::invalid_argument("inconsist user_id"));
+        // }
 
         let l1_address = req.l1_address.to_lowercase();
         let l2_pubkey = req.l2_pubkey.to_lowercase();
@@ -478,7 +463,8 @@ impl Controller {
             )
             .map_err(|e| Status::invalid_argument(format!("{}", e)))?;
 
-        // Operation log is written after successful execution to ensure consistency
+        // TODO how to handle this error?
+        // TODO operation_log after exec or before exec?
         if real {
             self.append_operation_log(OPERATION_BALANCE_UPDATE, &req);
         }
@@ -737,8 +723,8 @@ impl Controller {
         if real {
             self.persistor.put_transfer(models::InternalTx {
                 time: timestamp.into(),
-                user_from: from_user_id as i32,
-                user_to: to_user_id as i32,
+                user_from: from_user_id as i32, // TODO: will this overflow?
+                user_to: to_user_id as i32,     // TODO: will this overflow?
                 asset: asset.to_owned(),
                 amount: change,
                 signature: req.signature.as_bytes().to_vec(),
@@ -898,7 +884,7 @@ impl Controller {
             id: self.sequencer.next_operation_log_id() as i64,
             time: FTimestamp(current_timestamp()).into(),
             method: method.to_owned(),
-            params: serde_json::Value::String(params),
+            params,
         };
         (*self.log_handler).append_operation_log(operation_log).ok();
     }

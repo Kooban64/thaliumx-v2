@@ -10,7 +10,7 @@ services:
   # CITUS - Distributed PostgreSQL
   # ============================================
   citus-coordinator:
-    image: citusdata/citus:12.1
+    image: citusdata/citus:12.1.6
     container_name: thaliumx-citus-coordinator
     hostname: thaliumx-citus-coordinator
     restart: unless-stopped
@@ -20,8 +20,7 @@ services:
       POSTGRES_DB: thaliumx_citus
       CITUS_HOST: thaliumx-citus-coordinator
       PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "5434:5432"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - citus_coordinator_data:/var/lib/postgresql/data
       - ./../../citus/init:/docker-entrypoint-initdb.d:ro
@@ -55,7 +54,7 @@ services:
           memory: 512M
 
   citus-worker-1:
-    image: citusdata/citus:12.1
+    image: citusdata/citus:12.1.6
     container_name: thaliumx-citus-worker-1
     hostname: thaliumx-citus-worker-1
     restart: unless-stopped
@@ -99,7 +98,7 @@ services:
           memory: 256M
 
   citus-worker-2:
-    image: citusdata/citus:12.1
+    image: citusdata/citus:12.1.6
     container_name: thaliumx-citus-worker-2
     hostname: thaliumx-citus-worker-2
     restart: unless-stopped
@@ -155,8 +154,7 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
       POSTGRES_DB: exchange
       TIMESCALEDB_TELEMETRY: "off"
-    ports:
-      - "5435:5432"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
       - ./../../certs/services/timescaledb:/var/lib/postgresql/certs:ro
@@ -191,7 +189,7 @@ services:
   # MONGODB - Document Store
   # ============================================
   mongodb:
-    image: mongo:7
+    image: mongo:8.2
     container_name: thaliumx-mongodb
     restart: unless-stopped
     environment:
@@ -203,25 +201,30 @@ services:
       - ./../../certs/services/mongodb:/certs:ro
     secrets:
       - mongodb-password
-    command: >
-      mongod
-      --auth
-      --bind_ip_all
-      --dbpath /data/db
-      --logpath /data/db/mongod.log
-      --maxConns 1000
-      --wiredTigerCacheSizeGB 2
-      --setParameter ttlMonitorSleepSecs=60
-      --tlsMode requireTLS
-      --tlsCertificateKeyFile /certs/mongodb.pem
-      --tlsCAFile /certs/ca.crt
-    ports:
-      - "27017:27017"
+    command:
+      - mongod
+      - --auth
+      - --bind_ip_all
+      - --dbpath
+      - /data/db
+      - --logpath
+      - /data/db/mongod.log
+      - --maxConns
+      - "1000"
+      - --wiredTigerCacheSizeGB
+      - "2"
+      - --setParameter
+      - ttlMonitorSleepSecs=60
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     networks:
       - thaliumx-net
       - database-network
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh -u \"$${MONGO_INITDB_ROOT_USERNAME}\" -p \"$$(cat /run/secrets/mongodb-password)\" --authenticationDatabase admin --eval \"db.adminCommand('ping')\" >/dev/null 2>&1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3

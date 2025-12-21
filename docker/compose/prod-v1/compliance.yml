@@ -1,0 +1,498 @@
+# ThaliumX Production v1 - Compliance Layer
+# ========================================
+# Compliance microservices (CEX/DEX/NFT/Token/Coordinator)
+# Security goals:
+# - No plaintext secrets in compose
+# - Use Docker secrets (from prod-v1/base.yml) and runtime export
+# - Keep container names and ports consistent with legacy stack
+
+version: '3.8'
+
+services:
+  compliance-cex:
+    build:
+      context: ./../../compliance-cex
+      dockerfile: Dockerfile
+    image: thaliumx/compliance-cex:latest
+    container_name: thaliumx-compliance-cex
+    hostname: thaliumx-compliance-cex
+    restart: unless-stopped
+    expose:
+      - "3001"
+    environment:
+      # Service
+      NODE_ENV: production
+      SERVICE_NAME: cex-compliance-service
+      PORT: 3001
+
+      # Databases (set both naming conventions to maintain compatibility)
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: cex_compliance
+      DATABASE_USER: thaliumx
+      DATABASE_SSL: "true"
+
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: cex_compliance
+      DB_USER: thaliumx
+      DB_SSL: "true"
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+
+      # Kafka
+      KAFKA_BROKERS: kafka:9094
+      KAFKA_CLIENT_ID: cex-compliance-service
+      KAFKA_GROUP_ID: cex-compliance-group
+
+      # Vault / Keycloak (optional for services; kept for parity)
+      VAULT_ADDR: https://vault:8200
+      VAULT_CACERT: /etc/ssl/certs/ca.crt
+      NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
+      KEYCLOAK_URL: https://keycloak:8443
+      KEYCLOAK_REALM: thaliumx
+      KEYCLOAK_CLIENT_ID: thaliumx-compliance-cex
+
+      # Observability toggles
+      METRICS_ENABLED: "true"
+      AUDIT_LOG_ENABLED: "true"
+      THREAT_DETECTION_ENABLED: "true"
+
+    # Export secrets at runtime (avoid plaintext in compose)
+    command:
+      - sh
+      - -lc
+      - |
+        export DATABASE_PASSWORD="$(cat /run/secrets/postgres-password)";
+        export DB_PASSWORD="$(cat /run/secrets/postgres-password)";
+        export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
+        export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
+        export API_KEY="$(cat /run/secrets/api-key)";
+        export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
+        # Disable SASL for PLAINTEXT Kafka
+        unset KAFKA_SASL_MECHANISM;
+        unset KAFKA_SASL_USERNAME;
+        unset KAFKA_SASL_PASSWORD;
+        exec node dist/index.js
+    secrets:
+      - postgres-password
+      - redis-password
+      - jwt-secret
+      - api-key
+      - encryption-key
+      - keycloak-compliance-cex-secret
+      - vault-role-id
+      - vault-secret-id
+    volumes:
+      - ./../../certs/ca/ca.crt:/etc/ssl/certs/ca.crt:ro
+      - ./../../certs/services/postgres/ca.crt:/etc/ssl/certs/postgres-ca.crt:ro
+    networks:
+      - thaliumx-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      vault:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # compliance-dex:
+  #   build:
+  #     context: ./../../compliance-dex
+  #     dockerfile: Dockerfile
+  #   image: thaliumx/compliance-dex:latest
+  #   container_name: thaliumx-compliance-dex
+  #   hostname: thaliumx-compliance-dex
+  #   restart: unless-stopped
+  #   expose:
+  #     - "3002"
+  #   environment:
+  #     NODE_ENV: production
+  #     SERVICE_NAME: dex-compliance-service
+  #     PORT: 3002
+
+  #     DATABASE_HOST: postgres
+  #     DATABASE_PORT: 5432
+  #     DATABASE_NAME: dex_compliance
+  #     DATABASE_USER: thaliumx
+  #     DATABASE_SSL: "true"
+
+  #     DB_HOST: postgres
+  #     DB_PORT: 5432
+  #     DB_NAME: dex_compliance
+  #     DB_USER: thaliumx
+  #     DB_SSL: "true"
+
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #     REDIS_DB: 1
+
+  #     KAFKA_BROKERS: kafka:9094
+  #     KAFKA_SSL: "false"
+  #     KAFKA_CLIENT_ID: dex-compliance-service
+  #     KAFKA_GROUP_ID: dex-compliance-group
+
+  #     VAULT_ADDR: https://vault:8200
+  #     VAULT_CACERT: /etc/ssl/certs/ca.crt
+  #     NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
+  #     KEYCLOAK_URL: https://keycloak:8443
+  #     KEYCLOAK_REALM: thaliumx
+  #     KEYCLOAK_CLIENT_ID: thaliumx-compliance-dex
+
+  #     METRICS_ENABLED: "true"
+  #     AUDIT_LOG_ENABLED: "true"
+  #     THREAT_DETECTION_ENABLED: "true"
+
+  #   command:
+  #     - sh
+  #     - -lc
+  #     - |
+  #       export DATABASE_PASSWORD="$(cat /run/secrets/postgres-password)";
+  #       export DB_PASSWORD="$(cat /run/secrets/postgres-password)";
+  #       export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
+  #       export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
+  #       export API_KEY="$(cat /run/secrets/api-key)";
+  #       export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
+  #       # Disable SASL for PLAINTEXT Kafka
+  #       unset KAFKA_SASL_MECHANISM;
+  #       unset KAFKA_SASL_USERNAME;
+  #       unset KAFKA_SASL_PASSWORD;
+  #       exec node dist/index.js
+  #   secrets:
+  #     - postgres-password
+  #     - redis-password
+  #     - jwt-secret
+  #     - api-key
+  #     - encryption-key
+  #     - keycloak-compliance-dex-secret
+  #     - vault-role-id
+  #     - vault-secret-id
+  #   volumes:
+  #     - ./../../certs/ca/ca.crt:/certs/ca.crt:ro
+  #     - ./../../certs/ca/ca.crt:/etc/ssl/certs/ca.crt:ro
+  #     - ./../../certs/services/postgres/ca.crt:/etc/ssl/certs/postgres-ca.crt:ro
+  #   networks:
+  #     - thaliumx-net
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_healthy
+  #     keycloak:
+  #       condition: service_started
+  #     vault:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 60s
+
+  compliance-nft:
+    build:
+      context: ./../../compliance-nft
+      dockerfile: Dockerfile
+    image: thaliumx/compliance-nft:latest
+    container_name: thaliumx-compliance-nft
+    hostname: thaliumx-compliance-nft
+    restart: unless-stopped
+    expose:
+      - "3003"
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: nft-compliance-service
+      PORT: 3003
+
+      # Support both env naming conventions (some builds used DATABASE_*; others used DB_*)
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: nft_compliance
+      DATABASE_USER: thaliumx
+      DATABASE_SSL: "true"
+
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: nft_compliance
+      DB_USER: thaliumx
+      DB_SSL: "true"
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 2
+
+      KAFKA_BROKERS: kafka:9094
+      KAFKA_SSL: "false"
+      KAFKA_CLIENT_ID: nft-compliance-service
+      KAFKA_GROUP_ID: nft-compliance-group
+
+      VAULT_ADDR: https://vault:8200
+      VAULT_CACERT: /etc/ssl/certs/ca.crt
+      NODE_EXTRA_CA_CERTS: /certs/ca.crt
+      KEYCLOAK_URL: https://keycloak:8443
+      KEYCLOAK_REALM: thaliumx
+      KEYCLOAK_CLIENT_ID: thaliumx-compliance-nft
+
+      METRICS_ENABLED: "true"
+      AUDIT_LOG_ENABLED: "true"
+      THREAT_DETECTION_ENABLED: "true"
+
+    command:
+      - sh
+      - -lc
+      - |
+        export DATABASE_PASSWORD="$(cat /run/secrets/postgres-password)";
+        export DB_PASSWORD="$(cat /run/secrets/postgres-password)";
+        export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
+        export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
+        export API_KEY="$(cat /run/secrets/api-key)";
+        export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
+        export KAFKA_SASL_PASSWORD="$(cat /run/secrets/kafka-password)";
+        exec node dist/index.js
+    secrets:
+      - postgres-password
+      - redis-password
+      - jwt-secret
+      - api-key
+      - encryption-key
+      - keycloak-compliance-nft-secret
+      - vault-role-id
+      - vault-secret-id
+    volumes:
+      - ./../../certs/ca/ca.crt:/certs/ca.crt:ro
+      - ./../../certs/services/postgres/ca.crt:/etc/ssl/certs/postgres-ca.crt:ro
+    networks:
+      - thaliumx-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      vault:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  compliance-token:
+    build:
+      context: ./../../compliance-token
+      dockerfile: Dockerfile
+    image: thaliumx/compliance-token:latest
+    container_name: thaliumx-compliance-token
+    hostname: thaliumx-compliance-token
+    restart: unless-stopped
+    expose:
+      - "3004"
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: token-compliance-service
+      PORT: 3004
+
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: token_compliance
+      DB_USER: thaliumx
+      DB_SSL: "true"
+
+      # Backward compat for builds expecting DATABASE_*
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: token_compliance
+      DATABASE_USER: thaliumx
+      DATABASE_SSL: "true"
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 3
+
+      KAFKA_BROKERS: kafka:9094
+      KAFKA_CLIENT_ID: token-compliance-service
+      KAFKA_GROUP_ID: token-compliance-group
+
+      VAULT_ADDR: https://vault:8200
+      VAULT_CACERT: /etc/ssl/certs/ca.crt
+      NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
+      KEYCLOAK_URL: https://keycloak:8443
+      KEYCLOAK_REALM: thaliumx
+      KEYCLOAK_CLIENT_ID: thaliumx-compliance-token
+
+      METRICS_ENABLED: "true"
+      AUDIT_LOG_ENABLED: "true"
+      THREAT_DETECTION_ENABLED: "true"
+
+    command:
+      - sh
+      - -lc
+      - |
+        export DATABASE_PASSWORD="$(cat /run/secrets/postgres-password)";
+        export DB_PASSWORD="$(cat /run/secrets/postgres-password)";
+        export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
+        export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
+        export API_KEY="$(cat /run/secrets/api-key)";
+        export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
+        export KAFKA_SASL_PASSWORD="$(cat /run/secrets/kafka-password)";
+        # Disable SASL for PLAINTEXT Kafka
+        unset KAFKA_SASL_MECHANISM;
+        unset KAFKA_SASL_USERNAME;
+        unset KAFKA_SASL_PASSWORD;
+        exec node dist/index.js
+    secrets:
+      - postgres-password
+      - redis-password
+      - jwt-secret
+      - api-key
+      - encryption-key
+      - keycloak-compliance-token-secret
+      - vault-role-id
+      - vault-secret-id
+    volumes:
+      - ./../../certs/ca/ca.crt:/etc/ssl/certs/ca.crt:ro
+      - ./../../certs/services/postgres/ca.crt:/etc/ssl/certs/postgres-ca.crt:ro
+    networks:
+      - thaliumx-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      vault:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  compliance-coordinator:
+    build:
+      context: ./../../compliance-coordinator
+      dockerfile: Dockerfile
+    image: thaliumx/compliance-coordinator:latest
+    container_name: thaliumx-compliance-coordinator
+    hostname: thaliumx-compliance-coordinator
+    restart: unless-stopped
+    expose:
+      - "3005"
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: compliance-coordinator-service
+      PORT: 3005
+
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: compliance_coordinator
+      DB_USER: thaliumx
+      DB_SSL: "true"
+
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: compliance_coordinator
+      DATABASE_USER: thaliumx
+      DATABASE_SSL: "true"
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 4
+
+      KAFKA_BROKERS: kafka:9094
+      KAFKA_SSL: "false"
+      KAFKA_CLIENT_ID: compliance-coordinator-service
+      KAFKA_GROUP_ID: compliance-coordinator-group
+
+      # Internal service URLs
+      CEX_COMPLIANCE_URL: http://thaliumx-compliance-cex:3001
+      DEX_COMPLIANCE_URL: http://thaliumx-compliance-dex:3002
+      NFT_COMPLIANCE_URL: http://thaliumx-compliance-nft:3003
+      TOKEN_COMPLIANCE_URL: http://thaliumx-compliance-token:3004
+
+      VAULT_ADDR: https://vault:8200
+      VAULT_CACERT: /etc/ssl/certs/ca.crt
+      NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
+      KEYCLOAK_URL: https://keycloak:8443
+      KEYCLOAK_REALM: thaliumx
+      KEYCLOAK_CLIENT_ID: thaliumx-compliance-coordinator
+
+      METRICS_ENABLED: "true"
+      AUDIT_LOG_ENABLED: "true"
+      THREAT_DETECTION_ENABLED: "true"
+      ALERTS_ENABLED: "true"
+      REPORTING_ENABLED: "true"
+
+    command:
+      - sh
+      - -lc
+      - |
+        export DATABASE_PASSWORD="$(cat /run/secrets/postgres-password)";
+        export DB_PASSWORD="$(cat /run/secrets/postgres-password)";
+        export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
+        export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
+        export API_KEY="$(cat /run/secrets/api-key)";
+        export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
+        exec node dist/index.js
+    secrets:
+      - postgres-password
+      - redis-password
+      - jwt-secret
+      - api-key
+      - encryption-key
+      - keycloak-compliance-coordinator-secret
+      - vault-role-id
+      - vault-secret-id
+    volumes:
+      - ./../../certs/ca/ca.crt:/etc/ssl/certs/ca.crt:ro
+      - ./../../certs/services/postgres/ca.crt:/etc/ssl/certs/postgres-ca.crt:ro
+    networks:
+      - thaliumx-net
+    depends_on:
+      compliance-cex:
+        condition: service_healthy
+      # compliance-dex:
+      #   condition: service_healthy
+      compliance-nft:
+        condition: service_healthy
+      compliance-token:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  thaliumx-net:
+    external: true

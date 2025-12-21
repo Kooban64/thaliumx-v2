@@ -11,7 +11,7 @@ services:
   # OPA - Open Policy Agent
   # ============================================
   opa:
-    image: openpolicyagent/opa:0.64.0
+    image: openpolicyagent/opa:0.68.0
     container_name: thaliumx-opa
     hostname: thaliumx-opa
     restart: unless-stopped
@@ -25,8 +25,7 @@ services:
       - "--set=status.console=true"
       - "--bundle"
       - "/policies"
-    ports:
-      - "8181:8181"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - ./../../opa/policies:/policies:ro
       - ./../../certs/services/opa:/certs/opa:ro

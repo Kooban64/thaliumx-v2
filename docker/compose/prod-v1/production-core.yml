@@ -1,0 +1,184 @@
+# ThaliumX Production v1 - Full Stack
+# ===================================
+# Complete production deployment combining all layers
+# Updated: 2025-12-17T09:00:20.000Z
+
+version: '3.8'
+
+# This file combines all layers for full production deployment
+# Use with: docker compose -f compose/prod-v1/base.yml -f compose/prod-v1/production.yml up -d
+
+services:
+  # Include all services from other layers
+  # This is a reference file - actual services defined in layer files
+
+  # Infrastructure Layer
+  vault:
+    extends:
+      file: infrastructure.yml
+      service: vault
+
+  postgres:
+    extends:
+      file: infrastructure.yml
+      service: postgres
+
+  redis:
+    extends:
+      file: infrastructure.yml
+      service: redis
+
+  # Database Layer
+  citus-coordinator:
+    extends:
+      file: databases.yml
+      service: citus-coordinator
+
+  citus-worker-1:
+    extends:
+      file: databases.yml
+      service: citus-worker-1
+
+  citus-worker-2:
+    extends:
+      file: databases.yml
+      service: citus-worker-2
+
+  timescaledb:
+    extends:
+      file: databases.yml
+      service: timescaledb
+
+  mongodb:
+    extends:
+      file: databases.yml
+      service: mongodb
+
+  # Applications Layer
+  backend:
+    extends:
+      file: applications.yml
+      service: backend
+
+  frontend:
+    extends:
+      file: applications.yml
+      service: frontend
+
+  # Messaging Layer
+  kafka:
+    extends:
+      file: messaging.yml
+      service: kafka
+
+  kafka-init:
+    extends:
+      file: messaging.yml
+      service: kafka-init
+
+  kafka-ui:
+    extends:
+      file: messaging.yml
+      service: kafka-ui
+
+  schema-registry:
+    extends:
+      file: messaging.yml
+      service: schema-registry
+
+  # Security Layer
+  opa:
+    extends:
+      file: security.yml
+      service: opa
+
+  # Gateway Layer (when populated)
+  # apisix:
+  #   extends:
+  #     file: gateway.yml
+  #     service: apisix
+
+  # Monitoring Layer
+  prometheus:
+    extends:
+      file: monitoring.yml
+      service: prometheus
+
+  grafana:
+    extends:
+      file: monitoring.yml
+      service: grafana
+
+  loki:
+    extends:
+      file: monitoring.yml
+      service: loki
+
+  tempo:
+    extends:
+      file: monitoring.yml
+      service: tempo
+
+  promtail:
+    extends:
+      file: monitoring.yml
+      service: promtail
+
+  alertmanager:
+    extends:
+      file: monitoring.yml
+      service: alertmanager
+
+  otel-collector:
+    extends:
+      file: monitoring.yml
+      service: otel-collector
+
+  # Monitoring Extras
+  blackbox-exporter:
+    extends:
+      file: monitoring-extras.yml
+      service: blackbox-exporter
+
+  cadvisor:
+    extends:
+      file: monitoring-extras.yml
+      service: cadvisor
+
+  postgres-exporter:
+    extends:
+      file: monitoring-extras.yml
+      service: postgres-exporter
+
+  redis-exporter:
+    extends:
+      file: monitoring-extras.yml
+      service: redis-exporter
+
+  # Search
+  typesense:
+    extends:
+      file: search.yml
+      service: typesense
+
+  # Trading
+  dingir-matchengine:
+    extends:
+      file: trading.yml
+      service: dingir-matchengine
+
+  dingir-restapi:
+    extends:
+      file: trading.yml
+      service: dingir-restapi
+
+  liquibook:
+    extends:
+      file: trading.yml
+      service: liquibook
+
+  quantlib:
+    extends:
+      file: trading.yml
+      service: quantlib
+

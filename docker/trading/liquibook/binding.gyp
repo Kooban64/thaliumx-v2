@@ -8,8 +8,8 @@
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",
-        "./liquibook-src/src/book",
-        "./liquibook-src/src"
+        "./src/book",
+        "./src"
       ],
       "defines": [
         "NAPI_DISABLE_CPP_EXCEPTIONS",

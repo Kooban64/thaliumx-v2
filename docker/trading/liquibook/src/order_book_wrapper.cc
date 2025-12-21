@@ -151,7 +151,7 @@ Napi::Value OrderBookWrapper::GetDepth(const Napi::CallbackInfo& info) {
     const liquibook::book::DepthLevel* bidLevels = depth.bids();
     for (int i = 0; i < 5; ++i) {  // SIZE = 5
       const liquibook::book::DepthLevel& level = bidLevels[i];
-      if (level.price() > 0 && level.price() != 0xFFFFFFFFFFFFFFFFULL) {  // Check for valid price
+      if (level.price() > 0) {  // Check for valid price
         Napi::Object bidLevel = Napi::Object::New(env);
         bidLevel.Set("price", Napi::Number::New(env, level.price()));
         bidLevel.Set("quantity", Napi::Number::New(env, level.aggregate_qty()));
@@ -164,7 +164,7 @@ Napi::Value OrderBookWrapper::GetDepth(const Napi::CallbackInfo& info) {
     const liquibook::book::DepthLevel* askLevels = depth.asks();
     for (int i = 0; i < 5; ++i) {  // SIZE = 5
       const liquibook::book::DepthLevel& level = askLevels[i];
-      if (level.price() > 0 && level.price() != 0xFFFFFFFFFFFFFFFFULL) {  // Check for valid price
+      if (level.price() > 0) {  // Check for valid price
         Napi::Object askLevel = Napi::Object::New(env);
         askLevel.Set("price", Napi::Number::New(env, level.price()));
         askLevel.Set("quantity", Napi::Number::New(env, level.aggregate_qty()));

@@ -1,0 +1,42 @@
+# ThaliumX Production v1 - Search Layer
+# ====================================
+
+version: '3.8'
+
+services:
+  typesense:
+    image: typesense/typesense:28.0
+    container_name: thaliumx-typesense
+    hostname: thaliumx-typesense
+    restart: unless-stopped
+    # Strict audit mode: do not inject secrets via host env-vars.
+    # Export the API key at runtime from Docker secrets.
+    entrypoint: ["sh", "-lc"]
+    command:
+      - |
+        export TYPESENSE_API_KEY="$(cat /run/secrets/typesense-api-key)";
+        exec /opt/typesense-server \
+          --data-dir /data \
+          # Use $$ to prevent docker-compose interpolation; let the container shell expand it.
+          --api-key="$$TYPESENSE_API_KEY" \
+          --enable-cors;
+    volumes:
+      - typesense_data:/data
+    secrets:
+      - typesense-api-key
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8108' 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  typesense_data:
+    name: thaliumx-typesense-data
+
+networks:
+  thaliumx-net:
+    external: true

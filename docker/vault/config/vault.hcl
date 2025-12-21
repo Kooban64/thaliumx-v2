@@ -2,9 +2,8 @@
 # Following HashiCorp vendor documentation exactly
 # Updated: 2025-12-17T05:41:10.000Z
 
-storage "raft" {
+storage "file" {
   path = "/vault/data"
-  node_id = "vault-1"
 }
 
 listener "tcp" {

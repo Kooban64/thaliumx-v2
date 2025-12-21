@@ -8,29 +8,9 @@ use core::cmp::min;
 use paperclip::actix::api_v2_operation;
 use paperclip::actix::web::{self, HttpRequest, Json};
 
-fn check_market_exists(market: &str) -> bool {
-    // Validate market format and check against known trading pairs
-    // Basic validation: should be in format BASE/QUOTE (e.g., BTC/USDT)
-    if !market.contains('/') {
-        return false;
-    }
-
-    let parts: Vec<&str> = market.split('/').collect();
-    if parts.len() != 2 {
-        return false;
-    }
-
-    let base = parts[0];
-    let quote = parts[1];
-
-    // Check for valid asset symbols (basic validation)
-    if base.is_empty() || quote.is_empty() || base.len() > 10 || quote.len() > 10 {
-        return false;
-    }
-
-    // Additional validation could check against configured markets
-    // For now, accept common trading pairs
-    matches!(market, "BTC/USDT" | "ETH/USDT" | "BNB/USDT" | "THAL/USDT" | "THAL/BTC" | "THAL/ETH")
+fn check_market_exists(_market: &str) -> bool {
+    // TODO
+    true
 }
 
 #[api_v2_operation]
@@ -43,17 +23,7 @@ pub async fn recent_trades(req: HttpRequest, data: web::Data<AppState>) -> Resul
         return Err(RpcError::bad_request("invalid market").into());
     }
 
-    // Create cache key from market and limit
-    let cache_key = format!("{}:{}", market, limit);
-
-    // Check cache first
-    {
-        let trading_data = data.cache.trading.read().unwrap();
-        if let Some(cached_trades) = trading_data.recent_trades_cache.get(&cache_key) {
-            log::debug!("cache hit for recent_trades {}", cache_key);
-            return Ok(Json(cached_trades.clone()));
-        }
-    }
+    // TODO: this API result should be cached, either in-memory or using redis
 
     // Here we use the kline trade table, which is more market-centric
     // and more suitable for fetching latest trades on a market.
@@ -68,13 +38,6 @@ pub async fn recent_trades(req: HttpRequest, data: web::Data<AppState>) -> Resul
         .map_err(|err| actix_web::Error::from(RpcError::from(err)))?;
 
     log::debug!("query {} recent_trades records", trades.len());
-
-    // Cache the result
-    {
-        let mut trading_data = data.cache.trading.write().unwrap();
-        trading_data.recent_trades_cache.insert(cache_key, trades.clone(), std::time::Duration::from_secs(5));
-    }
-
     Ok(Json(trades))
 }
 

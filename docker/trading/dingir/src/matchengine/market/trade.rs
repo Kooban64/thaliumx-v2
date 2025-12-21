@@ -27,7 +27,7 @@ pub struct VerboseBalanceState {
     //pub balance_frozen: Deimcal,
 }
 
-// VerboseTradeState provides detailed state information for debugging/tracing
+// TODO: rename this?
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct VerboseTradeState {
     // emit all the related state

@@ -60,7 +60,7 @@ impl From<&BalanceHistory> for BalanceMessage {
             balance: balance.balance.to_string(),
             balance_available: balance.balance_available.to_string(),
             balance_frozen: balance.balance_frozen.to_string(),
-            detail: balance.detail.to_string(),
+            detail: balance.detail.clone(),
             signature: String::from_utf8(balance.signature.clone()).unwrap(),
         }
     }
@@ -90,7 +90,7 @@ impl From<&BalanceHistory> for DepositMessage {
             balance: balance.balance.to_string(),
             balance_available: balance.balance_available.to_string(),
             balance_frozen: balance.balance_frozen.to_string(),
-            detail: balance.detail.to_string(),
+            detail: balance.detail.clone(),
         }
     }
 }
@@ -120,7 +120,7 @@ impl From<&BalanceHistory> for WithdrawMessage {
             balance: balance.balance.to_string(),
             balance_available: balance.balance_available.to_string(),
             balance_frozen: balance.balance_frozen.to_string(),
-            detail: balance.detail.to_string(),
+            detail: balance.detail.clone(),
             signature: String::from_utf8(balance.signature.clone()).unwrap(),
         }
     }
@@ -169,6 +169,14 @@ impl OrderMessage {
 }
 //re-export from market, act as TradeMessage
 pub use crate::market::Trade;
+
+//TODO: senderstatus is not used anymore?
+#[derive(Serialize, Deserialize)]
+pub struct MessageSenderStatus {
+    trades_len: usize,
+    orders_len: usize,
+    balances_len: usize,
+}
 
 pub trait MessageManager: Sync + Send {
     //fn push_message(&mut self, msg: &Message);
@@ -271,13 +279,14 @@ impl<T: producer::MessageScheme> MessageManager for RdProducerStub<T> {
 
 pub type SimpleMessageManager = RdProducerStub<producer::SimpleMessageScheme>;
 
-// FullOrderMessageManager processes all messages that update global rollup state
-// (deposits, trades, etc.) while skipping less critical messages for efficiency
+// TODO: since now we enable SimpleMessageManager & FullOrderMessageManager both,
+// we only need to process useful (deposit,trade etc, which update the rollup global state) msgs only
+// and skip others
 pub type FullOrderMessageManager = RdProducerStub<producer::FullOrderMessageScheme>;
 
-// Message enum provides a unified interface for all message types
-// Using Box to reduce enum size and improve performance
-// Consider refactoring push_*_message methods to use this enum in future versions
+// https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_variant
+// TODO: better naming?
+// TODO: change push_order_message etc interface to this enum class?
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "value")]
 pub enum Message {

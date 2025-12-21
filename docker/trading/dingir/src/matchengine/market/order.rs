@@ -166,7 +166,7 @@ pub struct OrderInput {
     pub amount: Decimal,
     pub price: Decimal,
     pub quote_limit: Decimal,
-    pub taker_fee: Decimal, // Fee rates are configurable per order to support different fee structures
+    pub taker_fee: Decimal, // FIXME fee should be determined inside engine rather than take from input
     pub maker_fee: Decimal,
     pub market: String,
     pub post_only: bool,
@@ -190,8 +190,8 @@ impl OrderCommitment {
         let magic_head = Fr::from_u32(4);
         let data = Fr::hash(&[
             magic_head,
-            // Order ID is not included in signature as it's assigned by the engine
-            // Only the economic parameters are signed to prevent manipulation
+            // TODO: sign nonce or order_id
+            //u32_to_fr(self.order_id),
             self.token_sell,
             self.token_buy,
             self.total_sell,

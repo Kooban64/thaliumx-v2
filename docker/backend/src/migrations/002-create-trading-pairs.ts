@@ -1,6 +1,13 @@
 import { QueryInterface, DataTypes } from 'sequelize';
 
 export async function up(queryInterface: QueryInterface, Sequelize: any): Promise<void> {
+  // Check if table already exists
+  const tables = await queryInterface.showAllTables();
+  if (tables.includes('trading_pairs')) {
+    console.log('trading_pairs table already exists, skipping creation');
+    return;
+  }
+
   // Create trading_pairs table
   await queryInterface.createTable('trading_pairs', {
     symbol: {

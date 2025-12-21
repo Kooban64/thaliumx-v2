@@ -12,14 +12,14 @@ services:
   # PROMETHEUS - Metrics Collection
   # ============================================
   prometheus:
-    image: prom/prometheus:v2.51.0
+    image: prom/prometheus:v2.53.0
     container_name: thaliumx-prometheus
     hostname: thaliumx-prometheus
     restart: unless-stopped
     environment:
       # Vault integration for configuration
       VAULT_ADDR: https://vault:8200
-      VAULT_SKIP_VERIFY: "true"
+      VAULT_CACERT: /certs/ca.crt
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -27,11 +27,11 @@ services:
       - '--web.enable-remote-write-receiver'
       - '--web.enable-admin-api'
       - '--web.listen-address=0.0.0.0:9090'
-    ports:
-      - "9090:9090"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - ./../../observability/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./../../observability/config/alerts:/etc/prometheus/alerts:ro
+      - ./../../certs/ca/ca.crt:/certs/ca.crt:ro
       - prometheus_data:/prometheus
     secrets:
       - vault-role-id
@@ -62,7 +62,7 @@ services:
   # GRAFANA - Dashboard and Visualization
   # ============================================
   grafana:
-    image: grafana/grafana:10.4.0
+    image: grafana/grafana:11.2.0
     container_name: thaliumx-grafana
     hostname: thaliumx-grafana
     restart: unless-stopped
@@ -95,9 +95,8 @@ services:
 
       # Vault integration
       VAULT_ADDR: https://vault:8200
-      VAULT_SKIP_VERIFY: "true"
-    ports:
-      - "3000:3000"
+      VAULT_CACERT: /certs/ca.crt
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - ./../../observability/config/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./../../observability/config/grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -145,8 +144,7 @@ services:
     hostname: thaliumx-loki
     restart: unless-stopped
     command: -config.file=/etc/loki/loki.yml
-    ports:
-      - "3100:3100"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - ./../../observability/config/loki.yml:/etc/loki/loki.yml:ro
       - loki_data:/loki
@@ -181,10 +179,7 @@ services:
     hostname: thaliumx-tempo
     restart: unless-stopped
     command: -config.file=/etc/tempo/tempo.yml
-    ports:
-      - "3200:3200"   # Tempo query frontend
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - ./../../observability/config/tempo.yml:/etc/tempo/tempo.yml:ro
       - tempo_data:/var/tempo
@@ -219,8 +214,7 @@ services:
     hostname: thaliumx-promtail
     restart: unless-stopped
     command: -config.file=/etc/promtail/promtail.yml
-    ports:
-      - "9081:9080"   # HTTP server for health/ready endpoints (changed from 9080 to avoid conflict with APISIX)
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - ./../../observability/config/promtail.yml:/etc/promtail/promtail.yml:ro
       - /var/log:/var/log:ro
@@ -263,8 +257,7 @@ services:
       - '--storage.path=/alertmanager'
       - '--web.external-url=https://alertmanager.thaliumx.com'
       - '--cluster.listen-address='
-    ports:
-      - "9093:9093"
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - ./../../observability/config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - ./../../observability/config/alertmanager-templates:/etc/alertmanager/templates:ro
@@ -295,14 +288,12 @@ services:
   # OPENTELEMETRY COLLECTOR - Telemetry Processing
   # ============================================
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.97.0
+    image: otel/opentelemetry-collector-contrib:0.112.0
     container_name: thaliumx-otel-collector
     hostname: thaliumx-otel-collector
     restart: unless-stopped
     command: --config=/etc/otel/otel-collector.yml
-    ports:
-      - "8888:8888"   # Prometheus metrics for otel-collector itself
-      - "13133:13133" # Health check extension
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - ./../../observability/config/otel-collector.yml:/etc/otel/otel-collector.yml:ro
     networks:

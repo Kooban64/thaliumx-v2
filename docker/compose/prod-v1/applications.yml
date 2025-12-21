@@ -12,7 +12,7 @@ services:
   # ============================================
   # Production mode with TLS, Vault integration, and full migrations
   keycloak:
-    image: quay.io/keycloak/keycloak:26.0
+    image: quay.io/keycloak/keycloak:26.4.7
     container_name: thaliumx-keycloak
     hostname: thaliumx-keycloak
     restart: unless-stopped
@@ -22,15 +22,9 @@ services:
       vault:
         condition: service_healthy
     environment:
-      # Production mode (not dev)
-      KC_BOOTSTRAP_ADMIN_USERNAME_FILE: /run/secrets/keycloak-admin-username
-      KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak-admin-password
-
       # Database configuration (PostgreSQL with SSL)
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak?sslmode=require
-      KC_DB_USERNAME_FILE: /run/secrets/postgres-username
-      KC_DB_PASSWORD_FILE: /run/secrets/postgres-password
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak?sslmode=prefer
       KC_DB_SCHEMA: public
 
       # HTTPS/TLS configuration
@@ -59,16 +53,18 @@ services:
       KC_LOG_CONSOLE_FORMAT: '%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p [%c] (%t) %s%e%n'
 
       # Cache configuration (production)
-      KC_CACHE: ispn
-      KC_CACHE_STACK: kubernetes
-      KC_CACHE_CONFIG_FILE: /opt/keycloak/conf/cache-ispn.xml
+      # NOTE: `kubernetes` cache stack requires `jgroups.dns.query`.
+      # In Docker Compose we run a single-node Keycloak, so use `tcp`.
+      # KC_CACHE: ispn
+      # KC_CACHE_STACK: tcp
+      # KC_CACHE_CONFIG_FILE: /opt/keycloak/conf/cache-ispn.xml
 
       # Transaction settings (production)
       KC_TRANSACTION_XA_ENABLED: "false"
 
       # Vault integration (for additional secrets)
       VAULT_ADDR: https://vault:8200
-      VAULT_SKIP_VERIFY: "true"
+      VAULT_CACERT: /opt/keycloak/certs/ca.crt
 
       # JVM settings for production
       JAVA_OPTS: "-Xms512m -Xmx2048m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=512m -Djava.net.preferIPv4Stack=true -Djava.security.egd=file:/dev/./urandom"
@@ -77,15 +73,29 @@ services:
       - ./../../keycloak/realm-config:/opt/keycloak/data/import:ro
       - ./../../certs/services/keycloak:/opt/keycloak/certs:ro
       - ./../../certs/ca/ca.crt:/opt/keycloak/certs/ca.crt:ro
-      - ./../../keycloak/cache-ispn.xml:/opt/keycloak/conf/cache-ispn.xml:ro
     secrets:
       - keycloak-admin-username
       - keycloak-admin-password
       - postgres-username
       - postgres-password
-    command: start --import-realm --optimized --http-relative-path=/auth
-    ports:
-      - "8443:8443"  # HTTPS only
+    # Strict audit mode: do not pass secrets via docker-compose interpolation.
+    # Read all secrets from Docker secrets at runtime.
+    #
+    # We must override the default entrypoint (`kc.sh`) so we can export secrets
+    # from `/run/secrets/*` before executing Keycloak.
+    entrypoint: ["sh", "-lc"]
+    command:
+      - |
+        export KC_BOOTSTRAP_ADMIN_USERNAME="$(cat /run/secrets/keycloak-admin-username)";
+        export KC_BOOTSTRAP_ADMIN_PASSWORD="$(cat /run/secrets/keycloak-admin-password)";
+        export KC_DB_USERNAME="$(cat /run/secrets/postgres-username)";
+        export KC_DB_PASSWORD="$(cat /run/secrets/postgres-password)";
+        # NOTE: `--http-relative-path` is a build-time option in Keycloak.
+        # Using it together with `--optimized` on the stock image causes a crash-loop.
+        # If/when we move to a custom Keycloak image built with `kc.sh build --http-relative-path=/auth`,
+        # we can re-enable `--optimized`.
+        exec /opt/keycloak/bin/kc.sh start --import-realm --http-relative-path=/auth
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
     networks:
       - thaliumx-net
     healthcheck:
@@ -108,6 +118,252 @@ services:
       - "com.thaliumx.description=Identity and Access Management"
       - "com.thaliumx.tier=application"
 
-  # TODO: Add backend service
-  # TODO: Add compliance services (DEX, CEX, NFT, Token)
-  # TODO: Add QuantLib service
+  # ============================================
+  # BACKEND - Main Application Service
+  # ============================================
+  backend:
+    build:
+      # Repo root (needed because Dockerfile references docker/backend/...)
+      context: ../../..
+      dockerfile: docker/backend/Dockerfile.production
+    image: thaliumx/backend:latest
+    container_name: thaliumx-backend
+    hostname: thaliumx-backend
+    restart: unless-stopped
+    user: "1001:1001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      # Production environment
+      NODE_ENV: production
+      PORT: 3002
+
+      # Database Configuration (Postgres as system-of-record)
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: thaliumx
+      DB_USER: thaliumx
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      # Vault integration
+      VAULT_ADDR: https://vault:8200
+      VAULT_CACERT: /certs/ca.crt
+
+      # Node TLS trust: trust the internal ThaliumX CA (required for Vault/Keycloak TLS)
+      NODE_EXTRA_CA_CERTS: /certs/ca.crt
+
+      # Keycloak authentication
+      KEYCLOAK_URL: https://keycloak:8443
+      KEYCLOAK_REALM: thaliumx
+      KEYCLOAK_CLIENT_ID: thaliumx-backend
+      KEYCLOAK_CLIENT_SECRET_FILE: /run/secrets/keycloak-backend-secret
+
+      # JWT configuration
+      JWT_SECRET_FILE: /run/secrets/jwt-secret
+
+      # API Gateway integration
+      APISIX_ADMIN_URL: http://apisix:9180
+
+      # Kafka integration
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_SSL: "true"
+      KAFKA_SASL_MECHANISM: SCRAM-SHA-256
+      KAFKA_SASL_USERNAME: kafka-admin
+      KAFKA_SASL_PASSWORD_FILE: /run/secrets/kafka-password
+
+      # Monitoring and metrics
+      METRICS_ENABLED: "true"
+      PROMETHEUS_METRICS_PORT: 9092
+
+      # Security settings
+      CORS_ORIGIN: https://app.thaliumx.com
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX_REQUESTS: 1000
+
+      # OPA policy decision point
+      OPA_URL: http://opa:8181/v1/data
+
+      # External API credentials (via Vault)
+      BYBIT_API_KEY_FILE: /run/secrets/bybit-api-key
+      BYBIT_API_SECRET_FILE: /run/secrets/bybit-api-secret
+      KUCOIN_API_KEY_FILE: /run/secrets/kucoin-api-key
+      KUCOIN_API_SECRET_FILE: /run/secrets/kucoin-api-secret
+      OKX_API_KEY_FILE: /run/secrets/okx-api-key
+      OKX_API_SECRET_FILE: /run/secrets/okx-api-secret
+      KRAKEN_API_KEY_FILE: /run/secrets/kraken-api-key
+      KRAKEN_API_SECRET_FILE: /run/secrets/kraken-api-secret
+      VALR_API_KEY_FILE: /run/secrets/valr-api-key
+      VALR_API_SECRET_FILE: /run/secrets/valr-api-secret
+      BITSTAMP_API_KEY_FILE: /run/secrets/bitstamp-api-key
+      BITSTAMP_API_SECRET_FILE: /run/secrets/bitstamp-api-secret
+      CRYPTO_COM_API_KEY_FILE: /run/secrets/crypto-com-api-key
+      CRYPTO_COM_API_SECRET_FILE: /run/secrets/crypto-com-api-secret
+      NEDBANK_API_KEY_FILE: /run/secrets/nedbank-api-key
+      NEDBANK_API_SECRET_FILE: /run/secrets/nedbank-api-secret
+
+      # SSL/TLS configuration
+      SSL_CERT_FILE: /certs/backend/server.crt
+      SSL_KEY_FILE: /certs/backend/server.key
+      SSL_CA_FILE: /certs/ca.crt
+
+      # Audit logging
+      AUDIT_LOG_ENABLED: "true"
+      AUDIT_LOG_LEVEL: info
+
+      # Threat detection
+      THREAT_DETECTION_ENABLED: "true"
+      THREAT_DETECTION_SENSITIVITY: medium
+    # Inject secrets via Docker secrets (no plaintext values in compose)
+    command:
+      - sh
+      - -lc
+      - |
+        export DB_PASSWORD="$(cat /run/secrets/postgres-password)";
+        export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
+        export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
+        export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
+        export MONGODB_PASSWORD="$(cat /run/secrets/mongodb-password)";
+        # SMTP credentials are required by config validation in production.
+        export SMTP_USER="$(cat /run/secrets/smtp-user)";
+        export SMTP_PASSWORD="$(cat /run/secrets/smtp-password)";
+        exec node dist/index.js
+    volumes:
+      - ./../../backend/policies/wasm:/app/policies/wasm:ro
+      - ./../../certs/services/backend:/certs/backend:ro
+      - ./../../certs/ca/ca.crt:/certs/ca.crt:ro
+      - backend_logs:/app/logs
+    secrets:
+      - postgres-password
+      - redis-password
+      - jwt-secret
+      - encryption-key
+      - mongodb-password
+      - keycloak-backend-secret
+      - kafka-password
+      - bybit-api-key
+      - bybit-api-secret
+      - kucoin-api-key
+      - kucoin-api-secret
+      - okx-api-key
+      - okx-api-secret
+      - kraken-api-key
+      - kraken-api-secret
+      - valr-api-key
+      - valr-api-secret
+      - bitstamp-api-key
+      - bitstamp-api-secret
+      - crypto-com-api-key
+      - crypto-com-api-secret
+      - nedbank-api-key
+      - nedbank-api-secret
+      - smtp-user
+      - smtp-password
+      - vault-role-id
+      - vault-secret-id
+    networks:
+      - thaliumx-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+      opa:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    labels:
+      - "com.thaliumx.service=backend"
+      - "com.thaliumx.component=application"
+      - "com.thaliumx.description=Main Backend API Service"
+      - "com.thaliumx.tier=application"
+
+  # ============================================
+  # FRONTEND - Next.js Application
+  # ============================================
+  frontend:
+    build:
+      # Docker directory (frontend Dockerfile is docker/frontend/Dockerfile)
+      context: ../..
+      dockerfile: frontend/Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:3002
+        - NEXT_PUBLIC_KEYCLOAK_URL=http://keycloak:8443
+        - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx
+        - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
+    image: thaliumx/frontend:latest
+    container_name: thaliumx-frontend
+    hostname: thaliumx-frontend
+    restart: unless-stopped
+    user: "1001:1001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - NEXT_PUBLIC_API_URL=http://localhost:3002
+      - NEXT_PUBLIC_KEYCLOAK_URL=http://keycloak:8443
+      - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx
+      - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
+    # Strict audit mode: no host-exposed ports (gateway-only exposure).
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=100M,uid=1001,gid=1001,mode=1777
+      - /app/.next/cache:noexec,nosuid,nodev,size=200M,uid=1001,gid=1001,mode=0770
+    networks:
+      - thaliumx-net
+    depends_on:
+      backend:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "com.thaliumx.service=frontend"
+      - "com.thaliumx.component=application"
+      - "com.thaliumx.description=Next.js Frontend"
+      - "com.thaliumx.tier=application"

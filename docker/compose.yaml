@@ -1,6 +1,13 @@
-# Thaliumx Master Orchestrator
-# ============================
-# This file orchestrates all service groups using Docker Compose includes
+# Thaliumx Master Orchestrator (DEPRECATED)
+# =======================================
+# This legacy file orchestrates all service groups using Docker Compose includes.
+#
+# Production deployments MUST use the security-hardened Production v1 stack:
+# - [`docker/compose/prod-v1/base.yml`](docker/compose/prod-v1/base.yml:1)
+# - [`docker/compose/prod-v1/production.yml`](docker/compose/prod-v1/production.yml:1)
+#
+# This file is retained temporarily for backward compatibility and will be
+# removed only after Production v1 is fully validated end-to-end.
 
 name: thaliumx
 

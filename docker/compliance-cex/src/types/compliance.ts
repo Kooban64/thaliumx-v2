@@ -439,6 +439,11 @@ export interface ComplianceConfig {
     brokers: string[];
     clientId: string;
     groupId: string;
+    ssl?: boolean;
+    sslCa?: string;
+    saslMechanism?: string;
+    saslUsername?: string;
+    saslPassword?: string;
   };
   riskThresholds: {
     low: number;

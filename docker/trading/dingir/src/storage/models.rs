@@ -71,7 +71,7 @@ pub struct MarketDesc {
 
 #[derive(sqlx::FromRow, Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
 pub struct AccountDesc {
-    pub id: i32, // i32 is sufficient for user IDs (supports 2B+ users)
+    pub id: i32, // TODO: i32 or i64?
     pub l1_address: String,
     pub l2_pubkey: String,
 }
@@ -91,8 +91,8 @@ pub struct BalanceHistory {
     pub balance: DecimalDbType,
     pub balance_available: DecimalDbType,
     pub balance_frozen: DecimalDbType,
-    // Transaction details in JSONB format for better query performance
-    pub detail: serde_json::Value,
+    // TODO: change it to jsonb
+    pub detail: String,
     pub signature: Vec<u8>,
 }
 
@@ -151,8 +151,8 @@ pub struct OperationLog {
     pub id: i64,
     pub time: TimestampDbType,
     pub method: String,
-    // Operation parameters in JSONB format for better query performance
-    pub params: serde_json::Value,
+    // TODO: change it to jsonb
+    pub params: String,
 }
 
 //Notice this is used for query the full columns but not for insert

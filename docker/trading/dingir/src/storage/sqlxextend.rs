@@ -308,7 +308,7 @@ mod tests {
                 Some(i) => format!("${}", i),
                 None => String::from("DEFAULT"),
             })
-            .fold(String::new(), |acc, s| if acc.is_empty() { s } else { acc + "," + &s })
+            .fold(String::new(), |acc, s| if acc.len() == 0 { s } else { acc + "," + &s })
     }
 
     #[test]

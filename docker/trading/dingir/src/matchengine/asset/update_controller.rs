@@ -48,8 +48,8 @@ struct BalanceUpdateKey {
 //    pub fn is_valid()
 //}
 
-// BalanceUpdateController handles both duplicate prevention and balance update persistence
-// This dual responsibility is acceptable for this domain-specific controller
+// TODO: this class needs to be refactored
+// Currently it has two purpose: (1) filter duplicate (2) generate message
 pub struct BalanceUpdateController {
     cache: TtlCache<BalanceUpdateKey, bool>,
 }
@@ -122,7 +122,7 @@ impl BalanceUpdateController {
                 balance: balance_available + balance_frozen,
                 balance_available,
                 balance_frozen,
-                detail: params.detail.clone(),
+                detail: params.detail.to_string(),
                 signature: params.signature,
             };
             persistor.put_balance(&balance_history);

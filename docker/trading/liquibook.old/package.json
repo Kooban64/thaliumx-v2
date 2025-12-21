@@ -1,0 +1,27 @@
+{
+  "name": "liquibook-service",
+  "version": "1.0.0",
+  "description": "Liquibook Order Book HTTP Service with Node.js N-API bindings",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "build": "node-gyp rebuild",
+    "clean": "node-gyp clean",
+    "install": "node-gyp rebuild",
+    "test": "node -e \"console.log('Testing addon...'); const {OrderBook} = require('./index'); const book = new OrderBook('TEST'); console.log('✅ Addon loaded successfully');\""
+  },
+  "dependencies": {
+    "node-addon-api": "^8.1.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "node-gyp": "^10.1.0",
+    "nodemon": "^3.0.1"
+  },
+  "gypfile": true,
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

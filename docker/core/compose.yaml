@@ -128,8 +128,9 @@ services:
       # Vault Configuration (primary secrets source)
       - VAULT_ADDR=http://thaliumx-vault:8200
       - VAULT_MOUNT_PATH=secret
-      # Database Configuration (Citus for multi-tenant)
-      - DB_HOST=thaliumx-citus-coordinator
+      # Database Configuration (Phase 0 stabilization: use Postgres as system-of-record)
+      # Citus will be used later as an analytics/read store via CDC/Kafka.
+      - DB_HOST=thaliumx-postgres
       - DB_PORT=5432
       - DB_NAME=thaliumx
       - DB_USER=thaliumx
@@ -154,6 +155,14 @@ services:
       - ENABLE_VAULT=true
       - ENABLE_KAFKA=true
       - ENABLE_OTEL=true
+
+    # Provide Redis password via Docker secret (avoid plaintext in env/config).
+    # The application currently reads REDIS_PASSWORD from env (not *_FILE),
+    # so we export it at runtime from /run/secrets/redis-password.
+    secrets:
+      - redis-password
+
+    command: ["sh", "-lc", "export REDIS_PASSWORD=\"$(cat /run/secrets/redis-password)\"; exec node dist/index.js"]
     
     ports:
       - "${BACKEND_PORT:-3002}:3002"

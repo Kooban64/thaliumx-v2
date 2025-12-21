@@ -615,7 +615,7 @@ impl<'r> From<&'r super::BalanceMessage> for models::BalanceHistory {
             balance: DecimalDbType::from_str(&origin.balance).unwrap_or_else(decimal_warning),
             balance_available: DecimalDbType::from_str(&origin.balance_available).unwrap_or_else(decimal_warning),
             balance_frozen: DecimalDbType::from_str(&origin.balance_frozen).unwrap_or_else(decimal_warning),
-            detail: serde_json::Value::String(origin.detail.clone()),
+            detail: origin.detail.clone(),
             signature: origin.signature.as_bytes().to_vec(),
         }
     }
@@ -670,7 +670,7 @@ impl MsgDataTransformer<models::UserTrade> for BidTrade {
 impl<'r> From<&'r super::UserMessage> for models::AccountDesc {
     fn from(origin: &'r super::UserMessage) -> Self {
         Self {
-            id: origin.user_id as i32, // Potential overflow if user_id > i32::MAX (2.1B)
+            id: origin.user_id as i32, // TODO: will this overflow?
             l1_address: origin.l1_address.clone(),
             l2_pubkey: origin.l2_pubkey.clone(),
         }
@@ -681,8 +681,8 @@ impl<'r> From<&'r super::TransferMessage> for models::InternalTx {
     fn from(origin: &'r super::TransferMessage) -> Self {
         Self {
             time: FTimestamp(origin.time).into(),
-            user_from: origin.user_from as i32, // Potential overflow if user_id > i32::MAX (2.1B)
-            user_to: origin.user_to as i32,     // Potential overflow if user_id > i32::MAX (2.1B)
+            user_from: origin.user_from as i32, // TODO: will this overflow?
+            user_to: origin.user_to as i32,     // TODO: will this overflow?
             asset: origin.asset.clone(),
             amount: DecimalDbType::from_str(&origin.amount).unwrap_or_else(decimal_warning),
             signature: origin.signature.as_bytes().to_vec(),
