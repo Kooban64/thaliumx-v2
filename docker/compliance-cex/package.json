@@ -37,6 +37,7 @@
     "joi": "^17.9.2",
     "jsonwebtoken": "^9.0.1",
     "kafkajs": "^2.2.4",
+    "keycloak-connect": "^26.0.7",
     "pg": "^8.11.3",
     "uuid": "^9.0.0",
     "winston": "^3.9.0",

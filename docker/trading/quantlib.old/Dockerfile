@@ -2,14 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for QuantLib
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    libboost-all-dev \
-    libgmp-dev \
-    libmpfr-dev \
-    libeigen3-dev \
+# Install minimal runtime dependencies.
+# NOTE: The service uses prebuilt manylinux wheels (QuantLib, numpy, scipy, etc.),
+# so we intentionally avoid heavyweight build toolchains to keep the image small.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

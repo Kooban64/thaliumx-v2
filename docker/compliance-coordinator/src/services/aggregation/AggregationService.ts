@@ -5,6 +5,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabaseService } from '../database';
+import { getChainAnalysisService } from '../chainanalysis';
 import { createComponentLogger, logAggregationEvent } from '../../utils/logger';
 import type {
   ComplianceServiceType,
@@ -96,6 +97,91 @@ export class AggregationService {
     });
 
     const db = getDatabaseService();
+    const chainAnalysis = getChainAnalysisService();
+
+    // Enhance risk assessment with ChainAnalysis data
+    let enhancedRiskScore = input.riskScore;
+    let enhancedFlags = [...input.flags];
+    let enhancedRecommendations = [...input.recommendations];
+
+    try {
+      // Get ChainAnalysis data if we have address or transaction info
+      if (input.entityType === 'address' && input.entityId) {
+        logger.info('Fetching ChainAnalysis address risk data', {
+          address: input.entityId,
+          tenantId: input.tenantId,
+        });
+
+        const chainAnalysisResult = await chainAnalysis.scoreAddressRisk({
+          address: input.entityId,
+          chain: 'ethereum', // Default to Ethereum, could be made configurable
+        });
+
+        if (chainAnalysisResult.success && chainAnalysisResult.data) {
+          const chainData = chainAnalysisResult.data;
+
+          // Enhance risk score (weighted average with ChainAnalysis)
+          const chainWeight = 0.3; // 30% weight to ChainAnalysis
+          enhancedRiskScore = (input.riskScore * (1 - chainWeight)) + (chainData.riskScore * chainWeight);
+
+          // Add ChainAnalysis flags
+          enhancedFlags.push(...chainData.labels.map(label => `chainanalysis:${label}`));
+
+          // Add ChainAnalysis recommendations
+          if (chainData.riskScore > 0.7) {
+            enhancedRecommendations.push('ChainAnalysis indicates high blockchain risk - review transaction patterns');
+          }
+
+          logger.info('Enhanced risk assessment with ChainAnalysis data', {
+            originalScore: input.riskScore,
+            chainAnalysisScore: chainData.riskScore,
+            enhancedScore: enhancedRiskScore,
+            addedFlags: chainData.labels.length,
+          });
+        }
+      } else if (input.entityType === 'transaction' && input.transactionHash) {
+        logger.info('Fetching ChainAnalysis transaction risk data', {
+          txHash: input.transactionHash,
+          tenantId: input.tenantId,
+        });
+
+        const chainAnalysisResult = await chainAnalysis.scoreTransactionRisk({
+          txHash: input.transactionHash,
+          chain: 'ethereum',
+        });
+
+        if (chainAnalysisResult.success && chainAnalysisResult.data) {
+          const chainData = chainAnalysisResult.data;
+
+          // Enhance risk score
+          const chainWeight = 0.4; // 40% weight for transaction analysis
+          enhancedRiskScore = (input.riskScore * (1 - chainWeight)) + (chainData.riskScore * chainWeight);
+
+          // Add ChainAnalysis flags
+          enhancedFlags.push(...chainData.labels.map(label => `chainanalysis:${label}`));
+
+          // Add ChainAnalysis recommendations
+          if (chainData.riskScore > 0.8) {
+            enhancedRecommendations.push('ChainAnalysis indicates critical blockchain risk - immediate review required');
+          }
+
+          logger.info('Enhanced transaction risk assessment with ChainAnalysis data', {
+            txHash: input.transactionHash,
+            originalScore: input.riskScore,
+            chainAnalysisScore: chainData.riskScore,
+            enhancedScore: enhancedRiskScore,
+          });
+        }
+      }
+    } catch (error) {
+      logger.warn('ChainAnalysis enhancement failed, using original assessment', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        entityType: input.entityType,
+        entityId: input.entityId,
+        transactionHash: input.transactionHash,
+      });
+      // Continue with original assessment if ChainAnalysis fails
+    }
 
     // Check if already aggregated
     const existing = await db.queryOne<AggregatedRiskAssessmentTable>(`
@@ -104,7 +190,7 @@ export class AggregationService {
     `, [input.sourceService, input.sourceAssessmentId]);
 
     if (existing) {
-      // Update existing
+      // Update existing with enhanced data
       await db.query(`
         UPDATE aggregated_risk_assessments
         SET risk_score = $1,
@@ -115,11 +201,11 @@ export class AggregationService {
             updated_at = CURRENT_TIMESTAMP
         WHERE id = $6
       `, [
-        input.riskScore,
-        input.riskLevel,
-        input.flags,
-        input.recommendations,
-        input.reviewRequired,
+        enhancedRiskScore,
+        this.calculateRiskLevel(enhancedRiskScore),
+        enhancedFlags,
+        enhancedRecommendations,
+        input.reviewRequired || enhancedRiskScore > 0.8, // Auto-escalate review for high ChainAnalysis risk
         existing.id,
       ]);
 
@@ -152,11 +238,11 @@ export class AggregationService {
       input.userId,
       input.tenantId,
       input.brokerId,
-      input.riskScore,
-      input.riskLevel,
-      input.flags,
-      input.recommendations,
-      input.reviewRequired,
+      enhancedRiskScore,
+      this.calculateRiskLevel(enhancedRiskScore),
+      enhancedFlags,
+      enhancedRecommendations,
+      input.reviewRequired || enhancedRiskScore > 0.8, // Auto-escalate review for high ChainAnalysis risk
       input.assessmentDate,
     ]);
 
@@ -172,11 +258,11 @@ export class AggregationService {
       userId: input.userId,
       tenantId: input.tenantId,
       brokerId: input.brokerId,
-      riskScore: input.riskScore,
-      riskLevel: input.riskLevel,
-      flags: input.flags,
-      recommendations: input.recommendations,
-      reviewRequired: input.reviewRequired,
+      riskScore: enhancedRiskScore,
+      riskLevel: this.calculateRiskLevel(enhancedRiskScore),
+      flags: enhancedFlags,
+      recommendations: enhancedRecommendations,
+      reviewRequired: input.reviewRequired || enhancedRiskScore > 0.8,
       assessmentDate: input.assessmentDate,
       createdAt: now,
       updatedAt: now,
@@ -455,6 +541,8 @@ export class AggregationService {
       dex: { assessments: 0, highRisk: 0, travelRule: 0 },
       nft: { assessments: 0, highRisk: 0, travelRule: 0 },
       token: { assessments: 0, highRisk: 0, travelRule: 0 },
+      chainanalysis: { assessments: 0, highRisk: 0, travelRule: 0 },
+      'omni-exchange': { assessments: 0, highRisk: 0, travelRule: 0 },
     };
 
     for (const stat of serviceStats) {
@@ -484,6 +572,16 @@ export class AggregationService {
       travelRuleCompliance: totalTravelRule > 0 ? (acknowledgedTravelRule / totalTravelRule) * 100 : 100,
       byService,
     };
+  }
+
+  /**
+   * Calculate risk level from risk score
+   */
+  private calculateRiskLevel(riskScore: number): 'low' | 'medium' | 'high' | 'critical' {
+    if (riskScore >= 0.8) return 'critical';
+    if (riskScore >= 0.6) return 'high';
+    if (riskScore >= 0.3) return 'medium';
+    return 'low';
   }
 
   /**

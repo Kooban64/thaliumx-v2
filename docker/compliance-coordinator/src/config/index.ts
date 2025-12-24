@@ -131,6 +131,10 @@ export function buildConfig(): CoordinatorConfig {
         url: getEnv('TOKEN_COMPLIANCE_URL', 'http://localhost:3004'),
         enabled: getEnvBool('TOKEN_COMPLIANCE_ENABLED', true),
       },
+      chainanalysis: {
+        url: getEnv('CHAINANALYSIS_URL', 'http://thaliumx-compliance-chainanalysis:3011'),
+        enabled: getEnvBool('CHAINANALYSIS_ENABLED', true),
+      },
     },
 
     reporting: {

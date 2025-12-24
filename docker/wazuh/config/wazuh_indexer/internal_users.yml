@@ -16,7 +16,7 @@ _meta:
 # Admin user - full access
 # Password: set out-of-band (hash must match)
 admin:
-  hash: "$2y$12$erOCeDKu6eV2G3GjuyKnRO5/GQEuImjaOs6FfSRxXqyzxB3Dfehbi"
+  hash: "$2y$12$mna1quUv6O01GjBJyOyNv.yBb2C2dzgJhiStqBLUvIf.FTgdekgG6"
   reserved: true
   backend_roles:
     - "admin"
@@ -25,13 +25,13 @@ admin:
 # Kibanaserver user - for dashboard
 # Password: set out-of-band (hash must match)
 kibanaserver:
-  hash: "$2y$12$vxDSSULurHdEY2ttbATESuJjXhzzA/m3L8omvMVEfGfz6Hys.G5ie"
+  hash: "$2y$12$MbqlAEe3/YOM8oDYggS8Zex.6fETEOx5sS8EXN2uY2HsCDoD7hKVS"
   reserved: true
   description: "Kibanaserver user"
 
 # Kibanaro user - read-only (using admin password for simplicity)
 kibanaro:
-  hash: "$2y$12$erOCeDKu6eV2G3GjuyKnRO5/GQEuImjaOs6FfSRxXqyzxB3Dfehbi"
+  hash: "$2y$12$D9M3FU1nckKQp86i9shf9.yOY6qfUu81Ip3snf64IxtPmIwkcWS9m"
   reserved: false
   backend_roles:
     - "kibanauser"
@@ -44,7 +44,7 @@ kibanaro:
 
 # Logstash user (using admin password for simplicity)
 logstash:
-  hash: "$2y$12$erOCeDKu6eV2G3GjuyKnRO5/GQEuImjaOs6FfSRxXqyzxB3Dfehbi"
+  hash: "$2y$12$D9M3FU1nckKQp86i9shf9.yOY6qfUu81Ip3snf64IxtPmIwkcWS9m"
   reserved: false
   backend_roles:
     - "logstash"
@@ -52,7 +52,7 @@ logstash:
 
 # Readall user (using admin password for simplicity)
 readall:
-  hash: "$2y$12$erOCeDKu6eV2G3GjuyKnRO5/GQEuImjaOs6FfSRxXqyzxB3Dfehbi"
+  hash: "$2y$12$D9M3FU1nckKQp86i9shf9.yOY6qfUu81Ip3snf64IxtPmIwkcWS9m"
   reserved: false
   backend_roles:
     - "readall"
@@ -60,7 +60,7 @@ readall:
 
 # Snapshotrestore user (using admin password for simplicity)
 snapshotrestore:
-  hash: "$2y$12$erOCeDKu6eV2G3GjuyKnRO5/GQEuImjaOs6FfSRxXqyzxB3Dfehbi"
+  hash: "$2y$12$D9M3FU1nckKQp86i9shf9.yOY6qfUu81Ip3snf64IxtPmIwkcWS9m"
   reserved: false
   backend_roles:
     - "snapshotrestore"

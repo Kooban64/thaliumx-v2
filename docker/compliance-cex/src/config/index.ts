@@ -74,6 +74,13 @@ const envSchema = z.object({
   API_KEY: z.string().min(32),
   ENCRYPTION_KEY: z.string().min(32),
 
+  // Keycloak Configuration
+  KEYCLOAK_URL: z.string().url().default('http://localhost:8080'),
+  KEYCLOAK_REALM: z.string().default('thaliumx'),
+  KEYCLOAK_CLIENT_ID: z.string().default('thaliumx-compliance-cex'),
+  KEYCLOAK_CLIENT_SECRET: z.string().min(1),
+  KEYCLOAK_CLIENT_SECRET_FILE: z.string().optional(),
+
   // External Services
   VASPS_REGISTRY_URL: z.string().url().optional(),
   SANCTIONS_CHECK_URL: z.string().url().optional(),
@@ -129,6 +136,15 @@ export const config: ComplianceConfig = {
     ...(env.KAFKA_SASL_MECHANISM && { saslMechanism: env.KAFKA_SASL_MECHANISM }),
     ...(env.KAFKA_SASL_USERNAME && { saslUsername: env.KAFKA_SASL_USERNAME }),
     ...(env.KAFKA_SASL_PASSWORD && { saslPassword: env.KAFKA_SASL_PASSWORD }),
+  },
+
+  keycloak: {
+    url: env.KEYCLOAK_URL,
+    realm: env.KEYCLOAK_REALM,
+    clientId: env.KEYCLOAK_CLIENT_ID,
+    clientSecret: env.KEYCLOAK_CLIENT_SECRET_FILE
+      ? require('fs').readFileSync(env.KEYCLOAK_CLIENT_SECRET_FILE, 'utf8').trim()
+      : env.KEYCLOAK_CLIENT_SECRET,
   },
 
   riskThresholds: {

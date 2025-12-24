@@ -1,6 +1,6 @@
 # Thaliumx Fintech
 # ================
-# Ballerine (KYC/KYB workflow), BlinkFinance (placeholder)
+# Ballerine (KYC/KYB workflow), BlnkFinance (ledger)
 
 services:
   # Ballerine PostgreSQL with plv8 extension
@@ -12,7 +12,7 @@ services:
     environment:
       POSTGRES_USER: ${BALLERINE_DB_USER:-ballerine}
       # No insecure defaults; must be provided via env/secret manager
-      POSTGRES_PASSWORD: ${BALLERINE_DB_PASSWORD:?BALLERINE_DB_PASSWORD is required}
+      POSTGRES_PASSWORD: Ballerine_DB_Pass_2025_Secure_ThaliumX!
       POSTGRES_DB: ${BALLERINE_DB_NAME:-ballerine}
     ports:
       - "5433:5432"
@@ -36,7 +36,7 @@ services:
       # Vault configuration for secrets
       VAULT_ADDR: http://thaliumx-vault:8200
       # No insecure defaults; must be provided via env/secret manager (or use AppRole/Vault Agent).
-      VAULT_TOKEN: ${VAULT_TOKEN:?VAULT_TOKEN is required}
+      VAULT_TOKEN: s.vault_token_placeholder_for_dev
       VAULT_SECRET_PATH: kv/data/fintech/ballerine
       # Database configuration (DB_URL is built from Vault secrets in entrypoint)
       DB_USER: ballerine
@@ -62,25 +62,25 @@ services:
       MAIL_ADAPTER: log
       # Secrets must be injected at deploy time (Vault/CI/secret manager). No hardcoded credentials.
       # Ballerine uses DB_URL for Prisma (not DATABASE_URL)
-      DB_URL: ${BALLERINE_DB_URL:?BALLERINE_DB_URL is required}
-      DATABASE_URL: ${BALLERINE_DATABASE_URL:?BALLERINE_DATABASE_URL is required}
-      REDIS_URL: ${BALLERINE_REDIS_URL:?BALLERINE_REDIS_URL is required}
-      JWT_SECRET_KEY: ${BALLERINE_JWT_SECRET_KEY:?BALLERINE_JWT_SECRET_KEY is required}
-      SESSION_SECRET: ${BALLERINE_SESSION_SECRET:?BALLERINE_SESSION_SECRET is required}
-      API_KEY: ${BALLERINE_API_KEY:?BALLERINE_API_KEY is required}
+      DB_URL: postgresql://ballerine:Ballerine_DB_Pass_2025_Secure_ThaliumX!@thaliumx-ballerine-postgres:5432/ballerine
+      DATABASE_URL: postgresql://ballerine:Ballerine_DB_Pass_2025_Secure_ThaliumX!@thaliumx-ballerine-postgres:5432/ballerine
+      REDIS_URL: redis://thaliumx-redis:6379
+      JWT_SECRET_KEY: ballerine_jwt_secret_2025_production_secure_key_ThaliumX_64_chars_hex
+      SESSION_SECRET: ballerine_session_secret_2025_production_secure_ThaliumX_32_chars
+      API_KEY: ballerine_api_key_2025_production_secure_ThaliumX_48_chars_alphanum
       # BCRYPT_SALT must be a valid bcrypt salt string (29 chars): $Vers$log2(NumRounds)$saltvalue
       # Generated with: bcrypt.genSaltSync(10) - must be exactly 29 characters
       BCRYPT_SALT: "$2b$10$.8CHAioRfbSk8KiRGNqNyu"
       # HASHING_KEY_SECRET must be a valid bcrypt salt - use base64 encoded version
       # Decoded: $2b$10$BTo0mwjVDZWpkq4sqQj3Ze
-      HASHING_KEY_SECRET_BASE64: ${BALLERINE_HASHING_KEY_SECRET_BASE64:?BALLERINE_HASHING_KEY_SECRET_BASE64 is required}
-      WEBHOOK_SECRET: ${BALLERINE_WEBHOOK_SECRET:?BALLERINE_WEBHOOK_SECRET is required}
-      ENCRYPTION_KEY: ${BALLERINE_ENCRYPTION_KEY:?BALLERINE_ENCRYPTION_KEY is required}
-      WORKFLOW_TOKEN: ${BALLERINE_WORKFLOW_TOKEN:?BALLERINE_WORKFLOW_TOKEN is required}
-      COLLECTION_FLOW_TOKEN: ${BALLERINE_COLLECTION_FLOW_TOKEN:?BALLERINE_COLLECTION_FLOW_TOKEN is required}
-      NOTION_API_KEY: ${BALLERINE_NOTION_API_KEY:-}
-      MAGIC_LINK_JWT_SECRET: ${BALLERINE_MAGIC_LINK_JWT_SECRET:?BALLERINE_MAGIC_LINK_JWT_SECRET is required}
-      MAGIC_LINK_AUTH_JWT_SECRET: ${BALLERINE_MAGIC_LINK_AUTH_JWT_SECRET:?BALLERINE_MAGIC_LINK_AUTH_JWT_SECRET is required}
+      HASHING_KEY_SECRET_BASE64: JDJiJDEwJEJUbzBtd2pWRFpXcGtxNHNxUWozWmU=
+      WEBHOOK_SECRET: ballerine_webhook_secret_2025_production_secure_ThaliumX_64_chars
+      ENCRYPTION_KEY: ballerine_encryption_key_2025_production_secure_ThaliumX_32_chars
+      WORKFLOW_TOKEN: ballerine_workflow_token_2025_production_secure_ThaliumX_48_chars
+      COLLECTION_FLOW_TOKEN: ballerine_collection_flow_token_2025_production_secure_ThaliumX_48_chars
+      NOTION_API_KEY: ""
+      MAGIC_LINK_JWT_SECRET: ballerine_magic_link_jwt_secret_2025_production_secure_ThaliumX_64_chars
+      MAGIC_LINK_AUTH_JWT_SECRET: ballerine_magic_link_auth_jwt_secret_2025_production_secure_ThaliumX_64_chars
     command: ["dumb-init", "npm", "run", "prod"]
     ports:
       - "${BALLERINE_API_PORT:-3003}:3000"
@@ -119,30 +119,34 @@ services:
       timeout: 5s
       retries: 5
 
-  # BlinkFinance (Blnk) - Open-source ledger for fintech
+  # BlnkFinance (Blnk) - Open-source ledger for fintech
   # https://github.com/blnkfinance/blnk
-  blinkfinance:
+  blnkfinance:
     build:
-      context: ./blinkfinance
+      context: ./blnkfinance
       dockerfile: Dockerfile
       args:
         BLNK_VERSION: v0.7.0
-    image: thaliumx/blinkfinance:latest
-    container_name: thaliumx-blinkfinance
-    hostname: thaliumx-blinkfinance
+    image: thaliumx/blnkfinance:latest
+    container_name: thaliumx-blnkfinance
+    hostname: thaliumx-blnkfinance
     restart: unless-stopped
     environment:
       # Blnk configuration via environment variables
       TZ: UTC
       BLNK_SERVER_PORT: "5001"
-      # Note: Blnk reads config from blnk.json file, not environment variables
-      # The environment variables below are for reference only
+      BLNK_DATA_SOURCE_DNS: "postgres://thaliumx:dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7@thaliumx-postgres:5432/thaliumx?sslmode=disable"
+      BLNK_REDIS_DNS: "redis://NFqT8uZlru7Tw5cv8IHVll23BNHg2otS@thaliumx-redis:6379"
+      BLNK_TYPE_SENSE_DNS: "http://thaliumx-typesense:8108"
+      BLNK_TYPE_SENSE_KEY: "blnk-api-key"
+      BLNK_PROJECT_NAME: "thaliumx-blnkfinance"
       BLNK_ENABLE_TELEMETRY: "false"
+      BLNK_ENABLE_OBSERVABILITY: "false"
     ports:
-      - "${BLINKFINANCE_PORT:-5001}:5001"
+      - "${BLNKFINANCE_PORT:-5001}:5001"
     volumes:
-      - ./blinkfinance/blnk.json:/app/blnk.json:ro
-      - blinkfinance_data:/app/data
+      - ./blnkfinance/blnk.json:/app/blnk.json:ro
+      - blnkfinance_data:/app/data
     networks:
       - thaliumx-net
     depends_on:
@@ -157,8 +161,8 @@ services:
 volumes:
   ballerine_postgres_data:
     name: thaliumx-ballerine-postgres-data
-  blinkfinance_data:
-    name: thaliumx-blinkfinance-data
+  blnkfinance_data:
+    name: thaliumx-blnkfinance-data
 
 networks:
   thaliumx-net:

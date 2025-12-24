@@ -20,7 +20,7 @@ services:
   # HashiCorp Vault - Secrets Management
   # ===========================================
   vault:
-    image: hashicorp/vault:1.15
+    image: hashicorp/vault:1.18
     container_name: thaliumx-vault
     hostname: thaliumx-vault
     restart: unless-stopped
@@ -107,12 +107,12 @@ services:
   # Keycloak - Identity and Access Management
   # ===========================================
   keycloak:
-    image: thaliumx/keycloak:24.0-optimized
+    image: thaliumx/keycloak:27.0.1-optimized
     build:
       context: .
       dockerfile: Dockerfile.keycloak
       args:
-        KEYCLOAK_VERSION: "24.0"
+        KEYCLOAK_VERSION: "27.0.1"
     container_name: thaliumx-keycloak
     hostname: thaliumx-keycloak
     restart: unless-stopped
@@ -193,7 +193,7 @@ services:
   # OPA - Open Policy Agent
   # ===========================================
   opa:
-    image: openpolicyagent/opa:0.64.0
+    image: openpolicyagent/opa:0.68.0
     container_name: thaliumx-opa
     hostname: thaliumx-opa
     restart: unless-stopped

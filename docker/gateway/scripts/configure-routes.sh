@@ -9,10 +9,11 @@
 set -e
 
 # Configuration
-APISIX_ADMIN_URL="http://localhost:9180/apisix/admin"
-ADMIN_KEY="thaliumx-admin-key"
-FRONTEND_UPSTREAM="thaliumx-frontend:3000"
-BACKEND_UPSTREAM="thaliumx-backend:3001"
+APISIX_ADMIN_URL="${APISIX_ADMIN_URL:-http://localhost:9180/apisix/admin}"
+# No insecure defaults; provide via env/secret manager.
+APISIX_ADMIN_KEY="${APISIX_ADMIN_KEY:?APISIX_ADMIN_KEY is required}"
+FRONTEND_UPSTREAM="${FRONTEND_UPSTREAM:-thaliumx-frontend:3000}"
+BACKEND_UPSTREAM="${BACKEND_UPSTREAM:-thaliumx-backend:3002}"
 ENABLE_SSL=false
 
 # Parse arguments
@@ -49,14 +50,14 @@ api_call() {
     local data=$3
     
     curl -s -X "$method" "$APISIX_ADMIN_URL$endpoint" \
-        -H "X-API-KEY: $ADMIN_KEY" \
+        -H "X-API-KEY: $APISIX_ADMIN_KEY" \
         -H "Content-Type: application/json" \
         -d "$data"
 }
 
 # Check if APISIX is running
 echo -e "${YELLOW}Checking APISIX connectivity...${NC}"
-if ! curl -s -f "$APISIX_ADMIN_URL/routes" -H "X-API-KEY: $ADMIN_KEY" > /dev/null 2>&1; then
+if ! curl -s -f "$APISIX_ADMIN_URL/routes" -H "X-API-KEY: $APISIX_ADMIN_KEY" > /dev/null 2>&1; then
     echo -e "${RED}Error: Cannot connect to APISIX Admin API at $APISIX_ADMIN_URL${NC}"
     echo "Make sure APISIX is running and accessible."
     exit 1
@@ -75,7 +76,7 @@ api_call PUT "/upstreams/1" '{
     "name": "frontend-upstream",
     "type": "roundrobin",
     "nodes": {
-        "thaliumx-frontend:3000": 1
+        "'$FRONTEND_UPSTREAM'": 1
     },
     "timeout": {
         "connect": 6,
@@ -92,7 +93,7 @@ api_call PUT "/upstreams/2" '{
     "name": "backend-upstream",
     "type": "roundrobin",
     "nodes": {
-        "thaliumx-backend:3001": 1
+        "'$BACKEND_UPSTREAM'": 1
     },
     "timeout": {
         "connect": 6,
@@ -180,7 +181,7 @@ api_call PUT "/routes/3" '{
             "http_to_https": true
         },
         "proxy-rewrite": {
-            "uri": "/presale$request_uri"
+            "uri": "/token-presale$request_uri"
         }
     },
     "priority": 10

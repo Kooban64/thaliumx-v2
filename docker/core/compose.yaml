@@ -120,7 +120,8 @@ services:
       - ./core.env
     
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
+      - NODE_ENV
       - PORT=3002
       - DISABLE_RATE_LIMIT=${DISABLE_RATE_LIMIT:-false}
       # API Gateway Configuration
@@ -134,16 +135,45 @@ services:
       - DB_PORT=5432
       - DB_NAME=thaliumx
       - DB_USER=thaliumx
-      # Redis Configuration - uses REDIS_PASSWORD from core.env
-      # Do not override here to allow env_file to take precedence
-      # Keycloak Configuration - uses values from core.env
-      # Do not override KEYCLOAK_ADMIN_PASSWORD here to allow env_file to take precedence
+      - DB_PASSWORD=thaliumx-db-password-2025
+      # Redis Configuration
+      - REDIS_HOST=thaliumx-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=thaliumx-redis-password-2025
+      - REDIS_DB=0
+      # Keycloak Configuration
+      - KEYCLOAK_URL=http://thaliumx-keycloak:8080
+      - KEYCLOAK_REALM=thaliumx
+      - KEYCLOAK_CLIENT_ID=thaliumx-backend
+      - KEYCLOAK_CLIENT_SECRET=thaliumx-keycloak-secret-2025
+      - KEYCLOAK_ADMIN_USERNAME=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin123
       # Kafka Configuration
       - KAFKA_BROKERS=thaliumx-kafka:9092
+      - KAFKA_SSL=false
       # MongoDB Configuration
-      # MongoDB URI is provided via env_file (core.env) to avoid leaking credentials in compose.
+      - MONGODB_URI=mongodb://thaliumx:thaliumx-mongo-password-2025@thaliumx-mongodb:27017/thaliumx?authSource=admin
+      # Typesense Configuration
+      - TYPESENSE_URL=http://thaliumx-typesense:8108
+      - TYPESENSE_API_KEY=thaliumx-typesense-key-2025
       # OPA Configuration
       - OPA_URL=http://thaliumx-opa:8181
+      # SMTP Configuration (required for production)
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_SECURE=false
+      - SMTP_USER=kooban.smtp@gmail.com
+      - SMTP_PASSWORD=ztpf zttv rrip spaf
+      - SMTP_FROM=kooban.smtp@gmail.com
+      # JWT Configuration
+      - JWT_SECRET=thaliumx-jwt-secret-very-long-and-secure-key-for-production-use-2025
+      - JWT_EXPIRES_IN=15m
+      - JWT_REFRESH_EXPIRES_IN=7d
+      - JWT_ISSUER=thaliumx
+      - JWT_AUDIENCE=thaliumx-users
+      # Encryption Configuration
+      - ENCRYPTION_ALGORITHM=aes-256-gcm
+      - ENCRYPTION_KEY=thaliumx-encryption-key-32-chars-long-secure-2025
       # Trading Services
       - DINGIR_URL=http://thaliumx-dingir-restapi:8001
       - LIQUIBOOK_URL=http://thaliumx-liquibook:8083
@@ -155,6 +185,9 @@ services:
       - ENABLE_VAULT=true
       - ENABLE_KAFKA=true
       - ENABLE_OTEL=true
+      # Metrics
+      - METRICS_TOKEN=thaliumx-metrics-token-2025
+      - INTERNAL_REQUEST_TOKEN=thaliumx-internal-token-2025
 
     # Provide Redis password via Docker secret (avoid plaintext in env/config).
     # The application currently reads REDIS_PASSWORD from env (not *_FILE),
@@ -162,7 +195,7 @@ services:
     secrets:
       - redis-password
 
-    command: ["sh", "-lc", "export REDIS_PASSWORD=\"$(cat /run/secrets/redis-password)\"; exec node dist/index.js"]
+    command: ["sh", "-lc", "export REDIS_PASSWORD=\"$(cat /run/secrets/redis-password)\"; export NODE_ENV=development; exec node dist/index.js"]
     
     ports:
       - "${BACKEND_PORT:-3002}:3002"
@@ -210,6 +243,10 @@ services:
       - "thaliumx.service=backend"
       - "thaliumx.tier=application"
       - "thaliumx.security.hardened=true"
+
+secrets:
+  redis-password:
+    file: ./secrets/redis-password
 
 networks:
   thaliumx-net:

@@ -445,6 +445,12 @@ export interface ComplianceConfig {
     saslUsername?: string;
     saslPassword?: string;
   };
+  keycloak: {
+    url: string;
+    realm: string;
+    clientId: string;
+    clientSecret: string;
+  };
   riskThresholds: {
     low: number;
     medium: number;

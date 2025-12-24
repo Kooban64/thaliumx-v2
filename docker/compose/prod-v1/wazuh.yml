@@ -6,10 +6,12 @@ version: '3.8'
 services:
   wazuh-manager:
     profiles: ["non-audit"]
-    image: wazuh/wazuh-manager:4.10.1
+    image: wazuh/wazuh-manager:4.12.0
     container_name: thaliumx-wazuh-manager
     hostname: thaliumx-wazuh-manager
     restart: unless-stopped
+    env_file:
+      - ./wazuh.env
     ulimits:
       memlock:
         soft: -1
@@ -20,14 +22,10 @@ services:
     # Strict audit mode: no host-exposed ports (gateway-only exposure).
     environment:
       INDEXER_URL: https://thaliumx-wazuh-indexer:9200
-      INDEXER_USERNAME: ${WAZUH_INDEXER_USERNAME:?WAZUH_INDEXER_USERNAME is required}
-      INDEXER_PASSWORD: ${WAZUH_INDEXER_PASSWORD:?WAZUH_INDEXER_PASSWORD is required}
       FILEBEAT_SSL_VERIFICATION_MODE: full
       SSL_CERTIFICATE_AUTHORITIES: /etc/ssl/root-ca.pem
       SSL_CERTIFICATE: /etc/ssl/filebeat.pem
       SSL_KEY: /etc/ssl/filebeat.key
-      API_USERNAME: ${WAZUH_API_USERNAME:?WAZUH_API_USERNAME is required}
-      API_PASSWORD: ${WAZUH_API_PASSWORD:?WAZUH_API_PASSWORD is required}
     volumes:
       - wazuh_api_configuration:/var/ossec/api/configuration
       - wazuh_etc:/var/ossec/etc
@@ -55,10 +53,12 @@ services:
 
   wazuh-indexer:
     profiles: ["non-audit"]
-    image: wazuh/wazuh-indexer:4.10.1
+    image: wazuh/wazuh-indexer:4.12.0
     container_name: thaliumx-wazuh-indexer
     hostname: thaliumx-wazuh-indexer
     restart: unless-stopped
+    env_file:
+      - ./wazuh.env
     environment:
       OPENSEARCH_JAVA_OPTS: "-Xms1g -Xmx1g"
       bootstrap.memory_lock: "true"
@@ -82,7 +82,8 @@ services:
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD-SHELL", "curl -s -k -u \"${WAZUH_INDEXER_USERNAME}:${WAZUH_INDEXER_PASSWORD}\" https://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      # Use container env vars (not Compose-time interpolation).
+      test: ["CMD-SHELL", "curl -s -k -u \"$${INDEXER_USERNAME}:$${INDEXER_PASSWORD}\" https://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -90,18 +91,16 @@ services:
 
   wazuh-dashboard:
     profiles: ["non-audit"]
-    image: wazuh/wazuh-dashboard:4.10.1
+    image: wazuh/wazuh-dashboard:4.12.0
     container_name: thaliumx-wazuh-dashboard
     hostname: thaliumx-wazuh-dashboard
     restart: unless-stopped
+    env_file:
+      - ./wazuh.env
     environment:
-      INDEXER_USERNAME: ${WAZUH_INDEXER_USERNAME:?WAZUH_INDEXER_USERNAME is required}
-      INDEXER_PASSWORD: ${WAZUH_INDEXER_PASSWORD:?WAZUH_INDEXER_PASSWORD is required}
       WAZUH_API_URL: https://thaliumx-wazuh-manager
-      DASHBOARD_USERNAME: ${WAZUH_DASHBOARD_USERNAME:?WAZUH_DASHBOARD_USERNAME is required}
-      DASHBOARD_PASSWORD: ${WAZUH_DASHBOARD_PASSWORD:?WAZUH_DASHBOARD_PASSWORD is required}
-      API_USERNAME: ${WAZUH_API_USERNAME:?WAZUH_API_USERNAME is required}
-      API_PASSWORD: ${WAZUH_API_PASSWORD:?WAZUH_API_PASSWORD is required}
+      # NOTE: This image uses `DASHBOARD_USERNAME/PASSWORD` and `API_USERNAME/PASSWORD`.
+      # We provide them via `env_file: ./wazuh.env` (not via Compose interpolation).
     volumes:
       - ./../../wazuh/config/wazuh_indexer_ssl_certs/wazuh.dashboard.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard.pem
       - ./../../wazuh/config/wazuh_indexer_ssl_certs/wazuh.dashboard-key.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard-key.pem

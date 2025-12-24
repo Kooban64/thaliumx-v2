@@ -42,7 +42,7 @@ services:
       start_period: 60s
 
   vault:
-    image: hashicorp/vault:1.15
+    image: hashicorp/vault:1.18
     container_name: thaliumx-vault
     hostname: thaliumx-vault
     restart: unless-stopped
@@ -76,7 +76,7 @@ services:
 
   # Vault initialization sidecar - runs once to set up secrets
   vault-init:
-    image: hashicorp/vault:1.15
+    image: hashicorp/vault:1.18
     container_name: thaliumx-vault-init
     hostname: thaliumx-vault-init
     restart: "no"
@@ -108,7 +108,7 @@ services:
         condition: service_healthy
 
   opa:
-    image: openpolicyagent/opa:0.64.0
+    image: openpolicyagent/opa:0.68.0
     container_name: thaliumx-opa
     hostname: thaliumx-opa
     restart: unless-stopped

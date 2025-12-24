@@ -4,6 +4,12 @@
 # This configuration uses file storage backend for single-node deployment
 # with Shamir seal (no external cloud dependencies)
 #
+# Enhanced for ThaliumX services integration:
+# - BlnkFinance and Ballerine secret management
+# - AppRole authentication for services
+# - Audit logging for compliance
+# - TLS with mutual authentication
+#
 # For auto-unseal without cloud providers, we use:
 # 1. Shamir seal with secure key management
 # 2. Optional: Transit seal using a secondary Vault instance
@@ -66,6 +72,16 @@ telemetry {
   unauthenticated_metrics_access = true
 }
 
+# Rate limiting configuration
+rate_limit_audit {
+  enabled = true
+  rate_limiter_autotune {
+    enabled = true
+    max_concurrent_requests = 100
+    min_concurrent_requests = 10
+  }
+}
+
 # Default lease TTL (32 days)
 default_lease_ttl = "768h"
 
@@ -77,6 +93,34 @@ log_level = "info"
 
 # Log format for structured logging
 log_format = "json"
+
+# Entropy augmentation for better randomness
+entropy "seal" {
+  mode = "augmentation"
+}
+
+# Disable anonymous metrics collection
+disable_clustering = false
+
+# Audit logging for compliance and security monitoring
+audit {
+  type = "file"
+  options = {
+    file_path = "/vault/logs/audit.log"
+    log_raw = true
+  }
+}
+
+# Additional audit device for security events
+audit {
+  type = "file"
+  options = {
+    file_path = "/vault/logs/security-audit.log"
+    log_raw = true
+    hmac_accessor = true
+    mode = "0600"
+  }
+}
 
 # ===========================================
 # Seal Configuration

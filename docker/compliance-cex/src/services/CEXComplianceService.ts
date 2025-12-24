@@ -7,6 +7,8 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import Keycloak from 'keycloak-connect';
+import { z } from 'zod';
 import { config } from '../config';
 import { logger, requestLogging } from '../utils/logger';
 import { databaseService } from './database';
@@ -24,6 +26,22 @@ import {
   WalletWithdrawalEvent,
 } from '../types/events';
 
+// ==================== INPUT VALIDATION SCHEMAS ====================
+
+const TravelRuleCheckSchema = z.object({
+  amount: z.number().positive('Amount must be positive'),
+  currency: z.string().min(1).max(10),
+  originatorCountry: z.string().length(2, 'Country code must be 2 characters'),
+  beneficiaryCountry: z.string().length(2, 'Country code must be 2 characters'),
+});
+
+const TenantIdSchema = z.string().uuid().optional();
+
+const LimitOffsetSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(1000).default(100),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
 // ==================== CEX COMPLIANCE SERVICE ====================
 
 /**
@@ -31,6 +49,7 @@ import {
  */
 export class CEXComplianceService {
   private app: Express;
+  private keycloak: Keycloak.Keycloak;
   private server: ReturnType<Express['listen']> | null = null;
   private isInitialized = false;
   private isRunning = false;
@@ -38,6 +57,18 @@ export class CEXComplianceService {
 
   constructor() {
     this.app = express();
+
+    // Initialize Keycloak
+    const keycloakConfig = {
+      'auth-server-url': config.keycloak.url,
+      'realm': config.keycloak.realm,
+      'resource': config.keycloak.clientId,
+      'credentials': {
+        'secret': config.keycloak.clientSecret
+      }
+    };
+    this.keycloak = new Keycloak({}, keycloakConfig);
+
     this.setupMiddleware();
     this.setupRoutes();
   }
@@ -211,10 +242,13 @@ export class CEXComplianceService {
    * Setup Express middleware
    */
   private setupMiddleware(): void {
+    // Keycloak middleware (must be first)
+    this.app.use(this.keycloak.middleware());
+
     // Security middleware
     this.app.use(helmet());
     this.app.use(cors({
-      origin: config.environment === 'production' 
+      origin: config.environment === 'production'
         ? ['https://thaliumx.com', 'https://admin.thaliumx.com']
         : '*',
       credentials: true,
@@ -289,28 +323,33 @@ export class CEXComplianceService {
     });
 
     // Travel Rule endpoints
-    this.app.post('/api/v1/travel-rule/check', async (req: Request, res: Response) => {
+    this.app.post('/api/v1/travel-rule/check', this.keycloak.protect(), async (req: Request, res: Response) => {
       try {
-        const { amount, currency, originatorCountry, beneficiaryCountry } = req.body as {
-          amount: number;
-          currency: string;
-          originatorCountry: string;
-          beneficiaryCountry: string;
-        };
+        const validatedData = TravelRuleCheckSchema.parse(req.body);
         const result = travelRuleService.checkTravelRuleRequired(
-          amount,
-          currency,
-          originatorCountry,
-          beneficiaryCountry
+          validatedData.amount,
+          validatedData.currency,
+          validatedData.originatorCountry,
+          validatedData.beneficiaryCountry
         );
         res.json(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        res.status(400).json({ error: errorMessage });
+        if (error instanceof z.ZodError) {
+          res.status(400).json({
+            error: 'Validation failed',
+            details: error.errors.map(e => ({
+              field: e.path.join('.'),
+              message: e.message
+            }))
+          });
+        } else {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          res.status(400).json({ error: errorMessage });
+        }
       }
     });
 
-    this.app.get('/api/v1/travel-rule/:id', async (req: Request, res: Response) => {
+    this.app.get('/api/v1/travel-rule/:id', this.keycloak.protect(), async (req: Request, res: Response) => {
       try {
         const result = await travelRuleService.getTravelRuleById(req.params['id'] ?? '');
         if (result) {
@@ -324,19 +363,29 @@ export class CEXComplianceService {
       }
     });
 
-    this.app.get('/api/v1/travel-rule/stats', async (req: Request, res: Response) => {
+    this.app.get('/api/v1/travel-rule/stats', this.keycloak.protect(), async (req: Request, res: Response) => {
       try {
-        const tenantId = req.query['tenantId'] as string | undefined;
+        const tenantId = TenantIdSchema.parse(req.query['tenantId']);
         const stats = await travelRuleService.getStatistics(tenantId);
         res.json(stats);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        res.status(400).json({ error: errorMessage });
+        if (error instanceof z.ZodError) {
+          res.status(400).json({
+            error: 'Validation failed',
+            details: error.errors.map(e => ({
+              field: e.path.join('.'),
+              message: e.message
+            }))
+          });
+        } else {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          res.status(400).json({ error: errorMessage });
+        }
       }
     });
 
     // Risk Assessment endpoints
-    this.app.get('/api/v1/risk-assessment/:id', async (req: Request, res: Response) => {
+    this.app.get('/api/v1/risk-assessment/:id', this.keycloak.protect(), async (req: Request, res: Response) => {
       try {
         const result = await riskAssessmentService.getRiskAssessmentById(req.params['id'] ?? '');
         if (result) {
@@ -350,30 +399,50 @@ export class CEXComplianceService {
       }
     });
 
-    this.app.get('/api/v1/risk-assessment/stats', async (req: Request, res: Response) => {
+    this.app.get('/api/v1/risk-assessment/stats', this.keycloak.protect(), async (req: Request, res: Response) => {
       try {
-        const tenantId = req.query['tenantId'] as string | undefined;
+        const tenantId = TenantIdSchema.parse(req.query['tenantId']);
         const stats = await riskAssessmentService.getStatistics(tenantId);
         res.json(stats);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        res.status(400).json({ error: errorMessage });
+        if (error instanceof z.ZodError) {
+          res.status(400).json({
+            error: 'Validation failed',
+            details: error.errors.map(e => ({
+              field: e.path.join('.'),
+              message: e.message
+            }))
+          });
+        } else {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          res.status(400).json({ error: errorMessage });
+        }
       }
     });
 
-    this.app.get('/api/v1/risk-assessment/review-required', async (req: Request, res: Response) => {
+    this.app.get('/api/v1/risk-assessment/review-required', this.keycloak.protect(), async (req: Request, res: Response) => {
       try {
-        const tenantId = req.query['tenantId'] as string | undefined;
+        const tenantId = TenantIdSchema.parse(req.query['tenantId']);
         const assessments = await riskAssessmentService.getAssessmentsRequiringReview(tenantId);
         res.json(assessments);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        res.status(400).json({ error: errorMessage });
+        if (error instanceof z.ZodError) {
+          res.status(400).json({
+            error: 'Validation failed',
+            details: error.errors.map(e => ({
+              field: e.path.join('.'),
+              message: e.message
+            }))
+          });
+        } else {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          res.status(400).json({ error: errorMessage });
+        }
       }
     });
 
     // CARF endpoints
-    this.app.get('/api/v1/carf/:id', async (req: Request, res: Response) => {
+    this.app.get('/api/v1/carf/:id', this.keycloak.protect(), async (req: Request, res: Response) => {
       try {
         const result = await carfService.getReportById(req.params['id'] ?? '');
         if (result) {
@@ -387,26 +456,45 @@ export class CEXComplianceService {
       }
     });
 
-    this.app.get('/api/v1/carf/user/:userId', async (req: Request, res: Response) => {
+    this.app.get('/api/v1/carf/user/:userId', this.keycloak.protect(), async (req: Request, res: Response) => {
       try {
-        const limit = parseInt(req.query['limit'] as string) || 100;
-        const offset = parseInt(req.query['offset'] as string) || 0;
-        const result = await carfService.getUserReports(req.params['userId'] ?? '', { limit, offset });
+        const validatedParams = LimitOffsetSchema.parse(req.query);
+        const result = await carfService.getUserReports(req.params['userId'] ?? '', validatedParams);
         res.json(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        res.status(400).json({ error: errorMessage });
+        if (error instanceof z.ZodError) {
+          res.status(400).json({
+            error: 'Validation failed',
+            details: error.errors.map(e => ({
+              field: e.path.join('.'),
+              message: e.message
+            }))
+          });
+        } else {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          res.status(400).json({ error: errorMessage });
+        }
       }
     });
 
-    this.app.get('/api/v1/carf/stats', async (req: Request, res: Response) => {
+    this.app.get('/api/v1/carf/stats', this.keycloak.protect(), async (req: Request, res: Response) => {
       try {
-        const tenantId = req.query['tenantId'] as string | undefined;
+        const tenantId = TenantIdSchema.parse(req.query['tenantId']);
         const stats = await carfService.getStatistics(tenantId);
         res.json(stats);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        res.status(400).json({ error: errorMessage });
+        if (error instanceof z.ZodError) {
+          res.status(400).json({
+            error: 'Validation failed',
+            details: error.errors.map(e => ({
+              field: e.path.join('.'),
+              message: e.message
+            }))
+          });
+        } else {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          res.status(400).json({ error: errorMessage });
+        }
       }
     });
 

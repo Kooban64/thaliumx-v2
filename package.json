@@ -10,7 +10,7 @@
     "docker",
     "microservices"
   ],
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "author": "Thaliumx Team",
   "type": "module",
   "scripts": {
@@ -72,6 +72,9 @@
     "vault:setup": "docker exec -it thaliumx-vault /vault/scripts/setup-secrets.sh",
     "vault:status": "docker exec -it thaliumx-vault vault status",
     "vault:shell": "docker exec -it thaliumx-vault /bin/sh",
+    "security:scan-deps": "./docker/scripts/dependency-security-scan.sh",
+    "security:scan-deps:service": "./docker/scripts/dependency-security-scan.sh",
+    "security:monitor-runtime": "./docker/scripts/runtime-security-monitor.sh",
     "prepare": "echo 'Ready to develop'"
   },
   "devDependencies": {},

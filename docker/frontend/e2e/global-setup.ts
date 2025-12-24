@@ -4,7 +4,7 @@
  * Sets up test environment, seeds database, and configures test users
  */
 
-import { chromium, FullConfig } from '@playwright/test';
+import { FullConfig } from '@playwright/test';
 
 async function globalSetup(config: FullConfig) {
   console.log('🚀 Setting up E2E test environment...');
@@ -26,17 +26,9 @@ async function globalSetup(config: FullConfig) {
       console.warn('⚠️ Backend health check returned:', healthResponse.status);
     }
 
-    // Launch browser for setup tasks that require browser context
-    const browser = await chromium.launch();
-    const page = await browser.newPage();
-
-    try {
-      // Seed test data if needed
-      console.log('🌱 Seeding test data...');
-      await seedTestData(page);
-    } finally {
-      await browser.close();
-    }
+    // Seed test data via backend API (faster + more reliable than UI clicking)
+    console.log('🌱 Seeding test data...');
+    await seedTestDataViaApi(backendUrl);
 
     console.log('✅ Global setup completed successfully');
   } catch (error: any) {
@@ -46,67 +38,85 @@ async function globalSetup(config: FullConfig) {
   }
 }
 
-async function seedTestData(page: any) {
-  // Create test user accounts for E2E testing
+async function seedTestDataViaApi(backendUrl: string) {
+  // Users expected by E2E specs (see e2e/auth.spec.ts).
+  // These are seeded via backend registration API.
   const testUsers = [
     {
-      email: 'testuser1@thaliumx.com',
-      password: 'TestPassword123!',
-      firstName: 'Test',
-      lastName: 'User',
-      role: 'trader'
+      email: 'admin@thaliumx.com',
+      password: 'AdminPass123!',
+      firstName: 'Platform',
+      lastName: 'Admin',
     },
     {
-      email: 'testuser2@thaliumx.com',
-      password: 'TestPassword123!',
-      firstName: 'Test',
+      email: 'broker@thaliumx.com',
+      password: 'BrokerPass123!',
+      firstName: 'Broker',
       lastName: 'Admin',
-      role: 'admin'
-    }
+    },
+    {
+      email: 'trader@thaliumx.com',
+      password: 'TraderPass123!',
+      firstName: 'John',
+      lastName: 'Trader',
+    },
+    {
+      email: 'user@thaliumx.com',
+      password: 'UserPass123!',
+      firstName: 'Jane',
+      lastName: 'User',
+    },
+    {
+      email: 'pending@thaliumx.com',
+      password: 'PendingPass123!',
+      firstName: 'Pending',
+      lastName: 'KYC',
+    },
+    {
+      email: 'suspended@thaliumx.com',
+      password: 'SuspendedPass123!',
+      firstName: 'Suspended',
+      lastName: 'User',
+    },
   ];
-
-  const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
   for (const user of testUsers) {
     try {
-      // Register test user via frontend
-      await page.goto(`${frontendUrl}/auth`);
-      await page.waitForSelector('input[type="email"]', { timeout: 5000 });
-      await page.fill('input[type="email"]', user.email);
-      await page.fill('input[type="password"]', user.password);
-      
-      // Try to find and fill optional fields if they exist
-      const firstNameInput = await page.$('input[name="firstName"]');
-      if (firstNameInput) await page.fill('input[name="firstName"]', user.firstName);
-      
-      const lastNameInput = await page.$('input[name="lastName"]');
-      if (lastNameInput) await page.fill('input[name="lastName"]', user.lastName);
+      const resp = await fetch(`${backendUrl}/api/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          // Default tenant for tests
+          'X-Tenant-ID': '10000000-0000-0000-0000-000000000000',
+        },
+        body: JSON.stringify(user),
+        signal: AbortSignal.timeout(15000),
+      });
 
-      // Click register button if available, otherwise skip
-      const registerButton = await page.$('button:has-text("Sign up"), button:has-text("Register")');
-      if (registerButton) {
-        await registerButton.click();
-        await page.waitForTimeout(2000);
-        console.log(`✅ Created test user: ${user.email}`);
+      if (resp.ok) {
+        console.log(`✅ Ensured test user exists: ${user.email}`);
       } else {
-        console.log(`⚠️ Register form not found, user may need to be created manually: ${user.email}`);
+        // Often 400 if already exists. Log and continue.
+        const text = await resp.text().catch(() => '');
+        console.log(`⚠️ Could not create test user (may already exist): ${user.email} (status ${resp.status}) ${text.substring(0, 200)}`);
       }
-    } catch (error: any) {
-      console.log(`⚠️ Test user may already exist: ${user.email} - ${error.message}`);
+    } catch (e: any) {
+      console.log(`⚠️ Could not create test user: ${user.email} - ${e?.message || e}`);
     }
   }
 
-  // Seed some test market data
+  // Warm up / clear caches if available
   try {
     const response = await fetch(`${backendUrl}/api/market/cache/clear`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(15000),
     });
     if (response.ok) {
       console.log('✅ Cleared market data cache');
+    } else {
+      console.log(`⚠️ Market cache clear returned ${response.status}`);
     }
   } catch (error: any) {
     console.log(`⚠️ Could not clear cache: ${error.message}`);

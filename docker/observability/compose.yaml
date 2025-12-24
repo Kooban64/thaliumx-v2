@@ -29,7 +29,7 @@ services:
       retries: 5
 
   prometheus:
-    image: prom/prometheus:v2.51.0
+    image: prom/prometheus:v2.53.0
     container_name: thaliumx-prometheus
     hostname: thaliumx-prometheus
     restart: unless-stopped
@@ -55,7 +55,7 @@ services:
       retries: 5
 
   grafana:
-    image: grafana/grafana:10.4.0
+    image: grafana/grafana:11.2.0
     container_name: thaliumx-grafana
     hostname: thaliumx-grafana
     restart: unless-stopped
@@ -144,7 +144,7 @@ services:
       retries: 5
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.97.0
+    image: otel/opentelemetry-collector-contrib:0.112.0
     container_name: thaliumx-otel-collector
     hostname: thaliumx-otel-collector
     restart: unless-stopped
@@ -209,7 +209,7 @@ services:
       retries: 5
 
   postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:v0.15.0
+    image: prometheuscommunity/postgres-exporter:v0.16.0
     container_name: thaliumx-postgres-exporter
     hostname: thaliumx-postgres-exporter
     restart: unless-stopped
@@ -226,7 +226,7 @@ services:
       retries: 5
 
   redis-exporter:
-    image: oliver006/redis_exporter:v1.58.0
+    image: oliver006/redis_exporter:v1.62.0
     container_name: thaliumx-redis-exporter
     hostname: thaliumx-redis-exporter
     restart: unless-stopped

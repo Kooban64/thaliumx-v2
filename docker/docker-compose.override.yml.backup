@@ -303,9 +303,9 @@ volumes:
       o: bind
       device: /opt/thaliumx/data/ballerine-postgres
 
-  blinkfinance-data:
+  blnkfinance-data:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/thaliumx/data/blinkfinance
+      device: /opt/thaliumx/data/blnkfinance

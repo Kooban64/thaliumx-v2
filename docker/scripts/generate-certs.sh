@@ -124,13 +124,13 @@ generate_leaf() {
     log "[INFO] ${name} cert already exists; skipping"
   else
     log "[INFO] Generating ${name} certificate"
-    openssl genrsa -out "$key" 2048
+    openssl genrsa -out "$key" 4096
     chmod 600 "$key"
 
     write_openssl_cnf "$cnf" "$cn" "$san"
     openssl req -new -key "$key" -out "$csr" -config "$cnf"
 
-    openssl x509 -req -days 365 -sha256 \
+    openssl x509 -req -days 825 -sha256 \
       -in "$csr" \
       -CA "${CA_DIR}/ca.crt" \
       -CAkey "${CA_DIR}/ca.key" \
@@ -169,7 +169,7 @@ generate_client() {
     log "[INFO] client ${name} already exists; skipping"
   else
     log "[INFO] Generating client certificate: ${name}"
-    openssl genrsa -out "$key" 2048
+    openssl genrsa -out "$key" 4096
     chmod 600 "$key"
 
     cat > "$cnf" <<EOF
@@ -189,7 +189,7 @@ CN = ${cn}
 EOF
     openssl req -new -key "$key" -out "$csr" -config "$cnf"
 
-    openssl x509 -req -days 365 -sha256 \
+    openssl x509 -req -days 825 -sha256 \
       -in "$csr" \
       -CA "${CA_DIR}/ca.crt" \
       -CAkey "${CA_DIR}/ca.key" \

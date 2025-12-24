@@ -10,7 +10,7 @@ This document describes all the core backbone services in the ThaliumX platform 
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │  Frontend   │  │   Backend   │  │  Ballerine  │  │ BlinkFinance│        │
+│  │  Frontend   │  │   Backend   │  │  Ballerine  │  │ BlnkFinance│        │
 │  │  (React)    │  │  (Node.js)  │  │  (Workflow) │  │  (Ledger)   │        │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │
 │         │                │                │                │                │
@@ -614,8 +614,8 @@ This document describes all the core backbone services in the ThaliumX platform 
 
 ---
 
-### BlinkFinance (Blnk)
-**Port**: 5001 | **Container**: `thaliumx-blinkfinance`
+### BlnkFinance (Blnk)
+**Port**: 5001 | **Container**: `thaliumx-blnkfinance`
 
 **Purpose**: Double-entry ledger system.
 
@@ -667,6 +667,6 @@ This document describes all the core backbone services in the ThaliumX platform 
 | Wazuh Dashboard | 5601 | HTTPS | SIEM UI |
 | Ballerine Workflow | 3003 | HTTP | KYC Workflow |
 | Ballerine Backoffice | 3004 | HTTP | KYC Admin |
-| BlinkFinance | 5001 | HTTP | Ledger |
+| BlnkFinance | 5001 | HTTP | Ledger |
 | **Frontend** | 3001 | HTTP | Web UI (Next.js) |
 | **Backend** | 3002 | HTTP | REST API (Express) |

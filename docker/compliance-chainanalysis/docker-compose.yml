@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  chainanalysis:
+    build: .
+    container_name: thaliumx-compliance-chainanalysis
+    hostname: thaliumx-compliance-chainanalysis
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - SERVER_PORT=3011
+      - POSTGRES_URL=postgresql://chainanalysis:password@thaliumx-postgres:5432/chainanalysis
+      - REDIS_URL=redis://thaliumx-redis:6379
+      - KAFKA_BROKERS=thaliumx-kafka:9092
+      - GRAPHSENSE_API_URL=http://graphsense:8080
+      - INFURA_ETH_URL=https://mainnet.infura.io/v3/YOUR_PROJECT_ID
+      - INFURA_BTC_URL=https://btc-mainnet.infura.io/v3/YOUR_PROJECT_ID
+      - INFURA_POLYGON_URL=https://polygon-mainnet.infura.io/v3/YOUR_PROJECT_ID
+      - LOG_LEVEL=info
+      - JWT_SECRET=your-production-jwt-secret
+    ports:
+      - "3011:3011"
+    networks:
+      - thaliumx-net
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+      promtail.scrape: "true"
+      logging_name: chainanalysis-service
+      logging_job: compliance
+
+networks:
+  thaliumx-net:
+    external: true

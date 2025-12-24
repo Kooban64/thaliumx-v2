@@ -36,7 +36,7 @@ print_error() {
 
 # Step 1: Create data directories
 print_status "Creating persistent data directories..."
-sudo mkdir -p "$DATA_DIR"/{postgres,redis,mongodb,vault,vault-logs,vault-file,opa,keycloak,prometheus,grafana,loki,etcd,apisix-logs,kafka,typesense,citus-coordinator,citus-worker1,citus-worker2,dingir,dingir-logs,liquibook,liquibook-logs,quantlib,quantlib-cache,quantlib-models,alertmanager,tempo,wazuh-indexer,wazuh-api-config,wazuh-etc,wazuh-logs,wazuh-queue,wazuh-multigroups,wazuh-integrations,wazuh-active-response,wazuh-agentless,wazuh-wodles,filebeat-etc,filebeat-var,wazuh-dashboard-config,wazuh-dashboard-custom,ballerine-postgres,blinkfinance,timescaledb} 2>/dev/null || true
+sudo mkdir -p "$DATA_DIR"/{postgres,redis,mongodb,vault,vault-logs,vault-file,opa,keycloak,prometheus,grafana,loki,etcd,apisix-logs,kafka,typesense,citus-coordinator,citus-worker1,citus-worker2,dingir,dingir-logs,liquibook,liquibook-logs,quantlib,quantlib-cache,quantlib-models,alertmanager,tempo,wazuh-indexer,wazuh-api-config,wazuh-etc,wazuh-logs,wazuh-queue,wazuh-multigroups,wazuh-integrations,wazuh-active-response,wazuh-agentless,wazuh-wodles,filebeat-etc,filebeat-var,wazuh-dashboard-config,wazuh-dashboard-custom,ballerine-postgres,blnkfinance,timescaledb} 2>/dev/null || true
 sudo chown -R "$USER:$USER" /opt/thaliumx 2>/dev/null || true
 print_status "Data directories created"
 
@@ -79,7 +79,7 @@ docker compose -f compose.yaml up -d dingir-matchengine dingir-restapi liquibook
 
 # Step 8: Start fintech services
 print_status "Starting fintech services..."
-docker compose -f compose.yaml up -d ballerine-postgres ballerine-workflow ballerine-backoffice blinkfinance
+docker compose -f compose.yaml up -d ballerine-postgres ballerine-workflow ballerine-backoffice blnkfinance
 
 # Step 9: Start compliance services
 print_status "Starting compliance services..."

@@ -60,7 +60,7 @@ up-core: network ## Start core (frontend, backend)
 up-trading: network ## Start trading (dingir, liquibook, quantlib)
 	docker compose -f trading/compose.yaml up -d
 
-up-fintech: network ## Start fintech (ballerine, blinkfinance)
+up-fintech: network ## Start fintech (ballerine, blnkfinance)
 	docker compose -f fintech/compose.yaml up -d
 
 up-observability: network ## Start observability stack

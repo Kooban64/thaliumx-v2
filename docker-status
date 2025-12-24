@@ -1,0 +1,85 @@
+# THALIUMx DOCKER SYSTEM STATUS REPORT
+# ===================================
+# Generated: 2025-12-23 09:52 UTC
+# System: ThaliumX Production Environment (prod-v1)
+
+## Summary
+
+- Running containers (thaliumx-*): 43
+- Health: all running containers report **healthy** via Docker healthchecks
+
+## Running services
+
+### Database & storage
+
+- thaliumx-postgres (healthy)
+- thaliumx-timescaledb (healthy)
+- thaliumx-mongodb (healthy)
+- thaliumx-redis (healthy)
+- thaliumx-citus-coordinator (healthy)
+- thaliumx-citus-worker-1 (healthy)
+- thaliumx-citus-worker-2 (healthy)
+- thaliumx-ballerine-postgres (healthy)
+
+### Security & identity
+
+- thaliumx-vault (healthy)
+- thaliumx-keycloak (healthy)
+- thaliumx-opa (healthy)
+
+### Messaging
+
+- thaliumx-kafka (healthy)
+- thaliumx-kafka-ui (healthy)
+- thaliumx-schema-registry (healthy)
+
+### Observability
+
+- thaliumx-prometheus (healthy)
+- thaliumx-grafana (healthy)
+- thaliumx-loki (healthy)
+- thaliumx-tempo (healthy)
+- thaliumx-alertmanager (healthy)
+- thaliumx-otel-collector (healthy)
+- thaliumx-promtail (healthy)
+- thaliumx-blackbox-exporter (healthy)
+- thaliumx-cadvisor (healthy)
+- thaliumx-postgres-exporter (healthy)
+- thaliumx-redis-exporter (healthy)
+
+### Search
+
+- thaliumx-typesense (healthy)
+
+### Core applications
+
+- thaliumx-backend (healthy)
+- thaliumx-frontend (healthy)
+
+### Trading
+
+- thaliumx-dingir-matchengine (healthy)
+- thaliumx-dingir-restapi (healthy)
+- thaliumx-liquibook (healthy)
+- thaliumx-quantlib (healthy)
+
+### Compliance
+
+- thaliumx-compliance-cex (healthy)
+- thaliumx-compliance-dex (healthy)
+- thaliumx-compliance-nft (healthy)
+- thaliumx-compliance-token (healthy)
+- thaliumx-compliance-coordinator (healthy)
+
+### Fintech
+
+- thaliumx-ballerine-workflow (healthy)
+- thaliumx-ballerine-backoffice (healthy)
+- thaliumx-blnkfinance (healthy)
+
+### Security monitoring
+
+- thaliumx-wazuh-manager (healthy)
+- thaliumx-wazuh-indexer (healthy)
+- thaliumx-wazuh-dashboard (healthy)
+

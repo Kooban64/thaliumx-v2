@@ -246,7 +246,7 @@ backup_all() {
     backup_volume "thaliumx-vault-data"
     backup_volume "thaliumx-keycloak-data"
     backup_volume "thaliumx-ballerine-postgres-data"
-    backup_volume "blinkfinance-data"
+    backup_volume "blnkfinance-data"
 
     # Backup configurations
     tar czf "${CONFIG_BACKUP_DIR}/configs_${timestamp}.tar.gz" -C docker . --exclude='*.log' --exclude='*/logs'
@@ -298,7 +298,7 @@ case "${1:-init}" in
         check_volume_data "thaliumx-vault-data" "/vault/data"
         check_volume_data "thaliumx-keycloak-data" "/opt/keycloak/data"
         check_volume_data "thaliumx-ballerine-postgres-data" "/var/lib/postgresql/data"
-        check_volume_data "blinkfinance-data" "/app/data"
+        check_volume_data "blnkfinance-data" "/app/data"
 
         # Initialize Vault
         init_vault

@@ -134,13 +134,24 @@ export class MigrationRunner {
     const migrations: Migration[] = [];
     for (const file of files) {
       const migration = require(path.join(migrationsDir, file));
+      let up, down;
+
+      // Handle both export patterns: direct exports and default exports
       if (migration.up && migration.down) {
+        up = migration.up;
+        down = migration.down;
+      } else if (migration.default && migration.default.up && migration.default.down) {
+        up = migration.default.up;
+        down = migration.default.down;
+      }
+
+      if (up && down) {
         // Normalize name by removing extension
         const name = file.replace(/\.(ts|js)$/, '');
         migrations.push({
           name,
-          up: migration.up,
-          down: migration.down
+          up,
+          down
         });
         LoggerService.info(`Loaded migration: ${name}`);
       }

@@ -8,7 +8,7 @@
 /**
  * Compliance service types
  */
-export type ComplianceServiceType = 'cex' | 'dex' | 'nft' | 'token';
+export type ComplianceServiceType = 'cex' | 'dex' | 'nft' | 'token' | 'chainanalysis' | 'omni-exchange';
 
 /**
  * Service status
@@ -264,7 +264,7 @@ export interface RegulatorySubmission {
  */
 export interface ComplianceAlert {
   id: string;
-  alertType: 'high_risk' | 'sanctions_match' | 'travel_rule_failure' | 'threshold_breach' | 'pattern_detected' | 'system_error';
+  alertType: 'high_risk' | 'sanctions_match' | 'travel_rule_failure' | 'threshold_breach' | 'pattern_detected' | 'system_error' | 'blockchain_anomaly' | 'suspicious_transaction' | 'large_transfer' | 'circular_flow' | 'high_risk_transaction' | 'exchange_health_issue' | 'fund_segregation_issue';
   severity: 'low' | 'medium' | 'high' | 'critical';
   sourceService: ComplianceServiceType;
   sourceEntityType: string;
@@ -368,6 +368,10 @@ export interface CoordinatorConfig {
       enabled: boolean;
     };
     token: {
+      url: string;
+      enabled: boolean;
+    };
+    chainanalysis: {
       url: string;
       enabled: boolean;
     };

@@ -22,7 +22,8 @@ services:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@thaliumx-kafka:9095
-      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      # Must match the persisted KRaft cluster id stored in /var/lib/kafka/data/meta.properties
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qg
 
       # SSL/TLS Configuration - ENTERPRISE PRODUCTION
       KAFKA_LISTENERS: SSL://0.0.0.0:9092,PLAINTEXT://0.0.0.0:9094,CONTROLLER://0.0.0.0:9095
@@ -114,22 +115,11 @@ services:
     hostname: thaliumx-kafka-init
     restart: "no"  # Run once and exit
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: thaliumx-kafka:9092
-      KAFKA_SECURITY_PROTOCOL: SSL
-      KAFKA_SSL_TRUSTSTORE_TYPE: PEM
-      KAFKA_SSL_TRUSTSTORE_CERTIFICATES: /certs/kafka/ca.crt
-      KAFKA_SASL_MECHANISM: SCRAM-SHA-256
-      KAFKA_SASL_JAAS_CONFIG: org.apache.kafka.common.security.scram.ScramLoginModule required username="admin" password="$(cat /run/secrets/kafka-password)";
-      KAFKA_SSL_KEYSTORE_TYPE: PEM
-      KAFKA_SSL_KEYSTORE_CERTIFICATE_CHAIN: /certs/kafka/server.crt
-      KAFKA_SSL_KEYSTORE_KEY: /certs/kafka/server.key
+      # Current ThaliumX Kafka is deployed as PLAINTEXT on :9094 (no SSL/SASL).
+      KAFKA_BOOTSTRAP_SERVERS: thaliumx-kafka:9094
+      KAFKA_SECURITY_PROTOCOL: PLAINTEXT
     volumes:
-      - ./../../certs/services/kafka/kafka.keystore.jks:/etc/kafka/secrets/kafka.keystore.jks:ro
-      - ./../../certs/services/kafka/kafka.truststore.jks:/etc/kafka/secrets/kafka.truststore.jks:ro
-      - ./../../certs/services/kafka/ca.crt:/etc/kafka/secrets/ca.crt:ro
-      - ./../../certs/services/kafka:/certs/kafka:ro
       - ./../../kafka/init/create-topics.sh:/create-topics.sh:ro
-      - ./../../messaging/config/client.properties:/etc/kafka/client.properties:ro
     secrets:
       - kafka-password
     networks:
@@ -151,21 +141,20 @@ services:
     container_name: thaliumx-kafka-ui
     hostname: thaliumx-kafka-ui
     restart: unless-stopped
+    entrypoint: ["/bin/sh", "-lc"]
+    command:
+      - |
+        export SPRING_SECURITY_USER_PASSWORD="$(cat /run/secrets/kafka-ui-password)";
+        exec /bin/sh -c "java --add-opens java.rmi/javax.rmi.ssl=ALL-UNNAMED  $JAVA_OPTS -jar kafka-ui-api.jar"
     environment:
       KAFKA_CLUSTERS_0_NAME: thaliumx-production
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: thaliumx-kafka:9092
+      # Current ThaliumX Kafka is deployed as PLAINTEXT on :9094 (no SSL/SASL).
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: thaliumx-kafka:9094
       KAFKA_CLUSTERS_0_ZOOKEEPER: thaliumx-kafka:2181  # Not used in KRaft but required
-      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: SSL
-      KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_TYPE: PEM
-      # Kafka Java clients expect `ssl.truststore.location` for PEM trust material.
-      # (`ssl.truststore.certificates` expects inline PEM content, not a file path.)
-      KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION: /certs/kafka/ca.crt
-      # Keep hostname verification permissive in-container (matches `docker/messaging/config/client.properties`).
-      KAFKA_CLUSTERS_0_PROPERTIES_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: PLAINTEXT
       DYNAMIC_CONFIG_ENABLED: "true"
       AUTH_TYPE: "LOGIN_FORM"
       SPRING_SECURITY_USER_NAME: admin
-      SPRING_SECURITY_USER_PASSWORD_FILE: /run/secrets/kafka-ui-password
     # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
       - ./../../certs/services/kafka:/certs/kafka:ro

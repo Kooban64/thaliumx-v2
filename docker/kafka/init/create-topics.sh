@@ -1,15 +1,28 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ThaliumX Kafka Topic Initialization Script
 # ==========================================
 # Creates all required Kafka topics with proper configurations
 # for the entire ThaliumX platform
 
-set -e
+set -euo pipefail
 
 # Configuration
-KAFKA_BOOTSTRAP="${KAFKA_BOOTSTRAP:-thaliumx-kafka:9092}"
+# Current ThaliumX Kafka deployment uses PLAINTEXT on :9094.
+# Keep SSL support optional by enabling KAFKA_USE_COMMAND_CONFIG=true and mounting
+# /etc/kafka/client.properties.
+KAFKA_BOOTSTRAP="${KAFKA_BOOTSTRAP_SERVERS:-${KAFKA_BOOTSTRAP:-thaliumx-kafka:9094}}"
 PARTITIONS="${PARTITIONS:-3}"
 REPLICATION_FACTOR="${REPLICATION_FACTOR:-1}"
+
+# Optional Kafka client config (for SSL/SASL deployments)
+KAFKA_USE_COMMAND_CONFIG="${KAFKA_USE_COMMAND_CONFIG:-false}"
+KAFKA_COMMAND_CONFIG_FILE="${KAFKA_COMMAND_CONFIG_FILE:-/etc/kafka/client.properties}"
+
+kafka_cmd_args() {
+    if [[ "$KAFKA_USE_COMMAND_CONFIG" == "true" && -f "$KAFKA_COMMAND_CONFIG_FILE" ]]; then
+        echo "--command-config" "$KAFKA_COMMAND_CONFIG_FILE"
+    fi
+}
 
 # Colors for output
 RED='\033[0;31m'
@@ -44,7 +57,8 @@ wait_for_kafka() {
     local attempt=1
 
     while [ $attempt -le $max_attempts ]; do
-        if kafka-broker-api-versions --bootstrap-server "$KAFKA_BOOTSTRAP" --command-config /etc/kafka/client.properties > /dev/null 2>&1; then
+        # Prefer a simple broker probe that works for PLAINTEXT deployments.
+        if kafka-broker-api-versions --bootstrap-server "$KAFKA_BOOTSTRAP" $(kafka_cmd_args) > /dev/null 2>&1; then
             print_success "Kafka is ready"
             return 0
         fi
@@ -74,14 +88,14 @@ create_topic() {
     echo "  Cleanup: $cleanup_policy"
     
     # Check if topic exists
-    if kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" --command-config /etc/kafka/client.properties --list 2>/dev/null | grep -q "^${topic_name}$"; then
+    if kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" $(kafka_cmd_args) --list 2>/dev/null | grep -q "^${topic_name}$"; then
         print_warning "Topic already exists: $topic_name"
         return 0
     fi
 
     # Create topic
     kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" \
-        --command-config /etc/kafka/client.properties \
+        $(kafka_cmd_args) \
         --create \
         --topic "$topic_name" \
         --partitions "$partitions" \
@@ -308,10 +322,10 @@ create_compacted_topics() {
 list_topics() {
     print_header "Listing All Kafka Topics"
 
-    kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" --command-config /etc/kafka/client.properties --list 2>/dev/null | sort
+    kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" $(kafka_cmd_args) --list 2>/dev/null | sort
 
     echo ""
-    topic_count=$(kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" --command-config /etc/kafka/client.properties --list 2>/dev/null | wc -l)
+    topic_count=$(kafka-topics --bootstrap-server "$KAFKA_BOOTSTRAP" $(kafka_cmd_args) --list 2>/dev/null | wc -l)
     print_success "Total topics: $topic_count"
 }
 

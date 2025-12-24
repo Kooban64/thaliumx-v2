@@ -13,10 +13,12 @@ services:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@thaliumx-kafka:9093
-      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      # Must match the persisted KRaft cluster id stored in /var/lib/kafka/data/meta.properties
+      # (see `cluster.id=` in the named volume).
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qg
       # Listeners - PLAINTEXT for now, will add SSL later
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://thaliumx-kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://thaliumx-kafka:9094
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       # Disable SSL for initial startup
       KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
@@ -33,13 +35,13 @@ services:
       # Heap settings
       KAFKA_HEAP_OPTS: "-Xmx512M -Xms512M"
     ports:
-      - "9092:9092"
+      - "9094:9094"
     volumes:
       - kafka_data:/var/lib/kafka/data
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9094"]
       interval: 10s
       timeout: 30s
       retries: 10
@@ -58,7 +60,7 @@ services:
     restart: unless-stopped
     environment:
       SCHEMA_REGISTRY_HOST_NAME: thaliumx-schema-registry
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: thaliumx-kafka:9092
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: thaliumx-kafka:9094
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
       SCHEMA_REGISTRY_SCHEMA_REGISTRY_INTER_INSTANCE_PROTOCOL: http
       SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL: INFO

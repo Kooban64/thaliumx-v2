@@ -41,6 +41,18 @@ export type {
   SubmissionResponse,
 } from './regulatory';
 
+// ChainAnalysis
+export { ChainAnalysisService, getChainAnalysisService, createChainAnalysisService } from './chainanalysis';
+export type {
+  TransactionTraceRequest,
+  AddressRiskRequest,
+  TransactionRiskRequest,
+  ChainAnalysisResponse,
+  TransactionAnalysis,
+  RiskScoreResponse,
+  AlertResponse,
+} from './chainanalysis';
+
 // Admin
 export { AdminService, getAdminService } from './admin';
 export type {

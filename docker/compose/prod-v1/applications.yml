@@ -70,7 +70,7 @@ services:
       JAVA_OPTS: "-Xms512m -Xmx2048m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=512m -Djava.net.preferIPv4Stack=true -Djava.security.egd=file:/dev/./urandom"
     volumes:
       - keycloak_data:/opt/keycloak/data
-      - ./../../keycloak/realm-config:/opt/keycloak/data/import:ro
+      - ./../../keycloak/realm-config:/opt/keycloak/data/import
       - ./../../certs/services/keycloak:/opt/keycloak/certs:ro
       - ./../../certs/ca/ca.crt:/opt/keycloak/certs/ca.crt:ro
     secrets:
@@ -140,6 +140,7 @@ services:
       # Production environment
       NODE_ENV: production
       PORT: 3002
+      NODE_OPTIONS: --max-old-space-size=2048
 
       # Database Configuration (Postgres as system-of-record)
       DB_HOST: postgres
@@ -170,19 +171,21 @@ services:
       # API Gateway integration
       APISIX_ADMIN_URL: http://apisix:9180
 
+      # Local E2E / UI access (backend has an origin allowlist check in production mode)
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001
+
       # Kafka integration
-      KAFKA_BROKERS: kafka:9092
-      KAFKA_SSL: "true"
-      KAFKA_SASL_MECHANISM: SCRAM-SHA-256
-      KAFKA_SASL_USERNAME: kafka-admin
-      KAFKA_SASL_PASSWORD_FILE: /run/secrets/kafka-password
+      # Current ThaliumX Kafka deployment is PLAINTEXT on :9094 (no SSL/SASL).
+      KAFKA_BROKERS: thaliumx-kafka:9094
+      KAFKA_SSL: "false"
 
       # Monitoring and metrics
       METRICS_ENABLED: "true"
       PROMETHEUS_METRICS_PORT: 9092
 
       # Security settings
-      CORS_ORIGIN: https://app.thaliumx.com
+      # Allow local E2E runs (Playwright) in addition to production origin.
+      CORS_ORIGIN: http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001,https://app.thaliumx.com
       RATE_LIMIT_WINDOW_MS: 900000
       RATE_LIMIT_MAX_REQUESTS: 1000
 
@@ -232,12 +235,22 @@ services:
         # SMTP credentials are required by config validation in production.
         export SMTP_USER="$(cat /run/secrets/smtp-user)";
         export SMTP_PASSWORD="$(cat /run/secrets/smtp-password)";
+        # Align with current Kafka deployment (PLAINTEXT on :9094).
+        export KAFKA_BROKERS="thaliumx-kafka:9094";
+        export KAFKA_SSL="false";
+        unset KAFKA_SASL_MECHANISM;
+        unset KAFKA_SASL_USERNAME;
+        unset KAFKA_SASL_PASSWORD;
+        unset KAFKA_SASL_PASSWORD_FILE;
         exec node dist/index.js
     volumes:
       - ./../../backend/policies/wasm:/app/policies/wasm:ro
       - ./../../certs/services/backend:/certs/backend:ro
       - ./../../certs/ca/ca.crt:/certs/ca.crt:ro
       - backend_logs:/app/logs
+    # Expose backend API to host for local E2E testing (Playwright hits http://localhost:3002)
+    ports:
+      - "3002:3002"
     secrets:
       - postgres-password
       - redis-password
@@ -245,7 +258,6 @@ services:
       - encryption-key
       - mongodb-password
       - keycloak-backend-secret
-      - kafka-password
       - bybit-api-key
       - bybit-api-secret
       - kucoin-api-key
@@ -291,10 +303,10 @@ services:
       resources:
         limits:
           cpus: '2'
-          memory: 2G
+          memory: 4G
         reservations:
           cpus: '1'
-          memory: 1G
+          memory: 2G
     labels:
       - "com.thaliumx.service=backend"
       - "com.thaliumx.component=application"

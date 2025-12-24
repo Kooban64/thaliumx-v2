@@ -14,7 +14,7 @@ packages:
   
   # Fintech services
   - 'ballerine'
-  - 'blinkfinance'
+  - 'blnkfinance'
   
   # Shared packages (when created)
   - 'packages/*'

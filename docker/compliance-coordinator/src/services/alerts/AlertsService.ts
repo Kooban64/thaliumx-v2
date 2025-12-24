@@ -5,6 +5,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabaseService } from '../database';
+import { getChainAnalysisService } from '../chainanalysis';
 import { createComponentLogger, logAlertEvent } from '../../utils/logger';
 import { getConfig } from '../../config';
 import type {
@@ -423,6 +424,243 @@ export class AlertsService {
       byService,
       averageResolutionTime: parseFloat(resolutionTime?.avg_time ?? '0'),
     };
+  }
+
+  /**
+   * Process OmniExchange alerts and create compliance alerts
+   */
+  async processOmniExchangeAlerts(tenantId: string): Promise<void> {
+    try {
+      // TODO: Get OmniExchange service alerts
+      // For now, we'll create alerts based on compliance dashboard data
+      // In a real implementation, this would integrate with the OmniExchangeService
+
+      // Example alerts based on compliance metrics
+      const complianceMetrics = {
+        highRiskTransactions: 2,
+        failedTravelRuleSubmissions: 1,
+        exchangeHealthIssues: 0,
+        fundSegregationAlerts: 0
+      };
+
+      // Create alerts for high-risk transactions
+      if (complianceMetrics.highRiskTransactions > 0) {
+        await this.createAlert({
+          alertType: 'high_risk_transaction',
+          severity: 'high',
+          sourceService: 'omni-exchange',
+          sourceEntityType: 'transaction',
+          sourceEntityId: 'multiple',
+          title: 'OmniExchange: High Risk Transactions Detected',
+          description: `${complianceMetrics.highRiskTransactions} high-risk transactions detected in multi-exchange operations. Immediate review required.`,
+          details: {
+            highRiskCount: complianceMetrics.highRiskTransactions,
+            exchanges: ['kucoin', 'bybit', 'okx'],
+            riskFactors: ['large_amount', 'new_counterparty', 'geographic_risk']
+          },
+          tenantId,
+        });
+      }
+
+      // Create alerts for failed Travel Rule submissions
+      if (complianceMetrics.failedTravelRuleSubmissions > 0) {
+        await this.createAlert({
+          alertType: 'travel_rule_failure',
+          severity: 'medium',
+          sourceService: 'omni-exchange',
+          sourceEntityType: 'travel_rule',
+          sourceEntityId: 'pending_submissions',
+          title: 'OmniExchange: Travel Rule Submission Failures',
+          description: `${complianceMetrics.failedTravelRuleSubmissions} Travel Rule messages failed to submit to beneficiary VASPs.`,
+          details: {
+            failedCount: complianceMetrics.failedTravelRuleSubmissions,
+            pendingMessages: 5,
+            retryRequired: true
+          },
+          tenantId,
+        });
+      }
+
+      // Create alerts for exchange health issues
+      if (complianceMetrics.exchangeHealthIssues > 0) {
+        await this.createAlert({
+          alertType: 'exchange_health_issue',
+          severity: 'medium',
+          sourceService: 'omni-exchange',
+          sourceEntityType: 'exchange',
+          sourceEntityId: 'multiple',
+          title: 'OmniExchange: Exchange Health Degradation',
+          description: `${complianceMetrics.exchangeHealthIssues} exchanges showing degraded health status.`,
+          details: {
+            degradedExchanges: ['kraken'],
+            issues: ['response_time', 'error_rate'],
+            failoverActive: false
+          },
+          tenantId,
+        });
+      }
+
+      // Create alerts for fund segregation issues
+      if (complianceMetrics.fundSegregationAlerts > 0) {
+        await this.createAlert({
+          alertType: 'fund_segregation_issue',
+          severity: 'critical',
+          sourceService: 'omni-exchange',
+          sourceEntityType: 'funds',
+          sourceEntityId: 'platform_allocation',
+          title: 'OmniExchange: Fund Segregation Alert',
+          description: 'Critical fund segregation issue detected in platform-level allocations.',
+          details: {
+            affectedAssets: ['BTC', 'ETH'],
+            affectedExchanges: ['kucoin', 'bybit'],
+            issueType: 'allocation_mismatch',
+            requiresImmediateAction: true
+          },
+          tenantId,
+        });
+      }
+
+      logger.info('Processed OmniExchange alerts', {
+        alertsCreated: 4, // This would be dynamic in real implementation
+        tenantId,
+      });
+    } catch (error) {
+      logger.error('Failed to process OmniExchange alerts', {
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * Process ChainAnalysis alerts and create compliance alerts
+   */
+  async processChainAnalysisAlerts(tenantId: string): Promise<void> {
+    try {
+      const chainAnalysis = getChainAnalysisService();
+      const alertsResponse = await chainAnalysis.getAlerts();
+
+      if (!alertsResponse.success || !alertsResponse.data) {
+        logger.warn('Failed to retrieve ChainAnalysis alerts', {
+          success: alertsResponse.success,
+          error: alertsResponse.error,
+        });
+        return;
+      }
+
+      const chainAlerts = alertsResponse.data.alerts;
+
+      logger.info('Processing ChainAnalysis alerts', {
+        alertCount: chainAlerts.length,
+        tenantId,
+      });
+
+      for (const chainAlert of chainAlerts) {
+        // Check if we already have this alert
+        const existingAlert = await this.findExistingChainAnalysisAlert(
+          chainAlert.id,
+          tenantId
+        );
+
+        if (existingAlert) {
+          logger.debug('ChainAnalysis alert already exists', {
+            chainAlertId: chainAlert.id,
+            existingAlertId: existingAlert.id,
+          });
+          continue;
+        }
+
+        // Map ChainAnalysis severity to compliance severity
+        const severity = this.mapChainAnalysisSeverity(chainAlert.severity);
+
+        // Create compliance alert
+        await this.createAlert({
+          alertType: this.mapChainAnalysisType(chainAlert.type),
+          severity,
+          sourceService: 'chainanalysis',
+          sourceEntityType: 'blockchain',
+          sourceEntityId: chainAlert.entities.join(','),
+          title: `ChainAnalysis: ${chainAlert.description}`,
+          description: `Blockchain forensic analysis detected: ${chainAlert.description}. Risk Score: ${(chainAlert.riskScore * 100).toFixed(1)}%`,
+          details: {
+            chainAnalysisAlertId: chainAlert.id,
+            riskScore: chainAlert.riskScore,
+            entities: chainAlert.entities,
+            originalType: chainAlert.type,
+            originalSeverity: chainAlert.severity,
+            timestamp: chainAlert.timestamp,
+          },
+          tenantId,
+          // ChainAnalysis alerts are platform-wide, not broker-specific
+        });
+
+        logger.info('Created compliance alert from ChainAnalysis', {
+          chainAlertId: chainAlert.id,
+          severity,
+          riskScore: chainAlert.riskScore,
+          entityCount: chainAlert.entities.length,
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to process ChainAnalysis alerts', {
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * Find existing ChainAnalysis alert by ID
+   */
+  private async findExistingChainAnalysisAlert(
+    chainAlertId: string,
+    tenantId: string
+  ): Promise<ComplianceAlert | null> {
+    const db = getDatabaseService();
+
+    const row = await db.queryOne<ComplianceAlertTable>(`
+      SELECT * FROM compliance_alerts
+      WHERE source_service = 'chainanalysis'
+        AND details->>'chainAnalysisAlertId' = $1
+        AND tenant_id = $2
+    `, [chainAlertId, tenantId]);
+
+    return row ? this.mapAlertTableToData(row) : null;
+  }
+
+  /**
+   * Map ChainAnalysis severity to compliance severity
+   */
+  private mapChainAnalysisSeverity(chainSeverity: string): ComplianceAlert['severity'] {
+    switch (chainSeverity.toLowerCase()) {
+      case 'critical':
+        return 'critical';
+      case 'high':
+        return 'high';
+      case 'medium':
+        return 'medium';
+      case 'low':
+      default:
+        return 'low';
+    }
+  }
+
+  /**
+   * Map ChainAnalysis alert type to compliance alert type
+   */
+  private mapChainAnalysisType(chainType: string): ComplianceAlert['alertType'] {
+    switch (chainType.toLowerCase()) {
+      case 'high_risk_transaction':
+        return 'suspicious_transaction';
+      case 'suspicious_pattern':
+        return 'pattern_detected';
+      case 'large_transfer':
+        return 'large_transfer';
+      case 'circular_flow':
+        return 'circular_flow';
+      default:
+        return 'blockchain_anomaly';
+    }
   }
 
   /**

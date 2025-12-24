@@ -5,7 +5,7 @@
 # with all configurations pre-built for faster startup
 #
 # Build:
-#   docker build -f Dockerfile.keycloak -t thaliumx/keycloak:24.0-optimized .
+#   docker build -f Dockerfile.keycloak -t thaliumx/keycloak:27.0.1-optimized .
 #
 # The optimized image:
 # - Pre-compiles Quarkus application
@@ -14,7 +14,7 @@
 # - Smaller runtime footprint
 # ===========================================
 
-ARG KEYCLOAK_VERSION=24.0
+ARG KEYCLOAK_VERSION=27.0.1
 
 # ===========================================
 # Build Stage

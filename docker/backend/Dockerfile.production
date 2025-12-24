@@ -37,8 +37,7 @@ RUN npm install --only=production --ignore-scripts && npm cache clean --force
 COPY --chown=thaliumx:nodejs docker/backend/dist ./dist
 COPY --chown=thaliumx:nodejs docker/shared/dist ./shared/dist
 
-# Security: Set production environment
-ENV NODE_ENV=production
+# Security: Set default environment (can be overridden)
 ENV PORT=3002
 
 # Security: Disable npm update checks and telemetry

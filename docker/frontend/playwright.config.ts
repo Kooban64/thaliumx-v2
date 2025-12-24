@@ -45,7 +45,14 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      // Force localhost to resolve to IPv4 first.
+      // This avoids intermittent IPv6 (::1) connection resets when services only listen on 0.0.0.0.
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: ['--host-resolver-rules=MAP localhost 127.0.0.1'],
+        },
+      },
     },
 
     {
@@ -61,7 +68,12 @@ export default defineConfig({
     /* Test against mobile viewports. */
     {
       name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
+      use: {
+        ...devices['Pixel 5'],
+        launchOptions: {
+          args: ['--host-resolver-rules=MAP localhost 127.0.0.1'],
+        },
+      },
     },
     {
       name: 'Mobile Safari',
@@ -79,13 +91,17 @@ export default defineConfig({
     // },
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: process.env.CI ? undefined : {
+  /*
+   * Run a local Next.js server before starting the tests.
+   * In this repo, E2E usually targets the docker-compose services (frontend on :3001),
+   * so keep this disabled unless explicitly enabled.
+   */
+  webServer: process.env.PLAYWRIGHT_WEB_SERVER === '1' ? {
     command: 'npm run build && npm start',
     url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
     timeout: 120000,
-  },
+  } : undefined,
 
   /* Global setup and teardown */
   globalSetup: require.resolve('./e2e/global-setup'),

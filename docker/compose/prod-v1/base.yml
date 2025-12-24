@@ -46,6 +46,9 @@ volumes:
     driver: local
   kafka-data:
     driver: local
+  # Messaging (prod-v1 uses underscore volume key)
+  kafka_data:
+    name: thaliumx-kafka-data
   zookeeper-data:
     driver: local
 
@@ -63,6 +66,26 @@ volumes:
   backend_logs:
     driver: local
 
+  # Trading
+  dingir_data:
+    name: thaliumx-dingir-data
+  dingir_logs:
+    name: thaliumx-dingir-logs
+  liquibook_data:
+    name: thaliumx-liquibook-data
+  liquibook_logs:
+    name: thaliumx-liquibook-logs
+  quantlib_data:
+    name: thaliumx-quantlib-data
+  quantlib_cache:
+    name: thaliumx-quantlib-cache
+  quantlib_models:
+    name: thaliumx-quantlib-models
+
+  # Search
+  typesense_data:
+    name: thaliumx-typesense-data
+
   # Security
   opa_data:
     driver: local
@@ -74,6 +97,18 @@ volumes:
     driver: local
   loki-data:
     driver: local
+
+  # Monitoring (prod-v1 services use underscore volume keys)
+  prometheus_data:
+    name: thaliumx-prometheus-data
+  grafana_data:
+    name: thaliumx-grafana-data
+  loki_data:
+    name: thaliumx-loki-data
+  tempo_data:
+    name: thaliumx-tempo-data
+  alertmanager_data:
+    name: thaliumx-alertmanager-data
 
 secrets:
   # Database credentials
@@ -182,3 +217,47 @@ secrets:
     file: ../../../.secrets/generated/keycloak-compliance-token-secret
   keycloak-compliance-coordinator-secret:
     file: ../../../.secrets/generated/keycloak-compliance-coordinator-secret
+
+  # Fintech Services
+  ballerine-db-username:
+    file: ../../../.secrets/generated/ballerine-db-username
+  ballerine-db-password:
+    file: ../../../.secrets/generated/ballerine-db-password
+
+  # Wazuh SIEM
+  wazuh-indexer-username:
+    file: ../../../.secrets/generated/wazuh-indexer-username
+  wazuh-indexer-password:
+    file: ../../../.secrets/generated/wazuh-indexer-password
+  wazuh-dashboard-username:
+    file: ../../../.secrets/generated/wazuh-dashboard-username
+  wazuh-dashboard-password:
+    file: ../../../.secrets/generated/wazuh-dashboard-password
+
+  # Fintech Services (Ballerine)
+  ballerine-db-url:
+    file: ../../../.secrets/generated/ballerine-db-url
+  ballerine-database-url:
+    file: ../../../.secrets/generated/ballerine-database-url
+  ballerine-redis-url:
+    file: ../../../.secrets/generated/ballerine-redis-url
+  ballerine-jwt-secret-key:
+    file: ../../../.secrets/generated/ballerine-jwt-secret-key
+  ballerine-session-secret:
+    file: ../../../.secrets/generated/ballerine-session-secret
+  ballerine-api-key:
+    file: ../../../.secrets/generated/ballerine-api-key
+  ballerine-hashing-key-secret-base64:
+    file: ../../../.secrets/generated/ballerine-hashing-key-secret-base64
+  ballerine-webhook-secret:
+    file: ../../../.secrets/generated/ballerine-webhook-secret
+  ballerine-encryption-key:
+    file: ../../../.secrets/generated/ballerine-encryption-key
+  ballerine-workflow-token:
+    file: ../../../.secrets/generated/ballerine-workflow-token
+  ballerine-collection-flow-token:
+    file: ../../../.secrets/generated/ballerine-collection-flow-token
+  ballerine-magic-link-jwt-secret:
+    file: ../../../.secrets/generated/ballerine-magic-link-jwt-secret
+  ballerine-magic-link-auth-jwt-secret:
+    file: ../../../.secrets/generated/ballerine-magic-link-auth-jwt-secret

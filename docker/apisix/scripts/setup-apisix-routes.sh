@@ -6,8 +6,9 @@
 
 set -e
 
-APISIX_ADMIN_URL="http://127.0.0.1:9180"
-APISIX_ADMIN_KEY="${APISIX_ADMIN_KEY:-eddi1n8m}"
+APISIX_ADMIN_URL="${APISIX_ADMIN_URL:-http://127.0.0.1:9180}"
+# No insecure defaults; provide via env/secret manager.
+APISIX_ADMIN_KEY="${APISIX_ADMIN_KEY:?APISIX_ADMIN_KEY is required}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -302,48 +303,4 @@ main() {
     log_info "API Gateway is now configured and ready for traffic"
 }
 
-main "$@"</content>
-</xai:function_call"> 
-
-Assistant: Now let me update the todo list to mark the completed tasks and continue with the remaining ones. Let me also create a script to initialize APISIX after deployment. But first, let me check if there are any TypeScript files that need to be configured for APISIX plugins. Since the user mentioned "strict TS if applicable", let me check if there are any TypeScript configurations for APISIX plugins. 
-
-Looking at the APISIX config, it mentions authz-keycloak plugin, so let me check if there are any custom plugins or TypeScript configurations. But APISIX is primarily Lua-based, so TypeScript might not be applicable here. Let me focus on completing the APISIX setup. 
-
-Let me update the todo list. 
-
-Mark the first few as completed. 
-
-Then, create a documentation file for APISIX. 
-
-Let me update the todo. 
-
-Mark:
-
-- Update APISIX production configuration with TLS certificates ✓
-
-- Configure etcd with TLS for secure communication ✓
-
-- Add APISIX to prod-v1 gateway compose file ✓
-
-- Configure Keycloak integration plugins (in config)
-
-- Set up rate limiting and security policies (in script)
-
-- Configure upstream services (in script)
-
-- Enable comprehensive logging and monitoring ✓
-
-- Test APISIX deployment and health checks
-
-- Document APISIX production configuration
-
-Let me update the todo. 
-
-Then, create documentation. 
-
-Then, test the deployment. 
-
-Let me update the todo. 
-
-<xai:function_call name="update_todo_list">
-<parameter name="todos">[x] Update APISIX production configuration with TLS certificates\n[x] Configure etcd with TLS for secure communication\n[x] Add APISIX to prod-v1 gateway compose file\n[x] Configure Keycloak integration plugins\n[x] Set up rate limiting and security policies\n[x] Configure upstream services (backend, frontend, etc.)\n[x] Enable comprehensive logging and monitoring\n[ ] Test APISIX deployment and health checks\n[ ] Document APISIX production configuration
+main "$@"
