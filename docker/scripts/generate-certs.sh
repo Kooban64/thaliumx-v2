@@ -236,7 +236,7 @@ main() {
   generate_leaf "mongodb" "thaliumx-mongodb" "DNS:thaliumx-mongodb,DNS:mongodb,DNS:localhost,IP:127.0.0.1"
   generate_leaf "etcd" "thaliumx-etcd" "DNS:thaliumx-etcd,DNS:etcd,DNS:localhost,IP:127.0.0.1"
   generate_leaf "kafka" "thaliumx-kafka" "DNS:thaliumx-kafka,DNS:kafka,DNS:localhost,IP:127.0.0.1"
-  generate_leaf "apisix" "thaliumx-apisix" "DNS:thaliumx-apisix,DNS:apisix,DNS:localhost,DNS:*.${DOMAIN},IP:127.0.0.1"
+  generate_leaf "apisix" "thaliumx-apisix" "DNS:thaliumx-apisix,DNS:apisix,DNS:localhost,DNS:*.${DOMAIN},DNS:${DOMAIN},IP:127.0.0.1"
   generate_leaf "backend" "thaliumx-backend" "DNS:thaliumx-backend,DNS:backend,DNS:localhost,IP:127.0.0.1"
   generate_leaf "fintech" "thaliumx-fintech" "DNS:thaliumx-ballerine-backoffice,DNS:thaliumx-ballerine-workflow,DNS:localhost,IP:127.0.0.1"
   generate_leaf "trading" "thaliumx-trading" "DNS:thaliumx-dingir-restapi,DNS:thaliumx-dingir-matchengine,DNS:localhost,IP:127.0.0.1"
