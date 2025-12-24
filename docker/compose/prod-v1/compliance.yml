@@ -44,7 +44,9 @@ services:
       REDIS_DB: 0
 
       # Kafka
-      KAFKA_BROKERS: kafka:9094
+      KAFKA_BROKERS: thaliumx-kafka:9092
+      KAFKA_SSL: "true"
+      KAFKA_SSL_CA: /etc/ssl/certs/ca.crt
       KAFKA_CLIENT_ID: cex-compliance-service
       KAFKA_GROUP_ID: cex-compliance-group
 
@@ -55,6 +57,7 @@ services:
       KEYCLOAK_URL: https://keycloak:8443
       KEYCLOAK_REALM: thaliumx
       KEYCLOAK_CLIENT_ID: thaliumx-compliance-cex
+      KEYCLOAK_CLIENT_SECRET_FILE: /run/secrets/keycloak-compliance-cex-secret
 
       # Observability toggles
       METRICS_ENABLED: "true"
@@ -103,106 +106,109 @@ services:
       vault:
         condition: service_healthy
     healthcheck:
+      # BusyBox wget does not support `--method=HEAD`; use `--spider` for a lightweight liveness probe.
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
 
-  # compliance-dex:
-  #   build:
-  #     context: ./../../compliance-dex
-  #     dockerfile: Dockerfile
-  #   image: thaliumx/compliance-dex:latest
-  #   container_name: thaliumx-compliance-dex
-  #   hostname: thaliumx-compliance-dex
-  #   restart: unless-stopped
-  #   expose:
-  #     - "3002"
-  #   environment:
-  #     NODE_ENV: production
-  #     SERVICE_NAME: dex-compliance-service
-  #     PORT: 3002
+  compliance-dex:
+    build:
+      context: ./../../compliance-dex
+      dockerfile: Dockerfile
+    image: thaliumx/compliance-dex:latest
+    container_name: thaliumx-compliance-dex
+    hostname: thaliumx-compliance-dex
+    restart: unless-stopped
+    expose:
+      - "3002"
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: dex-compliance-service
+      PORT: 3002
 
-  #     DATABASE_HOST: postgres
-  #     DATABASE_PORT: 5432
-  #     DATABASE_NAME: dex_compliance
-  #     DATABASE_USER: thaliumx
-  #     DATABASE_SSL: "true"
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: dex_compliance
+      DATABASE_USER: thaliumx
+      DATABASE_SSL: "true"
 
-  #     DB_HOST: postgres
-  #     DB_PORT: 5432
-  #     DB_NAME: dex_compliance
-  #     DB_USER: thaliumx
-  #     DB_SSL: "true"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: dex_compliance
+      DB_USER: thaliumx
+      DB_SSL: "true"
 
-  #     REDIS_HOST: redis
-  #     REDIS_PORT: 6379
-  #     REDIS_DB: 1
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 1
 
-  #     KAFKA_BROKERS: kafka:9094
-  #     KAFKA_SSL: "false"
-  #     KAFKA_CLIENT_ID: dex-compliance-service
-  #     KAFKA_GROUP_ID: dex-compliance-group
+      KAFKA_BROKERS: thaliumx-kafka:9092
+      KAFKA_SSL: "true"
+      KAFKA_SSL_CA: /etc/ssl/certs/ca.crt
+      KAFKA_CLIENT_ID: dex-compliance-service
+      KAFKA_GROUP_ID: dex-compliance-group
 
-  #     VAULT_ADDR: https://vault:8200
-  #     VAULT_CACERT: /etc/ssl/certs/ca.crt
-  #     NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
-  #     KEYCLOAK_URL: https://keycloak:8443
-  #     KEYCLOAK_REALM: thaliumx
-  #     KEYCLOAK_CLIENT_ID: thaliumx-compliance-dex
+      VAULT_ADDR: https://vault:8200
+      VAULT_CACERT: /etc/ssl/certs/ca.crt
+      NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
+      KEYCLOAK_URL: https://keycloak:8443
+      KEYCLOAK_REALM: thaliumx
+      KEYCLOAK_CLIENT_ID: thaliumx-compliance-dex
 
-  #     METRICS_ENABLED: "true"
-  #     AUDIT_LOG_ENABLED: "true"
-  #     THREAT_DETECTION_ENABLED: "true"
+      METRICS_ENABLED: "true"
+      AUDIT_LOG_ENABLED: "true"
+      THREAT_DETECTION_ENABLED: "true"
 
-  #   command:
-  #     - sh
-  #     - -lc
-  #     - |
-  #       export DATABASE_PASSWORD="$(cat /run/secrets/postgres-password)";
-  #       export DB_PASSWORD="$(cat /run/secrets/postgres-password)";
-  #       export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
-  #       export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
-  #       export API_KEY="$(cat /run/secrets/api-key)";
-  #       export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
-  #       # Disable SASL for PLAINTEXT Kafka
-  #       unset KAFKA_SASL_MECHANISM;
-  #       unset KAFKA_SASL_USERNAME;
-  #       unset KAFKA_SASL_PASSWORD;
-  #       exec node dist/index.js
-  #   secrets:
-  #     - postgres-password
-  #     - redis-password
-  #     - jwt-secret
-  #     - api-key
-  #     - encryption-key
-  #     - keycloak-compliance-dex-secret
-  #     - vault-role-id
-  #     - vault-secret-id
-  #   volumes:
-  #     - ./../../certs/ca/ca.crt:/certs/ca.crt:ro
-  #     - ./../../certs/ca/ca.crt:/etc/ssl/certs/ca.crt:ro
-  #     - ./../../certs/services/postgres/ca.crt:/etc/ssl/certs/postgres-ca.crt:ro
-  #   networks:
-  #     - thaliumx-net
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #     kafka:
-  #       condition: service_healthy
-  #     keycloak:
-  #       condition: service_started
-  #     vault:
-  #       condition: service_healthy
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 60s
+    command:
+      - sh
+      - -lc
+      - |
+        export DATABASE_PASSWORD="$(cat /run/secrets/postgres-password)";
+        export DB_PASSWORD="$(cat /run/secrets/postgres-password)";
+        export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
+        export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
+        export API_KEY="$(cat /run/secrets/api-key)";
+        export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
+        export KEYCLOAK_CLIENT_SECRET="$(cat /run/secrets/keycloak-compliance-dex-secret)";
+        # Disable SASL for PLAINTEXT Kafka
+        unset KAFKA_SASL_MECHANISM;
+        unset KAFKA_SASL_USERNAME;
+        unset KAFKA_SASL_PASSWORD;
+        exec node dist/index.js
+    secrets:
+      - postgres-password
+      - redis-password
+      - jwt-secret
+      - api-key
+      - encryption-key
+      - keycloak-compliance-dex-secret
+      - vault-role-id
+      - vault-secret-id
+    volumes:
+      - ./../../certs/ca/ca.crt:/certs/ca.crt:ro
+      - ./../../certs/ca/ca.crt:/etc/ssl/certs/ca.crt:ro
+      - ./../../certs/services/postgres/ca.crt:/etc/ssl/certs/postgres-ca.crt:ro
+    networks:
+      - thaliumx-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      vault:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   compliance-nft:
     build:
@@ -236,8 +242,9 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 2
 
-      KAFKA_BROKERS: kafka:9094
-      KAFKA_SSL: "false"
+      KAFKA_BROKERS: thaliumx-kafka:9092
+      KAFKA_SSL: "true"
+      KAFKA_SSL_CA: /etc/ssl/certs/ca.crt
       KAFKA_CLIENT_ID: nft-compliance-service
       KAFKA_GROUP_ID: nft-compliance-group
 
@@ -328,7 +335,9 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 3
 
-      KAFKA_BROKERS: kafka:9094
+      KAFKA_BROKERS: thaliumx-kafka:9092
+      KAFKA_SSL: "true"
+      KAFKA_SSL_CA: /etc/ssl/certs/ca.crt
       KAFKA_CLIENT_ID: token-compliance-service
       KAFKA_GROUP_ID: token-compliance-group
 
@@ -422,8 +431,9 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 4
 
-      KAFKA_BROKERS: kafka:9094
-      KAFKA_SSL: "false"
+      KAFKA_BROKERS: thaliumx-kafka:9092
+      KAFKA_SSL: "true"
+      KAFKA_SSL_CA: /etc/ssl/certs/ca.crt
       KAFKA_CLIENT_ID: compliance-coordinator-service
       KAFKA_GROUP_ID: compliance-coordinator-group
 
@@ -474,8 +484,8 @@ services:
     depends_on:
       compliance-cex:
         condition: service_healthy
-      # compliance-dex:
-      #   condition: service_healthy
+      compliance-dex:
+        condition: service_healthy
       compliance-nft:
         condition: service_healthy
       compliance-token:

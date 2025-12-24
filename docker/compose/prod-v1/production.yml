@@ -55,6 +55,11 @@ services:
       service: mongodb
 
   # Applications Layer
+  keycloak:
+    extends:
+      file: applications.yml
+      service: keycloak
+
   backend:
     extends:
       file: applications.yml
@@ -92,11 +97,21 @@ services:
       file: security.yml
       service: opa
 
-  # Gateway Layer (when populated)
-  # apisix:
-  #   extends:
-  #     file: gateway.yml
-  #     service: apisix
+  # Gateway Layer
+  apisix:
+    extends:
+      file: gateway.yml
+      service: apisix
+
+  apisix-dashboard:
+    extends:
+      file: gateway.yml
+      service: apisix-dashboard
+
+  etcd:
+    extends:
+      file: gateway.yml
+      service: etcd
 
   # Monitoring Layer
   prometheus:
@@ -198,10 +213,15 @@ services:
       file: fintech.yml
       service: ballerine-backoffice
 
-  blinkfinance:
+  blnkfinance-migrate:
     extends:
       file: fintech.yml
-      service: blinkfinance
+      service: blnkfinance-migrate
+
+  blnkfinance:
+    extends:
+      file: fintech.yml
+      service: blnkfinance
 
   # Compliance
   compliance-cex:
@@ -244,3 +264,9 @@ services:
     extends:
       file: wazuh.yml
       service: wazuh-dashboard
+
+volumes:
+  etcd_data:
+    name: thaliumx-etcd-data
+  apisix_logs:
+    name: thaliumx-apisix-logs

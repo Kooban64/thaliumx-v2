@@ -1,0 +1,36 @@
+apisix:
+  id: "thaliumx-apisix"
+  allow_update_config: false
+  node_listen: 9080
+  enable_ipv6: false
+  enable_admin: true
+  admin_listen:
+    ip: 0.0.0.0
+    port: 9180
+  admin_key:
+    - name: admin
+      key: c8f7ecfcfdc37ce3e566569839160ac1315f827d3675653c73048c2631a93440
+      role: admin
+
+deployment:
+  role: data_plane
+  role_data_plane:
+    config_provider: yaml
+
+routes:
+  - id: 1
+    uri: /*
+    host: thaliumx.com
+    upstream:
+      nodes:
+        thaliumx-backend:3002: 1
+      type: roundrobin
+  - id: 2
+    uri: /*
+    host: auth.thaliumx.com
+    upstream:
+      nodes:
+        thaliumx-keycloak:8443: 1
+      type: roundrobin
+
+upstreams: []

@@ -63,9 +63,13 @@ services:
     command:
       - |
         export APISIX_ADMIN_KEY="$(cat /run/secrets/api-key)";
+        export APISIX_ID="thaliumx-apisix";
+        cp /tmp/config.yaml /usr/local/apisix/conf/config.yaml;
+        chmod 644 /usr/local/apisix/conf/config.yaml;
         exec /docker-entrypoint.sh docker-start
     volumes:
-      - /home/ubuntu/thaliumx-v1/docker/apisix/config/apisix-production.yaml:/usr/local/apisix/conf/config.yaml:ro
+      - /home/ubuntu/thaliumx-v1/docker/apisix/config/config-minimal.yaml:/tmp/config.yaml
+      - apisix_logs:/usr/local/apisix/logs
       - /home/ubuntu/thaliumx-v1/docker/certs/services/apisix:/usr/local/apisix/certs:ro
       - /home/ubuntu/thaliumx-v1/docker/certs/ca/ca.crt:/usr/local/apisix/certs/ca.crt:ro
       - apisix_logs:/usr/local/apisix/logs
@@ -136,10 +140,12 @@ services:
       - "com.thaliumx.description=APISIX Management Dashboard"
 
 volumes:
-  etcd_data:
-    name: thaliumx-etcd-data
-  apisix_logs:
-    name: thaliumx-apisix-logs
+   etcd_data:
+     name: thaliumx-etcd-data
+   apisix_logs:
+     name: thaliumx-apisix-logs
+   apisix_config:
+     name: thaliumx-apisix-config
 
 networks:
   thaliumx-net:
