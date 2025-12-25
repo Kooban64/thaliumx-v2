@@ -44,7 +44,7 @@
     "@opentelemetry/sdk-node": "^0.57.0",
     "@opentelemetry/semantic-conventions": "^1.28.0",
     "@tensorflow/tfjs": "^4.22.0",
-    "@thaliumx/shared": "file:../shared",
+    "@thaliumx/shared": "file:./shared",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
     "bull": "^4.16.4",
