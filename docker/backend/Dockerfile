@@ -43,8 +43,8 @@ RUN apk add --no-cache \
     lz4-dev
 
 # Security: Copy only package files first for better layer caching
-COPY backend/package.json ./
-COPY shared/package.json ./shared/
+COPY docker/backend/package.json ./
+COPY docker/shared/package.json ./shared/
 
 # Security: Disable npm scripts during install to prevent supply chain attacks
 RUN npm config set ignore-scripts true
@@ -82,24 +82,24 @@ RUN apk add --no-cache \
     lz4-dev
 
 # Copy package files
-COPY backend/package.json ./
-COPY shared ./shared
+COPY docker/backend/package.json ./
+COPY docker/shared ./shared
 
 # Security: Disable npm scripts during install
 RUN npm config set ignore-scripts true
 
 # Build shared package first
 WORKDIR /app/shared
-RUN pnpm install --ignore-workspace --frozen-lockfile
+RUN pnpm install --ignore-workspace --no-frozen-lockfile
 RUN pnpm run build
 
 # Build the backend application
 WORKDIR /app
-RUN pnpm install --ignore-workspace --frozen-lockfile
+RUN pnpm install --ignore-workspace --no-frozen-lockfile
 
 # Copy source code
-COPY backend/tsconfig.json ./
-COPY backend/src ./src
+COPY docker/backend/tsconfig.json ./
+COPY docker/backend/src ./src
 
 # Build TypeScript
 RUN pnpm run build
