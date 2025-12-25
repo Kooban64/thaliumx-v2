@@ -126,7 +126,7 @@ services:
       # Repo root (needed because Dockerfile references docker/backend/...)
       context: ../../..
       dockerfile: docker/backend/Dockerfile.production
-    image: thaliumx/backend:latest
+    image: thaliumx/backend:1.0.0
     container_name: thaliumx-backend
     hostname: thaliumx-backend
     restart: unless-stopped
@@ -323,10 +323,10 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         - NEXT_PUBLIC_API_URL=http://localhost:3002
-        - NEXT_PUBLIC_KEYCLOAK_URL=http://keycloak:8443
+        - NEXT_PUBLIC_KEYCLOAK_URL=https://keycloak:8443
         - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx
         - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
-    image: thaliumx/frontend:latest
+    image: thaliumx/frontend:1.0.0
     container_name: thaliumx-frontend
     hostname: thaliumx-frontend
     restart: unless-stopped
@@ -341,7 +341,7 @@ services:
       - PORT=3000
       - HOSTNAME=0.0.0.0
       - NEXT_PUBLIC_API_URL=http://localhost:3002
-      - NEXT_PUBLIC_KEYCLOAK_URL=http://keycloak:8443
+      - NEXT_PUBLIC_KEYCLOAK_URL=https://keycloak:8443
       - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx
       - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
     # Strict audit mode: no host-exposed ports (gateway-only exposure).

@@ -4,7 +4,7 @@
 
 services:
   postgres:
-    image: timescale/timescaledb:latest-pg16
+    image: timescale/timescaledb@sha256:5e3b972218628b5c8a3721792adf3894c4aef67309a312f46c093b4791115fec
     container_name: thaliumx-postgres
     hostname: thaliumx-postgres
     restart: unless-stopped

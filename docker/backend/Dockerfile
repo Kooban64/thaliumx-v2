@@ -6,7 +6,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Base image with security updates
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS base
+FROM node:20.18.0-alpine AS base
 
 # Security: Update base packages and add security tools
 RUN apk update && \
@@ -51,11 +51,11 @@ RUN npm config set ignore-scripts true
 
 # Install shared package dependencies
 WORKDIR /app/shared
-RUN pnpm install --ignore-workspace --frozen-lockfile 2>/dev/null || pnpm install --ignore-workspace
+RUN pnpm install --ignore-workspace --frozen-lockfile
 
 # Install backend dependencies
 WORKDIR /app
-RUN pnpm install --ignore-workspace --frozen-lockfile 2>/dev/null || pnpm install --ignore-workspace
+RUN pnpm install --ignore-workspace --frozen-lockfile
 
 # Security: Prune store to reduce image size
 RUN pnpm store prune
@@ -90,12 +90,12 @@ RUN npm config set ignore-scripts true
 
 # Build shared package first
 WORKDIR /app/shared
-RUN pnpm install --ignore-workspace --frozen-lockfile 2>/dev/null || pnpm install --ignore-workspace
+RUN pnpm install --ignore-workspace --frozen-lockfile
 RUN pnpm run build
 
 # Build the backend application
 WORKDIR /app
-RUN pnpm install --ignore-workspace --frozen-lockfile 2>/dev/null || pnpm install --ignore-workspace
+RUN pnpm install --ignore-workspace --frozen-lockfile
 
 # Copy source code
 COPY backend/tsconfig.json ./
@@ -113,7 +113,7 @@ RUN mkdir -p /app/dist/contracts/abis /app/dist/contracts/addresses && \
 # -----------------------------------------------------------------------------
 # Stage 4: Production runtime (minimal, security-hardened)
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS runner
+FROM node:20.18.0-alpine AS runner
 WORKDIR /app
 
 # Security: Update packages and install only runtime dependencies

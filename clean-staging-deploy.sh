@@ -11,7 +11,7 @@ fi
 echo "✅ Docker running"
 
 # Create environment
-cat > .env.staging << 'ENV_EOF'
+cat > .env.staging << "ENV_EOF"
 NODE_ENV=staging
 DOMAIN=localhost
 API_DOMAIN=localhost
@@ -43,7 +43,7 @@ docker network create thaliumx-staging-net 2>/dev/null || echo "Network exists"
 
 # Deploy services
 echo "🐳 Deploying services..."
-docker compose -f docker/compose.staging.yaml up -d
+docker compose -f docker/compose.yaml up -d
 
 echo "⏳ Waiting for startup..."
 sleep 30

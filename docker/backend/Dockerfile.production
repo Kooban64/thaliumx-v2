@@ -3,7 +3,7 @@
 # Uses pre-built artifacts for faster deployment
 # =============================================================================
 
-FROM node:20-alpine
+FROM node:20.18.0-alpine
 
 # Security: Update packages and install runtime dependencies
 RUN apk update && \

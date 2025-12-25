@@ -65,7 +65,7 @@ services:
       - "com.thaliumx.description=Event Streaming Platform"
 
   kafka-ui:
-    image: provectuslabs/kafka-ui:latest
+    image: provectuslabs/kafka-ui:v0.7.2
     container_name: thaliumx-kafka-ui
     hostname: thaliumx-kafka-ui
     environment:

@@ -13,7 +13,7 @@ services:
     build:
       context: ./../../compliance-cex
       dockerfile: Dockerfile
-    image: thaliumx/compliance-cex:latest
+    image: thaliumx/compliance-cex:1.0.0
     container_name: thaliumx-compliance-cex
     hostname: thaliumx-compliance-cex
     restart: unless-stopped
@@ -117,7 +117,7 @@ services:
     build:
       context: ./../../compliance-dex
       dockerfile: Dockerfile
-    image: thaliumx/compliance-dex:latest
+    image: thaliumx/compliance-dex:1.0.0
     container_name: thaliumx-compliance-dex
     hostname: thaliumx-compliance-dex
     restart: unless-stopped
@@ -214,7 +214,7 @@ services:
     build:
       context: ./../../compliance-nft
       dockerfile: Dockerfile
-    image: thaliumx/compliance-nft:latest
+    image: thaliumx/compliance-nft:1.0.0
     container_name: thaliumx-compliance-nft
     hostname: thaliumx-compliance-nft
     restart: unless-stopped
@@ -307,7 +307,7 @@ services:
     build:
       context: ./../../compliance-token
       dockerfile: Dockerfile
-    image: thaliumx/compliance-token:latest
+    image: thaliumx/compliance-token:1.0.0
     container_name: thaliumx-compliance-token
     hostname: thaliumx-compliance-token
     restart: unless-stopped
@@ -404,7 +404,7 @@ services:
     build:
       context: ./../../compliance-coordinator
       dockerfile: Dockerfile
-    image: thaliumx/compliance-coordinator:latest
+    image: thaliumx/compliance-coordinator:1.0.0
     container_name: thaliumx-compliance-coordinator
     hostname: thaliumx-compliance-coordinator
     restart: unless-stopped

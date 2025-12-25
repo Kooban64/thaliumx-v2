@@ -58,8 +58,20 @@ const keyStore = new Map<string, KeyRecord>();
 const auditLogs: KeyAuditLog[] = [];
 
 // Master encryption key for encrypting stored keys (in production, use HSM)
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const KEY_ENCRYPTION_SECRET = (process.env.KEY_ENCRYPTION_SECRET || '').trim();
+if (NODE_ENV === 'production') {
+  if (!KEY_ENCRYPTION_SECRET || KEY_ENCRYPTION_SECRET === 'default-key-encryption-secret-change-in-production') {
+    throw new Error('KEY_ENCRYPTION_SECRET is required in production (do not use defaults)');
+  }
+} else {
+  if (!KEY_ENCRYPTION_SECRET) {
+    LoggerService.warn('KEY_ENCRYPTION_SECRET not set; using insecure development default. Do not use this in production.', { NODE_ENV });
+  }
+}
+
 const MASTER_KEY = crypto.scryptSync(
-  process.env.KEY_ENCRYPTION_SECRET || 'default-key-encryption-secret-change-in-production',
+  KEY_ENCRYPTION_SECRET || 'default-key-encryption-secret-change-in-production',
   'salt',
   32
 );
@@ -538,8 +550,27 @@ export class KeyManagementController {
       const authTag = Buffer.from(parts[1], 'hex');
       const encrypted = parts[2];
 
-      // In production: retrieve key from HSM
-      const key = crypto.randomBytes(32); // Placeholder
+      // NOTE: Previous implementation used a random placeholder key, making decryption
+      // non-deterministic and unsafe. Fail closed in production.
+      if (NODE_ENV === 'production') {
+        res.status(501).json({
+          success: false,
+          message: 'Decrypt is not configured (HSM/KMS integration required)',
+          code: 'HSM_NOT_CONFIGURED',
+          requestId: req.headers['x-request-id']
+        });
+        return;
+      }
+
+      // Development fallback: use the most recent active key for the tenant if available.
+      // This is still not suitable for production.
+      const candidate = Array.from(keyStore.values())
+        .filter(k => k.tenantId === tenantId && k.status === 'active' && k.algorithm.startsWith('AES'))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+      if (!candidate) {
+        throw new Error('No active AES key available for development decrypt');
+      }
+      const key = this.decryptKeyMaterial(candidate.encryptedKey).subarray(0, 32);
       const algorithm = 'aes-256-gcm';
 
       const decipher = crypto.createDecipheriv(algorithm, key, iv);
@@ -580,9 +611,23 @@ export class KeyManagementController {
 
       LoggerService.info('Signing data with HSM', { tenantId, keyId, dataLength: data?.length });
 
-      // In production: use HSM for signing
+      const configuredKey = (process.env.SIGNING_PRIVATE_KEY || '').trim();
+      if (NODE_ENV === 'production' && !configuredKey) {
+        res.status(500).json({
+          success: false,
+          message: 'SIGNING_PRIVATE_KEY is required in production',
+          code: 'SIGNING_KEY_MISSING',
+          requestId: req.headers['x-request-id']
+        });
+        return;
+      }
+
+      // In production: use an HSM-backed key; in development, generate an ephemeral key if not configured.
+      if (!configuredKey) {
+        LoggerService.warn('SIGNING_PRIVATE_KEY not set; generating ephemeral dev signing key. Do not use this in production.', { tenantId });
+      }
       const privateKey = crypto.createPrivateKey({
-        key: process.env.SIGNING_PRIVATE_KEY || crypto.generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({ type: 'pkcs8', format: 'pem' }),
+        key: configuredKey || crypto.generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({ type: 'pkcs8', format: 'pem' }),
         format: 'pem'
       });
 
@@ -623,9 +668,18 @@ export class KeyManagementController {
 
       LoggerService.info('Verifying signature with HSM', { tenantId, keyId });
 
-      // In production: use HSM public key
+      const configuredPub = (process.env.SIGNING_PUBLIC_KEY || '').trim();
+      if (NODE_ENV === 'production' && !configuredPub) {
+        res.status(500).json({
+          success: false,
+          message: 'SIGNING_PUBLIC_KEY is required in production',
+          code: 'SIGNING_KEY_MISSING',
+          requestId: req.headers['x-request-id']
+        });
+        return;
+      }
       const publicKey = crypto.createPublicKey({
-        key: process.env.SIGNING_PUBLIC_KEY || '',
+        key: configuredPub,
         format: 'pem'
       });
 
@@ -937,4 +991,3 @@ export class KeyManagementController {
     }
   }
 }
-

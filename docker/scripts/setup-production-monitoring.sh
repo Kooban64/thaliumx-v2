@@ -32,7 +32,11 @@ wait_for_service() {
 
 # Step 1: Start monitoring infrastructure
 echo "📊 Step 1: Starting monitoring infrastructure..."
-cd /home/ubuntu/thaliumx/docker/observability
+
+# Resolve repo root (script may be run from any working directory)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+cd "$PROJECT_ROOT/docker/observability"
 
 # Start core monitoring services
 docker compose up -d prometheus grafana loki promtail tempo otel-collector
@@ -63,7 +67,14 @@ curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | selec
 
 # Check Grafana dashboards
 echo "Checking Grafana dashboards..."
-curl -s -u admin:$(cat /home/ubuntu/thaliumx/.secrets/generated/grafana-admin-password) \
+GRAFANA_ADMIN_PASSWORD_FILE="$PROJECT_ROOT/.secrets/generated/grafana-admin-password"
+if [ ! -f "$GRAFANA_ADMIN_PASSWORD_FILE" ]; then
+  echo "❌ Missing Grafana admin password file: $GRAFANA_ADMIN_PASSWORD_FILE"
+  echo "   Run: bash ./scripts/generate-secrets.sh"
+  exit 1
+fi
+
+curl -s -u "admin:$(cat "$GRAFANA_ADMIN_PASSWORD_FILE")" \
   http://localhost:3000/api/search | jq '.[].title' || echo "Grafana dashboards loaded"
 
 # Step 5: Configure alerts
@@ -169,7 +180,7 @@ echo "🎯 PRODUCTION MONITORING SETUP COMPLETE"
 echo "=========================================="
 echo ""
 echo "📊 Monitoring URLs:"
-echo "  • Grafana: http://localhost:3000 (admin/$(cat /home/ubuntu/thaliumx/.secrets/generated/grafana-admin-password))"
+echo "  • Grafana: http://localhost:3000 (admin/<password stored in .secrets/generated/grafana-admin-password>)"
 echo "  • Prometheus: http://localhost:9090"
 echo "  • Alertmanager: http://localhost:9093"
 echo ""

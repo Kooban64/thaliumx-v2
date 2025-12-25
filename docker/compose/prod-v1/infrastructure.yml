@@ -67,7 +67,7 @@ services:
   # POSTGRESQL - Primary Database
   # ============================================
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.4-alpine
     container_name: thaliumx-postgres
     restart: unless-stopped
     environment:
@@ -139,7 +139,7 @@ services:
   # REDIS - Caching and Sessions
   # ============================================
   redis:
-    image: redis:7-alpine
+    image: redis:7.4-alpine
     container_name: thaliumx-redis
     restart: unless-stopped
     command: >

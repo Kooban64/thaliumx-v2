@@ -1,5 +1,5 @@
 # Multi-stage build for Liquibook (Node.js with C++ bindings)
-FROM node:18-alpine AS builder
+FROM node:18.20.4-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -29,7 +29,7 @@ COPY . .
 RUN npm run build || npm run compile || true
 
 # Runtime stage
-FROM node:18-alpine
+FROM node:18.20.4-alpine
 
 # Install runtime dependencies
 RUN apk add --no-cache \

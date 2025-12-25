@@ -356,7 +356,7 @@ export class QuantLibService {
 
   // External Python QuantLib Service Configuration
   private static externalServiceUrl: string | null = process.env.QUANTLIB_URL || null;
-  private static externalServiceApiKey: string = process.env.QUANTLIB_API_KEY || 'default-key';
+  private static externalServiceApiKey: string = process.env.QUANTLIB_API_KEY || '';
   private static externalServiceEnabled: boolean = !!process.env.QUANTLIB_URL;
   private static externalServiceClient: any = null;
 
@@ -369,6 +369,16 @@ export class QuantLibService {
       
       // Initialize external Python service client if configured
       if (this.externalServiceEnabled && this.externalServiceUrl) {
+        const nodeEnv = process.env.NODE_ENV || 'development';
+        if (!this.externalServiceApiKey) {
+          if (nodeEnv === 'production') {
+            throw createError('QUANTLIB_API_KEY is required when QUANTLIB_URL is set in production', 500, 'QUANTLIB_MISCONFIGURED');
+          }
+          LoggerService.warn('QUANTLIB_API_KEY not set; external QuantLib calls will likely fail. Do not use this in production.', {
+            nodeEnv,
+            externalServiceUrl: this.externalServiceUrl
+          });
+        }
         this.externalServiceClient = axios.create({
           baseURL: this.externalServiceUrl,
           headers: {

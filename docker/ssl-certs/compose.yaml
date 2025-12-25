@@ -24,7 +24,7 @@ services:
       retries: 3
 
   certbot:
-    image: certbot/certbot:latest
+    image: certbot/certbot:v2.11.0
     container_name: thaliumx-certbot
     hostname: thaliumx-certbot
     volumes:

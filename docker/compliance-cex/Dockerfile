@@ -2,7 +2,7 @@
 # Multi-stage build for production-ready container
 
 # ==================== BUILD STAGE ====================
-FROM node:20-alpine AS builder
+FROM node:20.18.0-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -28,7 +28,7 @@ RUN npm run build
 # RUN npm run lint
 
 # ==================== PRODUCTION STAGE ====================
-FROM node:20-alpine AS production
+FROM node:20.18.0-alpine AS production
 
 # Set working directory
 WORKDIR /app

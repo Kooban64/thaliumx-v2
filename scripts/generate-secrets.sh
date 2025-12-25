@@ -19,6 +19,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 SECRETS_DIR="$PROJECT_ROOT/.secrets/generated"
 
+# If set to true, overwrite existing secrets.
+FORCE_REGENERATE="${FORCE_REGENERATE:-false}"
+
 log_info "Starting secrets generation..."
 log_info "Secrets will be stored in: $SECRETS_DIR"
 
@@ -57,22 +60,56 @@ generate_secret() {
     log_success "Generated secret: $name"
 }
 
+# Function to generate a JSON secret file
+generate_json_secret() {
+    local name=$1
+    local file="$SECRETS_DIR/$name"
+
+    if [ -f "$file" ] && [ "$FORCE_REGENERATE" != "true" ]; then
+        log_warn "Secret $name already exists, skipping (use FORCE_REGENERATE=true to override)"
+        return
+    fi
+
+    # Minimal JSON map compatible with redis_exporter password-file.
+    local redis_pw
+    redis_pw="$(openssl rand -base64 32 | tr -d '\n')"
+    printf '{"default":"%s"}\n' "$redis_pw" > "$file"
+    chmod 600 "$file"
+    log_success "Generated secret: $name"
+}
+
 # Database passwords
 log_info "Generating database passwords..."
 generate_secret "postgres-password" 32 password
 generate_secret "redis-password" 32 password
 generate_secret "mongodb-password" 32 password
 
+# Database usernames
+log_info "Generating database usernames..."
+generate_secret "postgres-username" 12 alphanumeric
+
 # Application secrets
 log_info "Generating application secrets..."
 generate_secret "jwt-secret" 64 base64
 generate_secret "encryption-key" 32 base64
-generate_secret "session-secret" 32 base64
+generate_secret "api-key" 32 hex
+generate_secret "jwt-secret-long" 96 base64
+generate_secret "encryption-key-long" 64 base64
+
+# Redis exporter expects a JSON file
+log_info "Generating Redis exporter secrets..."
+generate_json_secret "redis-exporter-passwords.json"
 
 # Keycloak secrets
 log_info "Generating Keycloak secrets..."
+generate_secret "keycloak-admin-username" 12 alphanumeric
 generate_secret "keycloak-admin-password" 24 password
-generate_secret "keycloak-client-secret" 32 hex
+generate_secret "keycloak-backend-secret" 32 hex
+generate_secret "keycloak-compliance-cex-secret" 32 hex
+generate_secret "keycloak-compliance-dex-secret" 32 hex
+generate_secret "keycloak-compliance-nft-secret" 32 hex
+generate_secret "keycloak-compliance-token-secret" 32 hex
+generate_secret "keycloak-compliance-coordinator-secret" 32 hex
 
 # Vault secrets
 log_info "Generating Vault secrets..."
@@ -81,29 +118,62 @@ generate_secret "vault-secret-id" 32 hex
 
 # Grafana secrets
 log_info "Generating Grafana secrets..."
+generate_secret "grafana-admin-username" 10 alphanumeric
 generate_secret "grafana-admin-password" 24 password
 
-# APISIX secrets
-log_info "Generating APISIX secrets..."
-generate_secret "apisix-admin-key" 32 hex
+# Messaging secrets
+log_info "Generating Kafka secrets..."
+generate_secret "kafka-password" 24 password
+generate_secret "kafka-ui-password" 24 password
 
-# Trading service secrets
-log_info "Generating trading service secrets..."
-generate_secret "dingir-api-key" 32 hex
-generate_secret "trading-encryption-key" 32 base64
+# SMTP (required by production config validation)
+log_info "Generating SMTP placeholders..."
+generate_secret "smtp-user" 12 alphanumeric
+generate_secret "smtp-username" 12 alphanumeric
+generate_secret "smtp-password" 24 password
+
+# Trading / external exchange secrets (placeholders; override with real creds where needed)
+log_info "Generating exchange API placeholders..."
+generate_secret "bybit-api-key" 32 alphanumeric
+generate_secret "bybit-api-secret" 48 alphanumeric
+generate_secret "kucoin-api-key" 32 alphanumeric
+generate_secret "kucoin-api-secret" 48 alphanumeric
+generate_secret "okx-api-key" 32 alphanumeric
+generate_secret "okx-api-secret" 48 alphanumeric
+generate_secret "kraken-api-key" 32 alphanumeric
+generate_secret "kraken-api-secret" 48 alphanumeric
+generate_secret "valr-api-key" 32 alphanumeric
+generate_secret "valr-api-secret" 48 alphanumeric
+generate_secret "bitstamp-api-key" 32 alphanumeric
+generate_secret "bitstamp-api-secret" 48 alphanumeric
+generate_secret "crypto-com-api-key" 32 alphanumeric
+generate_secret "crypto-com-api-secret" 48 alphanumeric
+generate_secret "nedbank-api-key" 32 alphanumeric
+generate_secret "nedbank-api-secret" 48 alphanumeric
 
 # Fintech service secrets
 log_info "Generating fintech service secrets..."
+generate_secret "ballerine-db-username" 12 alphanumeric
+generate_secret "ballerine-db-password" 24 password
+generate_secret "ballerine-db-url" 48 base64
+generate_secret "ballerine-database-url" 48 base64
+generate_secret "ballerine-redis-url" 48 base64
+generate_secret "ballerine-jwt-secret-key" 64 base64
 generate_secret "ballerine-session-secret" 32 base64
 generate_secret "ballerine-api-key" 32 hex
-generate_secret "ballerine-jwt-secret" 64 base64
+generate_secret "ballerine-hashing-key-secret-base64" 64 base64
 generate_secret "ballerine-webhook-secret" 32 hex
 generate_secret "ballerine-encryption-key" 32 base64
+generate_secret "ballerine-workflow-token" 32 hex
+generate_secret "ballerine-collection-flow-token" 32 hex
+generate_secret "ballerine-magic-link-jwt-secret" 64 base64
+generate_secret "ballerine-magic-link-auth-jwt-secret" 64 base64
 
 # Wazuh secrets
 log_info "Generating Wazuh secrets..."
+generate_secret "wazuh-indexer-username" 10 alphanumeric
+generate_secret "wazuh-dashboard-username" 10 alphanumeric
 generate_secret "wazuh-indexer-password" 24 password
-generate_secret "wazuh-api-password" 24 password
 generate_secret "wazuh-dashboard-password" 24 password
 
 # Typesense secrets

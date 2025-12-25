@@ -64,15 +64,17 @@ services:
       - |
         export APISIX_ADMIN_KEY="$(cat /run/secrets/api-key)";
         export APISIX_ID="thaliumx-apisix";
-        cp /tmp/config.yaml /usr/local/apisix/conf/config.yaml;
-        chmod 644 /usr/local/apisix/conf/config.yaml;
+        mkdir -p /tmp/certs;
+        cp /usr/local/apisix/certs/server.crt /tmp/certs/;
+        cp /usr/local/apisix/certs/server.key /tmp/certs/;
+        chmod 644 /tmp/certs/server.crt;
+        chmod 600 /tmp/certs/server.key;
         exec /docker-entrypoint.sh docker-start
     volumes:
-      - /home/ubuntu/thaliumx-v1/docker/apisix/config/config-minimal.yaml:/tmp/config.yaml
+      - ./../../docker/apisix/config/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:ro
       - apisix_logs:/usr/local/apisix/logs
       - /home/ubuntu/thaliumx-v1/docker/certs/services/apisix:/usr/local/apisix/certs:ro
       - /home/ubuntu/thaliumx-v1/docker/certs/ca/ca.crt:/usr/local/apisix/certs/ca.crt:ro
-      - apisix_logs:/usr/local/apisix/logs
     # Strict audit mode: APISIX is the ONLY externally exposed entrypoint.
     # Map host 80/443 to APISIX 9080/9443.
     ports:

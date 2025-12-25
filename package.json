@@ -16,8 +16,11 @@
   "scripts": {
     "docker:network": "docker network inspect thaliumx-net >/dev/null 2>&1 || docker network create --driver bridge --subnet 172.28.0.0/16 thaliumx-net",
     "docker:up": "pnpm docker:network && docker compose -f docker/compose.yaml up -d",
+    "docker:up:prod-v1": "pnpm docker:network && docker compose -f docker/compose/prod-v1/base.yml -f docker/compose/prod-v1/production.yml up -d",
     "docker:down": "docker compose -f docker/compose.yaml down",
+    "docker:down:prod-v1": "docker compose -f docker/compose/prod-v1/base.yml -f docker/compose/prod-v1/production.yml down",
     "docker:logs": "docker compose -f docker/compose.yaml logs -f",
+    "docker:config:prod-v1": "docker compose -f docker/compose/prod-v1/base.yml -f docker/compose/prod-v1/production.yml config >/dev/null",
     "docker:ps": "docker ps --filter 'name=thaliumx-' --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'",
     "docker:clean": "docker compose -f docker/compose.yaml down -v --remove-orphans",
     "docker:up:databases": "pnpm docker:network && docker compose -f docker/databases/compose.yaml up -d",

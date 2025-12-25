@@ -12,7 +12,7 @@ services:
     build:
       context: ./../../trading/dingir
       dockerfile: Dockerfile
-    image: thaliumx/dingir:latest
+    image: thaliumx/dingir:1.0.0
     container_name: thaliumx-dingir-matchengine
     hostname: thaliumx-dingir-matchengine
     restart: unless-stopped
@@ -74,7 +74,7 @@ services:
     build:
       context: ./../../trading/dingir
       dockerfile: Dockerfile
-    image: thaliumx/dingir:latest
+    image: thaliumx/dingir:1.0.0
     container_name: thaliumx-dingir-restapi
     hostname: thaliumx-dingir-restapi
     restart: unless-stopped
@@ -135,7 +135,7 @@ services:
     build:
       context: ./../../trading/liquibook
       dockerfile: Dockerfile
-    image: thaliumx/liquibook:latest
+    image: thaliumx/liquibook:1.0.0
     container_name: thaliumx-liquibook
     hostname: thaliumx-liquibook
     restart: unless-stopped
@@ -166,7 +166,7 @@ services:
       # The running service implementation lives in `docker/trading/quantlib.old`.
       context: ./../../trading/quantlib.old
       dockerfile: Dockerfile
-    image: thaliumx/quantlib:latest
+    image: thaliumx/quantlib:1.0.0
     container_name: thaliumx-quantlib
     hostname: thaliumx-quantlib
     restart: unless-stopped

@@ -18,6 +18,7 @@ import { LoggerService } from './logger';
 import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
 import { AppError, createError } from '../utils';
+import crypto from 'crypto';
 
 // Keycloak Admin Client (using axios for better control)
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
@@ -754,13 +755,40 @@ export class KeycloakService {
     // Note: For admin authentication, we ALWAYS use the 'master' realm
     // The KEYCLOAK_REALM env var is for application-level realm operations
     // Admin users exist in the master realm, not in application realms
+    const nodeEnv = process.env.NODE_ENV || 'development';
+
+    const baseUrl = process.env.KEYCLOAK_URL || 'http://localhost:8080';
+    const clientId = process.env.KEYCLOAK_ADMIN_CLIENT_ID || 'admin-cli';
+    const clientSecret = process.env.KEYCLOAK_ADMIN_CLIENT_SECRET || '';
+    const adminUsername = process.env.KEYCLOAK_ADMIN_USERNAME || 'admin';
+    const adminPassword = process.env.KEYCLOAK_ADMIN_PASSWORD;
+
+    // Production safety: never allow implicit admin/admin defaults.
+    if (nodeEnv === 'production') {
+      if (!adminPassword || adminPassword.trim().length < 12) {
+        throw createError('KEYCLOAK_ADMIN_PASSWORD is required in production (min 12 chars)', 500, 'KEYCLOAK_MISCONFIGURED');
+      }
+      if (!clientSecret && clientId !== 'admin-cli') {
+        // If a confidential client is used, require its secret.
+        throw createError('KEYCLOAK_ADMIN_CLIENT_SECRET is required for confidential admin client in production', 500, 'KEYCLOAK_MISCONFIGURED');
+      }
+    } else {
+      if (!adminPassword) {
+        LoggerService.warn('KEYCLOAK_ADMIN_PASSWORD not set; using insecure development default. Do not use this in production.', {
+          nodeEnv,
+          baseUrl,
+          clientId
+        });
+      }
+    }
+
     return {
-      baseUrl: process.env.KEYCLOAK_URL || 'http://localhost:8080',
+      baseUrl,
       realm: 'master', // Always use master realm for admin authentication
-      clientId: process.env.KEYCLOAK_ADMIN_CLIENT_ID || 'admin-cli',
-      clientSecret: process.env.KEYCLOAK_ADMIN_CLIENT_SECRET || '',
-      adminUsername: process.env.KEYCLOAK_ADMIN_USERNAME || 'admin',
-      adminPassword: process.env.KEYCLOAK_ADMIN_PASSWORD || 'admin',
+      clientId,
+      clientSecret,
+      adminUsername,
+      adminPassword: adminPassword || 'admin',
       timeout: parseInt(process.env.KEYCLOAK_TIMEOUT || '30000'),
       retryAttempts: parseInt(process.env.KEYCLOAK_RETRY_ATTEMPTS || '3')
     };
@@ -1545,12 +1573,9 @@ export class KeycloakService {
   }
 
   private static generateClientSecret(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 32; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
+    // Cryptographically secure secret suitable for Keycloak client-secret.
+    // 32 bytes -> 43 char base64url (no padding).
+    return crypto.randomBytes(32).toString('base64url');
   }
 
   /**

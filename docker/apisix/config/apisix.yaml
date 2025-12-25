@@ -1,141 +1,47 @@
-#
-# APISIX Configuration for Thaliumx Platform
-#
-
 apisix:
+  id: "thaliumx-apisix"
+  allow_update_config: false
   node_listen: 9080
   enable_ipv6: false
+  ssl:
+    listen_port: 9443
+    ssl_certificate: /tmp/certs/server.crt
+    ssl_certificate_key: /tmp/certs/server.key
+    ssl_protocols: "TLSv1.2 TLSv1.3"
   enable_admin: true
-  enable_http2: true
-  
-  # Admin API MUST NOT be exposed publicly.
-  # Restrict to localhost + private Docker networks only.
-  allow_admin:
-    - 127.0.0.1/32
-    - 172.28.0.0/16
-    - 172.29.0.0/16
-    - 172.30.0.0/16
-  
   admin_listen:
-    ip: 127.0.0.1
+    ip: 0.0.0.0
     port: 9180
-  
-  # Admin API keys
-  # NOTE: Do not commit real values. Render this file during deployment (e.g., envsubst in CI)
-  # or mount it from a secrets manager.
   admin_key:
     - name: admin
-      key: __REPLACE_WITH_SECURE_VALUE__
+      key: c8f7ecfcfdc37ce3e566569839160ac1315f827d3675653c73048c2631a93440
       role: admin
-    - name: viewer
-      key: __REPLACE_WITH_SECURE_VALUE__
-      role: viewer
 
-  # SSL configuration
-  ssl:
-    enable: true
-    listen:
-      - port: 9443
-
-  # Proxy settings
-  proxy_mode: http&stream
-  stream_proxy:
-    tcp:
-      - 9100
-
-# etcd configuration
 deployment:
-  role: traditional
-  role_traditional:
-    config_provider: etcd
-  etcd:
-    host:
-      - "http://thaliumx-etcd:2379"
-    prefix: /apisix
-    timeout: 30
+  role: data_plane
+  role_data_plane:
+    config_provider: yaml
 
-# Plugin configuration
-plugins:
-  - api-breaker
-  - authz-keycloak
-  - basic-auth
-  - batch-requests
-  - consumer-restriction
-  - cors
-  - echo
-  - fault-injection
-  - grpc-transcode
-  - hmac-auth
-  - http-logger
-  - ip-restriction
-  - jwt-auth
-  - kafka-logger
-  - key-auth
-  - limit-conn
-  - limit-count
-  - limit-req
-  - node-status
-  - opa
-  - openid-connect
-  - prometheus
-  - proxy-cache
-  - proxy-mirror
-  - proxy-rewrite
-  - redirect
-  - referer-restriction
-  - request-id
-  - request-validation
-  - response-rewrite
-  - serverless-post-function
-  - serverless-pre-function
-  - syslog
-  - tcp-logger
-  - traffic-split
-  - ua-restriction
-  - udp-logger
-  - uri-blocker
-  - zipkin
+routes:
+  - id: 1
+    uri: /*
+    host: thaliumx.com
+    upstream:
+      nodes:
+        thaliumx-backend:3002: 1
+      type: roundrobin
+  - id: 2
+    uri: /*
+    host: auth.thaliumx.com
+    upstream:
+      nodes:
+        thaliumx-keycloak:8443: 1
+      type: roundrobin
+  - id: 3
+    uri: /*
+    upstream:
+      nodes:
+        thaliumx-frontend:3000: 1
+      type: roundrobin
 
-# Nginx configuration
-nginx_config:
-  error_log: /dev/stderr
-  error_log_level: warn
-  worker_processes: auto
-  worker_rlimit_nofile: 20480
-  
-  event:
-    worker_connections: 10620
-  
-  http:
-    enable_access_log: true
-    access_log: /dev/stdout
-    access_log_format: '{"time": "$time_iso8601", "remote_addr": "$remote_addr", "request": "$request", "status": "$status", "body_bytes_sent": "$body_bytes_sent", "request_time": "$request_time", "upstream_response_time": "$upstream_response_time"}'
-    access_log_format_escape: json
-    
-    keepalive_timeout: 60s
-    client_header_timeout: 60s
-    client_body_timeout: 60s
-    send_timeout: 10s
-    
-    underscores_in_headers: "on"
-    real_ip_header: X-Forwarded-For
-    real_ip_recursive: "on"
-    real_ip_from:
-      - 127.0.0.1
-      - "unix:"
-      - 172.28.0.0/16
-
-# Discovery configuration for service mesh
-discovery:
-  dns:
-    servers:
-      - "127.0.0.11:53"
-
-# Prometheus metrics
-plugin_attr:
-  prometheus:
-    export_uri: /apisix/prometheus/metrics
-    export_addr:
-      ip: 0.0.0.0
-      port: 9091
-    metric_prefix: apisix_
+upstreams: []

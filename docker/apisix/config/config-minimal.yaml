@@ -11,6 +11,10 @@ apisix:
     - name: admin
       key: c8f7ecfcfdc37ce3e566569839160ac1315f827d3675653c73048c2631a93440
       role: admin
+  ssl:
+    listen_port: 443
+    ssl_certificate: /usr/local/apisix/certs/server.crt
+    ssl_certificate_key: /usr/local/apisix/certs/server.key
 
 deployment:
   role: data_plane

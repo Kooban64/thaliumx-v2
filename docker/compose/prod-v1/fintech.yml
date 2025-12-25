@@ -14,7 +14,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ballerine
-      POSTGRES_PASSWORD: Ballerine_DB_Pass_2025_Secure_ThaliumX!
+      POSTGRES_PASSWORD: CHANGEME__SET_VIA_SECRETS
       POSTGRES_DB: ballerine
     # Strict audit mode: no host-exposed ports (gateway-only exposure).
     volumes:
@@ -29,13 +29,13 @@ services:
 
   ballerine-workflow:
     profiles: ["non-audit"]
-    image: ghcr.io/ballerine-io/workflows-service:latest
+    image: ghcr.io/ballerine-io/workflows-service:1.0.0
     container_name: thaliumx-ballerine-workflow
     hostname: thaliumx-ballerine-workflow
     restart: unless-stopped
     environment:
       VAULT_ADDR: https://vault:8200
-      VAULT_TOKEN: s.vault_token_placeholder
+      VAULT_TOKEN: CHANGEME__SET_VIA_SECRETS
       VAULT_SECRET_PATH: kv/data/fintech/ballerine
       DB_USER: ballerine
       DB_HOST: thaliumx-ballerine-postgres
@@ -57,7 +57,7 @@ services:
       DB_URL: postgresql://ballerine:Ballerine_DB_Pass_2025_Secure_ThaliumX!@thaliumx-ballerine-postgres:5432/ballerine
       DATABASE_URL: postgresql://ballerine:Ballerine_DB_Pass_2025_Secure_ThaliumX!@thaliumx-ballerine-postgres:5432/ballerine
       REDIS_URL: redis://thaliumx-redis:6379
-      JWT_SECRET_KEY: ballerine_jwt_secret_2025_production_secure_key_ThaliumX_64_chars_hex
+      JWT_SECRET_KEY: CHANGEME__SET_VIA_SECRETS
       SESSION_SECRET: ballerine_session_secret_2025_production_secure_ThaliumX_32_chars
       API_KEY: ballerine_api_key_2025_production_secure_ThaliumX_48_chars_alphanum
       BCRYPT_SALT: "$2b$10$.8CHAioRfbSk8KiRGNqNyu"
@@ -85,7 +85,7 @@ services:
 
   ballerine-backoffice:
     profiles: ["non-audit"]
-    image: ghcr.io/ballerine-io/backoffice:latest
+    image: ghcr.io/ballerine-io/backoffice:1.0.0
     container_name: thaliumx-ballerine-backoffice
     hostname: thaliumx-ballerine-backoffice
     restart: unless-stopped
@@ -106,7 +106,7 @@ services:
 
   blnkfinance-migrate:
     profiles: ["non-audit"]
-    image: thaliumx/blnkfinance:latest
+    image: thaliumx/blnkfinance:1.0.0
     container_name: thaliumx-blnkfinance-migrate
     hostname: thaliumx-blnkfinance-migrate
     restart: "no"
@@ -138,7 +138,7 @@ services:
       dockerfile: Dockerfile
       args:
         BLNK_VERSION: v0.7.0
-    image: thaliumx/blnkfinance:latest
+    image: thaliumx/blnkfinance:1.0.0
     container_name: thaliumx-blnkfinance
     hostname: thaliumx-blnkfinance
     restart: unless-stopped
@@ -146,6 +146,9 @@ services:
       TZ: UTC
       BLNK_SERVER_PORT: "5001"
       BLNK_ENABLE_TELEMETRY: "false"
+      REDIS_HOST: thaliumx-redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: thaliumx_redis_password_2025_secure_ThaliumX_32_chars
       BLNK_DATA_SOURCE_DNS: postgresql://thaliumx:$(cat /run/secrets/postgres-password)@postgres:5432/blnkfinance?sslmode=require
       BLNK_REDIS_DNS: redis://:$(cat /run/secrets/redis-password)@thaliumx-redis:6379
     command:
@@ -154,6 +157,7 @@ services:
       - |
         export BLNK_DATA_SOURCE_DNS="postgresql://thaliumx:$(cat /run/secrets/postgres-password)@postgres:5432/blnkfinance?sslmode=require";
         export BLNK_REDIS_DNS="redis://:$(cat /run/secrets/redis-password)@thaliumx-redis:6379";
+        export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
         exec /usr/local/bin/blnk start
     secrets:
       - postgres-password

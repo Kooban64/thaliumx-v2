@@ -191,7 +191,13 @@ services:
     container_name: thaliumx-cadvisor
     hostname: thaliumx-cadvisor
     restart: unless-stopped
-    privileged: true
+    # Hardened defaults: avoid privileged containers.
+    privileged: false
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "8082:8080"
     volumes:

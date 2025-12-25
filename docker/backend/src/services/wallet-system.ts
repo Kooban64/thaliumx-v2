@@ -25,6 +25,7 @@ import { LoggerService } from './logger';
 import { EventStreamingService } from './event-streaming';
 import { BlnkFinanceService } from './blnkfinance';
 import { QuantLibService } from './quantlib';
+import { MFAService } from './mfa';
 
 // ==================== CORE INTERFACES ====================
 
@@ -1233,8 +1234,8 @@ export class WalletSystemService {
     recoveryData?: string;
   }> {
     try {
-      // Verify MFA code (simplified - in production, use proper MFA service)
-      if (!this.verifyMFACode(userId, mfaCode)) {
+      // Verify MFA code via MFA service.
+      if (!(await this.verifyMFACode(userId, mfaCode))) {
         throw new Error('Invalid MFA code');
       }
 
@@ -1343,39 +1344,85 @@ export class WalletSystemService {
     return `BANK_${brokerId}_${accountType}_${Date.now()}`;
   }
 
+  private getEncryptionKey(): Buffer {
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    const secret = (process.env.ENCRYPTION_KEY || '').trim();
+
+    if (!secret) {
+      if (nodeEnv === 'production') {
+        throw new Error('ENCRYPTION_KEY is required in production');
+      }
+      LoggerService.warn('ENCRYPTION_KEY not set; using insecure development default. Do not use this in production.', { nodeEnv });
+    }
+
+    // NOTE: Keep the historic salt value to avoid breaking any legacy data derivations.
+    return crypto.scryptSync(secret || 'default-key', 'salt', 32);
+  }
+
+  /**
+   * Encrypt sensitive material.
+   *
+   * Format (new): v1:gcm:<ivHex>:<tagHex>:<cipherHex>
+   * Legacy support (decrypt only): <ivHex>:<cipherHex>
+   */
   private encryptData(data: string): string {
-    const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'default-key', 'salt', 32);
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(algorithm, key, iv);
-    
-    let encrypted = cipher.update(data, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
-    return iv.toString('hex') + ':' + encrypted;
+    const key = this.getEncryptionKey();
+    const iv = crypto.randomBytes(12); // recommended IV size for GCM
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+
+    const ciphertext = Buffer.concat([cipher.update(data, 'utf8'), cipher.final()]);
+    const tag = cipher.getAuthTag();
+
+    return `v1:gcm:${iv.toString('hex')}:${tag.toString('hex')}:${ciphertext.toString('hex')}`;
   }
 
   private decryptData(encryptedData: string): string {
-    const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'default-key', 'salt', 32);
+    const key = this.getEncryptionKey();
     const parts = encryptedData.split(':');
-    if (parts.length !== 2 || !parts[0] || !parts[1]) {
-      throw new Error('Invalid encrypted data format');
+
+    // New format
+    if (parts.length === 5 && parts[0] === 'v1' && parts[1] === 'gcm') {
+      const iv = Buffer.from(parts[2] || '', 'hex');
+      const tag = Buffer.from(parts[3] || '', 'hex');
+      const ciphertext = Buffer.from(parts[4] || '', 'hex');
+      if (iv.length === 0 || tag.length === 0 || ciphertext.length === 0) {
+        throw new Error('Invalid encrypted data format (v1)');
+      }
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+      decipher.setAuthTag(tag);
+      const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+      return plaintext.toString('utf8');
     }
-    const [ivHex, encrypted] = parts;
-    const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv(algorithm, key, iv);
-    
-    const updateResult = decipher.update(encrypted, 'hex', 'utf8');
-    const finalResult = decipher.final('utf8');
-    const decrypted = (updateResult ?? '') + (finalResult ?? '');
-    
-    return decrypted;
+
+    // Legacy format: <ivHex>:<cipherHex>
+    // The previous implementation attempted AES-GCM without persisting the auth tag.
+    // That cannot be reliably decrypted. We attempt a best-effort legacy CTR fallback
+    // to avoid breaking any historical data that may have been produced by older versions.
+    if (parts.length === 2 && parts[0] && parts[1]) {
+      const [ivHex, cipherHex] = parts;
+      const iv = Buffer.from(ivHex, 'hex');
+      const ciphertext = Buffer.from(cipherHex, 'hex');
+      if (iv.length === 16 && ciphertext.length > 0) {
+        LoggerService.warn('Decrypting legacy wallet secret format (unauthenticated). Re-encrypt on next write.', { legacy: true });
+        const decipher = crypto.createDecipheriv('aes-256-ctr', key, iv);
+        const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+        return plaintext.toString('utf8');
+      }
+    }
+
+    throw new Error('Invalid encrypted data format');
   }
 
-  private verifyMFACode(userId: string, code: string): boolean {
-    // Simplified MFA verification - in production, use proper MFA service
-    return code === '123456'; // Mock verification
+  private async verifyMFACode(userId: string, code: string): Promise<boolean> {
+    // Delegate to MFAService (TOTP). This preserves expected behavior for users
+    // who have MFA enabled, and fails closed otherwise.
+    try {
+      const result = await MFAService.verifyMFALogin(userId, code);
+      return result.success;
+    } catch (err: any) {
+      LoggerService.warn('MFA verification failed', { userId, error: err?.message || String(err) });
+      return false;
+    }
   }
 
   private async getMarketPrice(tradingPair: string): Promise<number> {

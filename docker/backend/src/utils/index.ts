@@ -26,6 +26,34 @@ import * as jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { JWTPayload, User, UserRole } from '../types';
 
+const nodeEnv = process.env.NODE_ENV || 'development';
+
+/**
+ * Get JWT signing secret.
+ *
+ * Policy:
+ * - production: must be explicitly configured and non-empty.
+ * - non-production: allow a deterministic dev default to avoid breaking local flows,
+ *   but emit a warning.
+ */
+const getJwtSecret = (kind: 'access' | 'refresh'): string => {
+  const accessSecret = (process.env.JWT_SECRET || '').trim();
+  const refreshSecret = (process.env.JWT_REFRESH_SECRET || '').trim();
+  const secret = kind === 'refresh' ? (refreshSecret || accessSecret) : accessSecret;
+
+  if (secret) return secret;
+
+  if (nodeEnv === 'production') {
+    throw new Error('JWT secret is required in production (set JWT_SECRET and optionally JWT_REFRESH_SECRET)');
+  }
+
+  // Non-production fallback: keep the app/test environment functional.
+  // This is intentionally noisy so it cannot be missed.
+  // eslint-disable-next-line no-console
+  console.warn(`[WARN] JWT_SECRET is not set; using an insecure development default (${kind}). Do not use this in production.`);
+  return 'dev-insecure-jwt-secret-change-me';
+};
+
 // =============================================================================
 // PASSWORD UTILITIES
 // =============================================================================
@@ -53,7 +81,7 @@ export const generateRandomPassword = (length: number = 16): string => {
 // =============================================================================
 
 export const generateAccessToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>): string => {
-  const secret = process.env.JWT_SECRET || '';
+  const secret = getJwtSecret('access');
   const expiresIn = process.env.JWT_EXPIRES_IN || '15m';
   return jwt.sign(payload, secret, { 
     expiresIn,
@@ -63,7 +91,7 @@ export const generateAccessToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>): s
 };
 
 export const generateRefreshToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>): string => {
-  const secret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || '';
+  const secret = getJwtSecret('refresh');
   const expiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
   return jwt.sign(payload, secret, { 
     expiresIn,
@@ -73,7 +101,7 @@ export const generateRefreshToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>): 
 };
 
 export const verifyToken = (token: string, isRefreshToken: boolean = false): JWTPayload => {
-  const secret = isRefreshToken ? (process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || '') : (process.env.JWT_SECRET || '');
+  const secret = isRefreshToken ? getJwtSecret('refresh') : getJwtSecret('access');
   return jwt.verify(token, secret, {
     issuer: process.env.JWT_ISSUER || 'thaliumx',
     audience: process.env.JWT_AUDIENCE || 'thaliumx-users'

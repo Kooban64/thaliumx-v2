@@ -208,7 +208,7 @@ export class BlnkFinanceService {
 
   // External BlnkFinance service configuration
   private static externalServiceUrl: string | null = process.env.BLNK_FINANCE_URL || process.env.BLNK_FINANCE_API_URL || 'http://blnk-finance:5001';
-  private static externalServiceApiKey: string = process.env.BLNK_FINANCE_API_KEY || process.env.VAULT_BLNK_FINANCE_API_KEY || 'default-key';
+  private static externalServiceApiKey: string = process.env.BLNK_FINANCE_API_KEY || process.env.VAULT_BLNK_FINANCE_API_KEY || '';
   private static externalServiceEnabled: boolean = !!process.env.BLNK_FINANCE_URL || !!process.env.BLNK_FINANCE_API_URL;
   private static externalServiceClient: any = null;
 
@@ -266,6 +266,16 @@ export class BlnkFinanceService {
       
       // Initialize external BlnkFinance service client if configured
       if (this.externalServiceEnabled && this.externalServiceUrl) {
+        const nodeEnv = process.env.NODE_ENV || 'development';
+        if (!this.externalServiceApiKey) {
+          if (nodeEnv === 'production') {
+            throw createError('BLNK_FINANCE_API_KEY is required when BLNK_FINANCE_URL/BLNK_FINANCE_API_URL is set in production', 500, 'BLNKFINANCE_MISCONFIGURED');
+          }
+          LoggerService.warn('BLNK_FINANCE_API_KEY not set; external BlnkFinance calls will likely fail. Do not use this in production.', {
+            nodeEnv,
+            externalServiceUrl: this.externalServiceUrl
+          });
+        }
         this.externalServiceClient = axios.create({
           baseURL: this.externalServiceUrl,
           headers: {

@@ -2,7 +2,7 @@
 # Multi-stage build for optimized production image
 
 # ==================== BUILD STAGE ====================
-FROM node:20-alpine AS builder
+FROM node:20.18.0-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache python3 make g++
@@ -27,7 +27,7 @@ RUN npm run build
 RUN npm prune --production
 
 # ==================== PRODUCTION STAGE ====================
-FROM node:20-alpine AS production
+FROM node:20.18.0-alpine AS production
 
 # Security: Run as non-root user
 RUN addgroup -g 1001 -S compliance && \
