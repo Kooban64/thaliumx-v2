@@ -46,6 +46,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: thaliumx-backend
+    restart: unless-stopped
     environment:
       NODE_ENV: development
       PORT: 3002

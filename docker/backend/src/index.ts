@@ -162,7 +162,7 @@ class ThaliumXBackend {
     LoggerService.initialize();
     LoggerService.info('Logger service initialized');
 
-    // Critical services - must succeed in production
+    // Critical services - must succeed in production, optional in development
     try {
       await EmailService.initialize();
       LoggerService.info('✅ Email service initialized successfully');
@@ -182,6 +182,8 @@ class ThaliumXBackend {
       failedServices.push('DatabaseService');
       if (isProduction && criticalServices.includes('DatabaseService')) {
         throw new Error(`Critical service DatabaseService failed to initialize: ${error}`);
+      } else {
+        LoggerService.warn('⚠️  Database not available - running in limited mode');
       }
     }
 
@@ -193,6 +195,8 @@ class ThaliumXBackend {
       failedServices.push('RedisService');
       if (isProduction && criticalServices.includes('RedisService')) {
         throw new Error(`Critical service RedisService failed to initialize: ${error}`);
+      } else {
+        LoggerService.warn('⚠️  Redis not available - running in limited mode');
       }
     }
 
