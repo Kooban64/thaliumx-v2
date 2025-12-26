@@ -54,6 +54,10 @@ services:
     image: apache/apisix:3.11.0-debian
     container_name: thaliumx-apisix
     hostname: thaliumx-apisix
+    # NOTE: APISIX image runs as non-root by default.
+    # We need root here to read the Admin API key (bind-mounted as a "secret")
+    # and the TLS private key, then hand off to the standard entrypoint.
+    user: "0:0"
     environment:
       APISIX_STAND_ALONE: "false"
     # Strict audit mode: load the Admin API key from Docker secrets at runtime.
@@ -62,8 +66,27 @@ services:
     entrypoint: ["/bin/sh", "-lc"]
     command:
       - |
+        set -eu
+
         export APISIX_ADMIN_KEY="$(cat /run/secrets/api-key)";
         export APISIX_ID="thaliumx-apisix";
+
+        # Render ETCD-backed APISIX config from template (inject Admin API key).
+        # NOTE: we do this at runtime to avoid relying on APISIX env-substitution behavior.
+        # IMPORTANT: APISIX reads /usr/local/apisix/conf/config.yaml (not apisix.yaml) when running in etcd mode.
+        # Escape replacement so sed doesn't break if the key contains '/' or '&'.
+        # NOTE: docker-compose performs host-side env interpolation for $VAR / ${VAR}.
+        # Use $$ to defer expansion to the container shell.
+        esc_key="$(printf '%s' "$$APISIX_ADMIN_KEY" | sed 's/[\/&]/\\&/g')";
+        sed "s/__APISIX_ADMIN_KEY__/$$esc_key/g" /config/apisix.yaml > /usr/local/apisix/conf/config.yaml;
+
+        # Fail fast if placeholder replacement didn't happen.
+        if grep -q '__APISIX_ADMIN_KEY__' /usr/local/apisix/conf/config.yaml; then
+          echo "ERROR: APISIX admin key placeholder was not replaced" >&2;
+          exit 1;
+        fi
+
+        # Keep a copy of the platform TLS material available for init scripts.
         mkdir -p /tmp/certs;
         cp /usr/local/apisix/certs/server.crt /tmp/certs/;
         cp /usr/local/apisix/certs/server.key /tmp/certs/;
@@ -71,15 +94,18 @@ services:
         chmod 600 /tmp/certs/server.key;
         exec /docker-entrypoint.sh docker-start
     volumes:
-      - ./../../docker/apisix/config/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:ro
+      # Mount the template (rendered into /usr/local/apisix/conf/apisix.yaml at runtime)
+      # NOTE: gateway.yml is located at docker/compose/prod-v1/
+      # so ../../apisix/... resolves to docker/apisix/... (correct).
+      - ./../../apisix/config/apisix-etcd.template.yaml:/config/apisix.yaml:ro
       - apisix_logs:/usr/local/apisix/logs
       - /home/ubuntu/thaliumx-v1/docker/certs/services/apisix:/usr/local/apisix/certs:ro
       - /home/ubuntu/thaliumx-v1/docker/certs/ca/ca.crt:/usr/local/apisix/certs/ca.crt:ro
     # Strict audit mode: APISIX is the ONLY externally exposed entrypoint.
-    # Map host 80/443 to APISIX 9080/9443.
+    # Map host 80/443 to APISIX 9080/443.
     ports:
       - "80:9080"        # HTTP
-      - "443:9443"       # HTTPS
+      - "443:443"        # HTTPS
     networks:
       - thaliumx-net
     depends_on:
@@ -104,6 +130,39 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  # APISIX Route Initializer
+  # - Configures host routing for thaliumx.com and thal.thaliumx.com
+  # - Creates an SSL object for thaliumx.com/*.thaliumx.com
+  # - Stores all objects in ETCD (persistent across container rebuilds)
+  apisix-init:
+    image: alpine:3.20
+    container_name: thaliumx-apisix-init
+    hostname: thaliumx-apisix-init
+    restart: "no"
+    depends_on:
+      apisix:
+        condition: service_healthy
+    secrets:
+      - api-key
+    volumes:
+      - /home/ubuntu/thaliumx-v1/docker/gateway/scripts/init-apisix-routes.sh:/scripts/init-apisix-routes.sh:ro
+      # Provide TLS material so the init script can create an APISIX SSL object (stored in ETCD).
+      - /home/ubuntu/thaliumx-v1/docker/certs/services/apisix:/certs/apisix:ro
+      - /home/ubuntu/thaliumx-v1/docker/certs/ca/ca.crt:/certs/ca.crt:ro
+    entrypoint: ["sh", "-lc"]
+    command:
+      - |
+        apk add --no-cache bash curl ca-certificates >/dev/null;
+        export APISIX_ADMIN_URL="http://thaliumx-apisix:9180/apisix/admin";
+        export APISIX_ADMIN_KEY="$(cat /run/secrets/api-key)";
+        export FRONTEND_UPSTREAM="thaliumx-frontend:3000";
+        export BACKEND_UPSTREAM="thaliumx-backend:3002";
+        # Use the Compose service name for DNS stability
+        export KEYCLOAK_UPSTREAM="keycloak:8443";
+        bash /scripts/init-apisix-routes.sh
+    networks:
+      - thaliumx-net
 
   # APISIX Dashboard - Management Interface
   apisix-dashboard:

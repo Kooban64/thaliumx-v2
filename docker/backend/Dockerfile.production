@@ -1,8 +1,37 @@
 # =============================================================================
 # ThaliumX Backend Production Dockerfile
-# Uses pre-built artifacts for faster deployment
+# - Builds TypeScript inside the image so runtime always includes latest src changes
+# - Keeps the final runtime image hardened and small
 # =============================================================================
 
+# -----------------------------------------------------------------------------
+# Build stage (TypeScript -> dist)
+# -----------------------------------------------------------------------------
+FROM node:20.18.0-alpine AS builder
+
+WORKDIR /build/backend
+
+# Copy package manifests first (better layer caching)
+COPY docker/backend/package.json ./
+COPY docker/backend/package-lock.json ./
+
+# Shared package (backend depends on file:./shared)
+COPY docker/shared/package.json ./shared/
+COPY docker/shared/dist ./shared/dist
+
+# Install deps including devDeps for TypeScript compilation.
+# NOTE: we keep --ignore-scripts for consistency with existing hardening.
+RUN npm install --include=dev --ignore-scripts && npm cache clean --force
+
+# Copy TypeScript sources and compile
+COPY docker/backend/tsconfig.json ./
+COPY docker/backend/src ./src
+
+RUN npm run build
+
+# -----------------------------------------------------------------------------
+# Runtime stage
+# -----------------------------------------------------------------------------
 FROM node:20.18.0-alpine
 
 # Security: Update packages and install runtime dependencies
@@ -12,6 +41,7 @@ RUN apk update && \
       libc6-compat \
       dumb-init \
       curl \
+      su-exec \
     && rm -rf /var/cache/apk/*
 
 # Security: Create non-root user with specific UID/GID
@@ -33,9 +63,9 @@ COPY --chown=thaliumx:nodejs docker/shared/package.json ./shared/
 # Install production dependencies only
 RUN npm install --only=production --ignore-scripts && npm cache clean --force
 
-# Copy pre-built application (context is project root directory)
-COPY --chown=thaliumx:nodejs docker/backend/dist ./dist
-COPY --chown=thaliumx:nodejs docker/shared/dist ./shared/dist
+# Copy built artifacts from builder stage
+COPY --from=builder --chown=thaliumx:nodejs /build/backend/dist ./dist
+COPY --from=builder --chown=thaliumx:nodejs /build/backend/shared/dist ./shared/dist
 
 # Security: Set default environment (can be overridden)
 ENV PORT=3002

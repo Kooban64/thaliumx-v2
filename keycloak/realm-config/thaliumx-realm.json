@@ -1,0 +1,253 @@
+{
+  "id": "thaliumx",
+  "realm": "thaliumx",
+  "displayName": "ThaliumX",
+  "displayNameHtml": "<div class=\"kc-logo-text\"><span>ThaliumX</span></div>",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "rememberMe": true,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "defaultSignatureAlgorithm": "RS256",
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "accessTokenLifespan": 900,
+  "accessTokenLifespanForImplicitFlow": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "ssoSessionIdleTimeoutRememberMe": 0,
+  "ssoSessionMaxLifespanRememberMe": 0,
+  "offlineSessionIdleTimeout": 2592000,
+  "offlineSessionMaxLifespanEnabled": true,
+  "offlineSessionMaxLifespan": 5184000,
+  "clientSessionIdleTimeout": 0,
+  "clientSessionMaxLifespan": 0,
+  "clientOfflineSessionIdleTimeout": 0,
+  "clientOfflineSessionMaxLifespan": 0,
+  "accessCodeLifespan": 60,
+  "accessCodeLifespanUserAction": 300,
+  "accessCodeLifespanLogin": 1800,
+  "actionTokenGeneratedByAdminLifespan": 43200,
+  "actionTokenGeneratedByUserLifespan": 300,
+  "oauth2DeviceCodeLifespan": 600,
+  "oauth2DevicePollingInterval": 5,
+  "passwordPolicy": "length(12) and digits(1) and upperCase(1) and lowerCase(1) and specialChars(1) and notUsername and passwordHistory(5)",
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Platform administrator with full access",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "user",
+            "trader",
+            "broker",
+            "compliance"
+          ]
+        }
+      },
+      {
+        "name": "user",
+        "description": "Basic authenticated user",
+        "composite": false
+      },
+      {
+        "name": "trader",
+        "description": "User with trading capabilities",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "user"
+          ]
+        }
+      },
+      {
+        "name": "broker",
+        "description": "Broker with client management capabilities",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "trader"
+          ]
+        }
+      },
+      {
+        "name": "compliance",
+        "description": "Compliance officer with audit access",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "user"
+          ]
+        }
+      },
+      {
+        "name": "api-service",
+        "description": "Service account role for API access",
+        "composite": false
+      }
+    ]
+  },
+  "groups": [
+    {
+      "name": "Administrators",
+      "path": "/Administrators",
+      "realmRoles": [
+        "admin"
+      ]
+    },
+    {
+      "name": "Traders",
+      "path": "/Traders",
+      "realmRoles": [
+        "trader"
+      ]
+    },
+    {
+      "name": "Brokers",
+      "path": "/Brokers",
+      "realmRoles": [
+        "broker"
+      ]
+    },
+    {
+      "name": "Compliance",
+      "path": "/Compliance",
+      "realmRoles": [
+        "compliance"
+      ]
+    }
+  ],
+  "defaultGroups": [],
+  "requiredCredentials": [
+    "password"
+  ],
+  "clients": [
+    {
+      "clientId": "thaliumx-frontend",
+      "name": "ThaliumX Frontend",
+      "description": "ThaliumX Web Application",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": [
+        "https://thaliumx.com/*",
+        "https://thal.thaliumx.com/*",
+        "https://app.thaliumx.com/*",
+        "https://staging.thaliumx.com/*",
+        "http://localhost:3000/*",
+        "http://localhost:3001/*"
+      ],
+      "webOrigins": [
+        "https://thaliumx.com",
+        "https://thal.thaliumx.com",
+        "https://app.thaliumx.com",
+        "https://staging.thaliumx.com",
+        "http://localhost:3000",
+        "http://localhost:3001"
+      ],
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://thaliumx.com/*##https://thal.thaliumx.com/*##https://app.thaliumx.com/*##https://staging.thaliumx.com/*##http://localhost:3000/*"
+      }
+    },
+    {
+      "clientId": "thaliumx-backend",
+      "name": "ThaliumX Backend API",
+      "description": "ThaliumX Backend Service",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_BACKEND_CLIENT_SECRET}",
+      "bearerOnly": false,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": true,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ],
+      "authorizationSettings": {
+        "allowRemoteResourceManagement": true,
+        "policyEnforcementMode": "ENFORCING",
+        "decisionStrategy": "UNANIMOUS"
+      }
+    }
+  ],
+  "defaultDefaultClientScopes": [
+    "role_list",
+    "profile",
+    "email",
+    "roles",
+    "web-origins",
+    "acr"
+  ],
+  "defaultOptionalClientScopes": [
+    "offline_access",
+    "address",
+    "phone",
+    "microprofile-jwt"
+  ],
+  "browserSecurityHeaders": {
+    "contentSecurityPolicyReportOnly": "",
+    "xContentTypeOptions": "nosniff",
+    "referrerPolicy": "strict-origin-when-cross-origin",
+    "xRobotsTag": "none",
+    "xFrameOptions": "SAMEORIGIN",
+    "contentSecurityPolicy": "frame-src 'self'; frame-ancestors 'self'; object-src 'none';",
+    "xXSSProtection": "1; mode=block",
+    "strictTransportSecurity": "max-age=31536000; includeSubDomains"
+  },
+  "attributes": {
+    "platform.realm": "true",
+    "platform.version": "1.0.0"
+  }
+}
+

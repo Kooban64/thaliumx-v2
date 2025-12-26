@@ -18,7 +18,7 @@ const getApiBaseUrl = (): string => {
 const API_BASE_URL = getApiBaseUrl();
 const API_TIMEOUT = 10000; // 10 seconds
 
-// Default tenant ID (platform-default-tenant)
+// Default tenant ID (ThaliumX Platform tenant)
 const DEFAULT_TENANT_ID = '10000000-0000-0000-0000-000000000000';
 
 // Get tenant ID from URL params, localStorage, or use default

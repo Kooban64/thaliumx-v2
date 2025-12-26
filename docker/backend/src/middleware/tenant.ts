@@ -2,13 +2,13 @@
  * Tenant Middleware
  * 
  * Extracts tenant ID from request headers, query parameters, or body.
- * Sets default tenant to 'platform-default-tenant' if not provided.
+ * Sets default tenant to the platform tenant slug if not provided.
  * 
  * Priority:
  * 1. X-Tenant-ID header
  * 2. tenantId query parameter
  * 3. tenantId in request body
- * 4. Default: platform-default-tenant
+ * 4. Default: DEFAULT_TENANT_SLUG (fallback: thaliumx-platform)
  */
 
 import { Request, Response, NextFunction } from 'express';
@@ -36,7 +36,13 @@ export const tenantMiddleware = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const defaultTenantSlug = process.env.DEFAULT_TENANT_SLUG || 'thaliumx-platform';
     let tenantId: string | undefined;
+    const tenantSlugHeader = (req.headers['x-tenant-slug'] as string | undefined) || undefined;
+
+    // Basic UUID v4/v1/etc check to avoid Postgres "invalid input syntax for type uuid".
+    const isUuid = (value: string): boolean =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
     // Priority 1: X-Tenant-ID header
     if (req.headers['x-tenant-id']) {
@@ -51,18 +57,18 @@ export const tenantMiddleware = async (
       tenantId = req.body.tenantId;
     }
 
-    // If no tenant ID provided, use default: platform-default-tenant
+    // If no tenant ID provided, use default tenant slug
     if (!tenantId) {
       const TenantModel = DatabaseService.getModel('Tenant') as unknown as ModelCtor<TenantModelInstance>;
       const defaultTenant = await TenantModel.findOne({
-        where: { slug: 'platform-default-tenant' }
+        where: { slug: defaultTenantSlug }
       });
       
       if (defaultTenant) {
         tenantId = defaultTenant.id;
-        LoggerService.debug('Using default tenant: platform-default-tenant', { tenantId });
+        LoggerService.debug('Using default tenant', { tenantId, slug: defaultTenantSlug });
       } else {
-        LoggerService.warn('Default tenant not found, using first available tenant');
+        LoggerService.warn('Default tenant not found, using first available tenant', { defaultTenantSlug });
         const firstTenant = await TenantModel.findOne({ where: { isActive: true } });
         if (firstTenant) {
           tenantId = firstTenant.id;
@@ -73,9 +79,25 @@ export const tenantMiddleware = async (
     // Validate tenant exists and is active
     if (tenantId) {
       const TenantModel = DatabaseService.getModel('Tenant') as unknown as ModelCtor<TenantModelInstance>;
-      const tenant = await TenantModel.findOne({
-        where: { id: tenantId, isActive: true }
-      });
+      let tenant: TenantModelInstance | null = null;
+
+      // 1) Try resolve by ID (if it looks like a UUID)
+      if (isUuid(tenantId)) {
+        tenant = await TenantModel.findOne({
+          where: { id: tenantId, isActive: true }
+        });
+      }
+
+      // 2) If ID is missing/invalid/not found, try resolve by slug header (useful when gateways inject slug)
+      if (!tenant && tenantSlugHeader) {
+        tenant = await TenantModel.findOne({
+          where: { slug: tenantSlugHeader, isActive: true }
+        });
+        if (tenant) {
+          tenantId = tenant.id;
+          LoggerService.debug('Tenant resolved via slug header', { tenantId, slug: tenant.slug });
+        }
+      }
 
       if (tenant) {
         req.tenantId = tenantId;
@@ -128,7 +150,12 @@ export const optionalTenantMiddleware = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const defaultTenantSlug = process.env.DEFAULT_TENANT_SLUG || 'thaliumx-platform';
     let tenantId: string | undefined;
+    const tenantSlugHeader = (req.headers['x-tenant-slug'] as string | undefined) || undefined;
+
+    const isUuid = (value: string): boolean =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
     // Try to get tenant ID from various sources
     if (req.headers['x-tenant-id']) {
@@ -143,7 +170,7 @@ export const optionalTenantMiddleware = async (
     if (!tenantId) {
       const TenantModel = DatabaseService.getModel('Tenant') as unknown as ModelCtor<TenantModelInstance>;
       const defaultTenant = await TenantModel.findOne({
-        where: { slug: 'platform-default-tenant' }
+        where: { slug: defaultTenantSlug }
       });
       
       if (defaultTenant) {
@@ -152,11 +179,18 @@ export const optionalTenantMiddleware = async (
     }
 
     // Set tenant if found
-    if (tenantId) {
+    if (tenantId || tenantSlugHeader) {
       const TenantModel = DatabaseService.getModel('Tenant') as unknown as ModelCtor<TenantModelInstance>;
-      const tenant = await TenantModel.findOne({
-        where: { id: tenantId, isActive: true }
-      });
+      let tenant: TenantModelInstance | null = null;
+
+      if (tenantId && isUuid(tenantId)) {
+        tenant = await TenantModel.findOne({ where: { id: tenantId, isActive: true } });
+      }
+
+      if (!tenant && tenantSlugHeader) {
+        tenant = await TenantModel.findOne({ where: { slug: tenantSlugHeader, isActive: true } });
+        if (tenant) tenantId = tenant.id;
+      }
 
       if (tenant) {
         req.tenantId = tenantId;

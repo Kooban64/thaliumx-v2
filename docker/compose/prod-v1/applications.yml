@@ -130,10 +130,18 @@ services:
     container_name: thaliumx-backend
     hostname: thaliumx-backend
     restart: unless-stopped
-    user: "1001:1001"
+    # Run as root to read Docker secrets (mounted root-owned), then drop privileges.
+    user: "0:0"
     read_only: true
     cap_drop:
       - ALL
+    # Needed so the entrypoint (running as root with capabilities dropped) can:
+    # - read bind-mounted secret files owned by the host user
+    # - drop privileges to UID/GID 1001 via su-exec
+    cap_add:
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
     security_opt:
       - no-new-privileges:true
     environment:
@@ -161,9 +169,20 @@ services:
 
       # Keycloak authentication
       KEYCLOAK_URL: https://keycloak:8443
-      KEYCLOAK_REALM: thaliumx
+      # Default realm used for end-user auth (tokens presented to the API).
+      # NOTE: Platform-admin realm is separate (see KEYCLOAK_PLATFORM_REALM).
+      KEYCLOAK_REALM: thaliumx-default-tenant
       KEYCLOAK_CLIENT_ID: thaliumx-backend
       KEYCLOAK_CLIENT_SECRET_FILE: /run/secrets/keycloak-backend-secret
+
+      # Keycloak multi-realm configuration (used by [`KeycloakService.initialize()`](docker/backend/src/services/keycloak.ts:292))
+      KEYCLOAK_PLATFORM_REALM: thaliumx-platform
+      KEYCLOAK_DEFAULT_TENANT_REALM: thaliumx-default-tenant
+      # IMPORTANT: keep Keycloak tenant ID aligned with DB tenant UUIDs.
+      # Canonical platform tenant UUID is defined in [`PLATFORM_TENANT_ID`](docker/backend/src/migrations/009-ensure-thaliumx-platform-tenant.ts:15)
+      KEYCLOAK_DEFAULT_TENANT_ID: 10000000-0000-0000-0000-000000000000
+      KEYCLOAK_DEFAULT_TENANT_NAME: ThaliumX Platform
+      KEYCLOAK_DEFAULT_TENANT_DOMAIN: thaliumx.com
 
       # JWT configuration
       JWT_SECRET_FILE: /run/secrets/jwt-secret
@@ -171,8 +190,13 @@ services:
       # API Gateway integration
       APISIX_ADMIN_URL: http://apisix:9180
 
-      # Local E2E / UI access (backend has an origin allowlist check in production mode)
-      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001
+      # Origin allowlist (production)
+      # NOTE: thaliumx.com = main platform, thal.thaliumx.com = token presale platform
+      ALLOWED_ORIGINS: https://thaliumx.com,https://thal.thaliumx.com,http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001
+
+      # Application tenant defaults
+      # Canonical default tenant used by thaliumx.com and token-presale experience.
+      DEFAULT_TENANT_SLUG: thaliumx-platform
 
       # Kafka integration
       # Current ThaliumX Kafka deployment is PLAINTEXT on :9094 (no SSL/SASL).
@@ -185,7 +209,7 @@ services:
 
       # Security settings
       # Allow local E2E runs (Playwright) in addition to production origin.
-      CORS_ORIGIN: http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001,https://app.thaliumx.com
+      CORS_ORIGIN: https://thaliumx.com,https://thal.thaliumx.com,http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001
       RATE_LIMIT_WINDOW_MS: 900000
       RATE_LIMIT_MAX_REQUESTS: 1000
 
@@ -231,6 +255,8 @@ services:
         export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
         export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
         export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
+        # Used by key management controller for encryption at rest.
+        export KEY_ENCRYPTION_SECRET="$(cat /run/secrets/encryption-key)";
         export MONGODB_PASSWORD="$(cat /run/secrets/mongodb-password)";
         # SMTP credentials are required by config validation in production.
         export SMTP_USER="$(cat /run/secrets/smtp-user)";
@@ -242,7 +268,8 @@ services:
         unset KAFKA_SASL_USERNAME;
         unset KAFKA_SASL_PASSWORD;
         unset KAFKA_SASL_PASSWORD_FILE;
-        exec node dist/index.js
+        # Drop privileges for the Node process.
+        exec su-exec 1001:1001 node dist/index.js
     volumes:
       - ./../../backend/policies/wasm:/app/policies/wasm:ro
       - ./../../certs/services/backend:/certs/backend:ro
@@ -322,9 +349,10 @@ services:
       context: ../..
       dockerfile: frontend/Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://localhost:3002
-        - NEXT_PUBLIC_KEYCLOAK_URL=https://keycloak:8443
-        - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx
+        # Production public URLs (via APISIX)
+        - NEXT_PUBLIC_API_URL=https://thaliumx.com/api
+        - NEXT_PUBLIC_KEYCLOAK_URL=https://auth.thaliumx.com/auth
+        - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx-default-tenant
         - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
     image: thaliumx/frontend:1.0.0
     container_name: thaliumx-frontend
@@ -340,9 +368,9 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
       - PORT=3000
       - HOSTNAME=0.0.0.0
-      - NEXT_PUBLIC_API_URL=http://localhost:3002
-      - NEXT_PUBLIC_KEYCLOAK_URL=https://keycloak:8443
-      - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx
+      - NEXT_PUBLIC_API_URL=https://thaliumx.com/api
+      - NEXT_PUBLIC_KEYCLOAK_URL=https://auth.thaliumx.com/auth
+       - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx-default-tenant
       - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
     # Strict audit mode: no host-exposed ports (gateway-only exposure).
     tmpfs:

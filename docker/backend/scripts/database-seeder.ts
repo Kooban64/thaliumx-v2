@@ -49,6 +49,22 @@ class DatabaseSeeder {
 
     const tenants = [
       {
+        // Canonical platform tenant (used by thaliumx.com and token presale by default)
+        id: '10000000-0000-0000-0000-000000000000',
+        name: 'ThaliumX Platform',
+        slug: 'thaliumx-platform',
+        domain: 'thaliumx.com',
+        tenantType: 'platform',
+        isActive: true,
+        settings: {
+          allowRegistration: true,
+          requireKYC: true,
+          requireMFA: false
+        },
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
         id: '00000000-0000-0000-0000-000000000001',
         name: 'Platform Default',
         slug: 'platform',

@@ -103,6 +103,11 @@ services:
       file: gateway.yml
       service: apisix
 
+  apisix-init:
+    extends:
+      file: gateway.yml
+      service: apisix-init
+
   apisix-dashboard:
     extends:
       file: gateway.yml

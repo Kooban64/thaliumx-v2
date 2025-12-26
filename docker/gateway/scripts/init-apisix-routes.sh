@@ -16,6 +16,14 @@ APISIX_ADMIN_URL="${APISIX_ADMIN_URL:-http://localhost:9180/apisix/admin}"
 APISIX_ADMIN_KEY="${APISIX_ADMIN_KEY:?APISIX_ADMIN_KEY is required}"
 FRONTEND_UPSTREAM="${FRONTEND_UPSTREAM:-thaliumx-frontend:3000}"
 BACKEND_UPSTREAM="${BACKEND_UPSTREAM:-thaliumx-backend:3002}"
+KEYCLOAK_UPSTREAM="${KEYCLOAK_UPSTREAM:-thaliumx-keycloak:8443}"
+
+# Keycloak OIDC (Keycloak-authoritative auth enforced at APISIX)
+KEYCLOAK_REALM="${KEYCLOAK_REALM:-thaliumx-default-tenant}"
+OIDC_CLIENT_ID="${OIDC_CLIENT_ID:-thaliumx-frontend}"
+OIDC_DISCOVERY="${OIDC_DISCOVERY:-https://${KEYCLOAK_UPSTREAM}/auth/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration}"
+# NOTE: set to true once APISIX trusts the internal CA for Keycloak.
+OIDC_SSL_VERIFY="${OIDC_SSL_VERIFY:-false}"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -27,6 +35,8 @@ echo -e "${GREEN}=== APISIX Route Initialization ===${NC}"
 echo "Admin URL: $APISIX_ADMIN_URL"
 echo "Frontend: $FRONTEND_UPSTREAM"
 echo "Backend: $BACKEND_UPSTREAM"
+echo "Keycloak: $KEYCLOAK_UPSTREAM"
+echo "OIDC Discovery: $OIDC_DISCOVERY"
 echo ""
 
 # Wait for APISIX to be ready
@@ -47,6 +57,30 @@ if [ $attempt -eq $max_attempts ]; then
   echo -e "${RED}Error: APISIX did not become ready in time${NC}"
   exit 1
 fi
+
+# Function to create or update an SSL object (SNI certificate)
+create_ssl() {
+    local ssl_id=$1
+    local ssl_data=$2
+
+    echo -e "${YELLOW}Creating/Updating SSL $ssl_id...${NC}"
+
+    response=$(curl -s -w "\n%{http_code}" -X PUT "$APISIX_ADMIN_URL/ssl/$ssl_id" \
+        -H "X-API-KEY: $APISIX_ADMIN_KEY" \
+        -H "Content-Type: application/json" \
+        -d "$ssl_data")
+
+    http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
+
+    if [ "$http_code" = "200" ] || [ "$http_code" = "201" ]; then
+        echo -e "${GREEN}  ✅ SSL $ssl_id configured successfully${NC}"
+    else
+        echo -e "${RED}  ❌ Failed to configure SSL $ssl_id (HTTP $http_code)${NC}"
+        echo "  Response: $body"
+        return 1
+    fi
+}
 
 # Function to create or update a route
 create_route() {
@@ -97,7 +131,31 @@ create_upstream() {
 }
 
 echo ""
-echo -e "${YELLOW}Step 1: Configuring Upstreams${NC}"
+echo -e "${YELLOW}Step 1: Configuring TLS (SNI certificate)${NC}"
+echo "--------------------------------------------"
+
+# Create an SSL object so APISIX can terminate TLS by SNI.
+# Without this, clients can get TLS handshake errors like "failed to match any SSL certificate by SNI".
+CERT_FILE="/certs/apisix/server.crt"
+KEY_FILE="/certs/apisix/server.key"
+
+if [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ]; then
+  CERT_CONTENT=$(cat "$CERT_FILE" | sed 's/$/\\n/' | tr -d '\n')
+  KEY_CONTENT=$(cat "$KEY_FILE" | sed 's/$/\\n/' | tr -d '\n')
+
+  # Include localhost for local curl testing (SNI = localhost).
+  create_ssl "1" "{
+    \"id\": \"1\",
+    \"snis\": [\"thaliumx.com\", \"*.thaliumx.com\", \"auth.thaliumx.com\", \"thal.thaliumx.com\", \"localhost\"],
+    \"cert\": \"$CERT_CONTENT\",
+    \"key\": \"$KEY_CONTENT\"
+  }"
+else
+  echo -e "${YELLOW}WARN: TLS certificate files not found at $CERT_FILE / $KEY_FILE; skipping SSL object creation${NC}"
+fi
+
+echo ""
+echo -e "${YELLOW}Step 2: Configuring Upstreams${NC}"
 echo "--------------------------------------------"
 
 # Upstream 1: Frontend (Next.js)
@@ -136,8 +194,29 @@ create_upstream "2" "{
     \"pass_host\": \"pass\"
 }"
 
+# Upstream 3: Keycloak (HTTPS, runs under /auth)
+create_upstream "3" "{
+    \"id\": \"3\",
+    \"name\": \"keycloak-upstream\",
+    \"type\": \"roundrobin\",
+    \"scheme\": \"https\",
+    \"nodes\": {
+        \"$KEYCLOAK_UPSTREAM\": 1
+    },
+    \"timeout\": {
+        \"connect\": 10,
+        \"send\": 10,
+        \"read\": 30
+    },
+    \"retries\": 2,
+    \"pass_host\": \"pass\",
+    \"tls\": {
+        \"verify\": false
+    }
+}"
+
 echo ""
-echo -e "${YELLOW}Step 2: Configuring Routes${NC}"
+echo -e "${YELLOW}Step 3: Configuring Routes${NC}"
 echo "--------------------------------------------"
 
 # Route 1: Main landing page - thaliumx.com (52.54.125.124)
@@ -176,10 +255,36 @@ create_route "2" "{
 }"
 
 # Route 3: Token presale page - thal.thaliumx.com (52.54.125.124) - Direct to /token-presale
+# IMPORTANT: do not blindly rewrite all paths, otherwise internal navigation breaks.
+# - / (root) -> /token-presale
+# - /* (everything else) -> frontend as-is
+
+# Route 3: thal.thaliumx.com root -> /token-presale
 create_route "3" "{
     \"id\": \"3\",
-    \"name\": \"thaliumx-presale\",
-    \"desc\": \"Token presale page - thal.thaliumx.com (52.54.125.124) - Direct to /token-presale\",
+    \"name\": \"thaliumx-presale-root\",
+    \"desc\": \"Token presale landing - thal.thaliumx.com (root -> /token-presale)\",
+    \"host\": \"thal.thaliumx.com\",
+    \"uri\": \"/\",
+    \"priority\": 30,
+    \"status\": 1,
+    \"upstream_id\": \"1\",
+    \"plugins\": {
+        \"redirect\": {
+            \"http_to_https\": true,
+            \"ret_code\": 302
+        },
+        \"proxy-rewrite\": {
+            \"uri\": \"/token-presale\"
+        }
+    }
+}"
+
+# Route 3b: thal.thaliumx.com all other paths -> frontend (no rewrite)
+create_route "30" "{
+    \"id\": \"30\",
+    \"name\": \"thaliumx-presale-site\",
+    \"desc\": \"Token presale site - thal.thaliumx.com (all paths)\",
     \"host\": \"thal.thaliumx.com\",
     \"uri\": \"/*\",
     \"priority\": 10,
@@ -189,9 +294,6 @@ create_route "3" "{
         \"redirect\": {
             \"http_to_https\": true,
             \"ret_code\": 302
-        },
-        \"proxy-rewrite\": {
-            \"uri\": \"/token-presale\$request_uri\"
         }
     }
 }"
@@ -207,6 +309,18 @@ create_route "4" "{
     \"status\": 1,
     \"upstream_id\": \"2\",
     \"plugins\": {
+        \"openid-connect\": {
+            \"discovery\": \"$OIDC_DISCOVERY\",
+            \"client_id\": \"$OIDC_CLIENT_ID\",
+            \"bearer_only\": true,
+            \"ssl_verify\": $OIDC_SSL_VERIFY
+        },
+        \"proxy-rewrite\": {
+            \"headers\": {
+                \"X-Tenant-ID\": \"10000000-0000-0000-0000-000000000000\",
+                \"X-Tenant-Slug\": \"thaliumx-platform\"
+            }
+        },
         \"redirect\": {
             \"http_to_https\": true,
             \"ret_code\": 302
@@ -239,6 +353,41 @@ create_route "4" "{
     }
 }"
 
+# Route 8: auth.thaliumx.com -> Keycloak (runs under /auth)
+# 8a) / -> redirect to /auth
+create_route "8" "{
+    \"id\": \"8\",
+    \"name\": \"thaliumx-auth-root\",
+    \"desc\": \"Keycloak root redirect - auth.thaliumx.com/ -> /auth\",
+    \"host\": \"auth.thaliumx.com\",
+    \"uri\": \"/\",
+    \"priority\": 50,
+    \"status\": 1,
+    \"plugins\": {
+        \"redirect\": {
+            \"uri\": \"/auth\",
+            \"ret_code\": 302
+        }
+    }
+}"
+
+# 8b) /auth/* -> upstream keycloak
+create_route "9" "{
+    \"id\": \"9\",
+    \"name\": \"thaliumx-auth\",
+    \"desc\": \"Keycloak proxy - auth.thaliumx.com/auth/*\",
+    \"host\": \"auth.thaliumx.com\",
+    \"uri\": \"/auth/*\",
+    \"priority\": 60,
+    \"status\": 1,
+    \"upstream_id\": \"3\",
+    \"plugins\": {
+        \"request-id\": {
+            \"include_in_response\": true
+        }
+    }
+}"
+
 # Route 5: Health check endpoint (no rate limiting)
 create_route "5" "{
     \"id\": \"5\",
@@ -261,6 +410,12 @@ create_route "6" "{
     \"status\": 1,
     \"upstream_id\": \"2\",
     \"plugins\": {
+        \"openid-connect\": {
+            \"discovery\": \"$OIDC_DISCOVERY\",
+            \"client_id\": \"$OIDC_CLIENT_ID\",
+            \"bearer_only\": true,
+            \"ssl_verify\": $OIDC_SSL_VERIFY
+        },
         \"redirect\": {
             \"http_to_https\": true,
             \"ret_code\": 302
@@ -300,6 +455,12 @@ create_route "7" "{
     \"status\": 1,
     \"upstream_id\": \"2\",
     \"plugins\": {
+        \"openid-connect\": {
+            \"discovery\": \"$OIDC_DISCOVERY\",
+            \"client_id\": \"$OIDC_CLIENT_ID\",
+            \"bearer_only\": true,
+            \"ssl_verify\": $OIDC_SSL_VERIFY
+        },
         \"redirect\": {
             \"http_to_https\": true,
             \"ret_code\": 302
@@ -336,6 +497,7 @@ echo "Routes configured:"
 echo "  ✅ thaliumx.com -> Main landing page (/landing)"
 echo "  ✅ www.thaliumx.com -> Redirect to thaliumx.com"
 echo "  ✅ thal.thaliumx.com -> Token presale page (/token-presale)"
+echo "  ✅ auth.thaliumx.com -> Keycloak (/auth/*)"
 echo "  ✅ /api/* -> Backend API (60 req/s, 1000/min per IP)"
 echo "  ✅ /api/auth/* -> Auth endpoints (10 req/s, 20/min per IP)"
 echo "  ✅ /api/financial/* -> Financial endpoints (30 req/s, 100/min per IP)"

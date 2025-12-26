@@ -38,6 +38,8 @@ import { Request, Response, NextFunction } from 'express';
 import { AppError, createError, verifyToken } from '../utils';
 import { LoggerService } from '../services/logger';
 import { JWTPayload } from '../types';
+import axios from 'axios';
+import fs from 'fs';
 
 // Extend Express Request type to include user
 declare global {
@@ -311,10 +313,100 @@ export const authenticateToken = async (
       throw createError('Access token required', 401, 'MISSING_TOKEN');
     }
 
-    // Verify token with issuer/audience validation.
-    const payload = verifyToken(token, false);
+    // -------------------------------------------------------------------------
+    // Keycloak-authoritative auth
+    // -------------------------------------------------------------------------
+    // We support BOTH:
+    //  1) Legacy internal JWTs (signed by JWT_SECRET) for backward compatibility
+    //  2) Keycloak access tokens (verified via Keycloak token introspection)
+    //
+    // Detection strategy:
+    //  - If token has an OIDC issuer with `/realms/<realm>` -> treat as Keycloak
+    //  - Otherwise -> treat as internal JWT
 
-    // Add user info to request
+    const decoded: any = jwt.decode(token) || {};
+    const issuer: string | undefined = typeof decoded.iss === 'string' ? decoded.iss : undefined;
+    const isKeycloakToken = !!issuer && /\/realms\//.test(issuer);
+
+    if (!isKeycloakToken) {
+      // Legacy internal token path
+      const payload = verifyToken(token, false);
+      req.user = payload;
+      next();
+      return;
+    }
+
+    // ------------------------------
+    // Keycloak token introspection
+    // ------------------------------
+    const keycloakBaseUrl = process.env.KEYCLOAK_URL || 'https://keycloak:8443';
+
+    const clientId = process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend';
+    const clientSecret = (() => {
+      if (process.env.KEYCLOAK_CLIENT_SECRET && process.env.KEYCLOAK_CLIENT_SECRET.trim()) {
+        return process.env.KEYCLOAK_CLIENT_SECRET.trim();
+      }
+      const filePath = process.env.KEYCLOAK_CLIENT_SECRET_FILE;
+      if (filePath && fs.existsSync(filePath)) {
+        return fs.readFileSync(filePath, 'utf8').trim();
+      }
+      return '';
+    })();
+
+    if (!clientSecret) {
+      throw createError('Keycloak client secret not configured', 500, 'KEYCLOAK_MISCONFIGURED');
+    }
+
+    const realmMatch = issuer.match(/\/realms\/([^/]+)$/);
+    const realmFromIss = realmMatch?.[1];
+    const realm = realmFromIss || process.env.KEYCLOAK_REALM || 'thaliumx-default-tenant';
+
+    const introspectUrl = `${keycloakBaseUrl}/auth/realms/${realm}/protocol/openid-connect/token/introspect`;
+    const body = new URLSearchParams({
+      token,
+      client_id: clientId,
+      client_secret: clientSecret
+    }).toString();
+
+    const introspection = await axios.post(introspectUrl, body, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: 10_000
+    });
+
+    const active = !!introspection.data?.active;
+    if (!active) {
+      throw createError('Invalid token', 401, 'INVALID_TOKEN');
+    }
+
+    // Map Keycloak JWT claims into our internal JWTPayload shape.
+    const realmRoles: string[] = Array.isArray(decoded?.realm_access?.roles) ? decoded.realm_access.roles : [];
+    const resourceRoles: string[] = (() => {
+      const ra = decoded?.resource_access?.[clientId];
+      return Array.isArray(ra?.roles) ? ra.roles : [];
+    })();
+    const allRoles = Array.from(new Set([...realmRoles, ...resourceRoles]));
+
+    // Role selection: pick the highest-privilege role first.
+    const rolePriority = ['super_admin', 'admin', 'broker', 'compliance', 'finance', 'support', 'user'];
+    const selectedRole = allRoles.find(r => rolePriority.includes(r)) || allRoles[0] || 'user';
+
+    // Tenant context: prefer token claim (if present), otherwise fall back to header injection.
+    const headerTenantId = (req.headers['x-tenant-id'] as string | undefined) || undefined;
+    const tokenTenantId = (decoded?.tenant_id as string | undefined) || (decoded?.tenantId as string | undefined) || undefined;
+    const resolvedTenantId = tokenTenantId || headerTenantId || process.env.KEYCLOAK_DEFAULT_TENANT_ID || '10000000-0000-0000-0000-000000000000';
+
+    const payload: JWTPayload = {
+      userId: (decoded?.sub as string) || 'unknown',
+      email: (decoded?.email as string) || (decoded?.preferred_username as string) || 'unknown',
+      role: selectedRole as any,
+      roles: allRoles as any,
+      tenantId: resolvedTenantId,
+      brokerId: (decoded?.broker_id as string | undefined) || (decoded?.brokerId as string | undefined) || undefined,
+      permissions: [],
+      iat: typeof decoded?.iat === 'number' ? decoded.iat : Math.floor(Date.now() / 1000),
+      exp: typeof decoded?.exp === 'number' ? decoded.exp : Math.floor(Date.now() / 1000) + 300
+    };
+
     req.user = payload;
 
     next();

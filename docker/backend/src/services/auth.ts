@@ -201,7 +201,7 @@ export class AuthService {
 
   /**
    * Register a new user
-   * Uses platform-default-tenant as default if tenantId not provided
+   * Uses DEFAULT_TENANT_SLUG (fallback: thaliumx-platform) as default if tenantId not provided
    */
   static async register(userData: { email: string; password: string; firstName?: string; lastName?: string; brokerCode?: string; tenantId?: string; [key: string]: any }): Promise<User> {
     try {
@@ -222,7 +222,7 @@ export class AuthService {
       // Hash password
       const passwordHash = await bcrypt.hash(userData.password, 12);
 
-      // Get tenant ID - priority: provided tenantId > brokerCode > default tenant (platform-default-tenant)
+      // Get tenant ID - priority: provided tenantId > brokerCode > default tenant
       let tenantId = userData.tenantId;
       
       if (!tenantId && userData.brokerCode) {
@@ -244,18 +244,19 @@ export class AuthService {
         tenantId = tenant.id;
       }
       
-      // If still no tenantId, use default: platform-default-tenant
+      // If still no tenantId, use default tenant slug
       if (!tenantId) {
+        const defaultTenantSlug = process.env.DEFAULT_TENANT_SLUG || 'thaliumx-platform';
         const TenantModel = DatabaseService.getModel('Tenant') as unknown as ModelCtor<TenantModelInstance>;
         const defaultTenant = await TenantModel.findOne({
-          where: { slug: 'platform-default-tenant' }
+          where: { slug: defaultTenantSlug }
         });
         
         if (defaultTenant) {
           tenantId = defaultTenant.id;
-          LoggerService.debug('Using default tenant: platform-default-tenant', { tenantId });
+          LoggerService.debug('Using default tenant', { tenantId, slug: defaultTenantSlug });
         } else {
-          LoggerService.warn('Default tenant not found, using first available tenant');
+          LoggerService.warn('Default tenant not found, using first available tenant', { defaultTenantSlug });
           const firstTenant = await TenantModel.findOne({ where: { isActive: true } });
           if (firstTenant) {
             tenantId = firstTenant.id;
