@@ -36,7 +36,7 @@ export default function LandingPage() {
           </nav>
           <div className="flex items-center space-x-2">
             <Button variant="ghost" asChild>
-              <a href="/auth">Sign In</a>
+              <a href="/auth?next=/dashboard">Sign In</a>
             </Button>
             <Button asChild>
               <a href="/dashboard">Launch App</a>
@@ -110,7 +110,7 @@ export default function LandingPage() {
           <p className="mt-2 text-muted-foreground">Trade from any Web3 wallet or broker account.</p>
           <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
             <Button asChild>
-              <a href="/auth">Create Account</a>
+              <a href="/auth?next=/dashboard">Create Account</a>
             </Button>
             <Button variant="outline" asChild>
               <a href="/token-presale">Buy THAL</a>

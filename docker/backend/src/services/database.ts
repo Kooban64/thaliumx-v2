@@ -407,6 +407,101 @@ export class DatabaseService {
       indexes: [ { fields: ['userId'] }, { fields: ['tenantId'] }, { fields: ['address'] }, { fields: ['status'] } ]
     });
 
+    // =============================================================================
+    // PRESALE (TOKEN SALE) PERSISTENCE MODELS
+    // =============================================================================
+    // NOTE: `userId` is STRING for Keycloak subject (`sub`).
+    const PresaleModel = this.sequelize.define('Presale', {
+      id: { type: DataTypes.STRING, primaryKey: true },
+      tenantId: { type: DataTypes.UUID, allowNull: true },
+      name: { type: DataTypes.STRING, allowNull: false },
+      symbol: { type: DataTypes.STRING, allowNull: false },
+      description: { type: DataTypes.TEXT, allowNull: false },
+      phase: { type: DataTypes.STRING, allowNull: false },
+      status: { type: DataTypes.STRING, allowNull: false },
+      startDate: { type: DataTypes.DATE, allowNull: false },
+      endDate: { type: DataTypes.DATE, allowNull: false },
+      tokenPrice: { type: DataTypes.DECIMAL(36, 18), allowNull: false },
+      totalSupply: { type: DataTypes.DECIMAL(36, 18), allowNull: false },
+      availableSupply: { type: DataTypes.DECIMAL(36, 18), allowNull: false },
+      minInvestment: { type: DataTypes.DECIMAL(36, 18), allowNull: false },
+      maxInvestment: { type: DataTypes.DECIMAL(36, 18), allowNull: false },
+      softCap: { type: DataTypes.DECIMAL(36, 18), allowNull: false },
+      hardCap: { type: DataTypes.DECIMAL(36, 18), allowNull: false },
+      raisedAmount: { type: DataTypes.DECIMAL(36, 18), allowNull: false, defaultValue: '0' },
+      tiers: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
+      vestingSchedule: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
+      whitelistRequired: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+      kycRequired: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+      referralEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+      bonusEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+      smartContractAddress: { type: DataTypes.STRING, allowNull: true },
+      metadata: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
+    }, {
+      tableName: 'presales',
+      timestamps: true,
+      indexes: [
+        { fields: ['tenantId'] },
+        { fields: ['status'] },
+        { fields: ['phase'] },
+      ]
+    });
+
+    const PresaleInvestmentModel = this.sequelize.define('PresaleInvestment', {
+      id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+      presaleId: { type: DataTypes.STRING, allowNull: false },
+      userId: { type: DataTypes.STRING, allowNull: false },
+      tenantId: { type: DataTypes.UUID, allowNull: true },
+      attributedBrokerId: { type: DataTypes.STRING, allowNull: true },
+      tier: { type: DataTypes.STRING, allowNull: false },
+      amount: { type: DataTypes.DECIMAL(36, 18), allowNull: false },
+      tokenAmount: { type: DataTypes.DECIMAL(36, 18), allowNull: false },
+      bonusAmount: { type: DataTypes.DECIMAL(36, 18), allowNull: false, defaultValue: '0' },
+      referralCode: { type: DataTypes.STRING, allowNull: true },
+      referralBonus: { type: DataTypes.DECIMAL(36, 18), allowNull: true },
+      paymentMethod: { type: DataTypes.STRING, allowNull: false },
+      paymentAddress: { type: DataTypes.STRING, allowNull: true },
+      transactionHash: { type: DataTypes.STRING, allowNull: true },
+      kycLevel: { type: DataTypes.STRING, allowNull: true },
+      status: { type: DataTypes.STRING, allowNull: false },
+      vestingSchedule: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
+      metadata: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
+    }, {
+      tableName: 'presale_investments',
+      timestamps: true,
+      indexes: [
+        { fields: ['presaleId'] },
+        { fields: ['userId'] },
+        { fields: ['tenantId'] },
+        { fields: ['status'] },
+        { fields: ['presaleId', 'userId'] },
+      ]
+    });
+
+    const PresaleWhitelistModel = this.sequelize.define('PresaleWhitelist', {
+      id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+      presaleId: { type: DataTypes.STRING, allowNull: false },
+      userId: { type: DataTypes.STRING, allowNull: false },
+      email: { type: DataTypes.STRING, allowNull: false },
+      walletAddress: { type: DataTypes.STRING, allowNull: false },
+      tier: { type: DataTypes.STRING, allowNull: false },
+      maxInvestment: { type: DataTypes.DECIMAL(36, 18), allowNull: false },
+      kycLevel: { type: DataTypes.STRING, allowNull: true },
+      status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'pending' },
+      referralCode: { type: DataTypes.STRING, allowNull: true },
+      referredBy: { type: DataTypes.STRING, allowNull: true },
+      metadata: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
+    }, {
+      tableName: 'presale_whitelist',
+      timestamps: true,
+      indexes: [
+        { fields: ['presaleId'] },
+        { fields: ['userId'] },
+        { fields: ['status'] },
+        { unique: true, fields: ['presaleId', 'userId'] },
+      ]
+    });
+
 
     // Store models
     this.models.set('User', UserModel);
@@ -414,6 +509,10 @@ export class DatabaseService {
     this.models.set('Transaction', TransactionModel);
     this.models.set('Wallet', WalletModel);
     this.models.set('Web3Wallet', Web3WalletModel);
+
+    this.models.set('Presale', PresaleModel);
+    this.models.set('PresaleInvestment', PresaleInvestmentModel);
+    this.models.set('PresaleWhitelist', PresaleWhitelistModel);
 
 
     // Platform Fund Allocation Model

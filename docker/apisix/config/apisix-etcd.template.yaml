@@ -9,6 +9,15 @@ apisix:
   node_listen: 9080
   enable_ipv6: false
 
+  # DNS resolver (critical when upstream nodes are Docker service names)
+  # Without this, Nginx can resolve a container name once at startup and keep a stale IP,
+  # causing 502/connection refused after the upstream container is recreated.
+  dns_resolver:
+    - 127.0.0.11
+    - 1.1.1.1
+    - 8.8.8.8
+  dns_resolver_valid: 30
+
   # Public data-plane ports (published via docker/compose/prod-v1/gateway.yml)
   ssl:
     enable: true
@@ -73,6 +82,17 @@ nginx_config:
   error_log: /dev/stderr
   error_log_level: warn
   http:
+    # PRODUCTION TLS HARDENING
+    # ------------------------
+    # Trust the internal CA and verify upstream TLS for HTTPS upstreams like Keycloak.
+    proxy_ssl_trusted_certificate: /usr/local/apisix/certs/ca.crt
+    proxy_ssl_verify: "on"
+    proxy_ssl_verify_depth: 2
+    proxy_ssl_server_name: "on"
+
+    # Lua TLS trust (used by plugins that make outbound HTTPS calls, e.g. openid-connect discovery).
+    lua_ssl_trusted_certificate: /usr/local/apisix/certs/ca.crt
+    lua_ssl_verify_depth: 2
     enable_access_log: true
     access_log: /dev/stdout
     access_log_format: '{"time":"$time_iso8601","remote_addr":"$remote_addr","x_forwarded_for":"$http_x_forwarded_for","request_id":"$request_id","request":"$request","status":$status,"request_time":$request_time,"upstream_response_time":"$upstream_response_time","upstream_addr":"$upstream_addr","host":"$host","user_agent":"$http_user_agent"}'

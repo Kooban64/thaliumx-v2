@@ -14,7 +14,7 @@ RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 
 # Install all dependencies (including devDependencies for build)
-RUN npm ci
+RUN npm install --no-audit --no-fund
 
 # Copy source code
 COPY tsconfig.json ./
@@ -37,10 +37,10 @@ WORKDIR /app
 RUN addgroup -g 1001 -S compliance && \
     adduser -S compliance -u 1001 -G compliance
 
-# Install production dependencies and wget for health checks
+# Install production dependencies and runtime tools
 COPY package*.json ./
-RUN apk add --no-cache wget && \
-    npm ci --only=production && \
+RUN apk add --no-cache wget su-exec && \
+    npm install --omit=dev --no-audit --no-fund && \
     npm cache clean --force
 
 # Copy built application from builder stage

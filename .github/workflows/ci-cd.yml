@@ -18,6 +18,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Run gitleaks secret scan (working tree)
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: >-
+            detect
+            --source .
+            --no-git
+            --redact
+            --config .gitleaks.toml
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.29.0
         with:
@@ -195,6 +205,41 @@ jobs:
           DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/test_db
           REDIS_URL: redis://localhost:6379
           KAFKA_BROKERS: localhost:9092
+
+  # Gateway Smoke Tests (APISIX + ETCD)
+  # Validates critical routing + auth UX through the gateway using a lightweight mock upstream.
+  gateway-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate self-signed TLS cert for APISIX (CI only)
+        run: |
+          set -euo pipefail
+          mkdir -p docker/compose/ci/certs
+          openssl req -x509 -newkey rsa:2048 -sha256 -days 1 -nodes \
+            -keyout docker/compose/ci/certs/server.key \
+            -out docker/compose/ci/certs/server.crt \
+            -subj "/CN=localhost"
+          chmod 644 docker/compose/ci/certs/server.key docker/compose/ci/certs/server.crt
+
+      - name: Start gateway smoke stack
+        run: |
+          set -euo pipefail
+          docker compose -f docker/compose/ci/gateway-smoke.yml up -d --build
+          # Run idempotent APISIX route initializer (writes to etcd)
+          docker compose -f docker/compose/ci/gateway-smoke.yml run --rm apisix-init
+
+      - name: Run gateway smoke checks
+        run: |
+          set -euo pipefail
+          BASE_URL="https://localhost:8443" bash docker/scripts/gateway-smoke-test.sh
+
+      - name: Teardown gateway smoke stack
+        if: always()
+        run: |
+          docker compose -f docker/compose/ci/gateway-smoke.yml down -v
 
   # E2E Tests
   e2e-tests:

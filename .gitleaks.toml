@@ -1,0 +1,22 @@
+# Gitleaks configuration for ThaliumX
+#
+# Goal: prevent NEW secrets from being committed.
+# We intentionally scan the working tree in CI (`--no-git`) so legacy history does not block merges.
+#
+# If you decide to purge git history, run a separate history scan locally:
+#   gitleaks detect --source . --redact --report-format sarif --report-path gitleaks.sarif
+
+title = "thaliumx gitleaks config"
+
+[allowlist]
+description = "Allowlist files which commonly contain non-secret sample placeholders"
+paths = [
+  # Vendor / generated
+  '''docker/.*/node_modules/.*''',
+  '''ballerine/.*/node_modules/.*''',
+  # Docs
+  '''deprecated\.docs/.*''',
+  # Explicitly disabled legacy realm import
+  '''keycloak/realm-config/thaliumx-realm\.json\.disabled'''
+]
+

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getAccessToken } from '@/lib/auth/token-store';
+import { initKeycloak } from '@/lib/auth/keycloak';
 
 export default function VestingPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -10,8 +12,12 @@ export default function VestingPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const token = localStorage.getItem('authToken') || '';
-        // We need userId from token/session; assume API infers from auth
+        const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+        if (authMode === 'keycloak') {
+          await initKeycloak();
+        }
+
+        const token = authMode === 'keycloak' ? (getAccessToken() || '') : '';
         const res = await fetch('/api/presale/vesting/user/me', {
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         });
@@ -61,5 +67,3 @@ export default function VestingPage() {
     </div>
   );
 }
-
-

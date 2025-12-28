@@ -13,6 +13,8 @@ services:
     image: citusdata/citus:12.1.6
     container_name: thaliumx-citus-coordinator
     hostname: thaliumx-citus-coordinator
+    # Run as root to fix bind-mounted TLS key ownership, then drop to postgres.
+    user: "0:0"
     restart: unless-stopped
     environment:
       POSTGRES_USER: thaliumx
@@ -28,13 +30,24 @@ services:
       - ./../../certs/ca/ca.crt:/var/lib/postgresql/ca.crt:ro
     secrets:
       - postgres-password
-    command: >
-      postgres
-      -c shared_preload_libraries=citus
-      -c ssl=on
-      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
-      -c ssl_key_file=/var/lib/postgresql/certs/server.key
-      -c ssl_ca_file=/var/lib/postgresql/ca.crt
+    command:
+      - sh
+      - -lc
+      - |
+        set -eu
+        mkdir -p /tmp/ssl
+        cp /var/lib/postgresql/certs/server.crt /tmp/ssl/server.crt
+        cp /var/lib/postgresql/certs/server.key /tmp/ssl/server.key
+        cp /var/lib/postgresql/ca.crt /tmp/ssl/ca.crt
+        chown postgres:postgres /tmp/ssl/server.key
+        chmod 600 /tmp/ssl/server.key
+        chmod 644 /tmp/ssl/server.crt /tmp/ssl/ca.crt
+        exec gosu postgres /usr/lib/postgresql/16/bin/postgres \
+          -c shared_preload_libraries=citus \
+          -c ssl=on \
+          -c ssl_cert_file=/tmp/ssl/server.crt \
+          -c ssl_key_file=/tmp/ssl/server.key \
+          -c ssl_ca_file=/tmp/ssl/ca.crt
     networks:
       - thaliumx-net
       - database-network
@@ -57,6 +70,7 @@ services:
     image: citusdata/citus:12.1.6
     container_name: thaliumx-citus-worker-1
     hostname: thaliumx-citus-worker-1
+    user: "0:0"
     restart: unless-stopped
     environment:
       POSTGRES_USER: thaliumx
@@ -69,13 +83,24 @@ services:
       - ./../../certs/ca/ca.crt:/var/lib/postgresql/ca.crt:ro
     secrets:
       - postgres-password
-    command: >
-      postgres
-      -c shared_preload_libraries=citus
-      -c ssl=on
-      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
-      -c ssl_key_file=/var/lib/postgresql/certs/server.key
-      -c ssl_ca_file=/var/lib/postgresql/ca.crt
+    command:
+      - sh
+      - -lc
+      - |
+        set -eu
+        mkdir -p /tmp/ssl
+        cp /var/lib/postgresql/certs/server.crt /tmp/ssl/server.crt
+        cp /var/lib/postgresql/certs/server.key /tmp/ssl/server.key
+        cp /var/lib/postgresql/ca.crt /tmp/ssl/ca.crt
+        chown postgres:postgres /tmp/ssl/server.key
+        chmod 600 /tmp/ssl/server.key
+        chmod 644 /tmp/ssl/server.crt /tmp/ssl/ca.crt
+        exec gosu postgres /usr/lib/postgresql/16/bin/postgres \
+          -c shared_preload_libraries=citus \
+          -c ssl=on \
+          -c ssl_cert_file=/tmp/ssl/server.crt \
+          -c ssl_key_file=/tmp/ssl/server.key \
+          -c ssl_ca_file=/tmp/ssl/ca.crt
     networks:
       - thaliumx-net
       - database-network
@@ -101,6 +126,7 @@ services:
     image: citusdata/citus:12.1.6
     container_name: thaliumx-citus-worker-2
     hostname: thaliumx-citus-worker-2
+    user: "0:0"
     restart: unless-stopped
     environment:
       POSTGRES_USER: thaliumx
@@ -113,13 +139,24 @@ services:
       - ./../../certs/ca/ca.crt:/var/lib/postgresql/ca.crt:ro
     secrets:
       - postgres-password
-    command: >
-      postgres
-      -c shared_preload_libraries=citus
-      -c ssl=on
-      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
-      -c ssl_key_file=/var/lib/postgresql/certs/server.key
-      -c ssl_ca_file=/var/lib/postgresql/ca.crt
+    command:
+      - sh
+      - -lc
+      - |
+        set -eu
+        mkdir -p /tmp/ssl
+        cp /var/lib/postgresql/certs/server.crt /tmp/ssl/server.crt
+        cp /var/lib/postgresql/certs/server.key /tmp/ssl/server.key
+        cp /var/lib/postgresql/ca.crt /tmp/ssl/ca.crt
+        chown postgres:postgres /tmp/ssl/server.key
+        chmod 600 /tmp/ssl/server.key
+        chmod 644 /tmp/ssl/server.crt /tmp/ssl/ca.crt
+        exec gosu postgres /usr/lib/postgresql/16/bin/postgres \
+          -c shared_preload_libraries=citus \
+          -c ssl=on \
+          -c ssl_cert_file=/tmp/ssl/server.crt \
+          -c ssl_key_file=/tmp/ssl/server.key \
+          -c ssl_ca_file=/tmp/ssl/ca.crt
     networks:
       - thaliumx-net
       - database-network
@@ -145,9 +182,12 @@ services:
   # TIMESCALEDB - Time-Series Database
   # ============================================
   timescaledb:
-    image: timescale/timescaledb:2.15.0-pg16
+    # IMPORTANT: this must match the TimescaleDB extension version already present in the persisted data dir.
+    # The current persistent volume expects `timescaledb-2.24.0` (observed in container logs).
+    image: timescale/timescaledb:2.24.0-pg16
     container_name: thaliumx-timescaledb
     hostname: thaliumx-timescaledb
+    user: "0:0"
     restart: unless-stopped
     environment:
       POSTGRES_USER: dingir
@@ -161,12 +201,23 @@ services:
       - ./../../certs/ca/ca.crt:/var/lib/postgresql/ca.crt:ro
     secrets:
       - postgres-password
-    command: >
-      postgres
-      -c ssl=on
-      -c ssl_cert_file=/var/lib/postgresql/certs/server.crt
-      -c ssl_key_file=/var/lib/postgresql/certs/server.key
-      -c ssl_ca_file=/var/lib/postgresql/ca.crt
+    command:
+      - sh
+      - -lc
+      - |
+        set -eu
+        mkdir -p /tmp/ssl
+        cp /var/lib/postgresql/certs/server.crt /tmp/ssl/server.crt
+        cp /var/lib/postgresql/certs/server.key /tmp/ssl/server.key
+        cp /var/lib/postgresql/ca.crt /tmp/ssl/ca.crt
+        chown postgres:postgres /tmp/ssl/server.key
+        chmod 600 /tmp/ssl/server.key
+        chmod 644 /tmp/ssl/server.crt /tmp/ssl/ca.crt
+        exec su-exec postgres postgres \
+          -c ssl=on \
+          -c ssl_cert_file=/tmp/ssl/server.crt \
+          -c ssl_key_file=/tmp/ssl/server.key \
+          -c ssl_ca_file=/tmp/ssl/ca.crt
     networks:
       - thaliumx-net
       - database-network
@@ -191,16 +242,21 @@ services:
   mongodb:
     image: mongo:8.2
     container_name: thaliumx-mongodb
+    # Run as root so Mongo can read Docker secrets (default mode can be 0400).
+    # The image entrypoint will drop privileges for `mongod`.
+    user: "0:0"
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: thaliumx
-      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongodb-password
+      # NOTE: docker-compose secrets mount `/run/secrets` as root-only (0700) on many setups.
+      # Mongo's entrypoint may read the password file after dropping privileges, causing EACCES.
+      # Bind-mount the password to an accessible path instead.
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /tmp/secrets/mongodb-password
       MONGO_INITDB_DATABASE: thaliumx
     volumes:
       - mongodb-data:/data/db
       - ./../../certs/services/mongodb:/certs:ro
-    secrets:
-      - mongodb-password
+      - ./../../../.secrets/generated/mongodb-password:/tmp/secrets/mongodb-password:ro
     command:
       - mongod
       - --auth
@@ -223,7 +279,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "mongosh -u \"$${MONGO_INITDB_ROOT_USERNAME}\" -p \"$$(cat /run/secrets/mongodb-password)\" --authenticationDatabase admin --eval \"db.adminCommand('ping')\" >/dev/null 2>&1",
+          "mongosh -u \"$${MONGO_INITDB_ROOT_USERNAME}\" -p \"$$(cat /tmp/secrets/mongodb-password)\" --authenticationDatabase admin --eval \"db.adminCommand('ping')\" >/dev/null 2>&1",
         ]
       interval: 30s
       timeout: 10s

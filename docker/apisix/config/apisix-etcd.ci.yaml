@@ -1,0 +1,73 @@
+# APISIX CI configuration (ETCD-backed)
+# - Used only for GitHub Actions gateway smoke tests.
+
+apisix:
+  node_listen: 9080
+  enable_ipv6: false
+
+  # DNS resolver (required for Docker service names)
+  dns_resolver:
+    - 127.0.0.11
+    - 1.1.1.1
+    - 8.8.8.8
+  dns_resolver_valid: 30
+
+  ssl:
+    enable: true
+    listen:
+      # Use a non-privileged port in CI (APISIX container runs as non-root)
+      - port: 9443
+    ssl_certificate: /tmp/certs/server.crt
+    ssl_certificate_key: /tmp/certs/server.key
+    ssl_protocols: "TLSv1.2 TLSv1.3"
+
+  enable_admin: true
+  admin_listen:
+    ip: 0.0.0.0
+    port: 9180
+
+deployment:
+  role: traditional
+  role_traditional:
+    config_provider: etcd
+  etcd:
+    host:
+      - "http://etcd:2379"
+    prefix: /apisix
+    timeout: 30
+
+  admin:
+    admin_key_required: true
+    admin_key:
+      - name: admin
+        key: "ci-admin-key"
+        role: admin
+    allow_admin:
+      - 127.0.0.1/32
+      - 172.16.0.0/12
+      - 10.0.0.0/8
+      - 192.168.0.0/16
+
+plugins:
+  - cors
+  - proxy-rewrite
+  - redirect
+  - request-id
+  - prometheus
+  - limit-req
+  - limit-count
+  - jwt-auth
+  - key-auth
+  - openid-connect
+  - opa
+
+nginx_config:
+  error_log: /dev/stderr
+  error_log_level: warn
+  http:
+    proxy_ssl_verify: "off"
+    proxy_ssl_server_name: "on"
+    enable_access_log: true
+    access_log: /dev/stdout
+    access_log_format: '{"time":"$time_iso8601","remote_addr":"$remote_addr","request":"$request","status":$status,"request_time":$request_time,"upstream_addr":"$upstream_addr","host":"$host"}'
+    access_log_format_escape: json

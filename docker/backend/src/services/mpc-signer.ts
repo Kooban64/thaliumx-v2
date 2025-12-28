@@ -23,6 +23,14 @@ import { ethers } from 'ethers';
 import * as crypto from 'crypto';
 
 // =============================================================================
+// TIMER SAFETY
+// =============================================================================
+// Node.js timers clamp delays to a signed 32-bit integer.
+// Any delay > 2^31-1 will overflow and effectively become ~1ms, causing runaway loops.
+// See: TimeoutOverflowWarning: "... does not fit into a 32-bit signed integer. Timeout duration was set to 1."
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+
+// =============================================================================
 // MPC TYPES & INTERFACES
 // =============================================================================
 
@@ -220,6 +228,49 @@ export class MPCSignerService {
   private static backups: Map<string, MPCBackup> = new Map();
   private static auditLogs: Map<string, MPCAuditLog> = new Map();
 
+  // Prevent overlapping monitor runs (runaway loops can kill the process).
+  private static keyRotationRunning = false;
+  private static backupRunning = false;
+  private static opsMonitorRunning = false;
+
+  /**
+   * Schedule a recurring task in a way that is safe for long intervals.
+   *
+   * - Uses setTimeout recursion instead of setInterval.
+   * - Clamps timers to MAX_TIMER_DELAY_MS to avoid overflow.
+   * - Prevents overlapping executions.
+   */
+  private static scheduleRecurringSafe(opts: {
+    name: string;
+    intervalMs: number;
+    fn: () => Promise<void>;
+    runningFlag: 'keyRotationRunning' | 'backupRunning' | 'opsMonitorRunning';
+  }): void {
+    const intervalMs = Math.max(1_000, Math.floor(opts.intervalMs));
+
+    const tick = async () => {
+      try {
+        if (this[opts.runningFlag]) {
+          LoggerService.warn(`Skipping overlapping task run: ${opts.name}`);
+        } else {
+          this[opts.runningFlag] = true;
+          await opts.fn();
+        }
+      } catch (error) {
+        LoggerService.error(`Recurring task failed: ${opts.name}`, error);
+      } finally {
+        this[opts.runningFlag] = false;
+
+        // Next run (clamp to avoid Node timer overflow).
+        const delay = Math.min(intervalMs, MAX_TIMER_DELAY_MS);
+        setTimeout(tick, delay);
+      }
+    };
+
+    // First run after a short delay to allow the service to finish startup.
+    setTimeout(tick, 5_000);
+  }
+
   // MPC Configuration
   private static readonly MPC_CONFIG = {
     maxKeys: 100000,
@@ -340,23 +391,32 @@ export class MPCSignerService {
       
       // Start key rotation monitoring
       if (this.MPC_CONFIG.enableKeyRotation) {
-        setInterval(async () => {
-          await this.monitorKeyRotation();
-        }, this.MPC_CONFIG.keyRotationInterval);
+        this.scheduleRecurringSafe({
+          name: 'mpc.keyRotation',
+          intervalMs: this.MPC_CONFIG.keyRotationInterval,
+          fn: () => this.monitorKeyRotation(),
+          runningFlag: 'keyRotationRunning',
+        });
       }
       
       // Start backup monitoring
       if (this.MPC_CONFIG.enableAutomaticBackup) {
-        setInterval(async () => {
-          await this.performAutomaticBackup();
-        }, this.MPC_CONFIG.backupInterval);
+        this.scheduleRecurringSafe({
+          name: 'mpc.backup',
+          intervalMs: this.MPC_CONFIG.backupInterval,
+          fn: () => this.performAutomaticBackup(),
+          runningFlag: 'backupRunning',
+        });
       }
       
       // Start operation monitoring
       if (this.MPC_CONFIG.enableRealTimeMonitoring) {
-        setInterval(async () => {
-          await this.monitorOperations();
-        }, 60000); // Every minute
+        this.scheduleRecurringSafe({
+          name: 'mpc.operations',
+          intervalMs: 60_000,
+          fn: () => this.monitorOperations(),
+          runningFlag: 'opsMonitorRunning',
+        });
       }
       
       LoggerService.info('MPC monitoring services started successfully');
@@ -371,7 +431,8 @@ export class MPCSignerService {
    */
   private static async monitorKeyRotation(): Promise<void> {
     try {
-      LoggerService.info('Monitoring key rotation...');
+      // NOTE: keep this at debug to avoid log amplification on prod.
+      LoggerService.debug('Monitoring key rotation...');
       
       const now = new Date();
       for (const [keyId, key] of this.keys) {
@@ -392,7 +453,7 @@ export class MPCSignerService {
    */
   private static async performAutomaticBackup(): Promise<void> {
     try {
-      LoggerService.info('Performing automatic backup...');
+      LoggerService.debug('Performing automatic backup...');
       
       for (const [keyId, key] of this.keys) {
         if (key.status === MPCKeyStatus.ACTIVE) {

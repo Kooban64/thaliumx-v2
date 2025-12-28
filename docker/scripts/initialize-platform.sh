@@ -2,8 +2,12 @@
 
 # ThaliumX Platform Initialization Script
 # ======================================
-# This script initializes the Keycloak realms and users for the ThaliumX platform
-# including the platform realm and default tenant realm.
+# DEPRECATED: This script predates the prod-v1 realm-import + post-import seeding.
+# ThaliumX production now standardizes on a **single realm** (`thaliumx-platform`).
+#
+# If you need to bootstrap a new environment, prefer:
+# - realm import: [`keycloak/realm-config/thaliumx-platform-realm.json`](keycloak/realm-config/thaliumx-platform-realm.json:1)
+# - post-import patching: [`docker/scripts/keycloak-post-import-seed.sh`](docker/scripts/keycloak-post-import-seed.sh:1)
 
 set -e
 
@@ -13,9 +17,7 @@ ADMIN_USER="${KEYCLOAK_ADMIN_USERNAME:-admin}"
 # No insecure defaults; must be provided via env/secret manager
 ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}"
 PLATFORM_REALM="thaliumx-platform"
-DEFAULT_TENANT_REALM="thaliumx-default-tenant"
 PLATFORM_DOMAIN="thaliumx.com"
-DEFAULT_TENANT_DOMAIN="tenant.thaliumx.com"
 
 echo "🚀 Initializing ThaliumX Platform..."
 
@@ -214,27 +216,11 @@ create_roles "$PLATFORM_REALM" "$ADMIN_TOKEN"
 # Create Platform Admin User
 create_admin_user "$PLATFORM_REALM" "platform-admin" "admin@thaliumx.com" "Platform" "Administrator" "$ADMIN_TOKEN"
 
-# Create Default Tenant Realm
-echo "🏗️ Creating Default Tenant Realm..."
-create_realm "$DEFAULT_TENANT_REALM" "ThaliumX Default Tenant" "$ADMIN_TOKEN"
-
-# Create Default Tenant Client
-create_client "$DEFAULT_TENANT_REALM" "thaliumx-tenant-client" "ThaliumX Tenant Client" "$DEFAULT_TENANT_DOMAIN" "$ADMIN_TOKEN"
-
-# Create Default Tenant Roles
-create_roles "$DEFAULT_TENANT_REALM" "$ADMIN_TOKEN"
-
-# Create Tenant Admin User
-create_admin_user "$DEFAULT_TENANT_REALM" "tenant-admin" "admin@tenant.thaliumx.com" "Tenant" "Administrator" "$ADMIN_TOKEN"
-
 echo "🎉 Platform initialization completed!"
 echo ""
 echo "📋 Summary:"
 echo "   Platform Realm: $PLATFORM_REALM"
-echo "   Default Tenant Realm: $DEFAULT_TENANT_REALM"
 echo "   Platform Domain: $PLATFORM_DOMAIN"
-echo "   Default Tenant Domain: $DEFAULT_TENANT_DOMAIN"
 echo ""
 echo "🌐 Access URLs:"
 echo "   Platform Admin Console: ${KEYCLOAK_URL}/admin/${PLATFORM_REALM}/console"
-echo "   Tenant Admin Console: ${KEYCLOAK_URL}/admin/${DEFAULT_TENANT_REALM}/console"

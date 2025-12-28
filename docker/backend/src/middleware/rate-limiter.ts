@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { RedisService } from '../services/redis';
 import { LoggerService } from '../services/logger';
-import { ConfigService } from '../services/config';
 
 /**
  * Redis-backed rate limiting middleware following thaliumx patterns

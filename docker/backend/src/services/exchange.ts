@@ -16,7 +16,7 @@ import { Request, Response } from 'express';
 import { LoggerService } from '../services/logger';
 import { DatabaseService } from '../services/database';
 import { RedisService } from '../services/redis';
-import { ConfigService } from '../services/config';
+import { ConfigService } from '../services/config-enhanced';
 import { KafkaService } from '../services/kafka';
 import { AppError, createError } from '../utils';
 import axios from 'axios';
@@ -199,7 +199,7 @@ export class ExchangeService {
       LoggerService.info('Initializing Exchange Service...');
       
       // Load credentials
-      this.exchangeCredentials = ConfigService.getExchangeCredentials();
+      this.exchangeCredentials = await ConfigService.getAllExchangeCredentials();
       
       // Validate credentials
       await this.validateExchangeCredentials();

@@ -24,7 +24,7 @@ import Joi from 'joi';
 import { Decimal } from 'decimal.js';
 import { LoggerService } from '../services/logger';
 import { ethers, Wallet } from 'ethers';
-import { ConfigService } from '../services/config';
+import { ConfigService } from '../services/config-enhanced';
 import { getContractAddresses } from '../contracts/addresses/testnet';
 
 const router: Router = Router();
@@ -169,6 +169,46 @@ const approveWhitelistSchema = Joi.object({
 // =============================================================================
 
 /**
+ * GET /api/presale/status
+ * Public presale summary for the token sale landing page.
+ *
+ * NOTE: This endpoint is intentionally public so `thal.thaliumx.com/token-presale`
+ * can render presale stats before login.
+ */
+router.get('/status', async (_req, res) => {
+  try {
+    const presaleId = 'thal-presale-v1';
+    const presale = await PresaleService.getPresale(presaleId);
+    const stats = await PresaleService.getPresaleStatistics(presaleId);
+
+    const now = Date.now();
+    const end = presale.endDate?.getTime?.() ?? now;
+    const ms = Math.max(0, end - now);
+    const days = Math.ceil(ms / (1000 * 60 * 60 * 24));
+
+    res.json({
+      success: true,
+      data: {
+        presaleId: presale.id,
+        name: presale.name,
+        totalRaised: Number(presale.raisedAmount.toString()),
+        target: Number(presale.hardCap.toString()),
+        participants: stats.totalInvestors,
+        status: presale.status,
+        phase: presale.phase,
+        timeRemaining: days === 1 ? '1 day' : `${days} days`,
+      }
+    });
+  } catch (error) {
+    LoggerService.error('Failed to get presale status:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to get presale status' }
+    });
+  }
+});
+
+/**
  * POST /api/presale/presales
  * Create a new presale
  */
@@ -299,19 +339,10 @@ router.post('/investments', authenticateToken, validateRequest(makeInvestmentSch
   try {
     const { presaleId, amount, paymentMethod, tier, referralCode, walletAddress } = req.body;
     const userId = (req as any).user?.id;
-    const tenantId = (req as any).user?.tenantId || 'thaliumx-tenant';
+    const tenantId = (req as any).tenantId || (req as any).user?.tenantId || process.env.KEYCLOAK_DEFAULT_TENANT_ID || '10000000-0000-0000-0000-000000000000';
     if (!tenantId) {
       res.status(401).json({ success: false, error: { code: 'TENANT_REQUIRED', message: 'Tenant context is required' } });
       return;
-    }
-    // Optional realm validation if present in token
-    const tokenRealm = (req as any).user?.realm;
-    if (tokenRealm && typeof tokenRealm === 'string') {
-      const expectedRealm = tenantId === 'thaliumx-tenant' ? 'thaliumx-tenant' : tenantId;
-      if (tokenRealm !== expectedRealm) {
-        res.status(403).json({ success: false, error: { code: 'REALM_MISMATCH', message: 'Invalid realm for tenant context' } });
-        return;
-      }
     }
     // Optional broker attribution via referral code or header (e.g., X-Broker-Code)
     const attributedBrokerId = (req.headers['x-broker-code'] as string) || (req.query.brokerCode as string) || undefined;
@@ -886,9 +917,69 @@ router.post('/vesting/:scheduleId/claim', authenticateToken, async (req, res): P
 });
 
 /**
- * GET /api/presale/vesting/user/:userId
- * Get all vesting schedules for a user
+  * GET /api/presale/vesting/user/:userId
+  * Get all vesting schedules for a user
+  */
+/**
+ * GET /api/presale/vesting/user/me
+ * Convenience endpoint for the frontend.
+ *
+ * IMPORTANT: this route must be declared BEFORE `/vesting/user/:userId`.
  */
+router.get('/vesting/user/me', authenticateToken, async (req, res): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, error: { code: 'AUTHENTICATION_REQUIRED', message: 'Authentication required' } });
+      return;
+    }
+
+    // Get user's wallet address from token for now
+    const userWalletAddress = (req as any).user?.walletAddress || '';
+    if (!userWalletAddress) {
+      res.json({
+        success: true,
+        data: [],
+        message: 'No wallet address found for this user. Please connect your Web3 wallet.'
+      });
+      return;
+    }
+
+    const investments = await PresaleService.getInvestmentsByUser(userId);
+    const vestingSchedules: any[] = [];
+
+    for (const investment of investments) {
+      if (investment.metadata.vestingScheduleId) {
+        const schedule = await SmartContractService.getVestingSchedule(investment.metadata.vestingScheduleId);
+        if (schedule) {
+          const releasableAmount = await SmartContractService.getReleasableAmount(investment.metadata.vestingScheduleId);
+          vestingSchedules.push({
+            scheduleId: investment.metadata.vestingScheduleId,
+            investmentId: investment.id,
+            presaleId: investment.presaleId,
+            totalAmount: schedule.totalAmount.toString(),
+            releasedAmount: schedule.releasedAmount.toString(),
+            releasableAmount: releasableAmount.toString(),
+            startTime: new Date(schedule.startTime * 1000),
+            cliffDuration: schedule.cliffDuration,
+            vestingDuration: schedule.vestingDuration,
+            lastClaimTime: new Date(schedule.lastClaimTime * 1000),
+            category: schedule.category
+          });
+        }
+      }
+    }
+
+    res.json({ success: true, data: vestingSchedules, count: vestingSchedules.length });
+  } catch (error) {
+    LoggerService.error('Failed to get user vesting schedules (me):', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to get vesting schedules' }
+    });
+  }
+});
+
 router.get('/vesting/user/:userId', authenticateToken, async (req, res): Promise<void> => {
   try {
     const { userId } = req.params;

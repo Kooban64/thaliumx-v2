@@ -15,7 +15,7 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
+import { ConfigService } from './config-enhanced';
 import { EventStreamingService } from './event-streaming';
 import { AppError, createError } from '../utils';
 import crypto from 'crypto';
@@ -298,11 +298,19 @@ export class KeycloakService {
       
       // Load realm names from environment
       this.platformRealmName = process.env.KEYCLOAK_PLATFORM_REALM || 'thaliumx-platform';
-      this.defaultTenantRealmName = process.env.KEYCLOAK_DEFAULT_TENANT_REALM || 'thaliumx-default-tenant';
+      // Default to single-realm behavior unless explicitly overridden.
+      this.defaultTenantRealmName = process.env.KEYCLOAK_DEFAULT_TENANT_REALM || 'thaliumx-platform';
+
+      const singleRealm = String(process.env.KEYCLOAK_SINGLE_REALM || '').toLowerCase() === 'true';
+      if (singleRealm) {
+        // Single-realm mode: treat "default tenant" realm as the platform realm.
+        this.defaultTenantRealmName = this.platformRealmName;
+      }
       
       LoggerService.info('Keycloak realm configuration:', {
         platformRealm: this.platformRealmName,
-        defaultTenantRealm: this.defaultTenantRealmName
+        defaultTenantRealm: this.defaultTenantRealmName,
+        singleRealm
       });
       
       // Initialize admin client
@@ -317,8 +325,10 @@ export class KeycloakService {
       // Initialize platform realm
       await this.initializePlatformRealm();
       
-      // Initialize default tenant realm
-      await this.initializeDefaultTenantRealm();
+      // Initialize default tenant realm (skipped in single-realm mode)
+      if (!singleRealm && this.defaultTenantRealmName !== this.platformRealmName) {
+        await this.initializeDefaultTenantRealm();
+      }
       
       // Start periodic health monitoring
       this.startHealthMonitor();
@@ -749,6 +759,40 @@ export class KeycloakService {
   // PRIVATE METHODS
   // =============================================================================
 
+  /**
+   * Normalize a Keycloak base URL for Admin API usage.
+   *
+   * In ThaliumX prod-v1, Keycloak is started with `--http-relative-path=/auth`.
+   * That means admin endpoints are located under `/auth/admin/...` and realms under
+   * `/auth/realms/...`.
+   *
+   * This helper ensures the configured Admin base URL includes that relative path.
+   */
+  private static normalizeAdminBaseUrl(rawUrl: string): string {
+    try {
+      const relPathRaw = (process.env.KEYCLOAK_HTTP_RELATIVE_PATH || '/auth').trim();
+      const relPath = relPathRaw === '' ? '' : relPathRaw.startsWith('/') ? relPathRaw : `/${relPathRaw}`;
+
+      const u = new URL(rawUrl);
+      const current = (u.pathname || '').replace(/\/+$/, '');
+
+      if (!relPath || relPath === '/') {
+        u.pathname = current || '/';
+        return u.toString().replace(/\/+$/, '');
+      }
+
+      if (current.endsWith(relPath)) {
+        u.pathname = current || relPath;
+      } else {
+        u.pathname = `${current}${relPath}` || relPath;
+      }
+
+      return u.toString().replace(/\/+$/, '');
+    } catch (_e) {
+      return rawUrl.replace(/\/+$/, '');
+    }
+  }
+
   private static loadKeycloakConfig(): KeycloakConfig {
     const config = ConfigService.getConfig();
     
@@ -757,7 +801,12 @@ export class KeycloakService {
     // Admin users exist in the master realm, not in application realms
     const nodeEnv = process.env.NODE_ENV || 'development';
 
-    const baseUrl = process.env.KEYCLOAK_URL || 'http://localhost:8080';
+    // IMPORTANT:
+    // - KEYCLOAK_URL is treated elsewhere in the backend as the *host root* (no /auth).
+    // - Keycloak Admin API calls in this service must include the Keycloak relative path
+    //   (prod-v1 uses /auth).
+    const baseUrlRaw = process.env.KEYCLOAK_ADMIN_URL || process.env.KEYCLOAK_URL || 'http://localhost:8080';
+    const baseUrl = this.normalizeAdminBaseUrl(baseUrlRaw);
     const clientId = process.env.KEYCLOAK_ADMIN_CLIENT_ID || 'admin-cli';
     const clientSecret = process.env.KEYCLOAK_ADMIN_CLIENT_SECRET || '';
     const adminUsername = process.env.KEYCLOAK_ADMIN_USERNAME || 'admin';
@@ -1661,6 +1710,31 @@ export class KeycloakService {
     try {
       await this.ensureAuthenticated();
 
+      // Production safety: do not auto-create predictable users/passwords unless explicitly enabled.
+      const nodeEnv = process.env.NODE_ENV || 'development';
+      const seedUsers = String(process.env.KEYCLOAK_SEED_USERS || '').toLowerCase() === 'true';
+      if (nodeEnv === 'production' && !seedUsers) {
+        LoggerService.info(
+          'Skipping Keycloak platform user seeding in production (set KEYCLOAK_SEED_USERS=true to enable).'
+        );
+        return;
+      }
+
+      const getPassword = (envVar: string, fallback: string): string => {
+        const v = process.env[envVar];
+        if (nodeEnv === 'production') {
+          if (!v || v.trim().length < 12) {
+            throw createError(
+              `${envVar} is required when KEYCLOAK_SEED_USERS=true in production (min 12 chars)`,
+              500,
+              'KEYCLOAK_MISCONFIGURED'
+            );
+          }
+          return v;
+        }
+        return v || fallback;
+      };
+
       // Platform users with specific IDs (UUIDs for consistency)
       const platformUsers = [
         {
@@ -1674,7 +1748,7 @@ export class KeycloakService {
           roles: [this.DEFAULT_ROLES.PLATFORM_ADMIN],
           credentials: [{
             type: 'password',
-            value: process.env.PLATFORM_ADMIN_PASSWORD || 'PlatformAdmin2025!',
+            value: getPassword('PLATFORM_ADMIN_PASSWORD', 'PlatformAdmin2025!'),
             temporary: false
           }]
         },
@@ -1689,7 +1763,7 @@ export class KeycloakService {
           roles: ['platform-compliance'],
           credentials: [{
             type: 'password',
-            value: process.env.PLATFORM_COMPLIANCE_PASSWORD || 'Compliance2025!',
+            value: getPassword('PLATFORM_COMPLIANCE_PASSWORD', 'Compliance2025!'),
             temporary: false
           }]
         },
@@ -1704,7 +1778,7 @@ export class KeycloakService {
           roles: ['platform-finance'],
           credentials: [{
             type: 'password',
-            value: process.env.PLATFORM_FINANCE_PASSWORD || 'Finance2025!',
+            value: getPassword('PLATFORM_FINANCE_PASSWORD', 'Finance2025!'),
             temporary: false
           }]
         },
@@ -1719,7 +1793,7 @@ export class KeycloakService {
           roles: ['platform-support'],
           credentials: [{
             type: 'password',
-            value: process.env.PLATFORM_SUPPORT_PASSWORD || 'Support2025!',
+            value: getPassword('PLATFORM_SUPPORT_PASSWORD', 'Support2025!'),
             temporary: false
           }]
         },
@@ -1734,7 +1808,7 @@ export class KeycloakService {
           roles: ['platform-risk'],
           credentials: [{
             type: 'password',
-            value: process.env.PLATFORM_RISK_PASSWORD || 'Risk2025!',
+            value: getPassword('PLATFORM_RISK_PASSWORD', 'Risk2025!'),
             temporary: false
           }]
         },
@@ -1749,7 +1823,7 @@ export class KeycloakService {
           roles: ['platform-content'],
           credentials: [{
             type: 'password',
-            value: process.env.PLATFORM_CONTENT_PASSWORD || 'Content2025!',
+            value: getPassword('PLATFORM_CONTENT_PASSWORD', 'Content2025!'),
             temporary: false
           }]
         }
@@ -1850,6 +1924,31 @@ export class KeycloakService {
     try {
       await this.ensureAuthenticated();
 
+      // Production safety: do not auto-create predictable users/passwords unless explicitly enabled.
+      const nodeEnv = process.env.NODE_ENV || 'development';
+      const seedUsers = String(process.env.KEYCLOAK_SEED_USERS || '').toLowerCase() === 'true';
+      if (nodeEnv === 'production' && !seedUsers) {
+        LoggerService.info(
+          'Skipping Keycloak tenant user seeding in production (set KEYCLOAK_SEED_USERS=true to enable).'
+        );
+        return;
+      }
+
+      const getPassword = (envVar: string, fallback: string): string => {
+        const v = process.env[envVar];
+        if (nodeEnv === 'production') {
+          if (!v || v.trim().length < 12) {
+            throw createError(
+              `${envVar} is required when KEYCLOAK_SEED_USERS=true in production (min 12 chars)`,
+              500,
+              'KEYCLOAK_MISCONFIGURED'
+            );
+          }
+          return v;
+        }
+        return v || fallback;
+      };
+
       // Tenant users with specific IDs (UUIDs for consistency)
       const tenantUsers = [
         {
@@ -1863,7 +1962,7 @@ export class KeycloakService {
           roles: [this.DEFAULT_ROLES.BROKER_ADMIN],
           credentials: [{
             type: 'password',
-            value: process.env.TENANT_ADMIN_PASSWORD || 'TenantAdmin2025!',
+            value: getPassword('TENANT_ADMIN_PASSWORD', 'TenantAdmin2025!'),
             temporary: false
           }]
         },
@@ -1878,7 +1977,7 @@ export class KeycloakService {
           roles: [this.DEFAULT_ROLES.BROKER_USER],
           credentials: [{
             type: 'password',
-            value: process.env.TENANT_USER_PASSWORD || 'TenantUser2025!',
+            value: getPassword('TENANT_USER_PASSWORD', 'TenantUser2025!'),
             temporary: false
           }]
         },
@@ -1893,7 +1992,7 @@ export class KeycloakService {
           roles: [this.DEFAULT_ROLES.TRADER],
           credentials: [{
             type: 'password',
-            value: process.env.TENANT_TRADER_PASSWORD || 'TenantTrader2025!',
+            value: getPassword('TENANT_TRADER_PASSWORD', 'TenantTrader2025!'),
             temporary: false
           }]
         },
@@ -1908,7 +2007,7 @@ export class KeycloakService {
           roles: [this.DEFAULT_ROLES.INVESTOR],
           credentials: [{
             type: 'password',
-            value: process.env.TENANT_INVESTOR_PASSWORD || 'TenantInvestor2025!',
+            value: getPassword('TENANT_INVESTOR_PASSWORD', 'TenantInvestor2025!'),
             temporary: false
           }]
         },
@@ -1923,7 +2022,7 @@ export class KeycloakService {
           roles: [this.DEFAULT_ROLES.KYC_USER],
           credentials: [{
             type: 'password',
-            value: process.env.TENANT_KYC_PASSWORD || 'TenantKYC2025!',
+            value: getPassword('TENANT_KYC_PASSWORD', 'TenantKYC2025!'),
             temporary: false
           }]
         },
@@ -1938,7 +2037,7 @@ export class KeycloakService {
           roles: [this.DEFAULT_ROLES.TENANT_USER],
           credentials: [{
             type: 'password',
-            value: process.env.TENANT_DEFAULT_PASSWORD || 'TenantDefault2025!',
+            value: getPassword('TENANT_DEFAULT_PASSWORD', 'TenantDefault2025!'),
             temporary: false
           }]
         }

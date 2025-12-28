@@ -127,6 +127,11 @@ export interface AuthResponse {
 }
 
 export interface JWTPayload {
+  /**
+   * Back-compat alias for older route handlers that expect `req.user.id`.
+   * Canonical field remains `userId`.
+   */
+  id?: string;
   userId: string;
   email: string;
   role: UserRole;

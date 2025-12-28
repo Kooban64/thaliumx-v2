@@ -78,13 +78,24 @@ const envSchema = z.object({
   KEYCLOAK_URL: z.string().url().default('http://localhost:8080'),
   KEYCLOAK_REALM: z.string().default('thaliumx'),
   KEYCLOAK_CLIENT_ID: z.string().default('thaliumx-compliance-cex'),
-  KEYCLOAK_CLIENT_SECRET: z.string().min(1),
+  // Allow either direct secret or a mounted secret file.
+  KEYCLOAK_CLIENT_SECRET: z.string().min(1).optional(),
   KEYCLOAK_CLIENT_SECRET_FILE: z.string().optional(),
 
   // External Services
   VASPS_REGISTRY_URL: z.string().url().optional(),
   SANCTIONS_CHECK_URL: z.string().url().optional(),
   REGULATORY_API_BASE_URL: z.string().url().optional(),
+}).superRefine((val, ctx) => {
+  const hasSecret = typeof val.KEYCLOAK_CLIENT_SECRET === 'string' && val.KEYCLOAK_CLIENT_SECRET.trim().length > 0;
+  const hasFile = typeof val.KEYCLOAK_CLIENT_SECRET_FILE === 'string' && val.KEYCLOAK_CLIENT_SECRET_FILE.trim().length > 0;
+  if (!hasSecret && !hasFile) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['KEYCLOAK_CLIENT_SECRET'],
+      message: 'KEYCLOAK_CLIENT_SECRET or KEYCLOAK_CLIENT_SECRET_FILE is required',
+    });
+  }
 });
 
 /**
@@ -144,7 +155,7 @@ export const config: ComplianceConfig = {
     clientId: env.KEYCLOAK_CLIENT_ID,
     clientSecret: env.KEYCLOAK_CLIENT_SECRET_FILE
       ? require('fs').readFileSync(env.KEYCLOAK_CLIENT_SECRET_FILE, 'utf8').trim()
-      : env.KEYCLOAK_CLIENT_SECRET,
+      : (env.KEYCLOAK_CLIENT_SECRET || ''),
   },
 
   riskThresholds: {

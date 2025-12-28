@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { getAccessToken } from '@/lib/auth/token-store';
+import { getKeycloak, initKeycloak } from '@/lib/auth/keycloak';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,11 +34,19 @@ export default function Dashboard() {
   const [priceChange, setPriceChange] = useState<number>(0);
 
   useEffect(() => {
+    const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+
     // Check authentication and load user data
     const checkAuth = async () => {
       try {
+        if (authMode === 'keycloak') {
+          await initKeycloak();
+        }
+
+        const token = authMode === 'keycloak' ? getAccessToken() : null;
         const response = await fetch('/api/auth/profile', {
-          credentials: 'include' // Include cookies
+          credentials: 'include', // legacy path uses cookies
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (!response.ok) {
           window.location.href = '/auth';
@@ -104,6 +114,19 @@ export default function Dashboard() {
   };
 
   const handleLogout = async () => {
+    const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+
+    if (authMode === 'keycloak') {
+      try {
+        await initKeycloak();
+        const kc = getKeycloak();
+        await kc.logout({ redirectUri: `${window.location.origin}/` });
+        return;
+      } catch (error) {
+        console.error('Keycloak logout error:', error);
+      }
+    }
+
     try {
       await fetch('/api/auth/logout', {
         method: 'POST',

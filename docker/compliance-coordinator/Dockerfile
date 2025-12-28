@@ -48,8 +48,8 @@ COPY --from=builder --chown=compliance:nodejs /app/package*.json ./
 # Copy migrations
 COPY --chown=compliance:nodejs migrations/ ./migrations/
 
-# Install wget for health checks
-RUN apk add --no-cache wget
+# Install runtime tools (healthcheck + privilege drop helper)
+RUN apk add --no-cache wget su-exec
 
 # Set environment variables
 ENV NODE_ENV=production

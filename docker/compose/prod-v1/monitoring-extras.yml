@@ -86,6 +86,8 @@ services:
     container_name: thaliumx-redis-exporter
     hostname: thaliumx-redis-exporter
     restart: unless-stopped
+    # Needs root to read Docker secrets under /run/secrets on many hosts.
+    user: "0:0"
     command:
       - "-redis.addr=redis://redis:6379"
       - "-redis.password-file=/run/secrets/redis-exporter-passwords"

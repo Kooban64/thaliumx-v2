@@ -3,5 +3,6 @@ target/release
 target/debug
 examples
 logs
-src
-Cargo*
+# IMPORTANT:
+# This directory is built into a container image (see `docker/trading/dingir/Dockerfile`).
+# Do not ignore source/manifests, otherwise Docker builds fail.

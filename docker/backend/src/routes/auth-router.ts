@@ -24,241 +24,104 @@
  */
 
 import { Router } from 'express';
-import { AuthService } from '../services/auth';
-// MFA handled via AuthService proxies
-import { UserService } from '../services/user';
 import {
   validateLogin,
   validateRegister,
-  validateRefreshToken,
   validateChangePassword,
   validateResetPassword,
   validateConfirmResetPassword
 } from './auth';
 import { authenticateToken } from '../middleware/error-handler';
-import { AppError } from '../utils/error-handler';
 
 const router: Router = Router();
 
+// =============================================================================
+// KEYCLOAK-ONLY AUTH MODE
+// =============================================================================
+// The ThaliumX platform has standardized on Keycloak (OIDC) as the system-of-record
+// for authentication. The legacy email/password + JWT endpoints below are retained
+// only as stubs to avoid breaking old clients; they intentionally return HTTP 410.
+const legacyAuthGone = (_req: any, res: any) => {
+  res.status(410).json({
+    success: false,
+    error: {
+      code: 'LEGACY_AUTH_DISABLED',
+      message: 'Legacy auth is disabled. Use Keycloak (OIDC) login.'
+    },
+    timestamp: new Date()
+  });
+};
+
 // Public routes
-router.post('/login', validateLogin, async (req, res, next) => {
-  try {
-    const { email, password, mfaCode, rememberMe } = req.body;
-    const result = await AuthService.login(email, password, mfaCode, rememberMe, res);
-    res.json({ success: true, data: result, timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
+router.post('/login', validateLogin, legacyAuthGone);
+
+router.post('/register', validateRegister, legacyAuthGone);
+
+router.post('/refresh', legacyAuthGone);
+
+router.post('/logout', authenticateToken, async (_req, res) => {
+  // Keycloak is stateless for bearer tokens. Client should redirect to Keycloak
+  // end-session endpoint if it wants to actively terminate the SSO session.
+  res.json({ success: true, message: 'Logged out (client-side)', timestamp: new Date() });
 });
 
-router.post('/register', validateRegister, async (req, res, next) => {
+router.post('/reset-password', validateResetPassword, legacyAuthGone);
+
+router.post('/confirm-reset', validateConfirmResetPassword, legacyAuthGone);
+
+// Protected routes
+router.get('/profile', authenticateToken, async (req, res, next) => {
   try {
-    const user = await AuthService.register(req.body);
-    res.status(201).json({ success: true, data: { user }, message: 'User registered successfully', timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post('/refresh', async (req, res, next) => {
-  try {
-    // Support both cookie-based and body-based refresh tokens
-    // Note: req.cookies requires cookie-parser middleware
-    // For now, we'll get from body, but can be enhanced with cookie-parser
-    let refreshToken = req.body?.refreshToken;
-    
-    // Try to get from cookies if available (requires cookie-parser)
-    if (!refreshToken && (req as any).cookies?.refreshToken) {
-      refreshToken = (req as any).cookies.refreshToken;
-    }
-    
-    if (!refreshToken) {
-      res.status(401).json({
-        success: false,
-        error: { code: 'REFRESH_TOKEN_MISSING', message: 'Refresh token required' },
-        timestamp: new Date()
-      });
-      return;
-    }
-    
-    const result = await AuthService.refreshToken(refreshToken);
-    
-    // Set new tokens as httpOnly cookies
-    const isProduction = process.env.NODE_ENV === 'production';
-    const expiresIn = result.expiresIn || 900; // 15 minutes default
-    
-    const cookieOptions = {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict' as const,
-      maxAge: expiresIn * 1000,
-      path: '/'
-    };
-
-    res.cookie('accessToken', result.accessToken, cookieOptions);
-
-    // Refresh token with longer expiration
-    const refreshCookieOptions = {
-      ...cookieOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    };
-    res.cookie('refreshToken', result.refreshToken, refreshCookieOptions);
-    
-    res.json({ 
-      success: true, 
+    // Keycloak-authenticated: return token-derived identity.
+    // NOTE: Keycloak `sub` is not the same as our legacy DB `users.id`, so we
+    // do not attempt DB lookups here.
+    const u = (req as any).user;
+    res.json({
+      success: true,
       data: {
-        user: result.user,
-        expiresIn: result.expiresIn,
-        tokenType: result.tokenType
-        // Don't return tokens if using cookies
-      }, 
-      timestamp: new Date() 
+        user: {
+          id: u?.userId || u?.id,
+          email: u?.email,
+          role: u?.role,
+          roles: u?.roles,
+          tenantId: u?.tenantId,
+          brokerId: u?.brokerId,
+        }
+      },
+      timestamp: new Date()
     });
   } catch (error) {
     next(error);
   }
 });
 
-router.post('/logout', authenticateToken, async (req, res, next) => {
-  try {
-    const userId = (req as any).user?.userId;
-    if (userId) await AuthService.logout(userId);
-    res.json({ success: true, message: 'Logged out successfully', timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
+router.put('/profile', authenticateToken, (_req, res) => {
+  // Profile updates must be performed via Keycloak Admin API / Account Console.
+  res.status(501).json({
+    success: false,
+    error: {
+      code: 'NOT_IMPLEMENTED',
+      message: 'Profile updates are managed by Keycloak.'
+    },
+    timestamp: new Date()
+  });
 });
 
-router.post('/reset-password', validateResetPassword, async (req, res, next) => {
-  try {
-    const { email } = req.body;
-    await AuthService.requestPasswordReset(email);
-    res.json({ success: true, message: 'Password reset email sent if account exists', timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
-});
+router.post('/change-password', authenticateToken, validateChangePassword, legacyAuthGone);
 
-router.post('/confirm-reset', validateConfirmResetPassword, async (req, res, next) => {
-  try {
-    const { token, newPassword } = req.body;
-    await AuthService.confirmPasswordReset(token, newPassword);
-    res.json({ success: true, message: 'Password reset successfully', timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
-});
+router.post('/enable-mfa', authenticateToken, legacyAuthGone);
 
-// Protected routes
-router.get('/profile', authenticateToken, async (req, res, next) => {
-  try {
-    const userId = (req as any).user?.userId;
-    const user = await UserService.getUserById(userId);
-    if (!user) {
-      throw AppError.notFound('User not found');
-    }
-    res.json({ success: true, data: { user }, timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
-});
+router.post('/verify-mfa', authenticateToken, legacyAuthGone);
 
-router.put('/profile', authenticateToken, async (req, res, next) => {
-  try {
-    const userId = (req as any).user?.userId;
-    const updateData = req.body;
-    const { passwordHash, mfaSecret, mfaEnabled, ...allowedUpdates } = updateData;
-    const user = await UserService.updateUser(userId, allowedUpdates);
-    res.json({ success: true, data: { user }, message: 'Profile updated successfully', timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post('/change-password', authenticateToken, validateChangePassword, async (req, res, next) => {
-  try {
-    const userId = (req as any).user?.userId;
-    const { currentPassword, newPassword } = req.body;
-    await AuthService.changePassword(userId, currentPassword, newPassword);
-    res.json({ success: true, message: 'Password changed successfully', timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post('/enable-mfa', authenticateToken, async (req, res, next) => {
-  try {
-    const userId = (req as any).user?.userId;
-    const result = await AuthService.enableMFA(userId);
-    res.json({ success: true, data: result, message: 'MFA setup initiated', timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post('/verify-mfa', authenticateToken, async (req, res, next) => {
-  try {
-    const userId = (req as any).user?.userId;
-    const { code } = req.body;
-    const result = await AuthService.verifyMFA(userId, code);
-    res.json({ success: true, data: result, message: result.success ? 'MFA enabled successfully' : 'Invalid MFA code', timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post('/disable-mfa', authenticateToken, async (req, res, next) => {
-  try {
-    const userId = (req as any).user?.userId;
-    const { password } = req.body;
-    await AuthService.disableMFA(userId, password);
-    res.json({ success: true, message: 'MFA disabled successfully', timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
-});
+router.post('/disable-mfa', authenticateToken, legacyAuthGone);
 
 // MFA management routes
-router.get('/mfa/status', authenticateToken, async (req, res, next) => {
-  try {
-    const userId = (req as any).user?.userId;
-    const status = await AuthService.getMFAStatus(userId);
-    res.json({ success: true, data: status, timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
-});
+router.get('/mfa/status', authenticateToken, legacyAuthGone);
 
-router.post('/mfa/backup-codes', authenticateToken, async (req, res, next) => {
-  try {
-    const userId = (req as any).user?.userId;
-    const codes = await AuthService.regenerateBackupCodes(userId);
-    res.json({ success: true, data: { backupCodes: codes }, timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
-});
+router.post('/mfa/backup-codes', authenticateToken, legacyAuthGone);
 
-router.post('/mfa/verify-email', authenticateToken, async (req, res, next) => {
-  try {
-    const userId = (req as any).user?.userId;
-    const { code } = req.body;
-    const result = await AuthService.verifyEmailMFA(userId, code);
-    res.json({ success: true, data: result, timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
-});
+router.post('/mfa/verify-email', authenticateToken, legacyAuthGone);
 
-router.post('/mfa/use-backup', authenticateToken, async (req, res, next) => {
-  try {
-    const userId = (req as any).user?.userId;
-    const { code } = req.body;
-    const result = await AuthService.useBackupCode(userId, code);
-    res.json({ success: true, data: result, timestamp: new Date() });
-  } catch (error) {
-    next(error);
-  }
-});
+router.post('/mfa/use-backup', authenticateToken, legacyAuthGone);
 
 export default router;

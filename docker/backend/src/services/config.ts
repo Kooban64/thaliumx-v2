@@ -573,16 +573,22 @@ export class ConfigService {
     const config = this.getConfig();
     const isProduction = process.env.NODE_ENV === 'production';
 
+    // If Keycloak is configured, treat it as the system-of-record for auth.
+    // Legacy JWT secrets may still exist in env for backward compatibility, but are not required.
+    const keycloakOnly = !!(process.env.KEYCLOAK_URL || process.env.KEYCLOAK_ADMIN_URL);
+
     // Critical configuration validation
     const errors: string[] = [];
 
-    // JWT validation
-    if (!config.jwt.secret || config.jwt.secret.length < 32) {
-      if (isProduction) {
-        errors.push('JWT secret must be at least 32 characters long');
-      } else {
-        config.jwt.secret = 'development-jwt-secret-key-for-testing-purposes-only-32-chars-minimum';
-        LoggerService.warn('Using default development JWT secret');
+    // JWT validation (legacy)
+    if (!keycloakOnly) {
+      if (!config.jwt.secret || config.jwt.secret.length < 32) {
+        if (isProduction) {
+          errors.push('JWT secret must be at least 32 characters long');
+        } else {
+          config.jwt.secret = 'development-jwt-secret-key-for-testing-purposes-only-32-chars-minimum';
+          LoggerService.warn('Using default development JWT secret');
+        }
       }
     }
 

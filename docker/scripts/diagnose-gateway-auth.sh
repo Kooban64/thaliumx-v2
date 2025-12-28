@@ -15,6 +15,11 @@ APISIX_CONTAINER="${APISIX_CONTAINER:-thaliumx-apisix}"
 ETCD_CONTAINER="${ETCD_CONTAINER:-thaliumx-etcd}"
 KEYCLOAK_CONTAINER="${KEYCLOAK_CONTAINER:-thaliumx-keycloak}"
 
+# Single-realm mode default
+KEYCLOAK_REALM="${KEYCLOAK_REALM:-thaliumx-platform}"
+
+CONF_PATH="${CONF_PATH:-/usr/local/apisix/conf/config.yaml}"
+
 echo "=== ThaliumX Gateway/Auth Diagnostics ==="
 date -u
 echo
@@ -50,10 +55,27 @@ exec_in_sh() {
   docker exec "$name" sh -lc "$*"
 }
 
-curl_in() {
-  local name="$1"; shift
+container_ip() {
+  local name="$1"
+  docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$name" 2>/dev/null || true
+}
+
+have_curl() {
+  command -v curl >/dev/null 2>&1
+}
+
+curl_host() {
+  # Usage: curl_host <curl args...>
+  if ! have_curl; then
+    echo "ERROR: curl is required on the host for this diagnostics script" >&2
+    return 1
+  fi
+
   # Print both status + first lines of body.
-  exec_in_sh "$name" "set -e; curl -sS -D /tmp/headers.txt -o /tmp/body.txt $* || true; head -n 20 /tmp/headers.txt; echo; head -n 40 /tmp/body.txt"
+  curl -sS -D /tmp/headers.txt -o /tmp/body.txt "$@" || true
+  head -n 20 /tmp/headers.txt || true
+  echo
+  head -n 60 /tmp/body.txt || true
 }
 
 require_docker
@@ -74,11 +96,11 @@ done
 
 section "APISIX config snapshot (inside container)"
 if container_running "$APISIX_CONTAINER"; then
-  echo "# /usr/local/apisix/conf/apisix.yaml (first ~200 lines)"
-  exec_in_sh "$APISIX_CONTAINER" "sed -n '1,200p' /usr/local/apisix/conf/apisix.yaml || true"
+  echo "# $CONF_PATH (first ~220 lines)"
+  exec_in_sh "$APISIX_CONTAINER" "sed -n '1,220p' $CONF_PATH || true"
   echo
   echo "# Grep for deployment/config_provider/etcd"
-  exec_in_sh "$APISIX_CONTAINER" "grep -nE 'deployment:|config_provider|etcd:|admin_key|allow_admin|admin_listen' -n /usr/local/apisix/conf/apisix.yaml || true"
+  exec_in_sh "$APISIX_CONTAINER" "grep -nE 'deployment:|config_provider|etcd:|endpoints:|prefix:|admin_key|allow_admin|admin_listen|port_admin' -n $CONF_PATH || true"
 else
   echo "SKIP: APISIX container not running"
 fi
@@ -95,7 +117,7 @@ if container_running "$APISIX_CONTAINER"; then
     echo "WARN: /run/secrets/api-key not present in container"
   fi
 
-  CONFIG_KEY="$(exec_in_sh "$APISIX_CONTAINER" "grep -nE '^[[:space:]]*key:[[:space:]]*' /usr/local/apisix/conf/apisix.yaml | head -n 1 | sed -E 's/.*key:[[:space:]]*\"?([^\" ]+)\"?.*/\1/'" || true)"
+  CONFIG_KEY="$(exec_in_sh "$APISIX_CONTAINER" "grep -nE '^[[:space:]]*key:[[:space:]]*' $CONF_PATH | head -n 1 | sed -E 's/.*key:[[:space:]]*\"?([^\" ]+)\"?.*/\1/'" || true)"
   if [ -n "$CONFIG_KEY" ]; then
     echo "First admin key found in config (masked): ${CONFIG_KEY:0:6}...${CONFIG_KEY: -6} (len ${#CONFIG_KEY})"
   else
@@ -113,23 +135,31 @@ if container_running "$APISIX_CONTAINER"; then
 
   echo
   echo "# Query APISIX Admin API routes list (HTTP status + body head)"
-  if [ -n "$SECRET_KEY" ]; then
-    curl_in "$APISIX_CONTAINER" "-H 'X-API-KEY: ${SECRET_KEY}' http://127.0.0.1:9180/apisix/admin/routes"
-  else
+  if [ -z "$SECRET_KEY" ]; then
     echo "SKIP: no admin key available to test Admin API"
+  else
+    APISIX_IP="$(container_ip "$APISIX_CONTAINER")"
+    if [ -z "$APISIX_IP" ]; then
+      echo "WARN: could not determine APISIX container IP; skipping Admin API probe"
+    else
+      # Admin API is not published to the host; this uses the container's bridge IP.
+      curl_host -H "X-API-KEY: ${SECRET_KEY}" "http://${APISIX_IP}:9180/apisix/admin/routes"
+    fi
   fi
 fi
 
 section "ETCD contents (APISIX keys)"
 if container_running "$ETCD_CONTAINER"; then
   echo "# etcd endpoint health"
-  exec_in_sh "$ETCD_CONTAINER" "/usr/local/bin/etcdctl --endpoints=http://127.0.0.1:2379 endpoint health || true"
+  # etcd image in this stack is distroless-ish (no shell), so call etcdctl directly.
+  docker exec "$ETCD_CONTAINER" /usr/local/bin/etcdctl --endpoints=http://127.0.0.1:2379 endpoint health || true
   echo
   echo "# Count keys under /apisix (if any)"
-  exec_in_sh "$ETCD_CONTAINER" "/usr/local/bin/etcdctl --endpoints=http://127.0.0.1:2379 get --prefix /apisix --keys-only | wc -l | xargs echo 'keys:' || true"
+  keys_count="$(docker exec "$ETCD_CONTAINER" /usr/local/bin/etcdctl --endpoints=http://127.0.0.1:2379 get --prefix /apisix --keys-only | wc -l || true)"
+  echo "keys: ${keys_count:-unknown}"
   echo
   echo "# Show first 50 keys under /apisix"
-  exec_in_sh "$ETCD_CONTAINER" "/usr/local/bin/etcdctl --endpoints=http://127.0.0.1:2379 get --prefix /apisix --keys-only | head -n 50 || true"
+  docker exec "$ETCD_CONTAINER" /usr/local/bin/etcdctl --endpoints=http://127.0.0.1:2379 get --prefix /apisix --keys-only | head -n 50 || true
 else
   echo "SKIP: ETCD container not running"
 fi
@@ -138,39 +168,33 @@ section "Keycloak readiness + base path check"
 if container_running "$KEYCLOAK_CONTAINER"; then
   echo "# Keycloak readiness (HTTPS)"
   # Keycloak in prod-v1 is started with --http-relative-path=/auth and HTTP disabled.
-  curl_in "$KEYCLOAK_CONTAINER" "-k https://127.0.0.1:8443/auth/health/ready"
+  KEYCLOAK_IP="$(container_ip "$KEYCLOAK_CONTAINER")"
+  if [ -n "$KEYCLOAK_IP" ]; then
+    # NOTE: In this stack Keycloak's management interface listens on :9000 (HTTPS)
+    # and health endpoints are exposed under the relative path too: /auth/health/ready.
+    curl_host -k "https://${KEYCLOAK_IP}:9000/auth/health/ready"
+  else
+    echo "WARN: could not determine Keycloak container IP; skipping readiness probe"
+  fi
   echo
-  echo "# Keycloak realm discovery (platform default realm endpoints)"
-  curl_in "$KEYCLOAK_CONTAINER" "-k https://127.0.0.1:8443/auth/realms/thaliumx/.well-known/openid-configuration"
+  echo "# Keycloak realm discovery (${KEYCLOAK_REALM})"
+  if [ -n "$KEYCLOAK_IP" ]; then
+    curl_host -k "https://${KEYCLOAK_IP}:8443/auth/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration"
+  fi
 else
   echo "SKIP: Keycloak container not running"
 fi
 
-section "APISIX -> Keycloak upstream test (from inside APISIX container)"
-if container_running "$APISIX_CONTAINER"; then
-  echo "# Try reaching Keycloak HTTPS directly from APISIX"
-  curl_in "$APISIX_CONTAINER" "-k https://${KEYCLOAK_CONTAINER}:8443/auth/health/ready"
-  echo
-  echo "# Try reaching Keycloak over *HTTP* on 8443 (should FAIL if Keycloak is HTTPS-only)"
-  curl_in "$APISIX_CONTAINER" "http://${KEYCLOAK_CONTAINER}:8443/auth/health/ready"
-else
-  echo "SKIP: APISIX container not running"
-fi
+section "APISIX -> Keycloak upstream test (via APISIX public endpoint)"
+echo "# auth.thaliumx.com -> should proxy to Keycloak /auth/... (OIDC discovery)"
+curl_host -k -H 'Host: auth.thaliumx.com' "https://localhost/auth/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration"
 
 section "Public routing probes via APISIX (Host header simulation)"
-if container_running "$APISIX_CONTAINER"; then
-  echo "# thaliumx.com -> should usually be Frontend (HTML), not Backend JSON"
-  curl_in "$APISIX_CONTAINER" "-H 'Host: thaliumx.com' http://127.0.0.1:9080/"
-  echo
-  echo "# thal.thaliumx.com -> should rewrite to /token-presale on frontend"
-  curl_in "$APISIX_CONTAINER" "-H 'Host: thal.thaliumx.com' http://127.0.0.1:9080/"
-  echo
-  echo "# auth.thaliumx.com -> should proxy to Keycloak /auth/..."
-  curl_in "$APISIX_CONTAINER" "-H 'Host: auth.thaliumx.com' http://127.0.0.1:9080/auth/health/ready"
-else
-  echo "SKIP: APISIX container not running"
-fi
+echo "# thaliumx.com -> should usually be Frontend (HTML), not Backend JSON"
+curl_host -k -H 'Host: thaliumx.com' https://localhost/
+echo
+echo "# thal.thaliumx.com -> should rewrite to /token-presale on frontend"
+curl_host -k -H 'Host: thal.thaliumx.com' https://localhost/
 
 echo
 echo "=== Diagnostics complete ==="
-

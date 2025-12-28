@@ -1,9 +1,18 @@
 // API Configuration
 // In browser: Use relative URLs (Next.js will proxy via API routes)
 // In SSR: Use NEXT_PUBLIC_API_URL or default to backend service name
+import { getAccessToken } from '@/lib/auth/token-store';
+
+// Default to Keycloak-first auth.
+const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+
 const getApiBaseUrl = (): string => {
   // Always check NEXT_PUBLIC_API_URL first (set at build time)
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  // Normalize common misconfiguration: setting NEXT_PUBLIC_API_URL to ".../api".
+  // The frontend code already prefixes requests with `/api/...`, so we must not double it.
+  const normalize = (url: string): string => url.replace(/\/+$/, '').replace(/\/api$/, '');
   
   if (typeof window !== 'undefined') {
     // Browser: Use relative URLs - Next.js API routes will proxy to backend
@@ -12,7 +21,7 @@ const getApiBaseUrl = (): string => {
   }
   
   // SSR: Use environment variable or default to backend service name
-  return envUrl || 'http://thaliumx-backend:3002';
+  return normalize(envUrl || 'http://thaliumx-backend:3002');
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -42,6 +51,8 @@ function getTenantId(): string {
 let csrfToken: string | null = null;
 
 export async function getCSRFToken(): Promise<string> {
+  // Keycloak mode uses Bearer tokens and should not depend on backend CSRF cookies.
+  if (AUTH_MODE === 'keycloak') return '';
   if (csrfToken) return csrfToken;
 
   try {
@@ -96,6 +107,7 @@ class ApiClient {
    * Checks token expiration and refreshes before it expires
    */
   private setupTokenPreRefresh(): void {
+    if (AUTH_MODE !== 'legacy') return;
     // Check token status every minute
     setInterval(async () => {
       try {
@@ -124,6 +136,7 @@ class ApiClient {
    * Refresh token if needed (prevents multiple simultaneous refresh calls)
    */
   private async refreshTokenIfNeeded(): Promise<boolean> {
+    if (AUTH_MODE !== 'legacy') return false;
     // Prevent multiple simultaneous refresh calls
     if (isRefreshing && refreshPromise) {
       return refreshPromise;
@@ -171,11 +184,18 @@ class ApiClient {
       'X-Tenant-ID': getTenantId(), // Always include tenant ID
     };
 
-    // Add CSRF token for non-GET requests
-    if (options.method && options.method !== 'GET') {
+    // If running in Keycloak mode, attach Bearer token when available.
+    // This allows backend+APISIX to authenticate without relying on cookies.
+    const accessToken = typeof window !== 'undefined' ? getAccessToken() : null;
+    if (accessToken && !('Authorization' in (options.headers as any || {}))) {
+      defaultHeaders['Authorization'] = `Bearer ${accessToken}`;
+    }
+
+    // Add CSRF token for non-GET requests (legacy cookie mode only)
+    if (AUTH_MODE === 'legacy' && options.method && options.method !== 'GET') {
       try {
         const csrfToken = await getCSRFToken();
-        defaultHeaders['X-CSRF-Token'] = csrfToken;
+        if (csrfToken) defaultHeaders['X-CSRF-Token'] = csrfToken;
       } catch (error) {
         console.warn('Failed to get CSRF token:', error);
       }
@@ -202,8 +222,14 @@ class ApiClient {
 
       clearTimeout(timeoutId);
 
-      // Handle token expiration (401) - automatically refresh and retry
-      if (response.status === 401 && retryOn401 && endpoint !== '/api/auth/refresh' && endpoint !== '/api/auth/login') {
+      // Handle token expiration (401) - legacy cookie refresh only.
+      if (
+        AUTH_MODE === 'legacy' &&
+        response.status === 401 &&
+        retryOn401 &&
+        endpoint !== '/api/auth/refresh' &&
+        endpoint !== '/api/auth/login'
+      ) {
         const refreshed = await this.refreshTokenIfNeeded();
         if (refreshed) {
           // Retry the original request once

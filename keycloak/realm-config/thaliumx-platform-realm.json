@@ -211,6 +211,7 @@
         "web-origins",
         "acr",
         "profile",
+        "thaliumx-api",
         "roles",
         "email"
       ],
@@ -376,20 +377,6 @@
     "xXSSProtection": "1; mode=block",
     "strictTransportSecurity": "max-age=31536000; includeSubDomains"
   },
-  "smtpServer": {
-    "replyToDisplayName": "ThaliumX Support",
-    "starttls": "true",
-    "auth": "true",
-    "envelopeFrom": "",
-    "ssl": "false",
-    "password": "${SMTP_PASSWORD}",
-    "port": "${SMTP_PORT}",
-    "host": "${SMTP_HOST}",
-    "replyTo": "support@thaliumx.com",
-    "from": "${SMTP_FROM}",
-    "fromDisplayName": "ThaliumX",
-    "user": "${SMTP_USER}"
-  },
   "internationalizationEnabled": true,
   "supportedLocales": [
     "en",
@@ -501,28 +488,5 @@
   },
   "userManagedAccessAllowed": false,
   "identityProviders": [],
-  "identityProviderMappers": [],
-  "users": [
-    {
-      "id": "c4af4c9e-c0b7-4d4d-8da8-6612150085fe",
-      "username": "platform-admin",
-      "email": "platform-admin@thaliumx.com",
-      "firstName": "Platform",
-      "lastName": "Admin",
-      "enabled": true,
-      "emailVerified": true,
-      "credentials": [
-        {
-          "type": "password",
-          "value": "ThaliumX2025Secure!",
-          "temporary": true
-        }
-      ],
-      "realmRoles": [
-        "realm-admin"
-      ],
-      "groups": [],
-      "attributes": {}
-    }
-  ]
+  "identityProviderMappers": []
 }

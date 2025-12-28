@@ -58,12 +58,14 @@ export const validateLogin = (req: Request, res: Response, next: NextFunction): 
 };
 
 export const validateRegister = (req: Request, res: Response, next: NextFunction): void => {
-  const { email, password, username, firstName, lastName } = req.body;
+  // Username is optional: backend will derive it from email if not provided.
+  // Frontend registration form does not ask for a username.
+  const { email, password, firstName, lastName } = req.body;
   
-  if (!email || !password || !username || !firstName || !lastName) {
+  if (!email || !password || !firstName || !lastName) {
     res.status(400).json({
       success: false,
-      error: 'All fields are required',
+      error: 'Email, password, first name, and last name are required',
       timestamp: new Date(),
       requestId: req.headers['x-request-id'] || 'unknown'
     });

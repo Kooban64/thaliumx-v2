@@ -20,6 +20,8 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { tokenPurchaseSchema, validateForm } from '@/lib/utils';
+import { getAccessToken } from '@/lib/auth/token-store';
+import { initKeycloak } from '@/lib/auth/keycloak';
 
 export default function TokenPresalePage() {
   const [amount, setAmount] = useState('');
@@ -31,6 +33,8 @@ export default function TokenPresalePage() {
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [brokerCode, setBrokerCode] = useState<string>('');
   const [thalPrice, setThalPrice] = useState<number>(0.10); // Default fallback price
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
 
   useEffect(() => {
     // Load presale data
@@ -38,7 +42,36 @@ export default function TokenPresalePage() {
 
     // Load THAL price
     loadThalPrice();
+
+    // Determine auth state
+    (async () => {
+      if (authMode === 'keycloak') {
+        try {
+          await initKeycloak();
+        } catch {
+          // ignore
+        }
+        setIsAuthenticated(!!getAccessToken());
+        return;
+      }
+      // legacy mode: backend cookies
+      try {
+        const res = await fetch('/api/auth/profile', { credentials: 'include' });
+        setIsAuthenticated(res.ok);
+      } catch {
+        setIsAuthenticated(false);
+      }
+    })();
   }, []);
+
+  const authzHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    const token = authMode === 'keycloak' ? getAccessToken() : null;
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    return headers;
+  };
 
   const loadThalPrice = async () => {
     try {
@@ -62,7 +95,8 @@ export default function TokenPresalePage() {
       const response = await fetch('/api/presale/status', {
         credentials: 'include', // Include cookies
         headers: {
-          'X-Tenant-ID': defaultTenantId
+          'X-Tenant-ID': defaultTenantId,
+          ...authzHeaders(),
         }
       });
 
@@ -104,7 +138,8 @@ export default function TokenPresalePage() {
         headers: {
           'Content-Type': 'application/json',
           'X-Tenant-ID': defaultTenantId,
-          ...(brokerCode ? { 'X-Broker-Code': brokerCode } : {})
+          ...(brokerCode ? { 'X-Broker-Code': brokerCode } : {}),
+          ...authzHeaders(),
         },
         credentials: 'include', // Include cookies
         body: JSON.stringify({
@@ -134,8 +169,6 @@ export default function TokenPresalePage() {
     }
   };
 
-  const isAuthenticated = typeof window !== 'undefined' && localStorage.getItem('authToken');
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
       {/* Header */}
@@ -156,7 +189,7 @@ export default function TokenPresalePage() {
             {!isAuthenticated ? (
               <>
                 <Button variant="ghost" size="sm" asChild>
-                  <a href="/auth">Sign In</a>
+                  <a href="/auth?next=/token-presale">Sign In</a>
                 </Button>
                 <Button size="sm" asChild>
                   <a href="/dashboard">Launch App</a>
@@ -274,7 +307,7 @@ export default function TokenPresalePage() {
               {!isAuthenticated && (
                 <Alert>
                   <AlertDescription>
-                    <a href="/auth" className="text-primary underline">Sign in</a> to purchase tokens
+                    <a href="/auth?next=/token-presale" className="text-primary underline">Sign in</a> to purchase tokens
                   </AlertDescription>
                 </Alert>
               )}

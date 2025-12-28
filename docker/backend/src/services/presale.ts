@@ -24,6 +24,7 @@ import { SmartContractService } from './smart-contracts';
 import { KYCService } from './kyc';
 import { RBACService } from './rbac';
 import { Web3WalletService } from './web3-wallet';
+import { DatabaseService } from './database';
 import { AppError, createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
 import { ethers, Wallet } from 'ethers';
@@ -451,13 +452,113 @@ export class PresaleService {
    */
   private static async loadExistingPresales(): Promise<void> {
     try {
-      // In production, this would load from database/storage
-      LoggerService.info('Loading existing presales...');
-      
-      LoggerService.info(`Loaded ${this.presales.size} presales`);
+      LoggerService.info('Loading existing presales (DB-backed)...');
+
+      // Best-effort: if the DB isn't ready, keep service functional with in-memory defaults.
+      const PresaleModel = DatabaseService.getModel('Presale');
+      const PresaleInvestmentModel = DatabaseService.getModel('PresaleInvestment');
+      const PresaleWhitelistModel = DatabaseService.getModel('PresaleWhitelist');
+
+      const [presales, investments, whitelist] = await Promise.all([
+        (PresaleModel as any).findAll(),
+        (PresaleInvestmentModel as any).findAll(),
+        (PresaleWhitelistModel as any).findAll(),
+      ]);
+
+      const toDec = (v: any): DecimalType => new Decimal(String(v ?? '0')) as any;
+
+      this.presales.clear();
+      for (const row of presales as any[]) {
+        const r = row.toJSON ? row.toJSON() : row;
+        const p: PresaleConfig = {
+          id: String(r.id),
+          name: String(r.name),
+          symbol: String(r.symbol),
+          description: String(r.description),
+          phase: r.phase as PresalePhase,
+          status: r.status as PresaleStatus,
+          startDate: new Date(r.startDate),
+          endDate: new Date(r.endDate),
+          tokenPrice: toDec(r.tokenPrice),
+          totalSupply: toDec(r.totalSupply),
+          availableSupply: toDec(r.availableSupply),
+          minInvestment: toDec(r.minInvestment),
+          maxInvestment: toDec(r.maxInvestment),
+          softCap: toDec(r.softCap),
+          hardCap: toDec(r.hardCap),
+          raisedAmount: toDec(r.raisedAmount),
+          tiers: Array.isArray(r.tiers) ? r.tiers : [],
+          vestingSchedule: (r.vestingSchedule || {}) as VestingSchedule,
+          whitelistRequired: !!r.whitelistRequired,
+          kycRequired: !!r.kycRequired,
+          referralEnabled: !!r.referralEnabled,
+          bonusEnabled: !!r.bonusEnabled,
+          smartContractAddress: r.smartContractAddress || undefined,
+          metadata: (r.metadata || {}) as PresaleMetadata,
+          createdAt: new Date(r.createdAt || Date.now()),
+          updatedAt: new Date(r.updatedAt || Date.now()),
+        };
+        this.presales.set(p.id, p);
+      }
+
+      this.investments.clear();
+      for (const row of investments as any[]) {
+        const r = row.toJSON ? row.toJSON() : row;
+        const inv: PresaleInvestment = {
+          id: String(r.id),
+          presaleId: String(r.presaleId),
+          userId: String(r.userId),
+          tenantId: r.tenantId ? String(r.tenantId) : '',
+          attributedBrokerId: r.attributedBrokerId || undefined,
+          tier: r.tier as InvestmentTier,
+          amount: toDec(r.amount),
+          tokenAmount: toDec(r.tokenAmount),
+          paymentMethod: r.paymentMethod as PaymentMethod,
+          paymentAddress: r.paymentAddress || undefined,
+          transactionHash: r.transactionHash || undefined,
+          bonusAmount: toDec(r.bonusAmount),
+          referralCode: r.referralCode || undefined,
+          referralBonus: r.referralBonus ? toDec(r.referralBonus) : undefined,
+          kycLevel: r.kycLevel || 'L0',
+          status: r.status as InvestmentStatus,
+          vestingSchedule: (r.vestingSchedule || {}) as VestingSchedule,
+          metadata: (r.metadata || {}) as InvestmentMetadata,
+          createdAt: new Date(r.createdAt || Date.now()),
+          updatedAt: new Date(r.updatedAt || Date.now()),
+        };
+        this.investments.set(inv.id, inv);
+      }
+
+      this.whitelist.clear();
+      for (const row of whitelist as any[]) {
+        const r = row.toJSON ? row.toJSON() : row;
+        const entry: WhitelistEntry = {
+          id: String(r.id),
+          presaleId: String(r.presaleId),
+          userId: String(r.userId),
+          email: String(r.email),
+          walletAddress: String(r.walletAddress),
+          tier: r.tier as InvestmentTier,
+          maxInvestment: toDec(r.maxInvestment),
+          kycLevel: r.kycLevel || 'L0',
+          status: r.status as WhitelistStatus,
+          referralCode: r.referralCode || undefined,
+          referredBy: r.referredBy || undefined,
+          metadata: (r.metadata || {}) as WhitelistMetadata,
+          createdAt: new Date(r.createdAt || Date.now()),
+          updatedAt: new Date(r.updatedAt || Date.now()),
+        };
+        this.whitelist.set(entry.id, entry);
+      }
+
+      LoggerService.info('Loaded presale state from DB', {
+        presales: this.presales.size,
+        investments: this.investments.size,
+        whitelist: this.whitelist.size,
+      });
     } catch (error) {
       LoggerService.error('Failed to load existing presales:', error);
-      throw error;
+      LoggerService.warn('Continuing with in-memory presale defaults (DB load failed)');
     }
   }
 
@@ -465,6 +566,10 @@ export class PresaleService {
    * Initialize default presales
    */
   private static async initializeDefaultPresales(): Promise<void> {
+    const now = new Date();
+    const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const end = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
     const defaultPresales = [
       {
         id: 'thal-presale-v1',
@@ -473,8 +578,9 @@ export class PresaleService {
         description: 'The official presale for ThaliumX platform tokens',
         phase: PresalePhase.PUBLIC,
         status: PresaleStatus.ACTIVE,
-        startDate: new Date('2024-01-01'),
-        endDate: new Date('2024-12-31'),
+        // Keep the default presale active in fresh installs.
+        startDate: new Date(process.env.PRESALE_START_DATE || start.toISOString()),
+        endDate: new Date(process.env.PRESALE_END_DATE || end.toISOString()),
         tokenPrice: new Decimal('0.10'),
         totalSupply: new Decimal('1000000000'),
         availableSupply: new Decimal('200000000'),
@@ -613,12 +719,58 @@ export class PresaleService {
       }
     ];
 
+    const PresaleModel = (() => {
+      try {
+        return DatabaseService.getModel('Presale');
+      } catch {
+        return null;
+      }
+    })();
+
     for (const presaleData of defaultPresales) {
       const presale: PresaleConfig = presaleData as PresaleConfig;
+
+      // If already loaded from DB, don't overwrite.
+      if (this.presales.has(presale.id)) continue;
+
       this.presales.set(presale.id, presale);
+
+      if (PresaleModel) {
+        try {
+          await (PresaleModel as any).upsert({
+            id: presale.id,
+            tenantId: (process.env.KEYCLOAK_DEFAULT_TENANT_ID || null),
+            name: presale.name,
+            symbol: presale.symbol,
+            description: presale.description,
+            phase: presale.phase,
+            status: presale.status,
+            startDate: presale.startDate,
+            endDate: presale.endDate,
+            tokenPrice: presale.tokenPrice.toString(),
+            totalSupply: presale.totalSupply.toString(),
+            availableSupply: presale.availableSupply.toString(),
+            minInvestment: presale.minInvestment.toString(),
+            maxInvestment: presale.maxInvestment.toString(),
+            softCap: presale.softCap.toString(),
+            hardCap: presale.hardCap.toString(),
+            raisedAmount: presale.raisedAmount.toString(),
+            tiers: presale.tiers,
+            vestingSchedule: presale.vestingSchedule,
+            whitelistRequired: presale.whitelistRequired,
+            kycRequired: presale.kycRequired,
+            referralEnabled: presale.referralEnabled,
+            bonusEnabled: presale.bonusEnabled,
+            smartContractAddress: presale.smartContractAddress || null,
+            metadata: presale.metadata,
+          });
+        } catch (e: any) {
+          LoggerService.warn('Failed to persist default presale; continuing', { presaleId: presale.id, error: e?.message });
+        }
+      }
     }
 
-    LoggerService.info(`Created ${defaultPresales.length} default presales`);
+    LoggerService.info('Initialized default presales', { count: defaultPresales.length });
   }
 
   /**
@@ -963,6 +1115,40 @@ export class PresaleService {
 
       this.presales.set(presaleId, presale);
 
+      // Persist (best-effort)
+      try {
+        const PresaleModel = DatabaseService.getModel('Presale');
+        await (PresaleModel as any).create({
+          id: presale.id,
+          tenantId: (process.env.KEYCLOAK_DEFAULT_TENANT_ID || null),
+          name: presale.name,
+          symbol: presale.symbol,
+          description: presale.description,
+          phase: presale.phase,
+          status: presale.status,
+          startDate: presale.startDate,
+          endDate: presale.endDate,
+          tokenPrice: presale.tokenPrice.toString(),
+          totalSupply: presale.totalSupply.toString(),
+          availableSupply: presale.availableSupply.toString(),
+          minInvestment: presale.minInvestment.toString(),
+          maxInvestment: presale.maxInvestment.toString(),
+          softCap: presale.softCap.toString(),
+          hardCap: presale.hardCap.toString(),
+          raisedAmount: presale.raisedAmount.toString(),
+          tiers: presale.tiers,
+          vestingSchedule: presale.vestingSchedule,
+          whitelistRequired: presale.whitelistRequired,
+          kycRequired: presale.kycRequired,
+          referralEnabled: presale.referralEnabled,
+          bonusEnabled: presale.bonusEnabled,
+          smartContractAddress: presale.smartContractAddress || null,
+          metadata: presale.metadata,
+        });
+      } catch (e: any) {
+        LoggerService.warn('Failed to persist created presale (DB); continuing', { presaleId: presale.id, error: e?.message });
+      }
+
       LoggerService.info(`Presale created successfully`, {
         presaleId,
         name: presale.name,
@@ -1013,6 +1199,41 @@ export class PresaleService {
       };
 
       this.presales.set(presaleId, updatedPresale);
+
+      // Persist (best-effort)
+      try {
+        const PresaleModel = DatabaseService.getModel('Presale');
+        await (PresaleModel as any).update(
+          {
+            name: updatedPresale.name,
+            symbol: updatedPresale.symbol,
+            description: updatedPresale.description,
+            phase: updatedPresale.phase,
+            status: updatedPresale.status,
+            startDate: updatedPresale.startDate,
+            endDate: updatedPresale.endDate,
+            tokenPrice: updatedPresale.tokenPrice.toString(),
+            totalSupply: updatedPresale.totalSupply.toString(),
+            availableSupply: updatedPresale.availableSupply.toString(),
+            minInvestment: updatedPresale.minInvestment.toString(),
+            maxInvestment: updatedPresale.maxInvestment.toString(),
+            softCap: updatedPresale.softCap.toString(),
+            hardCap: updatedPresale.hardCap.toString(),
+            raisedAmount: updatedPresale.raisedAmount.toString(),
+            tiers: updatedPresale.tiers,
+            vestingSchedule: updatedPresale.vestingSchedule,
+            whitelistRequired: updatedPresale.whitelistRequired,
+            kycRequired: updatedPresale.kycRequired,
+            referralEnabled: updatedPresale.referralEnabled,
+            bonusEnabled: updatedPresale.bonusEnabled,
+            smartContractAddress: updatedPresale.smartContractAddress || null,
+            metadata: updatedPresale.metadata,
+          },
+          { where: { id: presaleId } }
+        );
+      } catch (e: any) {
+        LoggerService.warn('Failed to persist updated presale (DB); continuing', { presaleId, error: e?.message });
+      }
 
       LoggerService.info(`Presale updated successfully`, {
         presaleId,
@@ -1110,6 +1331,34 @@ export class PresaleService {
       };
 
       this.investments.set(investmentId, investment);
+
+      // Persist the investment immediately (best-effort). We update it again after
+      // on-chain/off-chain processing mutates status/tx fields.
+      try {
+        const PresaleInvestmentModel = DatabaseService.getModel('PresaleInvestment');
+        await (PresaleInvestmentModel as any).upsert({
+          id: investment.id,
+          presaleId: investment.presaleId,
+          userId: investment.userId,
+          tenantId: investment.tenantId || null,
+          attributedBrokerId: investment.attributedBrokerId || null,
+          tier: investment.tier,
+          amount: investment.amount.toString(),
+          tokenAmount: investment.tokenAmount.toString(),
+          bonusAmount: investment.bonusAmount.toString(),
+          referralCode: investment.referralCode || null,
+          referralBonus: investment.referralBonus ? investment.referralBonus.toString() : null,
+          paymentMethod: investment.paymentMethod,
+          paymentAddress: investment.paymentAddress || null,
+          transactionHash: investment.transactionHash || null,
+          kycLevel: investment.kycLevel,
+          status: investment.status,
+          vestingSchedule: investment.vestingSchedule,
+          metadata: investment.metadata,
+        });
+      } catch (e: any) {
+        LoggerService.warn('Failed to persist investment (DB); continuing', { investmentId: investment.id, error: e?.message });
+      }
 
       // Execute on-chain purchase if payment method is crypto (USDT, USDC, etc.)
       if (paymentMethod === PaymentMethod.USDT || paymentMethod === PaymentMethod.USDC) {
@@ -1238,6 +1487,35 @@ export class PresaleService {
       // Update investment record
       this.investments.set(investmentId, investment);
 
+      // Persist final state (best-effort)
+      try {
+        const PresaleInvestmentModel = DatabaseService.getModel('PresaleInvestment');
+        await (PresaleInvestmentModel as any).update(
+          {
+            status: investment.status,
+            transactionHash: investment.transactionHash || null,
+            metadata: investment.metadata,
+            tokenAmount: investment.tokenAmount.toString(),
+            bonusAmount: investment.bonusAmount.toString(),
+            referralBonus: investment.referralBonus ? investment.referralBonus.toString() : null,
+          },
+          { where: { id: investmentId } }
+        );
+      } catch (e: any) {
+        LoggerService.warn('Failed to persist final investment update (DB); continuing', { investmentId, error: e?.message });
+      }
+
+      // Persist presale raised amount (best-effort)
+      try {
+        const PresaleModel = DatabaseService.getModel('Presale');
+        await (PresaleModel as any).update(
+          { raisedAmount: presale.raisedAmount.toString() },
+          { where: { id: presaleId } }
+        );
+      } catch (e: any) {
+        LoggerService.warn('Failed to persist presale raised amount (DB); continuing', { presaleId, error: e?.message });
+      }
+
       return investment;
 
     } catch (error) {
@@ -1314,6 +1592,27 @@ export class PresaleService {
 
       this.whitelist.set(entryId, entry);
 
+      // Persist (best-effort)
+      try {
+        const PresaleWhitelistModel = DatabaseService.getModel('PresaleWhitelist');
+        await (PresaleWhitelistModel as any).upsert({
+          id: entry.id,
+          presaleId: entry.presaleId,
+          userId: entry.userId,
+          email: entry.email,
+          walletAddress: entry.walletAddress,
+          tier: entry.tier,
+          maxInvestment: entry.maxInvestment.toString(),
+          kycLevel: entry.kycLevel,
+          status: entry.status,
+          referralCode: entry.referralCode || null,
+          referredBy: entry.referredBy || null,
+          metadata: entry.metadata,
+        });
+      } catch (e: any) {
+        LoggerService.warn('Failed to persist whitelist entry (DB); continuing', { entryId: entry.id, error: e?.message });
+      }
+
       LoggerService.info(`Added to whitelist successfully`, {
         entryId,
         presaleId,
@@ -1345,6 +1644,17 @@ export class PresaleService {
       entry.updatedAt = new Date();
 
       this.whitelist.set(entryId, entry);
+
+      // Persist (best-effort)
+      try {
+        const PresaleWhitelistModel = DatabaseService.getModel('PresaleWhitelist');
+        await (PresaleWhitelistModel as any).update(
+          { status: entry.status, metadata: entry.metadata },
+          { where: { id: entryId } }
+        );
+      } catch (e: any) {
+        LoggerService.warn('Failed to persist whitelist approval (DB); continuing', { entryId, error: e?.message });
+      }
 
       LoggerService.info(`Whitelist entry approved successfully`, {
         entryId,

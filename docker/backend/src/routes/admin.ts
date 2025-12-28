@@ -407,20 +407,20 @@ router.put('/kyc/:id', requireRole(['admin', 'super_admin', 'compliance']), asyn
 router.get('/settings', requireRole(['super_admin']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     // Get system settings from ConfigService
-    const { ConfigService } = await import('../services/config');
+    const { ConfigService } = await import('../services/config-enhanced');
     const config = ConfigService.getConfig();
     
     // Return sanitized config (remove sensitive data like private keys)
     const safeConfig = {
       server: {
-        port: (config as any).server?.port,
-        environment: (config as any).server?.environment,
-        host: (config as any).server?.host
+        port: (config as any).port,
+        environment: (config as any).env,
+        host: process.env.HOST || '0.0.0.0'
       },
       database: {
         host: config.database.host,
         port: config.database.port,
-        name: (config.database as any).name,
+        name: (config.database as any).database,
         ssl: config.database.ssl
       },
       redis: {
@@ -472,9 +472,9 @@ router.put('/settings', requireRole(['super_admin']), async (req: Request, res: 
     
     // Reload config if ConfigService supports it
     try {
-      const { ConfigService } = await import('../services/config');
+      const { ConfigService } = await import('../services/config-enhanced');
       if ((ConfigService as any).reloadConfig) {
-        (ConfigService as any).reloadConfig();
+        await (ConfigService as any).reloadConfig();
       }
     } catch (error) {
       LoggerService.warn('Could not reload config', { error });

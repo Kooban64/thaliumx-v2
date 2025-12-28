@@ -65,10 +65,18 @@ export const globalErrorHandler = (
   let code = 'INTERNAL_ERROR';
 
   // Handle known error types
-  if (error instanceof AppError) {
-    statusCode = error.statusCode;
-    message = error.message;
-    code = error.code;
+  // NOTE:
+  // This codebase currently has *two* `AppError` classes:
+  // - [`AppError`](docker/backend/src/utils/index.ts:313) (simple)
+  // - [`AppError`](docker/backend/src/utils/error-handler.ts:88) (rich, with ErrorCode enum + static helpers)
+  // Not all modules import the same one, so `instanceof AppError` is not sufficient.
+  // Treat any error that looks like an AppError (has numeric statusCode) as structured.
+  const anyErr = error as any;
+
+  if (error instanceof AppError || (typeof anyErr?.statusCode === 'number' && anyErr?.code)) {
+    statusCode = typeof anyErr.statusCode === 'number' ? anyErr.statusCode : 500;
+    message = typeof anyErr.message === 'string' ? anyErr.message : message;
+    code = String(anyErr.code || code);
   } else if (error.name === 'ValidationError') {
     statusCode = 400;
     message = 'Validation Error';
@@ -215,6 +223,14 @@ export const rateLimiter = rateLimit({
     if (req.path === '/health' || req.path === '/metrics') {
       return true;
     }
+
+    // IMPORTANT (ThaliumX auth contract):
+    // Public auth endpoints are already rate-limited at the gateway (APISIX) with
+    // per-IP controls. Applying this global 15-min limiter to `/api/auth/*` causes
+    // false-positive lockouts during normal UI flows (csrf-token, login, profile/me, etc.).
+    if (req.path.startsWith('/api/auth/')) {
+      return true;
+    }
     // Skip rate limiting in test environment
     if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
       return true;
@@ -293,7 +309,29 @@ export const financialRateLimiter = rateLimit({
 // =============================================================================
 
 import * as jwt from 'jsonwebtoken';
+import jwksRsa, { JwksClient } from 'jwks-rsa';
 // User type imported but not directly used - used in type annotations via req.user
+
+// Cache JWKS clients per JWKS URI (enterprise-grade: avoids per-request discovery)
+const jwksClients = new Map<string, JwksClient>();
+
+const getJwksClient = (jwksUri: string): JwksClient => {
+  const existing = jwksClients.get(jwksUri);
+  if (existing) return existing;
+
+  const client = jwksRsa({
+    jwksUri,
+    cache: true,
+    cacheMaxEntries: 5,
+    cacheMaxAge: 10 * 60 * 1000,
+    rateLimit: true,
+    jwksRequestsPerMinute: 10,
+    timeout: 10_000,
+  });
+
+  jwksClients.set(jwksUri, client);
+  return client;
+};
 
 export const authenticateToken = async (
   req: Request,
@@ -301,47 +339,34 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Accept tokens from either Authorization header (Bearer) or httpOnly cookie.
+    // Keycloak-first auth.
+    // For public-facing production we only accept Bearer tokens issued by Keycloak.
+    // (Legacy internal JWT + cookie auth is intentionally disabled.)
     const authHeader = req.headers.authorization;
     const bearer = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
-    const cookieToken = (req as any).cookies?.accessToken as string | undefined;
     const headerToken = (req.headers['x-access-token'] as string | undefined) || undefined;
 
-    const token = bearer || cookieToken || headerToken;
+    const token = bearer || headerToken;
 
     if (!token) {
       throw createError('Access token required', 401, 'MISSING_TOKEN');
     }
-
-    // -------------------------------------------------------------------------
-    // Keycloak-authoritative auth
-    // -------------------------------------------------------------------------
-    // We support BOTH:
-    //  1) Legacy internal JWTs (signed by JWT_SECRET) for backward compatibility
-    //  2) Keycloak access tokens (verified via Keycloak token introspection)
-    //
-    // Detection strategy:
-    //  - If token has an OIDC issuer with `/realms/<realm>` -> treat as Keycloak
-    //  - Otherwise -> treat as internal JWT
 
     const decoded: any = jwt.decode(token) || {};
     const issuer: string | undefined = typeof decoded.iss === 'string' ? decoded.iss : undefined;
     const isKeycloakToken = !!issuer && /\/realms\//.test(issuer);
 
     if (!isKeycloakToken) {
-      // Legacy internal token path
-      const payload = verifyToken(token, false);
-      req.user = payload;
-      next();
-      return;
+      throw createError('Invalid token issuer', 401, 'INVALID_TOKEN');
     }
 
     // ------------------------------
-    // Keycloak token introspection
+    // Keycloak token verification
     // ------------------------------
     const keycloakBaseUrl = process.env.KEYCLOAK_URL || 'https://keycloak:8443';
 
     const clientId = process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend';
+    // Client secret is ONLY required for introspection fallback.
     const clientSecret = (() => {
       if (process.env.KEYCLOAK_CLIENT_SECRET && process.env.KEYCLOAK_CLIENT_SECRET.trim()) {
         return process.env.KEYCLOAK_CLIENT_SECRET.trim();
@@ -353,29 +378,86 @@ export const authenticateToken = async (
       return '';
     })();
 
-    if (!clientSecret) {
-      throw createError('Keycloak client secret not configured', 500, 'KEYCLOAK_MISCONFIGURED');
-    }
-
     const realmMatch = issuer.match(/\/realms\/([^/]+)$/);
     const realmFromIss = realmMatch?.[1];
-    const realm = realmFromIss || process.env.KEYCLOAK_REALM || 'thaliumx-default-tenant';
+    const expectedRealm = process.env.KEYCLOAK_REALM || 'thaliumx-platform';
+    const realm = realmFromIss || expectedRealm;
 
-    const introspectUrl = `${keycloakBaseUrl}/auth/realms/${realm}/protocol/openid-connect/token/introspect`;
-    const body = new URLSearchParams({
-      token,
-      client_id: clientId,
-      client_secret: clientSecret
-    }).toString();
+    // Enforce single-realm (end-user) API tokens.
+    // If you later decide to accept multiple realms, add an allowlist here.
+    if (realm !== expectedRealm) {
+      throw createError('Invalid token realm', 401, 'INVALID_TOKEN');
+    }
 
-    const introspection = await axios.post(introspectUrl, body, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      timeout: 10_000
-    });
+    // Prefer local JWT verification via JWKS (faster + more reliable than per-request introspection).
+    // Fall back to introspection for edge cases (revocation checks, JWKS fetch failure).
+    const jwksUri = `${keycloakBaseUrl}/auth/realms/${realm}/protocol/openid-connect/certs`;
 
-    const active = !!introspection.data?.active;
-    if (!active) {
-      throw createError('Invalid token', 401, 'INVALID_TOKEN');
+    let verifiedToken: any | null = null;
+    try {
+      const client = getJwksClient(jwksUri);
+      const getKey: jwt.GetPublicKeyOrSecret = (header, callback) => {
+        const kid = header.kid;
+        if (!kid) return callback(new Error('Missing kid'), undefined);
+        client.getSigningKey(kid, (err, key) => {
+          if (err) return callback(err, undefined);
+          if (!key) return callback(new Error('No signing key returned'), undefined);
+          const signingKey = key.getPublicKey();
+          callback(null, signingKey);
+        });
+      };
+
+      verifiedToken = await new Promise((resolve, reject) => {
+        jwt.verify(
+          token,
+          getKey,
+          {
+            algorithms: ['RS256'],
+            issuer,
+          },
+          (err, payload) => {
+            if (err) return reject(err);
+            resolve(payload);
+          },
+        );
+      });
+    } catch (verifyErr) {
+      LoggerService.warn('Keycloak JWKS verification failed; falling back to introspection', {
+        error: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
+        jwksUri,
+      });
+    }
+
+    // If local verification succeeded, we treat the token as valid.
+    // Otherwise, perform standard introspection (active flag) as fallback (requires client secret).
+    if (!verifiedToken) {
+      if (!clientSecret) {
+        throw createError('Keycloak client secret not configured (required for introspection fallback)', 500, 'KEYCLOAK_MISCONFIGURED');
+      }
+      const introspectUrl = `${keycloakBaseUrl}/auth/realms/${realm}/protocol/openid-connect/token/introspect`;
+      const body = new URLSearchParams({
+        token,
+        client_id: clientId,
+        client_secret: clientSecret
+      }).toString();
+
+      const introspection = await axios.post(introspectUrl, body, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: 10_000
+      });
+
+      const active = !!introspection.data?.active;
+      if (!active) {
+        throw createError('Invalid token', 401, 'INVALID_TOKEN');
+      }
+    }
+
+    // Strict audience check (defense-in-depth).
+    // User tokens should be minted for `thaliumx-frontend` but MUST include backend as audience.
+    const aud = decoded?.aud;
+    const audList = Array.isArray(aud) ? aud : typeof aud === 'string' ? [aud] : [];
+    if (!audList.includes(clientId)) {
+      throw createError('Invalid token audience', 401, 'INVALID_TOKEN');
     }
 
     // Map Keycloak JWT claims into our internal JWTPayload shape.
@@ -396,6 +478,7 @@ export const authenticateToken = async (
     const resolvedTenantId = tokenTenantId || headerTenantId || process.env.KEYCLOAK_DEFAULT_TENANT_ID || '10000000-0000-0000-0000-000000000000';
 
     const payload: JWTPayload = {
+      id: (decoded?.sub as string) || 'unknown',
       userId: (decoded?.sub as string) || 'unknown',
       email: (decoded?.email as string) || (decoded?.preferred_username as string) || 'unknown',
       role: selectedRole as any,
@@ -440,13 +523,19 @@ export const requireRole = (roles: string[]) => {
     security_officer: ['platform-security']
   };
 
-  // Expand provided roles with aliases
-  const expandedAllowed = new Set<string>();
-  for (const r of roles) {
-    expandedAllowed.add(r);
-    const alias = roleAliases[r];
-    if (alias) alias.forEach(a => expandedAllowed.add(a));
-  }
+  const expand = (input: string[]): Set<string> => {
+    const out = new Set<string>();
+    for (const r of input) {
+      if (!r) continue;
+      out.add(r);
+      const alias = roleAliases[r];
+      if (alias) alias.forEach(a => out.add(a));
+    }
+    return out;
+  };
+
+  // Expand allowed roles with aliases.
+  const expandedAllowed = expand(roles);
 
   return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user) {
@@ -454,8 +543,17 @@ export const requireRole = (roles: string[]) => {
       return;
     }
 
-    const userRole = req.user.role;
-    if (!expandedAllowed.has(userRole)) {
+    // User may carry multiple roles (Keycloak realm/client roles). Accept if ANY matches.
+    const userRoles = Array.from(
+      new Set([
+        req.user.role,
+        ...(Array.isArray((req.user as any).roles) ? ((req.user as any).roles as string[]) : [])
+      ].filter(Boolean))
+    );
+    const expandedUser = expand(userRoles);
+
+    const isAllowed = Array.from(expandedUser).some(r => expandedAllowed.has(r));
+    if (!isAllowed) {
       next(createError('Insufficient permissions', 403, 'INSUFFICIENT_PERMISSIONS'));
       return;
     }

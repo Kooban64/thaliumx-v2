@@ -20,7 +20,9 @@ services:
       postgres:
         condition: service_healthy
       vault:
-        condition: service_healthy
+        # Resilience: Keycloak should still start if Vault is temporarily unavailable.
+        # Vault is optional for Keycloak runtime in this stack.
+        condition: service_started
     environment:
       # Database configuration (PostgreSQL with SSL)
       KC_DB: postgres
@@ -70,13 +72,14 @@ services:
       JAVA_OPTS: "-Xms512m -Xmx2048m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=512m -Djava.net.preferIPv4Stack=true -Djava.security.egd=file:/dev/./urandom"
     volumes:
       - keycloak_data:/opt/keycloak/data
-      - ./../../keycloak/realm-config:/opt/keycloak/data/import
+      # Single-realm import: ONLY import thaliumx-platform.
+      # Avoid importing multiple realms from a directory (prevents accidental re-creation of old realms).
+      - ./../../keycloak/realm-config/thaliumx-platform-realm.json:/opt/keycloak/data/import/thaliumx-platform-realm.json:ro
       - ./../../certs/services/keycloak:/opt/keycloak/certs:ro
       - ./../../certs/ca/ca.crt:/opt/keycloak/certs/ca.crt:ro
     secrets:
       - keycloak-admin-username
       - keycloak-admin-password
-      - postgres-username
       - postgres-password
     # Strict audit mode: do not pass secrets via docker-compose interpolation.
     # Read all secrets from Docker secrets at runtime.
@@ -86,9 +89,16 @@ services:
     entrypoint: ["sh", "-lc"]
     command:
       - |
+        # Keycloak bootstrap admin credentials
+        # - New-style vars (Keycloak 17+): KC_BOOTSTRAP_ADMIN_*
+        # - Legacy vars (still supported in many distributions): KEYCLOAK_ADMIN / KEYCLOAK_ADMIN_PASSWORD
         export KC_BOOTSTRAP_ADMIN_USERNAME="$(cat /run/secrets/keycloak-admin-username)";
         export KC_BOOTSTRAP_ADMIN_PASSWORD="$(cat /run/secrets/keycloak-admin-password)";
-        export KC_DB_USERNAME="$(cat /run/secrets/postgres-username)";
+        export KEYCLOAK_ADMIN="$(cat /run/secrets/keycloak-admin-username)";
+        export KEYCLOAK_ADMIN_PASSWORD="$(cat /run/secrets/keycloak-admin-password)";
+        # Postgres container creates the superuser `thaliumx` (see [`postgres.POSTGRES_USER`](docker/compose/prod-v1/infrastructure.yml:74)).
+        # Do NOT source DB username from a secret here: mis-seeded username secrets break Keycloak startup.
+        export KC_DB_USERNAME="thaliumx";
         export KC_DB_PASSWORD="$(cat /run/secrets/postgres-password)";
         # NOTE: `--http-relative-path` is a build-time option in Keycloak.
         # Using it together with `--optimized` on the stock image causes a crash-loop.
@@ -99,7 +109,10 @@ services:
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8443;echo -e 'GET /auth/health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3;if [ $? -eq 0 ]; then echo 'Healthcheck Successful';exit 0;else echo 'Healthcheck Failed';exit 1;fi;"]
+      # Keycloak management interface listens on :9000 (TLS). The stock image does not ship with curl/wget,
+      # so we can only do a lightweight TCP-connect probe here.
+      # NOTE: Health endpoints themselves are available at https://127.0.0.1:9000/auth/health/ready.
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/9000'"]
       interval: 30s
       timeout: 15s
       retries: 5
@@ -117,6 +130,54 @@ services:
       - "com.thaliumx.component=security"
       - "com.thaliumx.description=Identity and Access Management"
       - "com.thaliumx.tier=application"
+
+  # ============================================
+  # KEYCLOAK POST-IMPORT SEEDER
+  # ============================================
+  # Keycloak realm JSON imports cannot safely embed runtime secrets.
+  # This one-shot job patches client secrets + redirect URIs after Keycloak is ready.
+  keycloak-post-import-seed:
+    image: alpine:3.20
+    container_name: thaliumx-keycloak-post-import-seed
+    hostname: thaliumx-keycloak-post-import-seed
+    restart: "no"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    secrets:
+      - keycloak-admin-username
+      - keycloak-admin-password
+      - keycloak-backend-secret
+      - keycloak-trading-secret
+      - keycloak-fintech-secret
+      - smtp-user
+      - smtp-password
+    environment:
+      # SMTP host/port/from are not secrets; credentials are provided via Docker secrets.
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_FROM: ${SMTP_FROM:-noreply@thaliumx.com}
+    volumes:
+      - ./../../scripts/keycloak-post-import-seed.sh:/scripts/keycloak-post-import-seed.sh:ro
+      - ./../../certs/ca/ca.crt:/certs/ca.crt:ro
+    entrypoint: ["sh", "-lc"]
+    command:
+      - |
+        apk add --no-cache bash curl jq ca-certificates >/dev/null;
+        export SSL_CERT_FILE=/certs/ca.crt;
+        export CURL_CA_BUNDLE=/certs/ca.crt;
+        export SMTP_USER="$(cat /run/secrets/smtp-user)";
+        export SMTP_PASSWORD="$(cat /run/secrets/smtp-password)";
+        # Optional extra client secrets (skip patch if not present)
+        export KEYCLOAK_TRADING_CLIENT_SECRET_FILE="/run/secrets/keycloak-trading-secret";
+        export KEYCLOAK_FINTECH_CLIENT_SECRET_FILE="/run/secrets/keycloak-fintech-secret";
+        # In this repo, Keycloak's TLS cert SAN includes `keycloak` / `thaliumx-keycloak` (not auth.thaliumx.com).
+        # So the seeder talks to Keycloak over the Docker DNS name.
+        export KEYCLOAK_BASE_URL="https://keycloak:8443/auth";
+        export KEYCLOAK_HTTP_RELATIVE_PATH="/auth";
+        bash /scripts/keycloak-post-import-seed.sh
+    networks:
+      - thaliumx-net
 
   # ============================================
   # BACKEND - Main Application Service
@@ -155,6 +216,8 @@ services:
       DB_PORT: 5432
       DB_NAME: thaliumx
       DB_USER: thaliumx
+      # Required by config validation in production
+      DB_SSL: "true"
 
       # Redis
       REDIS_HOST: redis
@@ -169,15 +232,25 @@ services:
 
       # Keycloak authentication
       KEYCLOAK_URL: https://keycloak:8443
+      # Keycloak in prod-v1 runs with `--http-relative-path=/auth`.
+      KEYCLOAK_HTTP_RELATIVE_PATH: /auth
+      # Admin API base URL for [`KeycloakService`](docker/backend/src/services/keycloak.ts:752)
+      KEYCLOAK_ADMIN_URL: https://keycloak:8443/auth
       # Default realm used for end-user auth (tokens presented to the API).
-      # NOTE: Platform-admin realm is separate (see KEYCLOAK_PLATFORM_REALM).
-      KEYCLOAK_REALM: thaliumx-default-tenant
+      # Single-realm mode: platform realm is used for all auth.
+      KEYCLOAK_REALM: thaliumx-platform
       KEYCLOAK_CLIENT_ID: thaliumx-backend
       KEYCLOAK_CLIENT_SECRET_FILE: /run/secrets/keycloak-backend-secret
 
+      # Keycloak Admin credentials (used by Keycloak admin client in backend services)
+      # Provided via Docker secrets at runtime in the command block.
+      KEYCLOAK_ADMIN_USERNAME: "admin"
+
       # Keycloak multi-realm configuration (used by [`KeycloakService.initialize()`](docker/backend/src/services/keycloak.ts:292))
+      KEYCLOAK_SINGLE_REALM: "true"
       KEYCLOAK_PLATFORM_REALM: thaliumx-platform
-      KEYCLOAK_DEFAULT_TENANT_REALM: thaliumx-default-tenant
+      # Kept for backward compatibility; set equal to platform realm in single-realm mode.
+      KEYCLOAK_DEFAULT_TENANT_REALM: thaliumx-platform
       # IMPORTANT: keep Keycloak tenant ID aligned with DB tenant UUIDs.
       # Canonical platform tenant UUID is defined in [`PLATFORM_TENANT_ID`](docker/backend/src/migrations/009-ensure-thaliumx-platform-tenant.ts:15)
       KEYCLOAK_DEFAULT_TENANT_ID: 10000000-0000-0000-0000-000000000000
@@ -261,6 +334,14 @@ services:
         # SMTP credentials are required by config validation in production.
         export SMTP_USER="$(cat /run/secrets/smtp-user)";
         export SMTP_PASSWORD="$(cat /run/secrets/smtp-password)";
+
+        # Enable Vault AppRole auth for config-enhanced (was previously missing, causing Vault to be skipped).
+        export VAULT_ROLE_ID="$(cat /run/secrets/vault-role-id)";
+        export VAULT_SECRET_ID="$(cat /run/secrets/vault-secret-id)";
+
+        # Keycloak admin credentials (required in production; avoid default admin/admin)
+        export KEYCLOAK_ADMIN_USERNAME="$(cat /run/secrets/keycloak-admin-username)";
+        export KEYCLOAK_ADMIN_PASSWORD="$(cat /run/secrets/keycloak-admin-password)";
         # Align with current Kafka deployment (PLAINTEXT on :9094).
         export KAFKA_BROKERS="thaliumx-kafka:9094";
         export KAFKA_SSL="false";
@@ -275,9 +356,7 @@ services:
       - ./../../certs/services/backend:/certs/backend:ro
       - ./../../certs/ca/ca.crt:/certs/ca.crt:ro
       - backend_logs:/app/logs
-    # Expose backend API to host for local E2E testing (Playwright hits http://localhost:3002)
-    ports:
-      - "3002:3002"
+    # PRODUCTION: do not expose backend directly on the host (all public access goes via APISIX).
     secrets:
       - postgres-password
       - redis-password
@@ -285,6 +364,8 @@ services:
       - encryption-key
       - mongodb-password
       - keycloak-backend-secret
+      - keycloak-admin-username
+      - keycloak-admin-password
       - bybit-api-key
       - bybit-api-secret
       - kucoin-api-key
@@ -317,7 +398,8 @@ services:
       keycloak:
         condition: service_healthy
       vault:
-        condition: service_healthy
+        # Resilience: backend should still start (degraded) if Vault is temporarily unavailable.
+        condition: service_started
       opa:
         condition: service_healthy
     healthcheck:
@@ -350,9 +432,11 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         # Production public URLs (via APISIX)
-        - NEXT_PUBLIC_API_URL=https://thaliumx.com/api
+        # IMPORTANT: This must be the site origin (no trailing /api).
+        # Frontend code calls `/api/...` relative to this base.
+        - NEXT_PUBLIC_API_URL=https://thaliumx.com
         - NEXT_PUBLIC_KEYCLOAK_URL=https://auth.thaliumx.com/auth
-        - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx-default-tenant
+        - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx-platform
         - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
     image: thaliumx/frontend:1.0.0
     container_name: thaliumx-frontend
@@ -368,10 +452,12 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
       - PORT=3000
       - HOSTNAME=0.0.0.0
-      - NEXT_PUBLIC_API_URL=https://thaliumx.com/api
+      # IMPORTANT: This must be the site origin (no trailing /api).
+      - NEXT_PUBLIC_API_URL=https://thaliumx.com
       - NEXT_PUBLIC_KEYCLOAK_URL=https://auth.thaliumx.com/auth
-       - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx-default-tenant
+      - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx-platform
       - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
+      - NEXT_PUBLIC_AUTH_MODE=keycloak
     # Strict audit mode: no host-exposed ports (gateway-only exposure).
     tmpfs:
       - /tmp:noexec,nosuid,nodev,size=100M,uid=1001,gid=1001,mode=1777

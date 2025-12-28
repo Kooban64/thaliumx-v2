@@ -17,7 +17,6 @@ WORKDIR /app
 COPY package*.json ./
 COPY binding.gyp ./
 COPY src ./src
-COPY liquibook-src ./liquibook-src
 
 # Install production dependencies without requiring a lockfile
 RUN npm install --omit=dev

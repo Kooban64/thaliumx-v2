@@ -79,6 +79,7 @@ docker/certs/**/*.csr
 docker/certs/**/*.srl
 docker/certs/**/*.p12
 docker/certs/**/*.pfx
+docker/certs/**/*.jks
 
 # Gateway TLS material (generated via certbot or scripts)
 docker/gateway/config/ssl/**/*.pem

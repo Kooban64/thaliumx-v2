@@ -53,9 +53,11 @@ volumes:
     driver: local
 
   # API Gateway
-  etcd-data:
+  etcd_data:
+    name: thaliumx-etcd-data
     driver: local
-  apisix-logs:
+  apisix_logs:
+    name: thaliumx-apisix-logs
     driver: local
 
   # Authentication
@@ -163,6 +165,11 @@ secrets:
   # Backend
   keycloak-backend-secret:
     file: ../../../.secrets/generated/keycloak-backend-secret
+  # Optional (used if trading/fintech services use Keycloak service accounts)
+  keycloak-trading-secret:
+    file: ../../../.secrets/generated/keycloak-trading-secret
+  keycloak-fintech-secret:
+    file: ../../../.secrets/generated/keycloak-fintech-secret
   bybit-api-key:
     file: ../../../.secrets/generated/bybit-api-key
   bybit-api-secret:

@@ -1,6 +1,12 @@
 #!/bin/bash
-# Script to seed Vault with secrets from .secrets directory
-# This script should be run after Vault is initialized and unsealed
+# Seed Vault secrets (NO PLAINTEXT SECRETS IN REPO)
+# ================================================
+# This script writes secrets into Vault, but it must *not* contain any real credentials.
+#
+# Usage:
+#   Export the required env vars (or source them from a secure location) and run.
+#
+# NOTE: This script is intentionally strict: it fails if required vars are missing.
 
 set -e
 
@@ -17,83 +23,91 @@ write_secret() {
     docker exec thaliumx-vault vault kv put "kv/fintech/$path" "$@"
 }
 
+require_env() {
+    local name="$1"
+    if [ -z "${!name:-}" ]; then
+        echo "ERROR: missing required env var: ${name}" >&2
+        exit 1
+    fi
+}
+
 # Exchange API Credentials
 echo "=== Seeding Exchange API Credentials ==="
 
 write_secret "exchanges/bybit" \
-    api_key="4OUlLHWF1TZOIybbmB" \
-    api_secret="mgOU4dkyqo2UpSGUEWlofOYgppYZMQyjzmpi"
+    api_key="${BYBIT_API_KEY:?BYBIT_API_KEY is required}" \
+    api_secret="${BYBIT_API_SECRET:?BYBIT_API_SECRET is required}"
 
 write_secret "exchanges/kucoin" \
-    api_key="6811caa1c1dfd9000105165a" \
-    api_secret="7358e659-5cc7-4f6c-b284-673eddfc9a07" \
-    api_passphrase="ApzorPtyLtd"
+    api_key="${KUCOIN_API_KEY:?KUCOIN_API_KEY is required}" \
+    api_secret="${KUCOIN_API_SECRET:?KUCOIN_API_SECRET is required}" \
+    api_passphrase="${KUCOIN_API_PASSPHRASE:?KUCOIN_API_PASSPHRASE is required}"
 
 write_secret "exchanges/kraken" \
-    api_key="HJWPi4DUG78y4r/JlUxRolUNgC2QL93/Ia5FVipRRnLSL6/551uifFaE" \
-    private_key="FYilsCPtlDbirUpphL73OIC/yRE0euuq3KnziF9CJHiiznwaU1P5AiY8KRd0uTVKBnvL+kiWs5eneZGi+SYAtQ=="
+    api_key="${KRAKEN_API_KEY:?KRAKEN_API_KEY is required}" \
+    private_key="${KRAKEN_PRIVATE_KEY:?KRAKEN_PRIVATE_KEY is required}"
 
 write_secret "exchanges/okx" \
-    api_key="ff25371c-653e-4c1d-9761-376eb76960b9" \
-    api_secret="5738F7B9C962420CFCB148B08A10A6A3" \
-    passphrase="Apzor@2025"
+    api_key="${OKX_API_KEY:?OKX_API_KEY is required}" \
+    api_secret="${OKX_API_SECRET:?OKX_API_SECRET is required}" \
+    passphrase="${OKX_API_PASSPHRASE:?OKX_API_PASSPHRASE is required}"
 
 write_secret "exchanges/valr" \
-    api_key="9f8175dbc6e65b4958319bbb5b60c4d2cf109c26b37f5384b91fd56581b2dd92" \
-    api_secret="23e45cb7b90394ab474ae6ca7b3bf9ea329aebbe7b26503c1b489716fd74ed5d"
+    api_key="${VALR_API_KEY:?VALR_API_KEY is required}" \
+    api_secret="${VALR_API_SECRET:?VALR_API_SECRET is required}"
 
 write_secret "exchanges/bitstamp" \
-    api_key="9egeB3Lj6mH5KwGTjVYnI6Z6i7XCbXJ3" \
-    api_secret="36zIuhVH4RLF5ypZ0b9szhXlUg4iT9Uk"
+    api_key="${BITSTAMP_API_KEY:?BITSTAMP_API_KEY is required}" \
+    api_secret="${BITSTAMP_API_SECRET:?BITSTAMP_API_SECRET is required}"
 
 write_secret "exchanges/cryptocom" \
-    api_key="cxakp_yZFBXiGNEfFiPJY2SbV8wY" \
-    passkey="082025"
+    api_key="${CRYPTOCOM_API_KEY:?CRYPTOCOM_API_KEY is required}" \
+    passkey="${CRYPTOCOM_PASSKEY:?CRYPTOCOM_PASSKEY is required}"
 
 write_secret "exchanges/binance" \
-    api_key="MTXWVJlBP2iikO9aFV9phKsfDnTOmxZEae90pEdH8pkFLoinUD724FTOJNEVI9Mw" \
-    api_secret="rCPypjwzQJiq78RWwcXpVZSglHKQ2Liun6GgiDiyIpOjl6McOOVjDweXo8LjpTzv"
+    api_key="${BINANCE_API_KEY:?BINANCE_API_KEY is required}" \
+    api_secret="${BINANCE_API_SECRET:?BINANCE_API_SECRET is required}"
 
 # Blockchain Network API Keys
 echo "=== Seeding Blockchain Network API Keys ==="
 
-write_secret "networks/bscscan" api_key="82ZUSSJP4DEISGSYQAIUHSIAQTBYIMMH5X"
-write_secret "networks/etherscan" api_key="II3Z1T8UDNBWE4KWIZPMQ8VP4WKJ1ZE1BD"
-write_secret "networks/tronscan" api_key="4e1f2efd-f64a-4ebc-8aba-8ad918b5678e"
-write_secret "networks/alchemy" api_key="SztlY3jR1R_HBbKW588ZlWxfAYa1iHgD"
-write_secret "networks/ankr" api_key="b511d6fbc7c9fd126e6e0b020a1d3578fb8db0fc6f9cf6b0f8ec558e4006db36"
+write_secret "networks/bscscan" api_key="${BSCSCAN_API_KEY:?BSCSCAN_API_KEY is required}"
+write_secret "networks/etherscan" api_key="${ETHERSCAN_API_KEY:?ETHERSCAN_API_KEY is required}"
+write_secret "networks/tronscan" api_key="${TRONSCAN_API_KEY:?TRONSCAN_API_KEY is required}"
+write_secret "networks/alchemy" api_key="${ALCHEMY_API_KEY:?ALCHEMY_API_KEY is required}"
+write_secret "networks/ankr" api_key="${ANKR_API_KEY:?ANKR_API_KEY is required}"
 write_secret "networks/infura" \
-    project_id="38cb2ace40b3446d900e1c500dd714ab" \
-    secret="6bnj8+8AzJtxX3+492ic3a4LAsklmk/oe1y7vBvkfCmdGay6sgcl+w"
+    project_id="${INFURA_PROJECT_ID:?INFURA_PROJECT_ID is required}" \
+    secret="${INFURA_PROJECT_SECRET:?INFURA_PROJECT_SECRET is required}"
 
 # Data Providers
 echo "=== Seeding Data Provider API Keys ==="
 
-write_secret "providers/coingecko" api_key="CG-UBg3oBHf14coAkBkMR3f6y8t"
-write_secret "providers/coincap" api_key="26aaf883fd4af22776b27dbd342b301650e88a5398e89f6372d1873d9ec7861b"
-write_secret "providers/blockcypher" token="42fd53e7f886485a869b7075d03d5803"
-write_secret "providers/quicknode" api_key="QN_2e8edc97bce74ed3be5820a8fe212fa5"
-write_secret "providers/0x" api_key="79b63bcf-7eaa-4dcb-8155-6ad5b4b60326"
-write_secret "providers/thegraph" api_key="server_38be9989620e2e658fb49c8d9eff80ed"
-write_secret "providers/moralis" jwt="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjNlYjMzMzAyLWQwY2UtNDU2Mi04MzM4LTcxODQ0ZmNiMmIyOCIsIm9yZ0lkIjoiNDYxOTQ1IiwidXNlcklkIjoiNDc1MjQ1IiwidHlwZUlkIjoiNTAwYWE1MTUtZTgxYi00MGJkLWFhNDgtOWYwNGM5MTFiNzZmIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NTM2OTk4MDQsImV4cCI6NDkwOTQ1OTgwNH0.MjtzifYvNZbFJq5t5OJ_hxrh6cBdnXuQI1StLN1pWbI"
+write_secret "providers/coingecko" api_key="${COINGECKO_API_KEY:?COINGECKO_API_KEY is required}"
+write_secret "providers/coincap" api_key="${COINCAP_API_KEY:?COINCAP_API_KEY is required}"
+write_secret "providers/blockcypher" token="${BLOCKCYPHER_TOKEN:?BLOCKCYPHER_TOKEN is required}"
+write_secret "providers/quicknode" api_key="${QUICKNODE_API_KEY:?QUICKNODE_API_KEY is required}"
+write_secret "providers/0x" api_key="${ZEROX_API_KEY:?ZEROX_API_KEY is required}"
+write_secret "providers/thegraph" api_key="${THEGRAPH_API_KEY:?THEGRAPH_API_KEY is required}"
+write_secret "providers/moralis" jwt="${MORALIS_JWT:?MORALIS_JWT is required}"
 
 # Banking - Nedbank
 echo "=== Seeding Banking Credentials ==="
 
 write_secret "banking/nedbank" \
-    deposits_api_key="FjL8gH6CS41uE0vQrNjDH7PEZmblMgBc6ieVwVtX" \
-    deposits_base_url="https://pxsvfmxmo1.execute-api.af-south-1.amazonaws.com/Stage" \
-    account_number="1309630755" \
-    payout_base_url="https://b2b-api.nedbank.co.za/apimarket/b2b-sb/payments/v1"
+    deposits_api_key="${NEDBANK_DEPOSITS_API_KEY:?NEDBANK_DEPOSITS_API_KEY is required}" \
+    deposits_base_url="${NEDBANK_DEPOSITS_BASE_URL:?NEDBANK_DEPOSITS_BASE_URL is required}" \
+    account_number="${NEDBANK_ACCOUNT_NUMBER:?NEDBANK_ACCOUNT_NUMBER is required}" \
+    payout_base_url="${NEDBANK_PAYOUT_BASE_URL:?NEDBANK_PAYOUT_BASE_URL is required}"
 
 # SMTP
 echo "=== Seeding SMTP Credentials ==="
 
 write_secret "smtp" \
-    user="kooban.smtp@gmail.com" \
-    password="ztpf zttv rrip spaf" \
-    server="smtp.gmail.com" \
-    port="587"
+    user="${SMTP_USER:?SMTP_USER is required}" \
+    password="${SMTP_PASSWORD:?SMTP_PASSWORD is required}" \
+    server="${SMTP_HOST:?SMTP_HOST is required}" \
+    port="${SMTP_PORT:?SMTP_PORT is required}"
 
 echo ""
 echo "=== Vault secrets seeded successfully! ==="

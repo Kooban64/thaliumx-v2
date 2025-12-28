@@ -37,7 +37,8 @@ RUN addgroup -g 1001 -S compliance && \
 RUN apk add --no-cache \
     dumb-init \
     curl \
-    ca-certificates
+    ca-certificates \
+    su-exec
 
 # Set working directory
 WORKDIR /app

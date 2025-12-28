@@ -87,7 +87,7 @@ import tradingRouter from './routes/trading';
 import { DatabaseService } from './services/database';
 import { RedisService } from './services/redis';
 // LoggerService already imported above
-import { ConfigService } from './services/config';
+import { ConfigService } from './services/config-enhanced';
 import { EmailService } from './services/email';
 import { ExchangeService } from './services/exchange';
 import { FiatService } from './services/fiat';
@@ -121,6 +121,7 @@ class ThaliumXBackend {
   private server!: http.Server;
   private io!: SocketIOServer;
   private config: any;
+  private appBuilt = false;
   // isShuttingDown flag for graceful shutdown (used in signal handlers)
   private isShuttingDown = false;
 
@@ -132,20 +133,23 @@ class ThaliumXBackend {
     // Initialize Express app
     this.app = express();
 
-    // Load configuration and validate secrets (fail-fast in production)
-    this.config = ConfigService.getConfig();
-    try {
-      ConfigService.validateConfig();
-    } catch (e) {
-      LoggerService.error('Configuration validation failed', e);
-      throw e;
-    }
+    // NOTE:
+    // - In real runtime, config is initialized asynchronously (Vault/AppRole), so the app is built in `start()`.
+    // - In tests, we still build synchronously so [`ThaliumXBackend.getApp()`](docker/backend/src/index.ts:885) works.
+    if (process.env.NODE_ENV === 'test') {
+      this.config = ConfigService.getConfig();
+      try {
+        ConfigService.validateConfig();
+      } catch (e) {
+        LoggerService.error('Configuration validation failed', e);
+        throw e;
+      }
 
-    // Build the app immediately so [`ThaliumXBackend.getApp()`](docker/backend/src/index.ts:889) is usable in tests.
-    // `start()` will still initialize services + bind the HTTP server.
-    this.setupMiddleware();
-    this.setupRoutes();
-    this.setupErrorHandling();
+      this.setupMiddleware();
+      this.setupRoutes();
+      this.setupErrorHandling();
+      this.appBuilt = true;
+    }
 
     LoggerService.info('Backend Server initialized');
   }
@@ -358,7 +362,17 @@ class ThaliumXBackend {
     this.app.use(cookieParser());
 
     // CSRF protection
-    this.app.use(SecurityMiddleware.csrfProtection(['/api/auth/login', '/api/auth/logout', '/api/auth/refresh']));
+    // NOTE: This API supports stateless JSON auth endpoints (login/register/reset) which are
+    // typically consumed by SPAs and mobile clients.
+    // CSRF protections should apply to *cookie-based* authenticated flows, not public JSON auth.
+    this.app.use(SecurityMiddleware.csrfProtection([
+      '/api/auth/login',
+      '/api/auth/logout',
+      '/api/auth/refresh',
+      '/api/auth/register',
+      '/api/auth/reset-password',
+      '/api/auth/confirm-reset',
+    ]));
 
     // Input sanitization and security checks
     this.app.use(sanitizeInput);
@@ -828,6 +842,21 @@ class ThaliumXBackend {
       if (process.env.NODE_ENV !== 'test') {
         dotenv.config();
         TelemetryService.initialize();
+      }
+
+      // Load configuration (Vault/AppRole supported) and validate secrets (fail-fast in production)
+      if (process.env.NODE_ENV !== 'test') {
+        await ConfigService.initialize();
+      }
+      this.config = ConfigService.getConfig();
+      ConfigService.validateConfig();
+
+      // Build app after config is available (CORS/CSP needs origins)
+      if (!this.appBuilt) {
+        this.setupMiddleware();
+        this.setupRoutes();
+        this.setupErrorHandling();
+        this.appBuilt = true;
       }
 
       // Initialize services

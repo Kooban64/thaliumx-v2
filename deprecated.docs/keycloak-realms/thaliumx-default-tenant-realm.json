@@ -211,6 +211,7 @@
         "web-origins",
         "acr",
         "profile",
+        "thaliumx-api",
         "roles",
         "email"
       ],
@@ -519,7 +520,7 @@
         }
       ],
       "realmRoles": [
-        "realm-admin"
+        "admin"
       ],
       "groups": [],
       "attributes": {}

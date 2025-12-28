@@ -23,11 +23,11 @@ conf:
 
 authentication:
   # Do not commit real values.
-  secret: __REPLACE_WITH_SECURE_VALUE__
+  secret: __APISIX_DASHBOARD_SECRET__
   expire_time: 3600
   users:
     - username: admin
-      password: __REPLACE_WITH_SECURE_VALUE__
+      password: __APISIX_DASHBOARD_PASSWORD__
 
 plugins:
   - api-breaker

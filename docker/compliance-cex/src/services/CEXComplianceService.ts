@@ -62,6 +62,11 @@ export class CEXComplianceService {
     const keycloakConfig = {
       'auth-server-url': config.keycloak.url,
       'realm': config.keycloak.realm,
+      // Required by `keycloak-connect` config typing
+      // - 'external' is typical when the service is behind a gateway/ingress.
+      // - confidential-port is kept at 0 in containerized deployments.
+      'ssl-required': 'external',
+      'confidential-port': 0,
       'resource': config.keycloak.clientId,
       'credentials': {
         'secret': config.keycloak.clientSecret

@@ -59,7 +59,11 @@ services:
       - ./../../vault/tls:/vault/userconfig/tls:ro
       - ./../../vault/unseal.sh:/vault/unseal.sh:ro
       - vault-keys:/vault/keys:rw
-    command: sh -c "/vault/unseal.sh"
+    # NOTE:
+    # - `hashicorp/vault` image does not ship with `/bin/bash` or `jq` by default.
+    # - [`docker/vault/unseal.sh`](docker/vault/unseal.sh:1) uses bash + jq.
+    # Install minimal deps then run the script.
+    command: sh -lc "apk add --no-cache bash jq >/dev/null && bash /vault/unseal.sh"
     networks:
       - thaliumx-net
 

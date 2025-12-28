@@ -17,6 +17,8 @@ services:
     container_name: thaliumx-compliance-cex
     hostname: thaliumx-compliance-cex
     restart: unless-stopped
+    # Needs root to read Docker secrets; we drop privileges before starting Node.
+    user: "0:0"
     expose:
       - "3001"
     environment:
@@ -44,9 +46,9 @@ services:
       REDIS_DB: 0
 
       # Kafka
-      KAFKA_BROKERS: thaliumx-kafka:9092
-      KAFKA_SSL: "true"
-      KAFKA_SSL_CA: /etc/ssl/certs/ca.crt
+      # Use in-network PLAINTEXT listener to avoid TLS/SASL drift between services.
+      KAFKA_BROKERS: thaliumx-kafka:9094
+      KAFKA_SSL: "false"
       KAFKA_CLIENT_ID: cex-compliance-service
       KAFKA_GROUP_ID: cex-compliance-group
 
@@ -55,7 +57,8 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
       KEYCLOAK_URL: https://keycloak:8443
-      KEYCLOAK_REALM: thaliumx
+      # Single-realm mode: Keycloak realm is `thaliumx-platform`.
+      KEYCLOAK_REALM: thaliumx-platform
       KEYCLOAK_CLIENT_ID: thaliumx-compliance-cex
       KEYCLOAK_CLIENT_SECRET_FILE: /run/secrets/keycloak-compliance-cex-secret
 
@@ -75,11 +78,14 @@ services:
         export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
         export API_KEY="$(cat /run/secrets/api-key)";
         export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
+        # Keycloak client secret
+        export KEYCLOAK_CLIENT_SECRET="$(cat /run/secrets/keycloak-compliance-cex-secret)";
         # Disable SASL for PLAINTEXT Kafka
         unset KAFKA_SASL_MECHANISM;
         unset KAFKA_SASL_USERNAME;
         unset KAFKA_SASL_PASSWORD;
-        exec node dist/index.js
+        # Drop privileges for the service process
+        exec su-exec compliance:compliance node dist/index.js
     secrets:
       - postgres-password
       - redis-password
@@ -121,6 +127,8 @@ services:
     container_name: thaliumx-compliance-dex
     hostname: thaliumx-compliance-dex
     restart: unless-stopped
+    # Needs root to read Docker secrets; we drop privileges before starting Node.
+    user: "0:0"
     expose:
       - "3002"
     environment:
@@ -144,9 +152,8 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 1
 
-      KAFKA_BROKERS: thaliumx-kafka:9092
-      KAFKA_SSL: "true"
-      KAFKA_SSL_CA: /etc/ssl/certs/ca.crt
+      KAFKA_BROKERS: thaliumx-kafka:9094
+      KAFKA_SSL: "false"
       KAFKA_CLIENT_ID: dex-compliance-service
       KAFKA_GROUP_ID: dex-compliance-group
 
@@ -154,7 +161,7 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
       KEYCLOAK_URL: https://keycloak:8443
-      KEYCLOAK_REALM: thaliumx
+      KEYCLOAK_REALM: thaliumx-platform
       KEYCLOAK_CLIENT_ID: thaliumx-compliance-dex
 
       METRICS_ENABLED: "true"
@@ -176,7 +183,7 @@ services:
         unset KAFKA_SASL_MECHANISM;
         unset KAFKA_SASL_USERNAME;
         unset KAFKA_SASL_PASSWORD;
-        exec node dist/index.js
+        exec su-exec compliance:compliance node dist/index.js
     secrets:
       - postgres-password
       - redis-password
@@ -218,6 +225,8 @@ services:
     container_name: thaliumx-compliance-nft
     hostname: thaliumx-compliance-nft
     restart: unless-stopped
+    # Needs root to read Docker secrets; we drop privileges before starting Node.
+    user: "0:0"
     expose:
       - "3003"
     environment:
@@ -242,9 +251,8 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 2
 
-      KAFKA_BROKERS: thaliumx-kafka:9092
-      KAFKA_SSL: "true"
-      KAFKA_SSL_CA: /etc/ssl/certs/ca.crt
+      KAFKA_BROKERS: thaliumx-kafka:9094
+      KAFKA_SSL: "false"
       KAFKA_CLIENT_ID: nft-compliance-service
       KAFKA_GROUP_ID: nft-compliance-group
 
@@ -252,7 +260,7 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /certs/ca.crt
       KEYCLOAK_URL: https://keycloak:8443
-      KEYCLOAK_REALM: thaliumx
+      KEYCLOAK_REALM: thaliumx-platform
       KEYCLOAK_CLIENT_ID: thaliumx-compliance-nft
 
       METRICS_ENABLED: "true"
@@ -269,8 +277,7 @@ services:
         export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
         export API_KEY="$(cat /run/secrets/api-key)";
         export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
-        export KAFKA_SASL_PASSWORD="$(cat /run/secrets/kafka-password)";
-        exec node dist/index.js
+        exec su-exec nodejs:nodejs node dist/index.js
     secrets:
       - postgres-password
       - redis-password
@@ -311,6 +318,8 @@ services:
     container_name: thaliumx-compliance-token
     hostname: thaliumx-compliance-token
     restart: unless-stopped
+    # Needs root to read Docker secrets; we drop privileges before starting Node.
+    user: "0:0"
     expose:
       - "3004"
     environment:
@@ -335,9 +344,8 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 3
 
-      KAFKA_BROKERS: thaliumx-kafka:9092
-      KAFKA_SSL: "true"
-      KAFKA_SSL_CA: /etc/ssl/certs/ca.crt
+      KAFKA_BROKERS: thaliumx-kafka:9094
+      KAFKA_SSL: "false"
       KAFKA_CLIENT_ID: token-compliance-service
       KAFKA_GROUP_ID: token-compliance-group
 
@@ -345,7 +353,7 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
       KEYCLOAK_URL: https://keycloak:8443
-      KEYCLOAK_REALM: thaliumx
+      KEYCLOAK_REALM: thaliumx-platform
       KEYCLOAK_CLIENT_ID: thaliumx-compliance-token
 
       METRICS_ENABLED: "true"
@@ -362,12 +370,11 @@ services:
         export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
         export API_KEY="$(cat /run/secrets/api-key)";
         export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
-        export KAFKA_SASL_PASSWORD="$(cat /run/secrets/kafka-password)";
         # Disable SASL for PLAINTEXT Kafka
         unset KAFKA_SASL_MECHANISM;
         unset KAFKA_SASL_USERNAME;
         unset KAFKA_SASL_PASSWORD;
-        exec node dist/index.js
+        exec su-exec compliance:nodejs node dist/index.js
     secrets:
       - postgres-password
       - redis-password
@@ -408,6 +415,8 @@ services:
     container_name: thaliumx-compliance-coordinator
     hostname: thaliumx-compliance-coordinator
     restart: unless-stopped
+    # Needs root to read Docker secrets; we drop privileges before starting Node.
+    user: "0:0"
     expose:
       - "3005"
     environment:
@@ -431,9 +440,8 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 4
 
-      KAFKA_BROKERS: thaliumx-kafka:9092
-      KAFKA_SSL: "true"
-      KAFKA_SSL_CA: /etc/ssl/certs/ca.crt
+      KAFKA_BROKERS: thaliumx-kafka:9094
+      KAFKA_SSL: "false"
       KAFKA_CLIENT_ID: compliance-coordinator-service
       KAFKA_GROUP_ID: compliance-coordinator-group
 
@@ -447,7 +455,7 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
       KEYCLOAK_URL: https://keycloak:8443
-      KEYCLOAK_REALM: thaliumx
+      KEYCLOAK_REALM: thaliumx-platform
       KEYCLOAK_CLIENT_ID: thaliumx-compliance-coordinator
 
       METRICS_ENABLED: "true"
@@ -466,7 +474,7 @@ services:
         export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
         export API_KEY="$(cat /run/secrets/api-key)";
         export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
-        exec node dist/index.js
+        exec su-exec compliance:nodejs node dist/index.js
     secrets:
       - postgres-password
       - redis-password

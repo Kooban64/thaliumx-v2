@@ -1,7 +1,53 @@
 # Comprehensive Fix Checklist for ThaliumX Post-Crash Recovery
 
+## Auth/Gateway Fix Session Checklist (keep updated)
+Updated: 2025-12-27
+
+- [-] Persist this checklist to disk and keep it updated every time a step starts/finishes
+- [x] Backend auth contract: normalize `req.user` fields (`userId` vs `id`) and tenant context
+- [x] Backend authorization: align role mapping with Keycloak roles and support multi-role checks
+- [x] Backend auth: Keycloak-only (disable legacy JWT/cookie auth); enforce single realm + strict token audience
+- [x] Presale API: implement `/api/presale/status` and `/api/presale/vesting/user/me` to match frontend
+- [x] Presale persistence: DB-backed presales/investments/whitelist + non-expired default presale dates
+- [x] Frontend auth: default to Keycloak mode; disable legacy cookie refresh/CSRF behavior when in Keycloak mode
+- [x] Keycloak: ensure frontend tokens include backend audience via `thaliumx-api` scope (realm import + post-import seeder)
+- [x] APISIX: enable OIDC on protected APIs and keep explicit public routes minimal
+- [x] Security: remove/lock down direct backend host port exposure in production
+- [ ] Smoke test: bring up prod-v1 compose and verify domain routing + auth + presale flows (incl. audience enforcement)
+
+### Validation notes
+- `docker compose ... config` succeeds when including base + infrastructure + messaging + security + applications + gateway.
+- Warnings observed (non-fatal): `version` key obsolete, and some unset env vars defaulting to blank.
+
+### APISIX + etcd persistence notes
+- APISIX runs in **etcd mode** (not standalone) and stores routes/upstreams/ssl in etcd.
+- etcd persistence is via the named volume `thaliumx-etcd-data` declared in [`docker/compose/prod-v1/gateway.yml`](docker/compose/prod-v1/gateway.yml:213).
+- Backup (recommended): run an etcd snapshot from inside the etcd container, e.g. `etcdctl snapshot save` against `http://localhost:2379`.
+
+### Smoke test notes (local host verification)
+- `http://thaliumx.com` (Host header) → `301` to `https://thaliumx.com/` via APISIX.
+- `https://thaliumx.com/api/presale/status` returns JSON `success:true` (public route).
+- `https://thal.thaliumx.com/` renders the presale page (response contains `THAL Token Presale`).
+- `https://auth.thaliumx.com/auth/` returns `302` (Keycloak reachable via APISIX).
+- `https://thaliumx.com/api/auth/profile` returns `401` without Bearer token (gateway OIDC enforcement active).
+
+### Keycloak seeding notes
+- Post-import seeder patches:
+  - backend client secret + redirect URIs
+  - disables legacy realms
+  - SMTP realm settings (from Docker secrets/env)
+  in [`docker/scripts/keycloak-post-import-seed.sh`](docker/scripts/keycloak-post-import-seed.sh:1).
+
+### Single-realm Keycloak (CURRENT)
+We are now standardizing on a single realm for simplicity + security:
+- `thaliumx-platform` is the only realm used for both end-user and admin auth.
+- APISIX OIDC validation defaults to that realm in [`docker/gateway/scripts/init-apisix-routes.sh`](docker/gateway/scripts/init-apisix-routes.sh:1).
+
 ## Overview
 This checklist identifies potential issues that need attention after the session crash. Focus on fixing without removing functionality, and be cautious with potentially outdated documentation.
+
+## Enterprise Auth/Gateway Roadmap (Authoritative)
+- **Primary reference plan:** see [`plans/enterprise-auth-gateway-roadmap.md`](plans/enterprise-auth-gateway-roadmap.md:1)
 
 ## Version Control & Session Recovery
 - [x] Check git status for uncommitted changes from crashed session - **RESOLVED**: All changes reviewed and committed to submodules and main repo
