@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,7 +50,7 @@ const POLICY_CATEGORIES: PolicyCategory[] = [
 // Keep all admin-policy calls on the same origin.
 const API_BASE = '/api/admin/policies';
 
-export default function PolicyManagement() {
+function PolicyManagementInner() {
   const searchParams = useSearchParams();
   const [activeCategory, setActiveCategory] = useState<string>('aml');
   const [parameters, setParameters] = useState<PolicyParameters>({});
@@ -540,5 +541,15 @@ export default function PolicyManagement() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PolicyManagementPage() {
+  // Next.js requires `useSearchParams()` consumers to be wrapped in Suspense.
+  // This prevents production build-time prerender errors.
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading policies…</div>}>
+      <PolicyManagementInner />
+    </Suspense>
   );
 }
