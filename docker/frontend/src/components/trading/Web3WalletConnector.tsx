@@ -32,10 +32,26 @@ export function Web3WalletConnector() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showAddresses, setShowAddresses] = useState(false);
+  const [brokerId, setBrokerId] = useState<string | null>(null);
+  const [userContextLoaded, setUserContextLoaded] = useState(false);
 
   useEffect(() => {
+    loadUserContext();
     loadConnectedWallets();
   }, []);
+
+  const loadUserContext = async () => {
+    try {
+      // Dashboard is auth-gated, so profile should be available.
+      const res = await apiClient.get<any>('/api/auth/profile');
+      const u = (res.success ? (res.data as any)?.user : null) || null;
+      setBrokerId(u?.brokerId || null);
+    } catch {
+      setBrokerId(null);
+    } finally {
+      setUserContextLoaded(true);
+    }
+  };
 
   const loadConnectedWallets = async () => {
     try {
@@ -88,6 +104,12 @@ export function Web3WalletConnector() {
     setSuccess('');
 
     try {
+      // Backend enforces broker context for Web3 wallet operations.
+      // Make this a truthful, user-visible guardrail instead of a surprise 400.
+      if (userContextLoaded && !brokerId) {
+        throw new Error('Web3 wallet linking is not enabled for your account (missing broker context). Please contact support to be onboarded to a broker.');
+      }
+
       // Check if MetaMask is available
       const eth = (window as unknown as { ethereum?: any }).ethereum;
       if (!eth) {
@@ -203,6 +225,15 @@ export function Web3WalletConnector() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {userContextLoaded && !brokerId && (
+          <Alert>
+            <AlertDescription>
+              Web3 wallet features require broker onboarding (token must include a <code>brokerId</code> claim).
+              Use CEX wallets/deposits for now, or contact support to enable Web3 trading.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {error && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
@@ -220,7 +251,7 @@ export function Web3WalletConnector() {
         {/* Connect Wallet Button */}
         <Button
           onClick={connectWallet}
-          disabled={isConnecting}
+          disabled={isConnecting || (userContextLoaded && !brokerId)}
           className="w-full"
         >
           {isConnecting ? (

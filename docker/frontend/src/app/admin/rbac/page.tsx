@@ -27,7 +27,9 @@ export default function RBACAdmin() {
                 <Label htmlFor="roleName">Role name</Label>
                 <Input id="roleName" placeholder="broker-admin" />
               </div>
-              <Button size="sm">Add</Button>
+              <Button size="sm" disabled title="RBAC mutation UI not implemented yet">
+                Add
+              </Button>
             </div>
             <div className="text-sm text-muted-foreground">
               Coming soon: role list, edit, delete

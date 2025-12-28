@@ -108,7 +108,7 @@ export default function Dashboard() {
       try {
         await initKeycloak();
         const kc = getKeycloak();
-        await kc.logout({ redirectUri: `${window.location.origin}/` });
+        await kc.logout({ redirectUri: `${window.location.origin}/landing` });
         return;
       } catch (error) {
         console.error('Keycloak logout error:', error);
@@ -123,7 +123,7 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Logout error:', error);
     }
-    window.location.href = '/auth';
+    window.location.href = '/landing';
   };
 
   if (isLoading) {
@@ -135,6 +135,8 @@ export default function Dashboard() {
   }
 
   const sidebarItems = [
+    // Navigation back to marketing site.
+    { id: 'home', label: 'Home', icon: BarChart3, href: '/landing' as const },
     { id: 'trading', label: 'Trading', icon: BarChart3 },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
     { id: 'portfolio', label: 'Portfolio', icon: DollarSign },
@@ -187,6 +189,10 @@ export default function Dashboard() {
                     variant={activeTab === item.id ? 'default' : 'ghost'}
                     className="w-full justify-start"
                     onClick={() => {
+                      if ((item as any).href) {
+                        window.location.href = (item as any).href;
+                        return;
+                      }
                       setActiveTab(item.id);
                       setSidebarOpen(false);
                     }}

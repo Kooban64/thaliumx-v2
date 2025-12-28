@@ -456,7 +456,7 @@ services:
       - HOSTNAME=0.0.0.0
       # IMPORTANT: This must be the site origin (no trailing /api).
       - NEXT_PUBLIC_API_URL=https://thaliumx.com
-       - NEXT_PUBLIC_KEYCLOAK_URL=https://thaliumx.com/auth
+      - NEXT_PUBLIC_KEYCLOAK_URL=https://thaliumx.com/auth
       - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx-platform
       - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
       - NEXT_PUBLIC_AUTH_MODE=keycloak

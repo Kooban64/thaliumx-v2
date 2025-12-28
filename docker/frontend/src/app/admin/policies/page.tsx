@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +50,7 @@ const POLICY_CATEGORIES: PolicyCategory[] = [
 const API_BASE = '/api/admin/policies';
 
 export default function PolicyManagement() {
+  const searchParams = useSearchParams();
   const [activeCategory, setActiveCategory] = useState<string>('aml');
   const [parameters, setParameters] = useState<PolicyParameters>({});
   const [editedParameters, setEditedParameters] = useState<PolicyParameters>({});
@@ -124,10 +126,28 @@ export default function PolicyManagement() {
   };
 
   useEffect(() => {
+    // Allow deep-linking from the admin home page, e.g. /admin/policies?category=security.
+    const requested = (searchParams.get('category') || '').toLowerCase();
+    if (requested && POLICY_CATEGORIES.some((c) => c.name === requested) && requested !== activeCategory) {
+      setActiveCategory(requested);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
     fetchParameters();
     fetchStatus();
     fetchPresets();
   }, [fetchParameters]);
+
+  useEffect(() => {
+    const audit = searchParams.get('audit');
+    if (audit === '1') {
+      setShowAuditLog(true);
+      fetchAuditLog();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Save parameters
   const saveParameters = async () => {

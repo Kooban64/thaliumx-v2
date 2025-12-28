@@ -1,10 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { getKeycloak, initKeycloak } from '@/lib/auth/keycloak';
+import { getAccessToken } from '@/lib/auth/token-store';
 
 export default function LandingPage() {
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
   // Set default tenant ID for landing page (platform-default-tenant)
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -18,6 +23,23 @@ export default function LandingPage() {
       localStorage.setItem('tenantId', tenantId);
     }
   }, []);
+
+  // Fast/seamless login: attempt silent SSO so returning users can skip the Keycloak UI.
+  useEffect(() => {
+    (async () => {
+      try {
+        await initKeycloak();
+        const kc = getKeycloak();
+        setIsAuthenticated(!!kc.authenticated || !!getAccessToken());
+      } catch {
+        setIsAuthenticated(!!getAccessToken());
+      } finally {
+        setAuthChecked(true);
+      }
+    })();
+  }, []);
+
+  const appHref = isAuthenticated ? '/dashboard' : '/auth?next=/dashboard';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
@@ -33,17 +55,30 @@ export default function LandingPage() {
             <a href="#features" className="text-sm font-medium hover:text-primary">Features</a>
             <a href="#how" className="text-sm font-medium hover:text-primary">How it works</a>
             <a href="#contact" className="text-sm font-medium hover:text-primary">Contact</a>
-          </nav>
-          <div className="flex items-center space-x-2">
-            <Button variant="ghost" asChild>
-              <a href="/auth?next=/dashboard">Sign In</a>
-            </Button>
-            <Button asChild>
-              <a href="/dashboard">Launch App</a>
-            </Button>
-          </div>
-        </div>
-      </header>
+           </nav>
+           <div className="flex items-center space-x-2">
+             {authChecked && isAuthenticated ? (
+               <>
+                 <Button variant="ghost" asChild>
+                   <a href="/dashboard">Continue</a>
+                 </Button>
+                 <Button asChild>
+                   <a href="/dashboard">Launch App</a>
+                 </Button>
+               </>
+             ) : (
+               <>
+                 <Button variant="ghost" asChild>
+                   <a href="/auth?next=/dashboard">Sign In</a>
+                 </Button>
+                 <Button asChild>
+                   <a href={appHref}>Launch App</a>
+                 </Button>
+               </>
+             )}
+           </div>
+         </div>
+       </header>
 
       <main className="container mx-auto px-4 py-20">
         <section className="text-center max-w-4xl mx-auto">
@@ -55,7 +90,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
             <Button size="lg" className="px-8" asChild>
-              <a href="/dashboard">Launch Trading</a>
+              <a href={appHref}>Launch Trading</a>
             </Button>
             <Button size="lg" variant="outline" className="px-8" asChild>
               <a href="/token-presale">Join Presale</a>
