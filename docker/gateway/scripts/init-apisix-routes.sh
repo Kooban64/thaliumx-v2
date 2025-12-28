@@ -28,13 +28,13 @@ OIDC_CLIENT_ID="${OIDC_CLIENT_ID:-thaliumx-frontend}"
 OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET:-}"
 
 # IMPORTANT (prod correctness): the OIDC discovery URL must match the issuer that end-users actually see.
-# - End-user tokens are minted via the public hostname (auth.thaliumx.com) through APISIX.
+# - End-user tokens are minted via the public hostname through APISIX.
 # - If discovery is pointed directly at the internal Keycloak service (e.g. https://keycloak:8443/...),
 #   Keycloak may emit a different `issuer` (often including :8443) which then causes APISIX to reject
 #   otherwise-valid tokens (issuer mismatch).
 #
 # Default to the public hostname, but allow overrides for air-gapped/dev deployments.
-KEYCLOAK_PUBLIC_HOST="${KEYCLOAK_PUBLIC_HOST:-auth.thaliumx.com}"
+KEYCLOAK_PUBLIC_HOST="${KEYCLOAK_PUBLIC_HOST:-thaliumx.com}"
 OIDC_DISCOVERY="${OIDC_DISCOVERY:-https://${KEYCLOAK_PUBLIC_HOST}/auth/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration}"
 
 # PRODUCTION: verify Keycloak TLS using the internal CA mounted into the APISIX container.
@@ -731,6 +731,75 @@ create_route "5" "{
          }
      }
  }"
+
+# Route 12: thaliumx.com -> Keycloak under the main hostname (temporary workaround)
+# Why: browsers are failing to resolve auth.thaliumx.com (NXDOMAIN), which breaks the Keycloak JS adapter
+# (3p-cookies step1.html iframe) and causes timeouts on page load.
+#
+# 12a) /auth -> redirect to /auth/
+create_route "12" "{
+    \"id\": \"12\",
+    \"name\": \"thaliumx-auth-on-main-host-no-slash\",
+    \"desc\": \"Keycloak redirect - thaliumx.com/auth -> /auth/\",
+    \"host\": \"thaliumx.com\",
+    \"uri\": \"/auth\",
+    \"priority\": 90,
+    \"status\": 1,
+    \"plugins\": {
+        \"redirect\": {
+            \"uri\": \"/auth/\",
+            \"ret_code\": 302
+        }
+    }
+}"
+
+# 12b) /auth/* -> upstream keycloak
+create_route "13" "{
+    \"id\": \"13\",
+    \"name\": \"thaliumx-auth-on-main-host\",
+    \"desc\": \"Keycloak proxy - thaliumx.com/auth/*\",
+    \"host\": \"thaliumx.com\",
+    \"uri\": \"/auth/*\",
+    \"priority\": 95,
+    \"status\": 1,
+    \"upstream_id\": \"3\",
+    \"plugins\": {
+        \"proxy-rewrite\": {
+            \"headers\": {
+                \"X-Forwarded-Proto\": \"https\",
+                \"X-Forwarded-Port\": \"443\",
+                \"X-Forwarded-Host\": \"thaliumx.com\"
+            }
+        },
+        \"request-id\": {
+            \"include_in_response\": true
+        }
+    }
+}"
+
+# 12c) /auth/health/* -> keycloak mgmt
+create_route "14" "{
+    \"id\": \"14\",
+    \"name\": \"thaliumx-auth-health-on-main-host\",
+    \"desc\": \"Keycloak health proxy - thaliumx.com/auth/health/* -> keycloak:9000\",
+    \"host\": \"thaliumx.com\",
+    \"uri\": \"/auth/health/*\",
+    \"priority\": 96,
+    \"status\": 1,
+    \"upstream_id\": \"4\",
+    \"plugins\": {
+        \"proxy-rewrite\": {
+            \"headers\": {
+                \"X-Forwarded-Proto\": \"https\",
+                \"X-Forwarded-Port\": \"443\",
+                \"X-Forwarded-Host\": \"thaliumx.com\"
+            }
+        },
+        \"request-id\": {
+            \"include_in_response\": true
+        }
+    }
+}"
 
 # Route 7: Financial endpoints (strict rate limiting)
 create_route "7" "{

@@ -40,7 +40,9 @@ services:
       KC_PROXY_HEADERS: xforwarded
 
       # Security settings
-      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-auth.thaliumx.com}
+      # Temporary workaround: expose Keycloak under the main site hostname.
+      # This avoids relying on auth.thaliumx.com DNS (which currently fails to resolve publicly).
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-thaliumx.com}
       KC_CRYPTO_POLICY: restricted  # FIPS compliant crypto
 
       # Health and metrics
@@ -435,7 +437,7 @@ services:
         # IMPORTANT: This must be the site origin (no trailing /api).
         # Frontend code calls `/api/...` relative to this base.
         - NEXT_PUBLIC_API_URL=https://thaliumx.com
-        - NEXT_PUBLIC_KEYCLOAK_URL=https://auth.thaliumx.com/auth
+        - NEXT_PUBLIC_KEYCLOAK_URL=https://thaliumx.com/auth
         - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx-platform
         - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
     image: thaliumx/frontend:1.0.0
@@ -454,7 +456,7 @@ services:
       - HOSTNAME=0.0.0.0
       # IMPORTANT: This must be the site origin (no trailing /api).
       - NEXT_PUBLIC_API_URL=https://thaliumx.com
-      - NEXT_PUBLIC_KEYCLOAK_URL=https://auth.thaliumx.com/auth
+       - NEXT_PUBLIC_KEYCLOAK_URL=https://thaliumx.com/auth
       - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx-platform
       - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
       - NEXT_PUBLIC_AUTH_MODE=keycloak
