@@ -1,183 +1,232 @@
-# ThaliumX Production Readiness Audit Report
-**Date:** $(date)  
-**Auditor:** Independent Audit  
-**Status:** CRITICAL ISSUES FOUND - FIXES IN PROGRESS
+# ThaliumX v1 – Code/Config Security Audit Report
 
-## Executive Summary
+Date: 2025-12-25
 
-This audit identified **7 critical issues** and **12 configuration problems** that must be resolved before going live. All issues are being addressed with strict TypeScript compliance and no functionality removal.
+## Scope
 
-## Container Count
+This audit is based on:
 
-**Total Containers Identified:** 48 unique containers  
-**Expected:** 44 containers  
-**Discrepancy:** Some containers are in separate compose files not included in main orchestration
+1. Repository-wide static scans for common secret patterns, insecure defaults, and Docker hardening gaps.
+2. Targeted manual review of the highest-risk areas surfaced by scans (Docker orchestration, Keycloak bootstrap, trading stack configs).
 
-### Containers by Service Group:
-- **Databases:** 4 (postgres, mongodb, redis, typesense)
-- **Citus:** 3 (coordinator, worker-1, worker-2)
-- **TimescaleDB:** 1 (MISSING from main compose.yaml - CRITICAL)
-- **Messaging:** 2 (kafka, schema-registry)
-- **Security:** 3 (keycloak, vault, vault-init, opa)
-- **Gateway:** 2 (etcd, apisix)
-- **Core:** 2 (frontend, backend)
-- **Trading:** 3 (dingir-matchengine, dingir-restapi, liquibook, quantlib)
-- **Fintech:** 4 (ballerine-postgres, ballerine-workflow, ballerine-backoffice, blinkfinance)
-- **Compliance:** 5 (cex, dex, nft, token, coordinator)
-- **Observability:** 9 (prometheus, grafana, loki, promtail, tempo, otel-collector, blackbox-exporter, cadvisor, postgres-exporter, redis-exporter)
-- **Wazuh:** 3 (manager, indexer, dashboard)
+It does **not** include:
 
-## Critical Issues (MUST FIX)
+* Full SAST/DAST runs, dependency CVE enumeration across every lockfile, or runtime penetration testing.
 
-### 1. ⚠️ CRITICAL: TimescaleDB Missing from Main Compose
-**Impact:** Trading services (Dingir, Liquibook) will fail to start  
-**Location:** `docker/compose.yaml`  
-**Issue:** TimescaleDB service is not included but trading services depend on `thaliumx-timescaledb`  
-**Fix:** Add timescaledb/compose.yaml to main compose.yaml includes
+## Executive Summary (Top Critical Issues)
 
-### 2. ⚠️ CRITICAL: Compliance Services Reference Non-Existent Containers
-**Impact:** All compliance services will fail to connect to databases/messaging  
-**Location:** `docker/compliance/compose.yaml`  
-**Issue:** Services reference `postgres`, `redis`, `kafka` but should be `thaliumx-postgres`, `thaliumx-redis`, `thaliumx-kafka`  
-**Fix:** Update all service references to use full container names
+### 1) Real private keys and TLS material are committed to the repo (Critical)
 
-### 3. ⚠️ CRITICAL: Port Mismatch in Trading Service URLs
-**Impact:** Backend cannot connect to trading services  
-**Location:** `docker/core/core.env`  
-**Issue:** DINGIR_URL uses port 8001 but trading service exposes 50053  
-**Fix:** Update DINGIR_URL to use correct port 50053
+Multiple production-like private keys are present in version control, including CA keys.
 
-### 4. ⚠️ CRITICAL: APISIX Healthcheck Wrong Port
-**Impact:** Healthcheck will always fail, causing restart loops  
-**Location:** `docker/gateway/compose.yaml`  
-**Issue:** Healthcheck tests port 9092 but APISIX listens on 9080  
-**Fix:** Update healthcheck to test port 9080
+Examples:
 
-### 5. ⚠️ CRITICAL: Compliance Services Missing Database/Messaging Dependencies
-**Impact:** Compliance services cannot start without shared infrastructure  
-**Location:** `docker/compliance/compose.yaml`  
-**Issue:** Services reference postgres/redis/kafka but they're not defined in this compose file  
-**Fix:** Either add depends_on with service_healthy conditions or ensure services are started first
+* Vault TLS private key: [docker/vault/tls/vault.key:1](docker/vault/tls/vault.key:1)
+* Citus/Postgres SSL private key: [docker/citus/ssl/server.key:1](docker/citus/ssl/server.key:1)
+* Wazuh indexer/dashboard/admin/root CA private keys: [docker/wazuh/config/wazuh_indexer_ssl_certs/root-ca-key.pem:1](docker/wazuh/config/wazuh_indexer_ssl_certs/root-ca-key.pem:1)
+* CA private key used by other service certs: [docker/certs/ca/ca.key:1](docker/certs/ca/ca.key:1)
+* Many service keys under `docker/certs/services/*/*.key`: e.g. [docker/certs/services/vault/vault.key:1](docker/certs/services/vault/vault.key:1)
 
-### 6. ⚠️ WARNING: etcd Volume Marked External But May Not Exist
-**Impact:** APISIX may fail to start if volume doesn't exist  
-**Location:** `docker/gateway/compose.yaml`  
-**Issue:** etcd_data volume is marked external: true but may not be created  
-**Fix:** Remove external flag or ensure volume is created
+**Impact:** If this repository has ever been shared outside a tightly controlled perimeter, assume compromise of TLS trust and mutual-TLS identity. Attackers can impersonate services, decrypt traffic (in some scenarios), and/or sign leaf certificates.
 
-### 7. ⚠️ WARNING: Backend Port Mismatch
-**Impact:** Potential connection issues  
-**Location:** `docker/core/core.env` vs `docker/trading/compose.yaml`  
-**Issue:** QUANTLIB_URL uses port 8084 but service exposes 3010  
-**Fix:** Update QUANTLIB_URL to use port 3010
+**Immediate remediation:**
 
-## Configuration Issues
+* Rotate/re-issue all impacted certificates and all downstream identities.
+* Treat the entire PKI chain as compromised (especially any CA keys present).
+* Purge from git history (BFG / filter-repo) and add guardrails (pre-commit + CI secret scanning).
 
-### 8. TypeScript Strict Mode Compliance
-**Status:** Most services have strict mode enabled, but need verification  
-**Action:** Verify all services compile with strict mode
+---
 
-### 9. Environment Variable Consistency
-**Issues:**
-- Some services use different password defaults
-- Vault token may not be set consistently
-- Redis password referenced differently across services
+### 2) Hard-coded Vault tokens, DB passwords, JWT secrets, and API keys in compose/config (Critical)
 
-### 10. Health Check Dependencies
-**Issues:**
-- Some services don't have proper depends_on with service_healthy
-- Startup order may cause race conditions
+Direct secrets are embedded into production-like compose files and `.env`.
 
-### 11. Volume Persistence
-**Status:** Most volumes use named volumes, but some may need external: true flags
+Examples:
 
-### 12. Network Configuration
-**Status:** All services use thaliumx-net network correctly
+* Vault token hard-coded in “safe” trading stack: [docker/compose/prod-v1/trading-safe.yml:43](docker/compose/prod-v1/trading-safe.yml:43)
+* DB password + Redis password hard-coded in commands/env: [docker/compose/prod-v1/trading-safe.yml:27](docker/compose/prod-v1/trading-safe.yml:27), [docker/compose/prod-v1/trading-safe.yml:35](docker/compose/prod-v1/trading-safe.yml:35)
+* “Production” JWT secret hard-coded: [docker/compose/prod-v1/trading-safe.yml:201](docker/compose/prod-v1/trading-safe.yml:201)
+* Infura project ID embedded: [docker/compose/prod-v1/trading-safe.yml:197](docker/compose/prod-v1/trading-safe.yml:197)
+* Repo `.env` contains Vault dev root token and Vault token: [docker/.env:43](docker/.env:43)
 
-## TypeScript Configuration Audit
+**Impact:** Total compromise of secrets management boundaries. Anyone with repo access can authenticate to Vault, databases, and JWT-protected APIs.
 
-### Backend (`docker/backend/tsconfig.json`)
-✅ Strict mode enabled  
-✅ All strict flags enabled  
-⚠️ `noUnusedLocals` and `noUnusedParameters` set to false (should be true for production)
+**Immediate remediation:**
 
-### Frontend (`docker/frontend/tsconfig.json`)
-✅ Strict mode enabled  
-⚠️ Missing some strict flags (noUncheckedIndexedAccess, noImplicitOverride)
+* Rotate all tokens/secrets referenced in committed files.
+* Replace with injected secrets via Vault AppRole/Kubernetes auth/Vault Agent templates (or Docker secrets in Swarm).
+* Add policy enforcement: forbid `VAULT_TOKEN=` in repository configs (except templated placeholders).
 
-### Compliance Services
-✅ All have strict TypeScript configuration  
-✅ ESLint rules are strict
+---
 
-## Security Audit
+### 3) Default credentials / insecure bootstrap credentials exist in multiple stacks (Critical)
 
-### ✅ Good Practices Found:
-- Non-root users in containers
-- Read-only filesystems where possible
-- Capability dropping
-- Security options (no-new-privileges)
-- Proper tmpfs mounts
+#### Grafana default password
 
-### ⚠️ Security Concerns:
-- Default passwords in environment files (should use Vault)
-- Some API keys in plain text in core.env
-- Vault token may be default value
+Grafana uses a default password fallback:
 
-## Next Steps
+* [docker/observability/compose.yaml:63](docker/observability/compose.yaml:63)
 
-1. Fix all critical issues (1-7)
-2. Update TypeScript configurations for strictest mode
-3. Verify all containers can start
-4. Test service connectivity
-5. Verify health checks work correctly
-6. Test with actual service dependencies
+#### Keycloak admin password fallback to `admin`
 
-## Fixes Applied
+Keycloak client config uses a fallback admin password when env is unset:
 
-### ✅ Fixed Issues:
+* [docker/backend/src/services/keycloak.ts:760](docker/backend/src/services/keycloak.ts:760)
+* The fallback is set here: [docker/backend/src/services/keycloak.ts:791](docker/backend/src/services/keycloak.ts:791)
 
-1. **TimescaleDB Added to Main Compose** - Added timescaledb/compose.yaml to main compose.yaml includes
-2. **Compliance Services Container References** - Updated all references from `postgres/redis/kafka` to `thaliumx-postgres/thaliumx-redis/thaliumx-kafka`
-3. **Compliance Services Credentials** - Updated default credentials to match main database credentials
-4. **Compliance Coordinator URLs** - Fixed service URLs to use full container names
-5. **Port Mismatches Fixed**:
-   - DINGIR_URL: 8001 → 50053
-   - QUANTLIB_URL: 8084 → 3010
-6. **APISIX Healthcheck** - Fixed port from 9092 to 9080
-7. **etcd Volume** - Removed external flag to allow automatic creation
-8. **Compliance Compose Version** - Removed obsolete version: '3.8' declaration
-9. **TypeScript Strict Mode**:
-   - Backend: Enabled `noUnusedLocals` and `noUnusedParameters`
-   - Frontend: Added `noUncheckedIndexedAccess`, `noImplicitOverride`, `noUnusedLocals`, `noUnusedParameters`
-10. **Backend Dockerfile.production** - Fixed COPY syntax for dist directories
+#### Platform and tenant bootstrap users seeded with default passwords
 
-### 🔄 In Progress:
+This code seeds multiple high-privilege users with default passwords if env is missing:
 
-- Building and starting all 44 containers
-- Verifying service connectivity
-- Testing health checks
+* Platform admin default: [docker/backend/src/services/keycloak.ts:1676](docker/backend/src/services/keycloak.ts:1676)
+* Tenant admin default: [docker/backend/src/services/keycloak.ts:1864](docker/backend/src/services/keycloak.ts:1864)
 
-### ⚠️ Remaining Considerations:
+**Impact:** In production or misconfigured deployments, takeover of Grafana/Keycloak and platform administration.
 
-1. **Vault Token** - Ensure VAULT_TOKEN is set in production (currently defaults)
-2. **API Keys** - Some API keys are in plain text in core.env - should be moved to Vault
-3. **Default Passwords** - Some services still use default passwords - should be changed in production
-4. **Service Dependencies** - Compliance services depend on postgres/redis/kafka but don't have explicit depends_on (relies on startup order)
-5. **Build Context** - Some services may need to be built before others (shared package before backend)
+**Immediate remediation:**
 
-## Container Status
+* Remove all default-password fallbacks for production paths.
+* Require explicit env/secret manager inputs at boot (fail fast).
+* If bootstrap users are required: generate one-time passwords and force rotation on first login.
 
-**Total Services:** 44  
-**Status:** Building and starting...
+---
 
-## Next Steps After Containers Are Up:
+### 4) Repo contains runtime data directories with restricted permissions (Critical / Hygiene)
 
-1. Verify all containers are healthy
-2. Test inter-service connectivity
-3. Verify database connections
-4. Test API endpoints
-5. Verify observability stack
-6. Check security services (Vault, Keycloak, OPA)
-7. Test trading services
-8. Verify compliance services
+During repository inspection, `find` hit permission errors consistent with committed runtime data (e.g., Vault raft state):
 
+* `find: ‘docker/vault/data/raft’: Permission denied` (observed during audit)
+
+**Impact:** Operational data leakage risk; also breaks tooling and indicates environment artifacts are being committed.
+
+**Immediate remediation:**
+
+* Remove runtime state directories from the repo and git history.
+* Enforce `.gitignore` for all `data/`, `raft/`, `wal/`, etc.
+
+---
+
+### 5) `node_modules/` appears committed in several locations (Critical / Supply chain + repo health)
+
+Manifest enumeration showed massive nested `node_modules` directories under `docker/*` and `ballerine/*`.
+
+Example symptom from repo scans: private key fixtures found under vendored dependencies (not an app secret, but indicates vendored deps):
+
+* [ballerine/node_modules/.pnpm/ssh2@1.16.0/node_modules/ssh2/test/fixtures/id_rsa:1](ballerine/node_modules/.pnpm/ssh2@1.16.0/node_modules/ssh2/test/fixtures/id_rsa:1)
+
+**Impact:**
+
+* You cannot reliably audit dependencies if vendored directories drift from lockfiles.
+* Inflated attack surface and accidental secret inclusion.
+* Source control performance and reviewability collapse.
+
+**Immediate remediation:**
+
+* Remove all `node_modules/` from git and enforce ignore rules.
+* Rebuild from lockfiles in CI.
+
+## High Severity Findings
+
+### A) Use of `:latest` image tags in production-like compose files
+
+Using `:latest` prevents reproducible deploys and can silently introduce CVEs or breaking changes.
+
+Examples:
+
+* Vault: [docker/vault/docker-compose.yml:5](docker/vault/docker-compose.yml:5)
+* Certbot: [docker/ssl-certs/compose.yaml:27](docker/ssl-certs/compose.yaml:27)
+* Kafka UI: [docker/kafka/compose.yaml:68](docker/kafka/compose.yaml:68)
+* Multiple internal images: [docker/compose/prod-v1/applications.yml:129](docker/compose/prod-v1/applications.yml:129)
+
+**Remediation:** pin to specific immutable tags (or digests `@sha256:`) and define an upgrade process.
+
+### B) Plain HTTP to Vault used in “prod-v1” trading stacks
+
+Examples:
+
+* [docker/compose/prod-v1/trading-safe.yml:43](docker/compose/prod-v1/trading-safe.yml:43)
+
+**Impact:** Vault token exposure on the internal network; makes MITM feasible inside the cluster.
+
+**Remediation:** enforce TLS-only Vault, validate CA bundle, and remove `VAULT_TOKEN` from env paths in favor of AppRole + short-lived tokens.
+
+### C) Secrets echoed to logs
+
+Trading command echoes URLs that contain credentials:
+
+* [docker/compose/prod-v1/trading-safe.yml:34](docker/compose/prod-v1/trading-safe.yml:34)
+
+**Impact:** credential leakage via container logs / centralized logging.
+
+**Remediation:** never log DSNs; log only redacted connection targets.
+
+## Medium Severity Findings
+
+### A) Insecure TLS verification bypass in staging script
+
+Staging deploy script uses `curl -k` / `--insecure`:
+
+* [deploy-staging.sh:328](deploy-staging.sh:328)
+
+**Impact:** normalizes MITM; can mask invalid cert chains or configuration errors.
+
+**Remediation:** remove `-k`, provide correct CA bundle, and fail deployment if TLS validation fails.
+
+### B) Password policy minimums appear weak for a financial platform
+
+Keycloak realm password policy is set to `length(8)` and allows relatively short passwords:
+
+* [docker/backend/src/services/keycloak.ts:1074](docker/backend/src/services/keycloak.ts:1074)
+
+**Remediation:** set stronger policies (length >= 12–14, breach checks if available, lockouts, MFA enforcement for admin roles).
+
+### C) Blockchain contracts tooling uses placeholder RPC endpoints but still supports raw private key injection
+
+The Hardhat configuration expects a single `PRIVATE_KEY` environment variable for signing, and includes placeholder RPC URLs:
+
+* Accounts from `process.env.PRIVATE_KEY`: [blockchain-contracts/hardhat.config.js:29](blockchain-contracts/hardhat.config.js:29)
+* Infura placeholder URL: [blockchain-contracts/hardhat.config.js:34](blockchain-contracts/hardhat.config.js:34)
+* Fork mode references Alchemy with placeholder: [blockchain-contracts/package.json:24](blockchain-contracts/package.json:24)
+
+**Impact:** This is not automatically insecure, but it encourages developer workflows where raw private keys are placed into shell env / `.env` files, which frequently end up in shell history, CI logs, or accidental commits.
+
+**Remediation:**
+
+* Prefer hardware wallets / remote signers for production deploys.
+* If a key must exist: load it only from a secret manager (Vault transit signing, KMS, etc.), not from plaintext `.env`.
+
+## Structural / Operational Risk Observations
+
+### 1) Multiple overlapping “prod” compose stacks
+
+Repository contains many archived and active production compose variants, increasing misconfiguration risk:
+
+* `docker/compose/archive/*` vs `docker/compose/prod-v1/*` (see file listing produced during audit)
+
+**Risk:** teams may deploy the wrong variant (e.g., a legacy “no-tls” stack).
+
+**Remediation:**
+
+* Reduce to a single supported deployment path.
+* Gate deprecated stacks behind explicit `profiles` or move them out of the main repo.
+
+## Prioritized Remediation Plan
+
+### P0 (within 24–48h)
+
+1. Rotate/revoke all committed secrets: Vault root/dev tokens, JWT secrets, DB passwords, Infura/API keys.
+2. Rotate PKI: assume CA compromise if any CA private keys were committed (e.g. [docker/certs/ca/ca.key:1](docker/certs/ca/ca.key:1)).
+3. Remove `node_modules/` from the repo; rebuild from lockfiles.
+4. Purge secrets and private keys from git history.
+
+### P1 (this week)
+
+1. Replace all default credentials and password fallbacks; enforce fail-fast configuration in production.
+2. Remove `:latest` tags; pin image digests.
+3. Move “safe/trading” hard-coded secrets to a proper secret delivery mechanism.
+
+### P2 (this month)
+
+1. Establish CI security checks (secret scanning + IaC scanning + dependency scanning).
+2. Normalize deployment artifacts and remove legacy compose stacks.
+3. Add threat modeling and security requirements for each service boundary.

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import apiClient from '@/lib/api/client';
 
 interface PolicyParameters {
   version?: string;
@@ -43,7 +44,9 @@ const POLICY_CATEGORIES: PolicyCategory[] = [
   { name: 'rbac', label: 'RBAC', description: 'Role-Based Access Control policies' },
 ];
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
+// In prod-v1 APISIX routes `/api/*` to the backend.
+// Keep all admin-policy calls on the same origin.
+const API_BASE = '/api/admin/policies';
 
 export default function PolicyManagement() {
   const [activeCategory, setActiveCategory] = useState<string>('aml');
@@ -65,14 +68,13 @@ export default function PolicyManagement() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/admin/policies/parameters/${activeCategory}`);
-      const data = await response.json();
-      if (data.success) {
-        setParameters(data.data);
-        setEditedParameters(data.data);
-      } else {
-        setError(data.error || 'Failed to fetch parameters');
+      const res = await apiClient.get<PolicyParameters>(`${API_BASE}/parameters/${activeCategory}`);
+      if (!res.success) {
+        setError(res.error || 'Failed to fetch parameters');
+        return;
       }
+      setParameters(res.data || {});
+      setEditedParameters(res.data || {});
     } catch (_err) {
       setError('Failed to connect to API');
     } finally {
@@ -83,9 +85,14 @@ export default function PolicyManagement() {
   // Fetch OPA status
   const fetchStatus = async () => {
     try {
-      const response = await fetch(`${API_BASE}/admin/policies/health`);
-      const data = await response.json();
-      setOpaStatus({ healthy: data.healthy, version: data.version });
+      const res = await apiClient.get<any>(`${API_BASE}/health`);
+      if (!res.success) {
+        setOpaStatus({ healthy: false });
+        return;
+      }
+      // backend returns `{ success, healthy, timestamp }`
+      const raw = res.data as any;
+      setOpaStatus({ healthy: !!raw?.healthy, version: raw?.version });
     } catch {
       setOpaStatus({ healthy: false });
     }
@@ -94,10 +101,10 @@ export default function PolicyManagement() {
   // Fetch presets
   const fetchPresets = async () => {
     try {
-      const response = await fetch(`${API_BASE}/admin/policies/presets`);
-      const data = await response.json();
-      if (data.success) {
-        setPresets(data.presets);
+      const res = await apiClient.get<any>(`${API_BASE}/presets`);
+      if (res.success) {
+        const raw = res.data as any;
+        setPresets(raw?.presets || []);
       }
     } catch {
       // Ignore preset fetch errors
@@ -107,10 +114,9 @@ export default function PolicyManagement() {
   // Fetch audit log
   const fetchAuditLog = async () => {
     try {
-      const response = await fetch(`${API_BASE}/admin/policies/audit?limit=50`);
-      const data = await response.json();
-      if (data.success) {
-        setAuditLog(data.data);
+      const res = await apiClient.get<AuditLogEntry[]>(`${API_BASE}/audit?limit=50`);
+      if (res.success) {
+        setAuditLog(res.data || []);
       }
     } catch {
       // Ignore audit log fetch errors
@@ -129,19 +135,15 @@ export default function PolicyManagement() {
     setError(null);
     setSuccess(null);
     try {
-      const response = await fetch(`${API_BASE}/admin/policies/parameters/${activeCategory}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editedParameters),
-      });
-      const data = await response.json();
-      if (data.success) {
-        setSuccess('Parameters saved successfully');
-        setParameters(data.data);
-        fetchAuditLog();
-      } else {
-        setError(data.error || 'Failed to save parameters');
+      const res = await apiClient.put<PolicyParameters>(`${API_BASE}/parameters/${activeCategory}`, editedParameters);
+      if (!res.success) {
+        setError(res.error || 'Failed to save parameters');
+        return;
       }
+
+      setSuccess('Parameters saved successfully');
+      setParameters(res.data || {});
+      fetchAuditLog();
     } catch (_err) {
       setError('Failed to save parameters');
     } finally {
@@ -158,17 +160,14 @@ export default function PolicyManagement() {
     setError(null);
     setSuccess(null);
     try {
-      const response = await fetch(`${API_BASE}/admin/policies/presets/${presetName}/apply`, {
-        method: 'POST',
-      });
-      const data = await response.json();
-      if (data.success) {
-        setSuccess(`Preset "${presetName}" applied successfully`);
-        fetchParameters();
-        fetchAuditLog();
-      } else {
-        setError(data.error || 'Failed to apply preset');
+      const res = await apiClient.post<any>(`${API_BASE}/presets/${presetName}/apply`);
+      if (!res.success) {
+        setError(res.error || 'Failed to apply preset');
+        return;
       }
+      setSuccess(`Preset "${presetName}" applied successfully`);
+      fetchParameters();
+      fetchAuditLog();
     } catch (_err) {
       setError('Failed to apply preset');
     } finally {
@@ -182,17 +181,13 @@ export default function PolicyManagement() {
     try {
       const input = JSON.parse(testInput);
       const policyPath = `thaliumx/${activeCategory}/allow`;
-      const response = await fetch(`${API_BASE}/admin/policies/evaluate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ policy: policyPath, input }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        setTestResult(data.result);
-      } else {
-        setError(data.error || 'Policy evaluation failed');
+      const res = await apiClient.post<any>(`${API_BASE}/evaluate`, { policy: policyPath, input });
+      if (!res.success) {
+        setError(res.error || 'Policy evaluation failed');
+        return;
       }
+      const raw = res.data as any;
+      setTestResult(raw?.result);
     } catch (_err) {
       setError('Invalid JSON input or evaluation failed');
     }

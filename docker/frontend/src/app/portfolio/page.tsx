@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import apiClient from '@/lib/api/client';
 
 export default function PortfolioPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -10,12 +11,9 @@ export default function PortfolioPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/presale/investments', {
-          credentials: 'include' // Include cookies
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error?.message || 'Failed to load');
-        setItems(data.data || []);
+        const res = await apiClient.get<any[]>('/api/presale/investments');
+        if (!res.success) throw new Error(res.error || res.message || 'Failed to load');
+        setItems(res.data || []);
       } catch (e: any) {
         setError(e.message);
       } finally {
@@ -63,5 +61,4 @@ export default function PortfolioPage() {
     </div>
   );
 }
-
 

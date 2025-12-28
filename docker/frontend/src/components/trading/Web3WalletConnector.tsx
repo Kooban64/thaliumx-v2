@@ -14,13 +14,14 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
+import apiClient from '@/lib/api/client';
 
 interface Web3Wallet {
   id: string;
   address: string;
   chainId: number;
   walletType: string;
-  status: 'active' | 'pending' | 'suspended';
+  status: 'connected' | 'disconnected' | 'pending' | 'error';
   balance: string;
 }
 
@@ -38,16 +39,44 @@ export function Web3WalletConnector() {
 
   const loadConnectedWallets = async () => {
     try {
-      const response = await fetch('/api/web3-wallet/wallets', {
-        credentials: 'include', // Include cookies
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setWallets(data.wallets || []);
+      const response = await apiClient.get<any[]>('/api/web3-wallet/wallets');
+      if (!response.success) {
+        throw new Error(response.error || response.message || 'Failed to load wallets');
       }
+
+      const rows = response.data || [];
+
+      // Enrich with native balance (best-effort).
+      const enriched: Web3Wallet[] = await Promise.all(
+        rows.map(async (w: any) => {
+          try {
+            const balRes = await apiClient.get<any>(`/api/web3-wallet/${w.address}/balance/${w.chainId}`);
+            const native = balRes.success ? balRes.data?.nativeBalance : undefined;
+            return {
+              id: w.id,
+              address: w.address,
+              chainId: w.chainId,
+              walletType: w.walletType,
+              status: w.status,
+              balance: native || '—',
+            };
+          } catch {
+            return {
+              id: w.id,
+              address: w.address,
+              chainId: w.chainId,
+              walletType: w.walletType,
+              status: w.status,
+              balance: '—',
+            };
+          }
+        }),
+      );
+
+      setWallets(enriched);
     } catch (err) {
       console.error('Failed to load wallets:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load wallets');
     } finally {
       setIsLoading(false);
     }
@@ -78,7 +107,9 @@ export function Web3WalletConnector() {
       const chainId = parseInt(eth.chainId, 16);
 
       // Create message for signature
-      const message = `Connect to ThaliumX\nAddress: ${address}\nChain: ${chainId}\nTimestamp: ${Date.now()}`;
+      const timestamp = Date.now();
+      const nonce = `${timestamp}-${Math.random().toString(16).slice(2)}`;
+      const message = `Connect to ThaliumX\nAddress: ${address}\nChain: ${chainId}\nTimestamp: ${timestamp}\nNonce: ${nonce}`;
 
       // Request signature
       const signature = await eth.request({
@@ -87,26 +118,18 @@ export function Web3WalletConnector() {
       });
 
       // Send to backend
-      const response = await fetch('/api/web3-wallet/connect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies
-        body: JSON.stringify({
-          address,
-          chainId,
-          signature,
-          message,
-          walletType: 'MetaMask',
-          publicKey: '', // MetaMask doesn't expose public key
-        }),
+      const response = await apiClient.post('/api/web3-wallet/connect', {
+        address,
+        chainId,
+        signature,
+        message,
+        timestamp,
+        nonce,
+        walletType: 'metamask',
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to connect wallet');
+      if (!response.success) {
+        throw new Error(response.error || response.message || 'Failed to connect wallet');
       }
 
       setSuccess('Wallet connected successfully!');
@@ -120,15 +143,13 @@ export function Web3WalletConnector() {
 
   const disconnectWallet = async (walletId: string) => {
     try {
-      const response = await fetch(`/api/web3-wallet/${walletId}/disconnect`, {
-        method: 'DELETE',
-        credentials: 'include', // Include cookies
-      });
-
-      if (response.ok) {
-        setSuccess('Wallet disconnected successfully!');
-        loadConnectedWallets();
+      const response = await apiClient.delete<void>(`/api/web3-wallet/${walletId}/disconnect`);
+      if (!response.success) {
+        throw new Error(response.error || response.message || 'Failed to disconnect wallet');
       }
+
+      setSuccess('Wallet disconnected successfully!');
+      loadConnectedWallets();
     } catch (_err) {
       setError('Failed to disconnect wallet');
     }
@@ -238,7 +259,7 @@ export function Web3WalletConnector() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <div className={`h-2 w-2 rounded-full ${
-                      wallet.status === 'active' ? 'bg-green-500' : 
+                      wallet.status === 'connected' ? 'bg-green-500' : 
                       wallet.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
                     }`} />
                     <span className="font-medium">{wallet.walletType}</span>
@@ -267,7 +288,7 @@ export function Web3WalletConnector() {
                   {formatAddress(wallet.address)}
                 </div>
                 <div className="text-sm">
-                  Balance: {wallet.balance} ETH
+                  Balance: {wallet.balance}
                 </div>
               </div>
             ))}

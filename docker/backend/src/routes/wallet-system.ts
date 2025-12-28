@@ -19,6 +19,7 @@ import { LoggerService } from '../services/logger';
 import { DatabaseService } from '../services/database';
 import { UserRole } from '../types';
 import { createError } from '../utils';
+import { marketDataService } from '../services/market-data';
 
 const router: Router = Router();
 let walletSystemService: WalletSystemService;
@@ -212,6 +213,69 @@ router.get('/wallet/:walletId', authenticateToken, async (req: Request, res: Res
   }
 });
 
+/**
+ * Get a simplified "balances" payload for the frontend wallet tab.
+ * GET /api/wallets/balances
+ */
+router.get('/balances', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = getAuthUserId(req);
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const wallets = walletSystemService.getUserWallets(userId);
+
+    // Aggregate per currency.
+    const byCurrency = new Map<string, number>();
+    for (const w of wallets) {
+      const ccy = String(w.currency || '').toUpperCase();
+      if (!ccy) continue;
+      const bal = parseFloat(String(w.balance || '0')) || 0;
+      byCurrency.set(ccy, (byCurrency.get(ccy) || 0) + bal);
+    }
+
+    const balances: Array<{ asset: string; balance: string; usdValue: string; change24h: number }> = [];
+    let total = 0;
+
+    for (const [asset, bal] of byCurrency.entries()) {
+      let usd = 0;
+      try {
+        if (asset === 'USDT' || asset === 'USDC' || asset === 'DAI' || asset === 'USD') {
+          usd = bal;
+        } else {
+          const price = await marketDataService.getPrice(asset);
+          usd = price ? bal * (price.price || 0) : 0;
+        }
+      } catch {
+        usd = 0;
+      }
+
+      total += usd;
+      balances.push({
+        asset,
+        balance: bal.toString(),
+        usdValue: usd.toFixed(2),
+        change24h: 0,
+      });
+    }
+
+    balances.sort((a, b) => parseFloat(b.usdValue) - parseFloat(a.usdValue));
+
+    res.json({
+      success: true,
+      data: {
+        balances,
+        totalValue: total.toFixed(2),
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get wallet balance by currency
 router.get('/balance/:currency', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -219,18 +283,12 @@ router.get('/balance/:currency', authenticateToken, async (req: Request, res: Re
     const { currency } = req.params;
 
     if (!userId) {
-      res.status(401).json({
-        success: false,
-        error: 'Unauthorized'
-      });
+      res.status(401).json({ success: false, error: 'Unauthorized' });
       return;
     }
 
     if (!currency) {
-      res.status(400).json({
-        success: false,
-        error: 'Currency is required'
-      });
+      res.status(400).json({ success: false, error: 'Currency is required' });
       return;
     }
 
@@ -254,8 +312,8 @@ router.get('/balance/:currency', authenticateToken, async (req: Request, res: Re
       success: true,
       data: {
         currency: wallet.currency,
-        available_balance: wallet.balance, // Assuming balance is available balance for simplicity
-        total_balance: wallet.balance
+        available_balance: wallet.balance,
+        total_balance: wallet.balance,
       },
       timestamp: new Date().toISOString()
     });
@@ -311,20 +369,20 @@ router.post('/reference/generate', authenticateToken, async (req: Request, res: 
   }
 });
 
-// Get persistent FIAT deposit reference (alphanumeric)
-router.get('/reference/persistent/:currency', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const userId = getAuthUserId(req);
-    const tenantId = (req as any).tenantId || 'default-tenant';
-    const brokerId = (req as any).brokerId || 'default-broker';
-    const { currency } = req.params;
+  // Get persistent FIAT deposit reference (alphanumeric)
+  router.get('/reference/persistent/:currency', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = getAuthUserId(req);
+      const tenantId = (req.user as any)?.tenantId || 'default-tenant';
+      const brokerId = (req.user as any)?.brokerId || (req.user as any)?.tenantId || 'default-broker';
+      const { currency } = req.params;
 
     if (!userId || !currency) {
       res.status(400).json({ success: false, error: 'Missing required fields: userId, currency' });
       return;
     }
 
-    const ref = await walletSystemService.getOrCreatePersistentReference(userId, tenantId, brokerId, currency);
+      const ref = await walletSystemService.getOrCreatePersistentReference(userId, tenantId, brokerId, currency);
 
     res.json({
       success: true,

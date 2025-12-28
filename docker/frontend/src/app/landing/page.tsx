@@ -105,6 +105,51 @@ export default function LandingPage() {
           </Card>
         </section>
 
+        <section id="how" className="mt-20">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-3xl font-bold text-center">How it works</h2>
+            <p className="mt-3 text-muted-foreground text-center">
+              Sign in with Keycloak, connect your wallet (optional), and place trades through the unified routing layer.
+            </p>
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>1) Authenticate</CardTitle>
+                  <CardDescription>SSO via Keycloak (OIDC)</CardDescription>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  Your session is managed centrally and API requests use Bearer tokens.
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>2) Fund / Connect</CardTitle>
+                  <CardDescription>Deposit FIAT or connect Web3</CardDescription>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  Manage balances and wallets inside the platform.
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>3) Trade</CardTitle>
+                  <CardDescription>CEX + DEX routing</CardDescription>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  Place orders and monitor positions from the dashboard.
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        <section id="contact" className="mt-20 text-center">
+          <h2 className="text-3xl font-bold">Contact</h2>
+          <p className="mt-2 text-muted-foreground">
+            For broker onboarding and support, email <a className="underline" href="mailto:support@thaliumx.com">support@thaliumx.com</a>
+          </p>
+        </section>
+
         <section id="cta" className="mt-20 text-center">
           <h2 className="text-3xl font-bold">Ready to get started?</h2>
           <p className="mt-2 text-muted-foreground">Trade from any Web3 wallet or broker account.</p>

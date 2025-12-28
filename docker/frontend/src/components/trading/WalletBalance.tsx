@@ -14,6 +14,7 @@ import {
   DollarSign,
   Coins
 } from 'lucide-react';
+import apiClient from '@/lib/api/client';
 
 interface WalletBalance {
   asset: string;
@@ -34,15 +35,16 @@ export function WalletBalance() {
 
   const loadBalances = async () => {
     try {
-      const response = await fetch('/api/wallet/balances', {
-        credentials: 'include', // Include cookies
-      });
+      const response = await apiClient.get<{ balances: WalletBalance[]; totalValue: string }>(
+        '/api/wallets/balances',
+      );
 
-      if (response.ok) {
-        const data = await response.json();
-        setBalances(data.balances || []);
-        setTotalValue(data.totalValue || '0.00');
+      if (!response.success) {
+        throw new Error(response.error || response.message || 'Failed to load balances');
       }
+
+      setBalances(response.data?.balances || []);
+      setTotalValue(response.data?.totalValue || '0.00');
     } catch (_err) {
       setError('Failed to load wallet balances');
     } finally {
@@ -156,11 +158,11 @@ export function WalletBalance() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" size="sm">
-            Deposit
+          <Button variant="outline" size="sm" asChild>
+            <a href="/wallet/deposit">Deposit</a>
           </Button>
-          <Button variant="outline" size="sm">
-            Withdraw
+          <Button variant="outline" size="sm" asChild>
+            <a href="/wallet/withdraw">Withdraw</a>
           </Button>
         </div>
       </CardContent>

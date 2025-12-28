@@ -6,6 +6,34 @@
 import { z } from 'zod';
 import { ComplianceConfig } from '../types/compliance';
 
+// ==================== ENV PARSERS ====================
+
+/**
+ * Robust boolean parsing for env vars.
+ *
+ * DO NOT use `z.coerce.boolean()` here.
+ * - In Zod, `z.coerce.boolean()` uses JavaScript truthiness.
+ * - That makes the string "false" evaluate to `true` (because Boolean("false") === true).
+ *
+ * This helper accepts common representations:
+ * - true:  true, "true", "1", "yes", "y", "on"
+ * - false: false, "false", "0", "no", "n", "off", ""
+ */
+const envBool = (defaultValue: boolean) =>
+  z.preprocess((val) => {
+    if (typeof val === 'boolean') return val;
+    if (typeof val === 'number') return val !== 0;
+
+    if (typeof val === 'string') {
+      const s = val.trim().toLowerCase();
+
+      if (['true', '1', 'yes', 'y', 'on'].includes(s)) return true;
+      if (['false', '0', 'no', 'n', 'off', ''].includes(s)) return false;
+    }
+
+    return val;
+  }, z.boolean()).default(defaultValue);
+
 // ==================== CONFIGURATION SCHEMAS ====================
 
 /**
@@ -24,7 +52,7 @@ const envSchema = z.object({
   DATABASE_NAME: z.string().default('thaliumx_compliance'),
   DATABASE_USER: z.string().default('compliance_user'),
   DATABASE_PASSWORD: z.string().min(1),
-  DATABASE_SSL: z.coerce.boolean().default(false),
+  DATABASE_SSL: envBool(false),
   DATABASE_MAX_CONNECTIONS: z.coerce.number().int().positive().default(20),
 
   // Redis Configuration
@@ -37,7 +65,7 @@ const envSchema = z.object({
   KAFKA_BROKERS: z.string().default('localhost:9092'),
   KAFKA_CLIENT_ID: z.string().default('cex-compliance-service'),
   KAFKA_GROUP_ID: z.string().default('cex-compliance-group'),
-  KAFKA_SSL: z.coerce.boolean().default(false),
+  KAFKA_SSL: envBool(false),
   KAFKA_SSL_CA: z.string().optional(),
   KAFKA_SASL_MECHANISM: z.string().optional(),
   KAFKA_SASL_USERNAME: z.string().optional(),
@@ -49,21 +77,21 @@ const envSchema = z.object({
   RISK_HIGH_THRESHOLD: z.coerce.number().min(0).max(100).default(80),
 
   // Travel Rule Configuration
-  TRAVEL_RULE_ENABLED: z.coerce.boolean().default(true),
+  TRAVEL_RULE_ENABLED: envBool(true),
   TRAVEL_RULE_THRESHOLD: z.coerce.number().min(0).default(3000), // USD
-  TRAVEL_RULE_AUTO_SEND: z.coerce.boolean().default(false),
+  TRAVEL_RULE_AUTO_SEND: envBool(false),
   TRAVEL_RULE_MAX_RETRIES: z.coerce.number().int().positive().default(3),
   TRAVEL_RULE_RETRY_DELAY_MS: z.coerce.number().int().positive().default(300000), // 5 minutes
 
   // CARF Configuration
-  CARF_ENABLED: z.coerce.boolean().default(true),
-  CARF_AUTO_GENERATE: z.coerce.boolean().default(true),
+  CARF_ENABLED: envBool(true),
+  CARF_AUTO_GENERATE: envBool(true),
   CARF_REPORTING_PERIOD_DAYS: z.coerce.number().int().positive().default(365),
   CARF_RETENTION_YEARS: z.coerce.number().int().positive().default(7),
 
   // Regulatory Configuration
   REGULATORY_JURISDICTIONS: z.string().default('US,CA,EU'),
-  REGULATORY_AUTO_SUBMIT: z.coerce.boolean().default(false),
+  REGULATORY_AUTO_SUBMIT: envBool(false),
   REGULATORY_SUBMISSION_ENDPOINTS: z.string().optional(),
 
   // Logging Configuration

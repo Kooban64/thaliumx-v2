@@ -45,15 +45,20 @@ export default function Dashboard() {
 
         const token = authMode === 'keycloak' ? getAccessToken() : null;
         const response = await fetch('/api/auth/profile', {
-          credentials: 'include', // legacy path uses cookies
+          credentials: 'include',
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (!response.ok) {
           window.location.href = '/auth';
           return;
         }
-        // Load user data
-        loadUserData();
+
+        // In Keycloak-first mode, `/api/auth/profile` already returns the user identity.
+        // Use it directly instead of calling a non-existent `/api/user/profile`.
+        const json = await response.json();
+        const u = json?.data?.user || json?.data || null;
+        setUser(u);
+        setIsLoading(false);
       } catch (error) {
         window.location.href = '/auth';
       }
@@ -93,23 +98,6 @@ export default function Dashboard() {
         time: (Date.now() / 1000 - (100 - i) * 60) as any,
         value: 45000 + Math.sin(i / 10) * 1000 + (i * 10),
       })));
-    }
-  };
-
-  const loadUserData = async () => {
-    try {
-      const response = await fetch('/api/user/profile', {
-        credentials: 'include' // Include cookies
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      }
-    } catch (error) {
-      console.error('Failed to load user data:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -439,7 +427,18 @@ export default function Dashboard() {
                       <Label htmlFor="email">Email</Label>
                       <Input id="email" type="email" defaultValue={user?.email || ''} />
                     </div>
-                    <Button>Save Changes</Button>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        // Backend profile updates are managed by Keycloak (OIDC).
+                        // Send the user to the Keycloak account console.
+                        const kc = getKeycloak();
+                        const accountUrl = `${kc.authServerUrl}/realms/${kc.realm}/account`;
+                        window.open(accountUrl, '_blank', 'noopener,noreferrer');
+                      }}
+                    >
+                      Manage in Account Console
+                    </Button>
                   </CardContent>
                 </Card>
               </div>

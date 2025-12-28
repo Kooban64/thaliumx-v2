@@ -14,6 +14,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { tradingOrderSchema, validateForm, rateLimitedApiCall } from '@/lib/utils';
+import apiClient from '@/lib/api/client';
 
 export function TradingPanel() {
   const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
@@ -84,19 +85,10 @@ export function TradingPanel() {
 
     try {
       await rateLimitedApiCall(async () => {
-        const response = await fetch('/api/trading/order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include', // Include cookies
-          body: JSON.stringify(orderData),
-        });
+        const response = await apiClient.post('/api/trading/order', orderData);
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Order failed');
+        if (!response.success) {
+          throw new Error(response.error || response.message || 'Order failed');
         }
 
         setSuccess('Order placed successfully!');
@@ -251,16 +243,13 @@ export function TradingPanel() {
                 onClick={async () => {
                   try {
                     // Fetch actual balance from API
-                    const response = await fetch('/api/wallet/balance/BTC', {
-                      credentials: 'include',
-                    });
-                    if (response.ok) {
-                      const data = await response.json();
-                      if (data.success && data.data) {
-                        const balance = data.data.available_balance || 0;
-                        const percentageValue = parseFloat(percentage) / 100;
-                        setAmount((balance * percentageValue).toFixed(8));
-                      }
+                    const res = await apiClient.get<{ available_balance: string; total_balance: string }>(
+                      '/api/wallets/balance/BTC',
+                    );
+                    if (res.success && res.data) {
+                      const bal = parseFloat(res.data.available_balance || '0') || 0;
+                      const percentageValue = parseFloat(percentage) / 100;
+                      setAmount((bal * percentageValue).toFixed(8));
                     }
                   } catch (error) {
                     console.warn('Failed to fetch balance for quick amount:', error);

@@ -72,6 +72,21 @@ services:
       - sh
       - -lc
       - |
+        # ---------------------------------------------------------------------
+        # Docker secrets hardening / compatibility
+        #
+        # In some environments, secrets under /run/secrets are mounted 0400 and
+        # owned by root, which becomes unreadable after we drop privileges.
+        # The service's config loader reads `KEYCLOAK_CLIENT_SECRET_FILE` at
+        # runtime; if it points to /run/secrets/* this can crash-loop with EACCES.
+        #
+        # Fix: copy the secret to a readable location before `su-exec`.
+        # ---------------------------------------------------------------------
+        mkdir -p /tmp/secrets;
+        cp /run/secrets/keycloak-compliance-cex-secret /tmp/secrets/keycloak-compliance-cex-secret;
+        chmod 0444 /tmp/secrets/keycloak-compliance-cex-secret;
+        export KEYCLOAK_CLIENT_SECRET_FILE=/tmp/secrets/keycloak-compliance-cex-secret;
+
         export DATABASE_PASSWORD="$(cat /run/secrets/postgres-password)";
         export DB_PASSWORD="$(cat /run/secrets/postgres-password)";
         export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
