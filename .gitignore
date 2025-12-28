@@ -95,6 +95,12 @@ docker/wazuh/config/wazuh_indexer_ssl_certs/**/*.srl
 # Certbot runtime data (never commit)
 docker/ssl-certs/data/
 
+# Runtime Let’s Encrypt data created on hosts (never commit)
+docker/certs/letsencrypt/
+
+# Local manual TLS backups (never commit)
+docker/certs/services/apisix/*.bak.*
+
 # Coverage reports
 coverage/
 
