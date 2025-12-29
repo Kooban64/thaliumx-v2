@@ -141,6 +141,9 @@ services:
   # Keycloak realm JSON imports cannot safely embed runtime secrets.
   # This one-shot job patches client secrets + redirect URIs after Keycloak is ready.
   keycloak-post-import-seed:
+    # Manual init job: run via `docker compose --profile init-jobs run --rm keycloak-post-import-seed`.
+    # Kept as a compose service for idempotent replay, but it should NOT be started by default.
+    profiles: ["init-jobs"]
     image: alpine:3.20
     container_name: thaliumx-keycloak-post-import-seed
     hostname: thaliumx-keycloak-post-import-seed

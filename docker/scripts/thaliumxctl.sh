@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Ensure the script works no matter where it is invoked from.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${REPO_ROOT}"
+
 # thaliumxctl.sh - interactive Docker Compose environment manager
 #
 # Pure bash menu (no whiptail/dialog dependency).
@@ -44,8 +49,18 @@ compose() {
   docker compose "${COMPOSE_ARGS[@]}" $(profile_args) "$@"
 }
 
+compose_with_extra_profile() {
+  local extra_profile="$1"
+  shift
+  # shellcheck disable=SC2046
+  docker compose "${COMPOSE_ARGS[@]}" $(profile_args) --profile "$extra_profile" "$@"
+}
+
 banner() {
-  clear || true
+  # Only attempt terminal clearing when stdout is an actual TTY.
+  if [[ -t 1 ]] && [[ -n "${TERM:-}" ]]; then
+    clear || true
+  fi
   echo "ThaliumX Docker Control (thaliumxctl)"
   echo "==================================="
   echo "Mode: $mode"
@@ -171,8 +186,10 @@ run_init_jobs() {
   echo " - vault-unseal"
   echo " - keycloak-post-import-seed"
   echo
-  compose run --rm vault-unseal
-  compose run --rm keycloak-post-import-seed
+  # These jobs are intentionally NOT part of the default `up` set.
+  # They live behind the compose profile `init-jobs` to avoid showing up as “exited” containers.
+  compose_with_extra_profile init-jobs run --rm vault-unseal
+  compose_with_extra_profile init-jobs run --rm keycloak-post-import-seed
   pause
 }
 

@@ -16,7 +16,7 @@ This manager always targets the prod-v1 compose set:
 ### Why this exists
 
 The platform uses **one-shot init jobs** (expected to run and exit) in addition to long-running containers.
-Examples include Vault auto-unseal, Keycloak post-import seeding, gateway/bootstrap jobs.
+Examples include gateway/bootstrap jobs.
 
 If you only look for “running containers”, those init containers may appear “missing” because:
 
@@ -24,6 +24,15 @@ If you only look for “running containers”, those init containers may appear 
 - they exit successfully after finishing.
 
 The sanity checker accounts for this behavior: [`docker/scripts/prod-v1-check.sh`](docker/scripts/prod-v1-check.sh:1).
+
+### Manual init jobs (not started by default)
+
+Some init jobs are intentionally **not** part of the default `docker compose up` set (to avoid leaving extra “Exited (0)” containers around):
+
+- Vault unseal: [`vault-unseal`](docker/compose/prod-v1/infrastructure.yml:50)
+- Keycloak post-import patching: [`keycloak-post-import-seed`](docker/compose/prod-v1/applications.yml:143)
+
+They live behind compose profile `init-jobs` and are run by the manager with `docker compose --profile init-jobs run --rm ...`.
 
 ## Commands
 

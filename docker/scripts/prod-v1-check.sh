@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Ensure the script works no matter where it is invoked from.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${REPO_ROOT}"
+
 # ThaliumX prod-v1 sanity checker
 #
 # Checks:
@@ -82,8 +87,6 @@ awk '{print "thaliumx-"$0}' "$tmpdir/services_expected.txt" | sort >"$tmpdir/con
 # One-shot jobs are allowed to be absent (when run with `docker compose run --rm`) or to be exited(0).
 # They should NOT block the "stack is up" check.
 ONESHOOT_CONTAINERS=(
-  thaliumx-vault-unseal
-  thaliumx-keycloak-post-import-seed
   thaliumx-apisix-init
   thaliumx-kafka-init
   thaliumx-blnkfinance-migrate
@@ -136,6 +139,22 @@ for c in "${ONESHOOT_CONTAINERS[@]}"; do
   fi
 done
 
+echo
+echo "Legacy init containers (informational)…"
+# These used to be part of the default `up` set. They are now behind profile `init-jobs` and are
+# typically run with `docker compose --profile init-jobs run --rm ...`.
+LEGACY_INIT_CONTAINERS=(
+  thaliumx-vault-unseal
+  thaliumx-keycloak-post-import-seed
+)
+for c in "${LEGACY_INIT_CONTAINERS[@]}"; do
+  if docker inspect "$c" >/dev/null 2>&1; then
+    state="$(docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null || true)"
+    exit_code="$(docker inspect -f '{{.State.ExitCode}}' "$c" 2>/dev/null || true)"
+    echo "INFO: $c exists (state=$state exitCode=$exit_code) but is not part of the default prod-v1 service set anymore"
+  fi
+done
+
 # Health check pass (only for running containers)
 fail=0
 while IFS= read -r name; do
@@ -157,3 +176,24 @@ if [[ "$fail" -ne 0 ]]; then
 fi
 
 echo "OK: all running containers are healthy (or have no healthcheck)"
+
+echo
+echo "Vault sanity (best-effort)…"
+if docker inspect thaliumx-vault >/dev/null 2>&1; then
+  # NOTE: Our hardened Vault TLS certs may not include IP SANs; hostname validation can fail.
+  # For this *sanity* check only, we skip verify so we can still report Sealed=true/false.
+  # Runtime clients should still be configured with a valid Vault certificate/hostname pairing.
+  status_out="$(docker exec thaliumx-vault vault status -tls-skip-verify -address=https://127.0.0.1:8200 2>/dev/null || true)"
+  if echo "$status_out" | grep -Eq '^Sealed\s+false$'; then
+    echo "OK: Vault is unsealed"
+  elif echo "$status_out" | grep -Eq '^Sealed\s+true$'; then
+    echo "WARN: Vault is SEALED (services that read secrets from Vault will fail)" >&2
+  elif [[ -n "$status_out" ]]; then
+    echo "WARN: Could not determine Vault sealed status (unexpected output)" >&2
+    echo "$status_out" | sed -n '1,30p' >&2
+  else
+    echo "WARN: Vault status command produced no output" >&2
+  fi
+else
+  echo "WARN: thaliumx-vault container not found" >&2
+fi

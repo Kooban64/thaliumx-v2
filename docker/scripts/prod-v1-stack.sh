@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Ensure the script works no matter where it is invoked from.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${REPO_ROOT}"
+
 # ThaliumX prod-v1 stack runner (bulletproof-ish)
 #
 # Goals:
@@ -95,11 +100,14 @@ if [[ "$MODE" == "production" || "$MODE" == "full" || "$MODE" == "non-audit" ]];
 fi
 
 echo "4) run one-shot init jobs (idempotent)"
+# NOTE: Some init jobs are intentionally NOT part of the default `up` set.
+# They live behind the compose profile `init-jobs` to avoid showing up as “exited” containers.
+#
 # Vault unseal: safe to run multiple times; exits 0 if already unsealed.
-docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" run --rm vault-unseal
+docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" --profile init-jobs run --rm vault-unseal
 
 # Keycloak post-import patching: safe to rerun; it re-applies secrets/redirects.
-docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" run --rm keycloak-post-import-seed
+docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" --profile init-jobs run --rm keycloak-post-import-seed
 
 echo "5) final status"
 docker ps --format 'table {{.Names}}\t{{.Status}}' | sed -n '1,120p'

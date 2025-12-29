@@ -48,6 +48,9 @@ services:
   # VAULT AUTO-UNSEAL - Automatic Unsealing Service
   # ============================================
   vault-unseal:
+    # Manual init job: run via `docker compose --profile init-jobs run --rm vault-unseal`.
+    # We keep it as a compose service for idempotent replay, but it should NOT be started by default.
+    profiles: ["init-jobs"]
     image: hashicorp/vault:1.21.1
     container_name: thaliumx-vault-unseal
     restart: "no"  # Run once and exit
