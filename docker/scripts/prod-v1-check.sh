@@ -7,7 +7,19 @@ set -euo pipefail
 # - expected services for a mode exist as containers (docker ps -a)
 # - running services are healthy when healthchecks are defined
 
-MODE="${1:-audit}" # audit | non-audit
+# MODE is historically audit|non-audit.
+# Production intent is a single full stack; we keep old names as aliases.
+MODE="${1:-production}" # production(full) | reduced(test) | audit(alias) | non-audit(alias)
+shift || true
+
+# By default, suppress noisy `docker compose config` warnings (obsolete `version:`, unset vars).
+# Use `--verbose` to show them.
+VERBOSE=0
+for arg in "$@"; do
+  case "$arg" in
+    --verbose) VERBOSE=1 ;;
+  esac
+done
 
 FILES=(
   base infrastructure databases messaging security gateway monitoring monitoring-extras
@@ -21,13 +33,14 @@ done
 
 PROFILE_ARGS=()
 case "$MODE" in
-  audit)
-    ;;
-  non-audit)
+  production|full|non-audit)
     PROFILE_ARGS=( --profile non-audit )
     ;;
+  reduced|audit)
+    ;;
   *)
-    echo "Usage: $0 [audit|non-audit]" >&2
+    echo "Usage: $0 [production|reduced]" >&2
+    echo "  Backward-compatible aliases: audit(reduced), non-audit(production)" >&2
     exit 2
     ;;
 esac
@@ -38,7 +51,32 @@ trap cleanup EXIT
 
 docker ps -a --format '{{.Names}}' | sort >"$tmpdir/containers_all.txt"
 
-docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" config --services | sort >"$tmpdir/services_expected.txt"
+# Suppress common compose warnings unless VERBOSE=1.
+# - Some compose files still include `version:` which emits a warning in compose v2.
+# - Some compose files reference optional env vars (e.g. JAVA_OPTS, VAR) which emit warnings when unset.
+export JAVA_OPTS="${JAVA_OPTS:-}"
+export VAR="${VAR:-}"
+
+warnings_file="$tmpdir/compose_warnings.txt"
+if [[ "$VERBOSE" -eq 1 ]]; then
+  docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" config --services | sort >"$tmpdir/services_expected.txt"
+else
+  docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" config --services 2>"$warnings_file" | sort >"$tmpdir/services_expected.txt"
+fi
+
+if [[ "$VERBOSE" -eq 1 ]]; then
+  :
+elif [[ -s "$warnings_file" ]]; then
+  # Only surface unknown warnings.
+  # Known noisy ones are filtered out.
+  unknown="$tmpdir/compose_warnings_unknown.txt"
+  # Use single quotes so backticks are treated as literals (no command substitution).
+  grep -Ev 'attribute `version` is obsolete|variable is not set' "$warnings_file" >"$unknown" || true
+  if [[ -s "$unknown" ]]; then
+    echo "WARN: docker compose emitted warnings (use --verbose to see all):" >&2
+    sed -n '1,50p' "$unknown" >&2
+  fi
+fi
 awk '{print "thaliumx-"$0}' "$tmpdir/services_expected.txt" | sort >"$tmpdir/containers_expected.txt"
 
 # One-shot jobs are allowed to be absent (when run with `docker compose run --rm`) or to be exited(0).
@@ -68,10 +106,19 @@ fi
 
 echo "OK: all expected long-running containers exist for mode=$MODE"
 
+# Summary (counts)
+expected_total="$(wc -l <"$tmpdir/containers_expected.txt" | tr -d ' ')"
+expected_persistent="$(wc -l <"$tmpdir/containers_expected_persistent.txt" | tr -d ' ')"
+expected_oneshot="${#ONESHOOT_CONTAINERS[@]}"
+running_now="$(docker ps --filter name=thaliumx- --format '{{.Names}}' | wc -l | tr -d ' ')"
+echo "Summary: expected_total_services=$expected_total expected_long_running=$expected_persistent known_one_shot_jobs=$expected_oneshot running_now(thaliumx-*)=$running_now"
+
 echo "Checking one-shot job containers (optional)…"
 for c in "${ONESHOOT_CONTAINERS[@]}"; do
   if ! docker inspect "$c" >/dev/null 2>&1; then
-    echo "WARN: one-shot container not found (this is OK if it is run with --rm): $c" >&2
+    if [[ "$VERBOSE" -eq 1 ]]; then
+      echo "WARN: one-shot container not found (this is OK if it is run with --rm): $c" >&2
+    fi
     continue
   fi
   state="$(docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null || true)"
@@ -84,7 +131,9 @@ for c in "${ONESHOOT_CONTAINERS[@]}"; do
     echo "OK: $c is running (one-shot)"
     continue
   fi
-  echo "WARN: $c is in state=$state exitCode=$exit_code" >&2
+  if [[ "$VERBOSE" -eq 1 ]]; then
+    echo "WARN: $c is in state=$state exitCode=$exit_code" >&2
+  fi
 done
 
 # Health check pass (only for running containers)

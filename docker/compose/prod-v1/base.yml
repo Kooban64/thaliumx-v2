@@ -230,6 +230,8 @@ secrets:
     file: ../../../.secrets/generated/ballerine-db-username
   ballerine-db-password:
     file: ../../../.secrets/generated/ballerine-db-password
+  ballerine-bcrypt-salt:
+    file: ../../../.secrets/generated/ballerine-bcrypt-salt
 
   # Wazuh SIEM
   wazuh-indexer-username:

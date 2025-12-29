@@ -1,6 +1,6 @@
 {
-  "timestamp": "2025-12-28T23:44:09.791Z",
-  "duration": 199969,
+  "timestamp": "2025-12-28T22:39:36.534Z",
+  "duration": 200877,
   "totalTests": 42,
   "passedTests": 0,
   "failedTests": 42,
@@ -14,29 +14,27 @@
           "feature": "Health Check",
           "testName": "Public Health Check",
           "passed": false,
-          "details": "Status: 404",
-          "error": "Expected 200, got 404",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.850Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.704Z"
         },
         {
           "category": "infrastructure",
           "feature": "Health Check",
           "testName": "Internal Health Check",
           "passed": false,
-          "details": "Status: 404 (403 expected if no auth)",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.853Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.708Z"
         },
         {
           "category": "infrastructure",
           "feature": "API Documentation",
           "testName": "API Docs Endpoint",
           "passed": false,
-          "details": "Status: 404",
-          "error": "Expected 200, got 404",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.854Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.710Z"
         }
       ],
       "passed": 0,
@@ -52,79 +50,72 @@
           "feature": "Login",
           "testName": "Login as platformAdmin",
           "passed": false,
-          "details": "Status: 404, Role: admin",
-          "error": "Login failed: {\"error_msg\":\"404 Route Not Found\"}",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.857Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.713Z"
         },
         {
           "category": "authentication",
           "feature": "Login",
           "testName": "Login as brokerAdmin",
           "passed": false,
-          "details": "Status: 404, Role: broker-admin",
-          "error": "Login failed: {\"error_msg\":\"404 Route Not Found\"}",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.859Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.716Z"
         },
         {
           "category": "authentication",
           "feature": "Login",
           "testName": "Login as compliance",
           "passed": false,
-          "details": "Status: 404, Role: compliance",
-          "error": "Login failed: {\"error_msg\":\"404 Route Not Found\"}",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.861Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.717Z"
         },
         {
           "category": "authentication",
           "feature": "Login",
           "testName": "Login as finance",
           "passed": false,
-          "details": "Status: 404, Role: finance",
-          "error": "Login failed: {\"error_msg\":\"404 Route Not Found\"}",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.862Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.718Z"
         },
         {
           "category": "authentication",
           "feature": "Login",
           "testName": "Login as trader",
           "passed": false,
-          "details": "Status: 404, Role: user",
-          "error": "Login failed: {\"error_msg\":\"404 Route Not Found\"}",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.863Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.721Z"
         },
         {
           "category": "authentication",
           "feature": "Login",
           "testName": "Login as basicUser",
           "passed": false,
-          "details": "Status: 404, Role: user",
-          "error": "Login failed: {\"error_msg\":\"404 Route Not Found\"}",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.866Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.722Z"
         },
         {
           "category": "authentication",
           "feature": "Login",
           "testName": "Invalid Credentials Rejection",
           "passed": false,
-          "details": "Status: 404",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.867Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.725Z"
         },
         {
           "category": "authentication",
           "feature": "Registration",
           "testName": "User Registration",
           "passed": false,
-          "details": "Status: 404",
-          "error": "Registration failed: {\"error_msg\":\"404 Route Not Found\"}",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.868Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.727Z"
         }
       ],
       "passed": 0,
@@ -141,7 +132,7 @@
           "testName": "Admin Authentication",
           "passed": false,
           "details": "Failed to authenticate admin",
-          "timestamp": "2025-12-28T23:40:49.872Z"
+          "timestamp": "2025-12-28T22:36:15.730Z"
         }
       ],
       "passed": 0,
@@ -158,7 +149,7 @@
           "testName": "Trader Authentication",
           "passed": false,
           "details": "Failed to authenticate trader",
-          "timestamp": "2025-12-28T23:40:49.874Z"
+          "timestamp": "2025-12-28T22:36:15.733Z"
         },
         {
           "category": "trading",
@@ -166,7 +157,7 @@
           "testName": "Step 1: Authentication",
           "passed": false,
           "details": "Failed to authenticate",
-          "timestamp": "2025-12-28T23:40:49.908Z"
+          "timestamp": "2025-12-28T22:36:15.781Z"
         },
         {
           "category": "trading",
@@ -174,7 +165,7 @@
           "testName": "Step 1: Authentication",
           "passed": false,
           "details": "Failed to authenticate",
-          "timestamp": "2025-12-28T23:40:49.909Z"
+          "timestamp": "2025-12-28T22:36:15.783Z"
         },
         {
           "category": "trading",
@@ -182,7 +173,7 @@
           "testName": "Step 1: Authentication",
           "passed": false,
           "details": "Failed to authenticate",
-          "timestamp": "2025-12-28T23:40:49.910Z"
+          "timestamp": "2025-12-28T22:36:15.784Z"
         },
         {
           "category": "trading",
@@ -190,7 +181,7 @@
           "testName": "Step 1: Authentication",
           "passed": false,
           "details": "Failed to authenticate",
-          "timestamp": "2025-12-28T23:40:49.911Z"
+          "timestamp": "2025-12-28T22:36:15.785Z"
         },
         {
           "category": "trading",
@@ -199,7 +190,7 @@
           "passed": false,
           "details": "Failed to run Playwright tests",
           "error": "Command failed: npx playwright test --reporter=json\n❌ Global setup failed: fetch failed\n⚠️ Continuing with tests despite setup warnings...\n",
-          "timestamp": "2025-12-28T23:44:09.791Z"
+          "timestamp": "2025-12-28T22:39:36.533Z"
         }
       ],
       "passed": 0,
@@ -216,7 +207,7 @@
           "testName": "Trader Authentication",
           "passed": false,
           "details": "Failed to authenticate trader",
-          "timestamp": "2025-12-28T23:40:49.875Z"
+          "timestamp": "2025-12-28T22:36:15.734Z"
         }
       ],
       "passed": 0,
@@ -233,7 +224,7 @@
           "testName": "Trader Authentication",
           "passed": false,
           "details": "Failed to authenticate trader",
-          "timestamp": "2025-12-28T23:40:49.877Z"
+          "timestamp": "2025-12-28T22:36:15.736Z"
         }
       ],
       "passed": 0,
@@ -250,7 +241,7 @@
           "testName": "Trader Authentication",
           "passed": false,
           "details": "Failed to authenticate trader",
-          "timestamp": "2025-12-28T23:40:49.879Z"
+          "timestamp": "2025-12-28T22:36:15.738Z"
         }
       ],
       "passed": 0,
@@ -267,7 +258,7 @@
           "testName": "Trader Authentication",
           "passed": false,
           "details": "Failed to authenticate trader",
-          "timestamp": "2025-12-28T23:40:49.880Z"
+          "timestamp": "2025-12-28T22:36:15.740Z"
         }
       ],
       "passed": 0,
@@ -284,7 +275,7 @@
           "testName": "Trader Authentication",
           "passed": false,
           "details": "Failed to authenticate trader",
-          "timestamp": "2025-12-28T23:40:49.881Z"
+          "timestamp": "2025-12-28T22:36:15.741Z"
         }
       ],
       "passed": 0,
@@ -301,7 +292,7 @@
           "testName": "Trader Authentication",
           "passed": false,
           "details": "Failed to authenticate trader",
-          "timestamp": "2025-12-28T23:40:49.883Z"
+          "timestamp": "2025-12-28T22:36:15.744Z"
         }
       ],
       "passed": 0,
@@ -318,7 +309,7 @@
           "testName": "Trader Authentication",
           "passed": false,
           "details": "Failed to authenticate trader",
-          "timestamp": "2025-12-28T23:40:49.885Z"
+          "timestamp": "2025-12-28T22:36:15.746Z"
         }
       ],
       "passed": 0,
@@ -335,7 +326,7 @@
           "testName": "Trader Authentication",
           "passed": false,
           "details": "Failed to authenticate trader",
-          "timestamp": "2025-12-28T23:40:49.886Z"
+          "timestamp": "2025-12-28T22:36:15.748Z"
         }
       ],
       "passed": 0,
@@ -352,7 +343,7 @@
           "testName": "Trader Authentication",
           "passed": false,
           "details": "Failed to authenticate trader",
-          "timestamp": "2025-12-28T23:40:49.887Z"
+          "timestamp": "2025-12-28T22:36:15.750Z"
         }
       ],
       "passed": 0,
@@ -369,7 +360,7 @@
           "testName": "Admin Authentication",
           "passed": false,
           "details": "Failed to authenticate admin",
-          "timestamp": "2025-12-28T23:40:49.889Z"
+          "timestamp": "2025-12-28T22:36:15.751Z"
         },
         {
           "category": "rbac",
@@ -377,7 +368,7 @@
           "testName": "Authentication",
           "passed": false,
           "details": "Failed to authenticate",
-          "timestamp": "2025-12-28T23:40:49.897Z"
+          "timestamp": "2025-12-28T22:36:15.767Z"
         },
         {
           "category": "rbac",
@@ -385,7 +376,7 @@
           "testName": "Authentication",
           "passed": false,
           "details": "Failed to authenticate",
-          "timestamp": "2025-12-28T23:40:49.899Z"
+          "timestamp": "2025-12-28T22:36:15.769Z"
         },
         {
           "category": "rbac",
@@ -393,7 +384,7 @@
           "testName": "Authentication",
           "passed": false,
           "details": "Failed to authenticate",
-          "timestamp": "2025-12-28T23:40:49.900Z"
+          "timestamp": "2025-12-28T22:36:15.770Z"
         },
         {
           "category": "rbac",
@@ -401,43 +392,43 @@
           "testName": "Authentication",
           "passed": false,
           "details": "Failed to authenticate",
-          "timestamp": "2025-12-28T23:40:49.901Z"
+          "timestamp": "2025-12-28T22:36:15.771Z"
         },
         {
           "category": "rbac",
           "feature": "Unauthenticated",
           "testName": "Denied Users",
           "passed": false,
-          "details": "Status: 404 (should be 401/403)",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.903Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.774Z"
         },
         {
           "category": "rbac",
           "feature": "Unauthenticated",
           "testName": "Denied Admin Stats",
           "passed": false,
-          "details": "Status: 404 (should be 401/403)",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.904Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.775Z"
         },
         {
           "category": "rbac",
           "feature": "Unauthenticated",
           "testName": "Denied Wallets",
           "passed": false,
-          "details": "Status: 404 (should be 401/403)",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.905Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.776Z"
         },
         {
           "category": "rbac",
           "feature": "Unauthenticated",
           "testName": "Denied Orders",
           "passed": false,
-          "details": "Status: 404 (should be 401/403)",
-          "response": "{\"error_msg\":\"404 Route Not Found\"}",
-          "timestamp": "2025-12-28T23:40:49.906Z"
+          "details": "Request failed",
+          "error": "connect ECONNREFUSED 127.0.0.1:3002",
+          "timestamp": "2025-12-28T22:36:15.777Z"
         }
       ],
       "passed": 0,
@@ -454,7 +445,7 @@
           "testName": "Admin Authentication",
           "passed": false,
           "details": "Failed to authenticate admin",
-          "timestamp": "2025-12-28T23:40:49.890Z"
+          "timestamp": "2025-12-28T22:36:15.752Z"
         }
       ],
       "passed": 0,
@@ -471,7 +462,7 @@
           "testName": "Broker Authentication",
           "passed": false,
           "details": "Failed to authenticate broker",
-          "timestamp": "2025-12-28T23:40:49.891Z"
+          "timestamp": "2025-12-28T22:36:15.754Z"
         }
       ],
       "passed": 0,
@@ -488,7 +479,7 @@
           "testName": "Admin Authentication",
           "passed": false,
           "details": "Failed to authenticate admin",
-          "timestamp": "2025-12-28T23:40:49.893Z"
+          "timestamp": "2025-12-28T22:36:15.756Z"
         }
       ],
       "passed": 0,
@@ -505,7 +496,7 @@
           "testName": "Trader Authentication",
           "passed": false,
           "details": "Failed to authenticate trader",
-          "timestamp": "2025-12-28T23:40:49.894Z"
+          "timestamp": "2025-12-28T22:36:15.757Z"
         }
       ],
       "passed": 0,
@@ -522,7 +513,7 @@
           "testName": "Trader Authentication",
           "passed": false,
           "details": "Failed to authenticate trader",
-          "timestamp": "2025-12-28T23:40:49.894Z"
+          "timestamp": "2025-12-28T22:36:15.759Z"
         }
       ],
       "passed": 0,
@@ -539,7 +530,7 @@
           "testName": "Trader Authentication",
           "passed": false,
           "details": "Failed to authenticate trader",
-          "timestamp": "2025-12-28T23:40:49.895Z"
+          "timestamp": "2025-12-28T22:36:15.761Z"
         }
       ],
       "passed": 0,

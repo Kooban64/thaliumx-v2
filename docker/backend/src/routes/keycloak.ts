@@ -10,6 +10,9 @@
  * - Realm provisioning
  */
 
+// THALIUMX_KEYCLOAK_DEPRECATE: These endpoints are Keycloak-admin-API specific.
+// After Zitadel cutover is proven, this router should be removed/replaced.
+
 import { Router, Request, Response } from 'express';
 import { KeycloakService } from '../services/keycloak';
 import { authenticateToken, validateRequest } from '../middleware/error-handler';

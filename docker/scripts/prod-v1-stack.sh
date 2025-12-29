@@ -9,7 +9,9 @@ set -euo pipefail
 # - Run required one-shot init jobs (Vault unseal + Keycloak post-import seeding)
 # - Fail fast if required containers are missing/unhealthy
 
-MODE="${1:-audit}" # audit | non-audit
+# MODE is historically audit|non-audit.
+# Production intent is a single full stack; we keep old names as aliases.
+MODE="${1:-production}" # production(full) | reduced(test) | audit(alias) | non-audit(alias)
 shift || true
 
 # Extra docker compose `up` flags can be passed after the mode, e.g.
@@ -29,13 +31,14 @@ done
 
 PROFILE_ARGS=()
 case "$MODE" in
-  audit)
-    ;;
-  non-audit)
+  production|full|non-audit)
     PROFILE_ARGS=( --profile non-audit )
     ;;
+  reduced|audit)
+    ;;
   *)
-    echo "Usage: $0 [audit|non-audit]" >&2
+    echo "Usage: $0 [production|reduced]" >&2
+    echo "  Backward-compatible aliases: audit(reduced), non-audit(production)" >&2
     exit 2
     ;;
 esac
@@ -80,8 +83,8 @@ wait_container thaliumx-backend 420
 wait_container thaliumx-frontend 180
 wait_container thaliumx-apisix 180
 
-if [[ "$MODE" == "non-audit" ]]; then
-  echo "3) wait for non-audit services"
+if [[ "$MODE" == "production" || "$MODE" == "full" || "$MODE" == "non-audit" ]]; then
+  echo "3) wait for production-only services (historically behind profile non-audit)"
   wait_container thaliumx-wazuh-manager 420 || true
   wait_container thaliumx-wazuh-indexer 420 || true
   wait_container thaliumx-wazuh-dashboard 420 || true

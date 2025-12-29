@@ -2132,3 +2132,10 @@ export class KeycloakService {
     }
   }
 }
+/**
+ * THALIUMX_KEYCLOAK_DEPRECATE
+ *
+ * This service contains Keycloak-specific admin API coupling.
+ * After Zitadel cutover is fully proven (OIDC-only integration), this file is expected
+ * to be removed or replaced by a provider-agnostic OIDC + app-DB based identity layer.
+ */

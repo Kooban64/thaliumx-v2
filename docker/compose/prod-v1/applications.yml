@@ -10,6 +10,7 @@ services:
   # ============================================
   # KEYCLOAK - Identity and Access Management
   # ============================================
+  # THALIUMX_KEYCLOAK_DEPRECATE: This block will be removed after Zitadel cutover is fully proven.
   # Production mode with TLS, Vault integration, and full migrations
   keycloak:
     image: quay.io/keycloak/keycloak:26.4.7
@@ -94,14 +95,14 @@ services:
         # Keycloak bootstrap admin credentials
         # - New-style vars (Keycloak 17+): KC_BOOTSTRAP_ADMIN_*
         # - Legacy vars (still supported in many distributions): KEYCLOAK_ADMIN / KEYCLOAK_ADMIN_PASSWORD
-        export KC_BOOTSTRAP_ADMIN_USERNAME="$(cat /run/secrets/keycloak-admin-username)";
-        export KC_BOOTSTRAP_ADMIN_PASSWORD="$(cat /run/secrets/keycloak-admin-password)";
-        export KEYCLOAK_ADMIN="$(cat /run/secrets/keycloak-admin-username)";
-        export KEYCLOAK_ADMIN_PASSWORD="$(cat /run/secrets/keycloak-admin-password)";
+        export KC_BOOTSTRAP_ADMIN_USERNAME="$(cat /run/secrets/keycloak-admin-username | tr -d '\r\n')";
+        export KC_BOOTSTRAP_ADMIN_PASSWORD="$(cat /run/secrets/keycloak-admin-password | tr -d '\r\n')";
+        export KEYCLOAK_ADMIN="$(cat /run/secrets/keycloak-admin-username | tr -d '\r\n')";
+        export KEYCLOAK_ADMIN_PASSWORD="$(cat /run/secrets/keycloak-admin-password | tr -d '\r\n')";
         # Postgres container creates the superuser `thaliumx` (see [`postgres.POSTGRES_USER`](docker/compose/prod-v1/infrastructure.yml:74)).
         # Do NOT source DB username from a secret here: mis-seeded username secrets break Keycloak startup.
         export KC_DB_USERNAME="thaliumx";
-        export KC_DB_PASSWORD="$(cat /run/secrets/postgres-password)";
+        export KC_DB_PASSWORD="$(cat /run/secrets/postgres-password | tr -d '\r\n')";
         # NOTE: `--http-relative-path` is a build-time option in Keycloak.
         # Using it together with `--optimized` on the stock image causes a crash-loop.
         # If/when we move to a custom Keycloak image built with `kc.sh build --http-relative-path=/auth`,
@@ -136,6 +137,7 @@ services:
   # ============================================
   # KEYCLOAK POST-IMPORT SEEDER
   # ============================================
+  # THALIUMX_KEYCLOAK_DEPRECATE: This one-shot seeder exists only to patch Keycloak realm/client settings.
   # Keycloak realm JSON imports cannot safely embed runtime secrets.
   # This one-shot job patches client secrets + redirect URIs after Keycloak is ready.
   keycloak-post-import-seed:
@@ -326,24 +328,24 @@ services:
       - sh
       - -lc
       - |
-        export DB_PASSWORD="$(cat /run/secrets/postgres-password)";
-        export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
-        export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
-        export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
+        export DB_PASSWORD="$(cat /run/secrets/postgres-password | tr -d '\r\n')";
+        export REDIS_PASSWORD="$(cat /run/secrets/redis-password | tr -d '\r\n')";
+        export JWT_SECRET="$(cat /run/secrets/jwt-secret | tr -d '\r\n')";
+        export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key | tr -d '\r\n')";
         # Used by key management controller for encryption at rest.
-        export KEY_ENCRYPTION_SECRET="$(cat /run/secrets/encryption-key)";
-        export MONGODB_PASSWORD="$(cat /run/secrets/mongodb-password)";
+        export KEY_ENCRYPTION_SECRET="$(cat /run/secrets/encryption-key | tr -d '\r\n')";
+        export MONGODB_PASSWORD="$(cat /run/secrets/mongodb-password | tr -d '\r\n')";
         # SMTP credentials are required by config validation in production.
-        export SMTP_USER="$(cat /run/secrets/smtp-user)";
-        export SMTP_PASSWORD="$(cat /run/secrets/smtp-password)";
+        export SMTP_USER="$(cat /run/secrets/smtp-user | tr -d '\r\n')";
+        export SMTP_PASSWORD="$(cat /run/secrets/smtp-password | tr -d '\r\n')";
 
         # Enable Vault AppRole auth for config-enhanced (was previously missing, causing Vault to be skipped).
-        export VAULT_ROLE_ID="$(cat /run/secrets/vault-role-id)";
-        export VAULT_SECRET_ID="$(cat /run/secrets/vault-secret-id)";
+        export VAULT_ROLE_ID="$(cat /run/secrets/vault-role-id | tr -d '\r\n')";
+        export VAULT_SECRET_ID="$(cat /run/secrets/vault-secret-id | tr -d '\r\n')";
 
         # Keycloak admin credentials (required in production; avoid default admin/admin)
-        export KEYCLOAK_ADMIN_USERNAME="$(cat /run/secrets/keycloak-admin-username)";
-        export KEYCLOAK_ADMIN_PASSWORD="$(cat /run/secrets/keycloak-admin-password)";
+        export KEYCLOAK_ADMIN_USERNAME="$(cat /run/secrets/keycloak-admin-username | tr -d '\r\n')";
+        export KEYCLOAK_ADMIN_PASSWORD="$(cat /run/secrets/keycloak-admin-password | tr -d '\r\n')";
         # Align with current Kafka deployment (PLAINTEXT on :9094).
         export KAFKA_BROKERS="thaliumx-kafka:9094";
         export KAFKA_SSL="false";

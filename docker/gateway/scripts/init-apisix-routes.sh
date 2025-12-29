@@ -16,12 +16,12 @@ APISIX_ADMIN_URL="${APISIX_ADMIN_URL:-http://localhost:9180/apisix/admin}"
 APISIX_ADMIN_KEY="${APISIX_ADMIN_KEY:?APISIX_ADMIN_KEY is required}"
 FRONTEND_UPSTREAM="${FRONTEND_UPSTREAM:-thaliumx-frontend:3000}"
 BACKEND_UPSTREAM="${BACKEND_UPSTREAM:-thaliumx-backend:3002}"
-KEYCLOAK_UPSTREAM="${KEYCLOAK_UPSTREAM:-thaliumx-keycloak:8443}"
-KEYCLOAK_MGMT_UPSTREAM="${KEYCLOAK_MGMT_UPSTREAM:-thaliumx-keycloak:9000}"
+KEYCLOAK_UPSTREAM="${KEYCLOAK_UPSTREAM:-thaliumx-keycloak:8443}"              # THALIUMX_KEYCLOAK_DEPRECATE
+KEYCLOAK_MGMT_UPSTREAM="${KEYCLOAK_MGMT_UPSTREAM:-thaliumx-keycloak:9000}"    # THALIUMX_KEYCLOAK_DEPRECATE
 
 # Keycloak OIDC (Keycloak-authoritative auth enforced at APISIX)
 # Single-realm mode: thaliumx-platform is the only realm used for both end-users and admins.
-KEYCLOAK_REALM="${KEYCLOAK_REALM:-thaliumx-platform}"
+KEYCLOAK_REALM="${KEYCLOAK_REALM:-thaliumx-platform}"  # THALIUMX_KEYCLOAK_DEPRECATE
 OIDC_CLIENT_ID="${OIDC_CLIENT_ID:-thaliumx-frontend}"
 # NOTE: APISIX openid-connect plugin schema requires a client_secret even in bearer_only mode.
 # Provide a confidential client secret (recommended: a dedicated apisix client, or reuse backend client for introspection).
@@ -35,7 +35,7 @@ OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET:-}"
 #
 # Default to the public hostname, but allow overrides for air-gapped/dev deployments.
 KEYCLOAK_PUBLIC_HOST="${KEYCLOAK_PUBLIC_HOST:-thaliumx.com}"
-OIDC_DISCOVERY="${OIDC_DISCOVERY:-https://${KEYCLOAK_PUBLIC_HOST}/auth/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration}"
+OIDC_DISCOVERY="${OIDC_DISCOVERY:-https://${KEYCLOAK_PUBLIC_HOST}/auth/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration}"  # THALIUMX_KEYCLOAK_DEPRECATE
 
 # PRODUCTION: verify Keycloak TLS using the internal CA mounted into the APISIX container.
 OIDC_SSL_VERIFY="${OIDC_SSL_VERIFY:-true}"

@@ -144,15 +144,23 @@ setup_secrets_engines() {
     ROOT_TOKEN=$(jq -r '.root_token' "$INIT_OUTPUT_FILE")
     export VAULT_TOKEN="$ROOT_TOKEN"
 
-    # Enable KV v2 secrets engine
-    vault secrets enable -address="$VAULT_ADDR" --tls-skip-verify -path=secret kv-v2 2>/dev/null || log_info "KV engine already enabled"
+    # Enable KV v2 secrets engines.
+    # We support BOTH mount names to avoid drift across older scripts/clients:
+    # - `kv/*` (preferred; used by prod-v1 services and policies)
+    # - `secret/*` (legacy; used by older seeding scripts)
+    vault secrets enable -address="$VAULT_ADDR" --tls-skip-verify -path=kv kv-v2 2>/dev/null || log_info "KV engine already enabled at -path=kv"
+    vault secrets enable -address="$VAULT_ADDR" --tls-skip-verify -path=secret kv-v2 2>/dev/null || log_info "KV engine already enabled at -path=secret"
 
-    # Create thaliumx namespace
+    # Create thaliumx namespace placeholders (both mounts)
+    vault kv put -address="$VAULT_ADDR" --tls-skip-verify kv/thaliumx/placeholder value="initialized"
     vault kv put -address="$VAULT_ADDR" --tls-skip-verify secret/thaliumx/placeholder value="initialized"
 
     # Load policies
     log_info "Loading Vault policies..."
-    for policy_file in /vault/config/policies/*.hcl; do
+    # Policies may be mounted either under `/vault/config/policies` (legacy)
+    # or `/vault/policies` (current repo layout).
+    shopt -s nullglob
+    for policy_file in /vault/config/policies/*.hcl /vault/policies/*.hcl; do
         if [ -f "$policy_file" ]; then
             policy_name=$(basename "$policy_file" .hcl)
             vault policy write -address="$VAULT_ADDR" --tls-skip-verify "$policy_name" "$policy_file"

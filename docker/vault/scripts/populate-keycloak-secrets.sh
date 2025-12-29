@@ -55,22 +55,31 @@ main() {
     log_info "🔐 Populating Keycloak secrets into Vault..."
 
     # Load Keycloak admin credentials
+    # NOTE: We write to both `kv/*` (preferred) and `secret/*` (legacy) mounts
+    # so older consumers/scripts continue to work.
+    load_secret "kv/thaliumx/keycloak/admin" "username" ".secrets/generated/keycloak-admin-username"
+    load_secret "kv/thaliumx/keycloak/admin" "password" ".secrets/generated/keycloak-admin-password"
     load_secret "secret/thaliumx/keycloak/admin" "username" ".secrets/generated/keycloak-admin-username"
     load_secret "secret/thaliumx/keycloak/admin" "password" ".secrets/generated/keycloak-admin-password"
 
     # Load database credentials for Keycloak
+    load_secret "kv/thaliumx/keycloak/database" "username" ".secrets/generated/postgres-username"
+    load_secret "kv/thaliumx/keycloak/database" "password" ".secrets/generated/postgres-password"
     load_secret "secret/thaliumx/keycloak/database" "username" ".secrets/generated/postgres-username"
     load_secret "secret/thaliumx/keycloak/database" "password" ".secrets/generated/postgres-password"
 
     # Load JWT secrets for Keycloak
+    load_secret "kv/thaliumx/keycloak/jwt" "secret" ".secrets/generated/jwt-secret"
     load_secret "secret/thaliumx/keycloak/jwt" "secret" ".secrets/generated/jwt-secret"
 
     # Load encryption key for Keycloak
+    load_secret "kv/thaliumx/keycloak/encryption" "key" ".secrets/generated/encryption-key"
     load_secret "secret/thaliumx/keycloak/encryption" "key" ".secrets/generated/encryption-key"
 
     log_info "✅ All Keycloak secrets loaded successfully!"
     log_info "🔍 Verify secrets:"
-    vault kv list -address="$VAULT_ADDR" --tls-skip-verify secret/thaliumx/keycloak/
+    vault kv list -address="$VAULT_ADDR" --tls-skip-verify kv/thaliumx/keycloak/ || true
+    vault kv list -address="$VAULT_ADDR" --tls-skip-verify secret/thaliumx/keycloak/ || true
 }
 
 main "$@"
