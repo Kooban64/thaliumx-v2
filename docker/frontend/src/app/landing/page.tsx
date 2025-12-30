@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getKeycloak, initKeycloak } from '@/lib/auth/keycloak';
+import { initZitadel } from '@/lib/auth/zitadel';
 import { getAccessToken } from '@/lib/auth/token-store';
 
 export default function LandingPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || 'zitadel';
 
   // Set default tenant ID for landing page (platform-default-tenant)
   useEffect(() => {
@@ -28,9 +30,21 @@ export default function LandingPage() {
   useEffect(() => {
     (async () => {
       try {
-        await initKeycloak();
-        const kc = getKeycloak();
-        setIsAuthenticated(!!kc.authenticated || !!getAccessToken());
+        if (authMode === 'keycloak') {
+          await initKeycloak();
+          const kc = getKeycloak();
+          setIsAuthenticated(!!kc.authenticated);
+          return;
+        }
+
+        if (authMode === 'zitadel') {
+          await initZitadel();
+          setIsAuthenticated(!!getAccessToken());
+          return;
+        }
+
+        // Legacy/local auth mode: best-effort token presence.
+        setIsAuthenticated(!!getAccessToken());
       } catch {
         setIsAuthenticated(!!getAccessToken());
       } finally {
@@ -39,7 +53,7 @@ export default function LandingPage() {
     })();
   }, []);
 
-  const appHref = isAuthenticated ? '/dashboard' : '/auth?next=/dashboard';
+  const appHref = isAuthenticated ? '/dashboard' : '/login?next=/dashboard';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
@@ -68,9 +82,9 @@ export default function LandingPage() {
                </>
              ) : (
                <>
-                 <Button variant="ghost" asChild>
-                   <a href="/auth?next=/dashboard">Sign In</a>
-                 </Button>
+                  <Button variant="ghost" asChild>
+                    <a href="/login?next=/dashboard">Sign In</a>
+                  </Button>
                  <Button asChild>
                    <a href={appHref}>Launch App</a>
                  </Button>
@@ -143,14 +157,14 @@ export default function LandingPage() {
         <section id="how" className="mt-20">
           <div className="max-w-3xl mx-auto">
             <h2 className="text-3xl font-bold text-center">How it works</h2>
-            <p className="mt-3 text-muted-foreground text-center">
-              Sign in with Keycloak, connect your wallet (optional), and place trades through the unified routing layer.
-            </p>
+              <p className="mt-3 text-muted-foreground text-center">
+              Sign in with the platform identity provider, connect your wallet (optional), and place trades through the unified routing layer.
+              </p>
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle>1) Authenticate</CardTitle>
-                  <CardDescription>SSO via Keycloak (OIDC)</CardDescription>
+                  <CardDescription>SSO via OIDC (Zitadel)</CardDescription>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
                   Your session is managed centrally and API requests use Bearer tokens.
@@ -190,7 +204,7 @@ export default function LandingPage() {
           <p className="mt-2 text-muted-foreground">Trade from any Web3 wallet or broker account.</p>
           <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
             <Button asChild>
-              <a href="/auth?next=/dashboard">Create Account</a>
+              <a href="/login?next=/dashboard">Create Account</a>
             </Button>
             <Button variant="outline" asChild>
               <a href="/token-presale">Buy THAL</a>

@@ -16,12 +16,14 @@ APISIX_ADMIN_URL="${APISIX_ADMIN_URL:-http://localhost:9180/apisix/admin}"
 APISIX_ADMIN_KEY="${APISIX_ADMIN_KEY:?APISIX_ADMIN_KEY is required}"
 FRONTEND_UPSTREAM="${FRONTEND_UPSTREAM:-thaliumx-frontend:3000}"
 BACKEND_UPSTREAM="${BACKEND_UPSTREAM:-thaliumx-backend:3002}"
-KEYCLOAK_UPSTREAM="${KEYCLOAK_UPSTREAM:-thaliumx-keycloak:8443}"              # THALIUMX_KEYCLOAK_DEPRECATE
-KEYCLOAK_MGMT_UPSTREAM="${KEYCLOAK_MGMT_UPSTREAM:-thaliumx-keycloak:9000}"    # THALIUMX_KEYCLOAK_DEPRECATE
 
-# Keycloak OIDC (Keycloak-authoritative auth enforced at APISIX)
-# Single-realm mode: thaliumx-platform is the only realm used for both end-users and admins.
-KEYCLOAK_REALM="${KEYCLOAK_REALM:-thaliumx-platform}"  # THALIUMX_KEYCLOAK_DEPRECATE
+# Auth provider routing
+# Keycloak has been decommissioned; Zitadel is the only supported OIDC issuer.
+AUTH_PROVIDER="${AUTH_PROVIDER:-zitadel}"
+
+# Zitadel upstream is plain HTTP behind APISIX TLS termination
+ZITADEL_UPSTREAM="${ZITADEL_UPSTREAM:-thaliumx-zitadel:8080}"
+
 OIDC_CLIENT_ID="${OIDC_CLIENT_ID:-thaliumx-frontend}"
 # NOTE: APISIX openid-connect plugin schema requires a client_secret even in bearer_only mode.
 # Provide a confidential client secret (recommended: a dedicated apisix client, or reuse backend client for introspection).
@@ -34,8 +36,22 @@ OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET:-}"
 #   otherwise-valid tokens (issuer mismatch).
 #
 # Default to the public hostname, but allow overrides for air-gapped/dev deployments.
-KEYCLOAK_PUBLIC_HOST="${KEYCLOAK_PUBLIC_HOST:-thaliumx.com}"
-OIDC_DISCOVERY="${OIDC_DISCOVERY:-https://${KEYCLOAK_PUBLIC_HOST}/auth/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration}"  # THALIUMX_KEYCLOAK_DEPRECATE
+ZITADEL_PUBLIC_HOST="${ZITADEL_PUBLIC_HOST:-auth.thaliumx.com}"
+
+case "$AUTH_PROVIDER" in
+  zitadel)
+    # Zitadel issuer is at the domain root.
+    OIDC_DISCOVERY="${OIDC_DISCOVERY:-https://${ZITADEL_PUBLIC_HOST}/.well-known/openid-configuration}"
+    ;;
+  keycloak)
+    echo -e "${RED}ERROR: AUTH_PROVIDER=keycloak is not supported (Keycloak decommissioned).${NC}" >&2
+    exit 1
+    ;;
+  *)
+    echo -e "${RED}ERROR: Unknown AUTH_PROVIDER='$AUTH_PROVIDER' (expected: zitadel)${NC}" >&2
+    exit 1
+    ;;
+esac
 
 # PRODUCTION: verify Keycloak TLS using the internal CA mounted into the APISIX container.
 OIDC_SSL_VERIFY="${OIDC_SSL_VERIFY:-true}"
@@ -55,8 +71,8 @@ echo -e "${GREEN}=== APISIX Route Initialization ===${NC}"
 echo "Admin URL: $APISIX_ADMIN_URL"
 echo "Frontend: $FRONTEND_UPSTREAM"
 echo "Backend: $BACKEND_UPSTREAM"
-echo "Keycloak: $KEYCLOAK_UPSTREAM"
-echo "Keycloak (mgmt): $KEYCLOAK_MGMT_UPSTREAM"
+echo "Auth provider: $AUTH_PROVIDER"
+echo "Zitadel: $ZITADEL_UPSTREAM"
 echo "OIDC Discovery: $OIDC_DISCOVERY"
 echo "APISIX_ENABLE_OIDC: $APISIX_ENABLE_OIDC"
 if [ -z "$OIDC_CLIENT_SECRET" ]; then
@@ -220,38 +236,19 @@ create_upstream "2" "{
     \"pass_host\": \"pass\"
 }"
 
-# Upstream 3: Keycloak (HTTPS, runs under /auth)
-create_upstream "3" "{
-    \"id\": \"3\",
-    \"name\": \"keycloak-upstream\",
+# Upstream 5: Zitadel (HTTP behind APISIX)
+create_upstream "5" "{
+    \"id\": \"5\",
+    \"name\": \"zitadel-upstream\",
     \"type\": \"roundrobin\",
-    \"scheme\": \"https\",
+    \"scheme\": \"http\",
     \"nodes\": {
-        \"$KEYCLOAK_UPSTREAM\": 1
+        \"$ZITADEL_UPSTREAM\": 1
     },
     \"timeout\": {
         \"connect\": 10,
         \"send\": 10,
-        \"read\": 30
-    },
-    \"retries\": 2,
-    \"pass_host\": \"pass\"
-}"
-
-# Upstream 4: Keycloak management interface (HTTPS, health endpoints)
-# Keycloak exposes health endpoints on :9000 (TLS) as /auth/health/* when `--http-relative-path=/auth`.
-create_upstream "4" "{
-    \"id\": \"4\",
-    \"name\": \"keycloak-mgmt-upstream\",
-    \"type\": \"roundrobin\",
-    \"scheme\": \"https\",
-    \"nodes\": {
-        \"$KEYCLOAK_MGMT_UPSTREAM\": 1
-    },
-    \"timeout\": {
-        \"connect\": 10,
-        \"send\": 10,
-        \"read\": 30
+        \"read\": 60
     },
     \"retries\": 2,
     \"pass_host\": \"pass\"
@@ -573,52 +570,81 @@ if [ "$APISIX_ENABLE_OIDC" = "true" ]; then
   }"
 fi
 
-# Route 8: auth.thaliumx.com -> Keycloak (runs under /auth)
-# 8a) / -> redirect to /auth
+# Route 8: auth.thaliumx.com -> Zitadel
+# NOTE (frontend PKCE):
+# The browser performs OIDC discovery + token exchange against auth.thaliumx.com.
+# Those requests are cross-origin from https://thaliumx.com, so we must ensure CORS
+# headers are present even if the upstream does not emit them.
+
+# 8-pre) CORS-enabled discovery endpoints
+create_route "15" "{
+    \"id\": \"15\",
+    \"name\": \"thaliumx-auth-oidc-discovery\",
+    \"desc\": \"Zitadel OIDC discovery (CORS)\",
+    \"host\": \"auth.thaliumx.com\",
+    \"uri\": \"/.well-known/*\",
+    \"priority\": 90,
+    \"status\": 1,
+    \"upstream_id\": \"5\",
+    \"plugins\": {
+        \"proxy-rewrite\": {
+            \"headers\": {
+                \"X-Forwarded-Proto\": \"https\",
+                \"X-Forwarded-Port\": \"443\",
+                \"X-Forwarded-Host\": \"auth.thaliumx.com\"
+            }
+        },
+        \"cors\": {
+            \"allow_origins\": \"https://thaliumx.com,https://thal.thaliumx.com\",
+            \"allow_methods\": \"GET,OPTIONS\",
+            \"allow_headers\": \"Content-Type,Authorization,X-Requested-With\",
+            \"expose_headers\": \"X-Request-ID\",
+            \"max_age\": 3600,
+            \"allow_credential\": false
+        },
+        \"request-id\": { \"include_in_response\": true }
+    }
+}"
+
+# 8-pre2) CORS-enabled OAuth endpoints (token exchange, JWKS, etc.)
+create_route "16" "{
+    \"id\": \"16\",
+    \"name\": \"thaliumx-auth-oidc-oauth\",
+    \"desc\": \"Zitadel OAuth endpoints (CORS for PKCE token exchange)\",
+    \"host\": \"auth.thaliumx.com\",
+    \"uri\": \"/oauth/*\",
+    \"priority\": 90,
+    \"status\": 1,
+    \"upstream_id\": \"5\",
+    \"plugins\": {
+        \"proxy-rewrite\": {
+            \"headers\": {
+                \"X-Forwarded-Proto\": \"https\",
+                \"X-Forwarded-Port\": \"443\",
+                \"X-Forwarded-Host\": \"auth.thaliumx.com\"
+            }
+        },
+        \"cors\": {
+            \"allow_origins\": \"https://thaliumx.com,https://thal.thaliumx.com\",
+            \"allow_methods\": \"GET,POST,OPTIONS\",
+            \"allow_headers\": \"Content-Type,Authorization,X-Requested-With\",
+            \"expose_headers\": \"X-Request-ID\",
+            \"max_age\": 3600,
+            \"allow_credential\": false
+        },
+        \"request-id\": { \"include_in_response\": true }
+    }
+}"
+
 create_route "8" "{
     \"id\": \"8\",
-    \"name\": \"thaliumx-auth-root\",
-    \"desc\": \"Keycloak root redirect - auth.thaliumx.com/ -> /auth\",
-    \"host\": \"auth.thaliumx.com\",
-    \"uri\": \"/\",
-    \"priority\": 50,
-    \"status\": 1,
-    \"plugins\": {
-        \"redirect\": {
-            \"uri\": \"/auth\",
-            \"ret_code\": 302
-        }
-    }
-}"
-
-# 8a2) /auth (no trailing slash) -> redirect to /auth/
-# Fixes a sharp edge where `/auth` does not match the `/auth/*` route below.
-create_route "11" "{
-    \"id\": \"11\",
-    \"name\": \"thaliumx-auth-auth-no-slash\",
-    \"desc\": \"Keycloak redirect - auth.thaliumx.com/auth -> /auth/\",
-    \"host\": \"auth.thaliumx.com\",
-    \"uri\": \"/auth\",
-    \"priority\": 70,
-    \"status\": 1,
-    \"plugins\": {
-        \"redirect\": {
-            \"uri\": \"/auth/\",
-            \"ret_code\": 302
-        }
-    }
-}"
-
-# 8b) /auth/* -> upstream keycloak
-create_route "9" "{
-    \"id\": \"9\",
     \"name\": \"thaliumx-auth\",
-    \"desc\": \"Keycloak proxy - auth.thaliumx.com/auth/*\",
+    \"desc\": \"Zitadel proxy - auth.thaliumx.com/*\",
     \"host\": \"auth.thaliumx.com\",
-    \"uri\": \"/auth/*\",
+    \"uri\": \"/*\",
     \"priority\": 60,
     \"status\": 1,
-    \"upstream_id\": \"3\",
+    \"upstream_id\": \"5\",
     \"plugins\": {
         \"proxy-rewrite\": {
             \"headers\": {
@@ -627,36 +653,30 @@ create_route "9" "{
                 \"X-Forwarded-Host\": \"auth.thaliumx.com\"
             }
         },
-        \"request-id\": {
-            \"include_in_response\": true
-        }
+        \"request-id\": { \"include_in_response\": true }
     }
 }"
 
-# 8c) Keycloak health endpoints (served on management interface :9000)
-# IMPORTANT:
-# - Must have higher priority than route 9 (/auth/*) so it wins.
-# - Keeps health checks stable even if the Keycloak app port does not expose health.
-create_route "10" "{
-    \"id\": \"10\",
-    \"name\": \"thaliumx-auth-health\",
-    \"desc\": \"Keycloak health proxy - auth.thaliumx.com/auth/health/* -> keycloak:9000\",
+# Compatibility: allow /auth/* on auth.thaliumx.com and rewrite away the prefix.
+create_route "11" "{
+    \"id\": \"11\",
+    \"name\": \"thaliumx-auth-compat-prefix\",
+    \"desc\": \"Zitadel compat - auth.thaliumx.com/auth/* -> /*\",
     \"host\": \"auth.thaliumx.com\",
-    \"uri\": \"/auth/health/*\",
+    \"uri\": \"/auth/*\",
     \"priority\": 80,
     \"status\": 1,
-    \"upstream_id\": \"4\",
+    \"upstream_id\": \"5\",
     \"plugins\": {
         \"proxy-rewrite\": {
+            \"regex_uri\": [\"^/auth/(.*)\", \"/$1\"],
             \"headers\": {
                 \"X-Forwarded-Proto\": \"https\",
                 \"X-Forwarded-Port\": \"443\",
                 \"X-Forwarded-Host\": \"auth.thaliumx.com\"
             }
         },
-        \"request-id\": {
-            \"include_in_response\": true
-        }
+        \"request-id\": { \"include_in_response\": true }
     }
 }"
 
@@ -732,71 +752,21 @@ create_route "5" "{
      }
  }"
 
-# Route 12: thaliumx.com -> Keycloak under the main hostname (temporary workaround)
-# Why: browsers are failing to resolve auth.thaliumx.com (NXDOMAIN), which breaks the Keycloak JS adapter
-# (3p-cookies step1.html iframe) and causes timeouts on page load.
-#
-# 12a) /auth -> redirect to /auth/
+
+# Route 12: thaliumx.com/auth/* compatibility
+# Zitadel: redirect thaliumx.com/auth/* to auth.thaliumx.com/auth/* and let the auth host rewrite.
 create_route "12" "{
     \"id\": \"12\",
-    \"name\": \"thaliumx-auth-on-main-host-no-slash\",
-    \"desc\": \"Keycloak redirect - thaliumx.com/auth -> /auth/\",
-    \"host\": \"thaliumx.com\",
-    \"uri\": \"/auth\",
-    \"priority\": 90,
-    \"status\": 1,
-    \"plugins\": {
-        \"redirect\": {
-            \"uri\": \"/auth/\",
-            \"ret_code\": 302
-        }
-    }
-}"
-
-# 12b) /auth/* -> upstream keycloak
-create_route "13" "{
-    \"id\": \"13\",
     \"name\": \"thaliumx-auth-on-main-host\",
-    \"desc\": \"Keycloak proxy - thaliumx.com/auth/*\",
+    \"desc\": \"Redirect thaliumx.com/auth/* -> auth.thaliumx.com/auth/* (Zitadel)\",
     \"host\": \"thaliumx.com\",
     \"uri\": \"/auth/*\",
     \"priority\": 95,
     \"status\": 1,
-    \"upstream_id\": \"3\",
     \"plugins\": {
-        \"proxy-rewrite\": {
-            \"headers\": {
-                \"X-Forwarded-Proto\": \"https\",
-                \"X-Forwarded-Port\": \"443\",
-                \"X-Forwarded-Host\": \"thaliumx.com\"
-            }
-        },
-        \"request-id\": {
-            \"include_in_response\": true
-        }
-    }
-}"
-
-# 12c) /auth/health/* -> keycloak mgmt
-create_route "14" "{
-    \"id\": \"14\",
-    \"name\": \"thaliumx-auth-health-on-main-host\",
-    \"desc\": \"Keycloak health proxy - thaliumx.com/auth/health/* -> keycloak:9000\",
-    \"host\": \"thaliumx.com\",
-    \"uri\": \"/auth/health/*\",
-    \"priority\": 96,
-    \"status\": 1,
-    \"upstream_id\": \"4\",
-    \"plugins\": {
-        \"proxy-rewrite\": {
-            \"headers\": {
-                \"X-Forwarded-Proto\": \"https\",
-                \"X-Forwarded-Port\": \"443\",
-                \"X-Forwarded-Host\": \"thaliumx.com\"
-            }
-        },
-        \"request-id\": {
-            \"include_in_response\": true
+        \"redirect\": {
+            \"uri\": \"https://auth.thaliumx.com\\$request_uri\",
+            \"ret_code\": 302
         }
     }
 }"
@@ -853,8 +823,7 @@ echo "Routes configured:"
 echo "  ✅ thaliumx.com -> Main landing page (/landing)"
 echo "  ✅ www.thaliumx.com -> Redirect to thaliumx.com"
 echo "  ✅ thal.thaliumx.com -> Token presale page (/token-presale)"
-echo "  ✅ auth.thaliumx.com -> Keycloak (/auth/*)"
-echo "  ✅ auth.thaliumx.com -> Keycloak health (/auth/health/*)"
+echo "  ✅ auth.thaliumx.com -> Zitadel (OIDC)"
 echo "  ✅ /api/* -> Backend API (60 req/s, 1000/min per IP)"
 echo "  ✅ /api/auth/login|register|reset* -> Sensitive auth endpoints (5 req/s, 30 per 5 min per IP)"
 echo "  ✅ /api/financial/* -> Financial endpoints (30 req/s, 100/min per IP)"

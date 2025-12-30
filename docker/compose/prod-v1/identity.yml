@@ -1,0 +1,87 @@
+# ThaliumX Production v1 - Identity Layer (Zitadel)
+# ===============================================
+# Adds ZITADEL as the OIDC issuer for the platform.
+#
+# Notes:
+# - ZITADEL requires configuration files (runtime config + secrets + init steps) + a 32-byte masterkey.
+# - These are generated into `.secrets/generated/` by [`docker/scripts/zitadel-generate-secrets.sh`](docker/scripts/zitadel-generate-secrets.sh:1).
+# - Files in `.secrets/` are gitignored.
+
+version: '3.8'
+
+services:
+  # Dedicated Postgres for ZITADEL (kept separate from the platform DB)
+  zitadel-postgres:
+    image: postgres:17-alpine
+    container_name: thaliumx-zitadel-postgres
+    hostname: thaliumx-zitadel-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD_FILE: /run/secrets/zitadel-postgres-root-password
+      POSTGRES_DB: zitadel
+    secrets:
+      - zitadel-postgres-root-password
+    volumes:
+      - zitadel-postgres-data:/var/lib/postgresql/data
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d zitadel"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  # ZITADEL (reverse-proxy TLS termination via APISIX)
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:v2.43.11
+    container_name: thaliumx-zitadel
+    hostname: thaliumx-zitadel
+    restart: unless-stopped
+    depends_on:
+      zitadel-postgres:
+        condition: service_healthy
+    secrets:
+      - zitadel-masterkey
+      - zitadel-config-secrets-yaml
+      - zitadel-init-steps-yaml
+      - zitadel-postgres-root-password
+    volumes:
+      # identity.yml is at docker/compose/prod-v1/, so ../../zitadel/... resolves to docker/zitadel/... (correct).
+      - ./../../zitadel/config/zitadel-config.yaml:/etc/zitadel/zitadel-config.yaml:ro
+    command:
+      - start-from-init
+      # Runtime config + secret config + init steps
+      - --config
+      - /etc/zitadel/zitadel-config.yaml
+      - --config
+      - /run/secrets/zitadel-config-secrets-yaml
+      - --steps
+      - /run/secrets/zitadel-init-steps-yaml
+      # Masterkey
+      - --masterkeyFile
+      - /run/secrets/zitadel-masterkey
+      # Proxy terminates TLS
+      - --tlsMode
+      - external
+      # External URL that end-users see (OIDC issuer is derived from this)
+      - --externalDomain
+      - ${ZITADEL_EXTERNAL_DOMAIN:-auth.thaliumx.com}
+      - --externalPort
+      - ${ZITADEL_EXTERNAL_PORT:-443}
+    networks:
+      - thaliumx-net
+    # NOTE: The official zitadel container image is distroless (no shell/curl).
+    # The built-in `zitadel ready` command derives its scheme from `--tlsMode external`
+    # and attempts HTTPS against localhost, which fails because TLS is terminated at APISIX.
+    # We intentionally omit a Docker healthcheck here so the container does not stay `unhealthy`
+    # while still functioning correctly behind the gateway.
+
+volumes:
+  zitadel-postgres-data:
+    name: thaliumx-zitadel-postgres-data
+
+networks:
+  thaliumx-net:
+    external: true

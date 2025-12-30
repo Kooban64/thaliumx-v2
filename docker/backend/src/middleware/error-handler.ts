@@ -333,14 +333,41 @@ const getJwksClient = (jwksUri: string): JwksClient => {
   return client;
 };
 
+const normalizeIssuer = (iss: string): string => iss.replace(/\/+$/, '');
+
+const isKeycloakIssuer = (iss: string): boolean => /\/realms\//.test(iss);
+
+const getZitadelIssuerDefault = (): string => {
+  // Prefer explicit config. Fall back to standard prod hostname.
+  const envIss = (process.env.ZITADEL_ISSUER || '').trim();
+  if (envIss) return normalizeIssuer(envIss);
+
+  const host = (process.env.ZITADEL_PUBLIC_HOST || 'auth.thaliumx.com').trim();
+  return normalizeIssuer(`https://${host}`);
+};
+
+const getAllowedIssuers = (): string[] => {
+  // Comma-separated allowlist. If unset, default to Zitadel issuer only.
+  const raw = (process.env.OIDC_ALLOWED_ISSUERS || '').trim();
+  const list = raw
+    ? raw
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(normalizeIssuer)
+    : [];
+
+  return list.length ? list : [getZitadelIssuerDefault()];
+};
+
 export const authenticateToken = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Keycloak-first auth.
-    // For public-facing production we only accept Bearer tokens issued by Keycloak.
+    // Zitadel-first auth (prod-v1).
+    // Keycloak support is retained for explicit rollback only.
     // (Legacy internal JWT + cookie auth is intentionally disabled.)
     const authHeader = req.headers.authorization;
     const bearer = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
@@ -353,11 +380,108 @@ export const authenticateToken = async (
     }
 
     const decoded: any = jwt.decode(token) || {};
-    const issuer: string | undefined = typeof decoded.iss === 'string' ? decoded.iss : undefined;
-    const isKeycloakToken = !!issuer && /\/realms\//.test(issuer);
+    const issuerRaw: string | undefined = typeof decoded.iss === 'string' ? decoded.iss : undefined;
+    const issuerNorm = issuerRaw ? normalizeIssuer(issuerRaw) : undefined;
 
-    if (!isKeycloakToken) {
+    if (!issuerRaw || !issuerNorm) {
       throw createError('Invalid token issuer', 401, 'INVALID_TOKEN');
+    }
+
+    // Provider selection:
+    // - default: accept ONLY Zitadel tokens
+    // - rollback: accept ONLY Keycloak tokens
+    // - explicit transition: allow both
+    const authProvider = String(process.env.THALIUMX_AUTH_PROVIDER || process.env.AUTH_PROVIDER || 'zitadel').toLowerCase();
+    const allowBothProviders = String(process.env.THALIUMX_OIDC_ALLOW_BOTH || '').toLowerCase() === '1';
+    const allowKeycloak = allowBothProviders || authProvider === 'keycloak';
+    const allowZitadel = allowBothProviders || authProvider === 'zitadel';
+
+    const isKeycloakToken = isKeycloakIssuer(issuerNorm);
+    const allowedZitadelIssuers = getAllowedIssuers();
+    const isZitadelToken = !isKeycloakToken && allowedZitadelIssuers.includes(issuerNorm);
+
+    if ((isKeycloakToken && !allowKeycloak) || (isZitadelToken && !allowZitadel) || (!isKeycloakToken && !isZitadelToken)) {
+      throw createError('Invalid token issuer', 401, 'INVALID_TOKEN');
+    }
+
+    // ------------------------------
+    // Zitadel token verification
+    // ------------------------------
+    if (isZitadelToken) {
+      const jwksUri = (process.env.ZITADEL_JWKS_URI || 'http://zitadel:8080/oauth/v2/keys').trim();
+
+      const client = getJwksClient(jwksUri);
+      const getKey: jwt.GetPublicKeyOrSecret = (header, callback) => {
+        const kid = header.kid;
+        if (!kid) return callback(new Error('Missing kid'), undefined);
+        client.getSigningKey(kid, (err, key) => {
+          if (err) return callback(err, undefined);
+          if (!key) return callback(new Error('No signing key returned'), undefined);
+          const signingKey = key.getPublicKey();
+          callback(null, signingKey);
+        });
+      };
+
+      // NOTE: We intentionally do not do introspection fallback for Zitadel here.
+      // The platform currently uses stateless JWT validation.
+      await new Promise((resolve, reject) => {
+        jwt.verify(
+          token,
+          getKey,
+          {
+            algorithms: ['RS256'],
+            // Accept both raw and normalized issuer variants (some IdPs include a trailing slash).
+            issuer: [issuerRaw, issuerNorm],
+          },
+          (err, payload) => {
+            if (err) return reject(err);
+            resolve(payload);
+          },
+        );
+      });
+
+      // Optional audience check (only enforced if configured).
+      const expectedAud = (process.env.ZITADEL_AUDIENCE || '').trim();
+      if (expectedAud) {
+        const aud = decoded?.aud;
+        const audList = Array.isArray(aud) ? aud : typeof aud === 'string' ? [aud] : [];
+        if (!audList.includes(expectedAud)) {
+          throw createError('Invalid token audience', 401, 'INVALID_TOKEN');
+        }
+      }
+
+      // Map Zitadel claims into our internal JWTPayload shape.
+      // Role extraction is best-effort (claim shapes differ between providers).
+      const zitadelRolesObj = decoded?.['urn:zitadel:iam:org:project:roles'];
+      const roleKeys: string[] =
+        zitadelRolesObj && typeof zitadelRolesObj === 'object' && !Array.isArray(zitadelRolesObj)
+          ? Object.keys(zitadelRolesObj)
+          : [];
+      const allRoles = Array.from(new Set(roleKeys));
+
+      const rolePriority = ['super_admin', 'admin', 'broker', 'compliance', 'finance', 'support', 'user'];
+      const selectedRole = allRoles.find(r => rolePriority.includes(r)) || allRoles[0] || 'user';
+
+      const headerTenantId = (req.headers['x-tenant-id'] as string | undefined) || undefined;
+      const tokenTenantId = (decoded?.tenant_id as string | undefined) || (decoded?.tenantId as string | undefined) || undefined;
+      const resolvedTenantId = tokenTenantId || headerTenantId || process.env.KEYCLOAK_DEFAULT_TENANT_ID || '10000000-0000-0000-0000-000000000000';
+
+      const payload: JWTPayload = {
+        id: (decoded?.sub as string) || 'unknown',
+        userId: (decoded?.sub as string) || 'unknown',
+        email: (decoded?.email as string) || (decoded?.preferred_username as string) || 'unknown',
+        role: selectedRole as any,
+        roles: allRoles as any,
+        tenantId: resolvedTenantId,
+        brokerId: (decoded?.broker_id as string | undefined) || (decoded?.brokerId as string | undefined) || undefined,
+        permissions: [],
+        iat: typeof decoded?.iat === 'number' ? decoded.iat : Math.floor(Date.now() / 1000),
+        exp: typeof decoded?.exp === 'number' ? decoded.exp : Math.floor(Date.now() / 1000) + 300,
+      };
+
+      req.user = payload;
+      next();
+      return;
     }
 
     // ------------------------------
@@ -378,7 +502,7 @@ export const authenticateToken = async (
       return '';
     })();
 
-    const realmMatch = issuer.match(/\/realms\/([^/]+)$/);
+    const realmMatch = issuerNorm.match(/\/realms\/([^/]+)$/);
     const realmFromIss = realmMatch?.[1];
     const expectedRealm = process.env.KEYCLOAK_REALM || 'thaliumx-platform';
     const realm = realmFromIss || expectedRealm;
@@ -413,7 +537,8 @@ export const authenticateToken = async (
           getKey,
           {
             algorithms: ['RS256'],
-            issuer,
+            // Accept both raw and normalized issuer variants (some IdPs include a trailing slash).
+            issuer: [issuerRaw, issuerNorm],
           },
           (err, payload) => {
             if (err) return reject(err);

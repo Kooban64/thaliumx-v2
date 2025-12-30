@@ -1,0 +1,26 @@
+# ThaliumX - ZITADEL runtime configuration (non-secret)
+#
+# Upstream reference (defaults + schema):
+# - https://github.com/zitadel/zitadel/blob/main/cmd/defaults.yaml
+#
+# NOTE:
+# - Secret values (DB passwords, first-instance admin password) are NOT stored here.
+# - Those live in `.secrets/generated/` and are mounted into the container as config files.
+
+Log:
+  Level: 'info'
+
+# ZITADEL runs behind APISIX (TLS terminated at the gateway)
+ExternalSecure: true
+
+Database:
+  postgres:
+    Host: 'zitadel-postgres'
+    Port: 5432
+    Database: zitadel
+    User:
+      SSL:
+        Mode: 'disable'
+    Admin:
+      SSL:
+        Mode: 'disable'

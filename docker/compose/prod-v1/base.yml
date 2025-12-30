@@ -60,10 +60,6 @@ volumes:
     name: thaliumx-apisix-logs
     driver: local
 
-  # Authentication
-  keycloak_data:
-    driver: local
-
   # Applications
   backend_logs:
     driver: local
@@ -133,10 +129,6 @@ secrets:
     file: ../../../.secrets/generated/encryption-key
 
   # Authentication
-  keycloak-admin-username:
-    file: ../../../.secrets/generated/keycloak-admin-username
-  keycloak-admin-password:
-    file: ../../../.secrets/generated/keycloak-admin-password
   postgres-username:
     file: ../../../.secrets/generated/postgres-username
 
@@ -163,13 +155,6 @@ secrets:
     file: ../../../.secrets/generated/typesense-api-key
 
   # Backend
-  keycloak-backend-secret:
-    file: ../../../.secrets/generated/keycloak-backend-secret
-  # Optional (used if trading/fintech services use Keycloak service accounts)
-  keycloak-trading-secret:
-    file: ../../../.secrets/generated/keycloak-trading-secret
-  keycloak-fintech-secret:
-    file: ../../../.secrets/generated/keycloak-fintech-secret
   bybit-api-key:
     file: ../../../.secrets/generated/bybit-api-key
   bybit-api-secret:
@@ -207,23 +192,16 @@ secrets:
   api-key:
     file: ../../../.secrets/generated/api-key
 
+  # APISIX gateway OIDC plugin requires a `client_secret` value even in bearer_only mode.
+  # In Zitadel-first deployments we use this as a non-empty secret string to satisfy the schema.
+  apisix-oidc-client-secret:
+    file: ../../../.secrets/generated/apisix-oidc-client-secret
+
   # SMTP (backend email) - required for production config validation
   smtp-user:
     file: ../../../.secrets/generated/smtp-user
   smtp-password:
     file: ../../../.secrets/generated/smtp-password
-
-  # Keycloak Client Secrets for Compliance Services
-  keycloak-compliance-cex-secret:
-    file: ../../../.secrets/generated/keycloak-compliance-cex-secret
-  keycloak-compliance-dex-secret:
-    file: ../../../.secrets/generated/keycloak-compliance-dex-secret
-  keycloak-compliance-nft-secret:
-    file: ../../../.secrets/generated/keycloak-compliance-nft-secret
-  keycloak-compliance-token-secret:
-    file: ../../../.secrets/generated/keycloak-compliance-token-secret
-  keycloak-compliance-coordinator-secret:
-    file: ../../../.secrets/generated/keycloak-compliance-coordinator-secret
 
   # Fintech Services
   ballerine-db-username:
@@ -270,3 +248,15 @@ secrets:
     file: ../../../.secrets/generated/ballerine-magic-link-jwt-secret
   ballerine-magic-link-auth-jwt-secret:
     file: ../../../.secrets/generated/ballerine-magic-link-auth-jwt-secret
+
+  # Zitadel (OIDC issuer)
+  # These files are generated locally (gitignored) by [`docker/scripts/zitadel-generate-secrets.sh`](docker/scripts/zitadel-generate-secrets.sh:1).
+  zitadel-masterkey:
+    file: ../../../.secrets/generated/zitadel-masterkey
+  zitadel-postgres-root-password:
+    file: ../../../.secrets/generated/zitadel-postgres-root-password
+  # YAML files consumed directly by the zitadel binary as `--config` / `--steps`.
+  zitadel-config-secrets-yaml:
+    file: ../../../.secrets/generated/zitadel-config-secrets.yaml
+  zitadel-init-steps-yaml:
+    file: ../../../.secrets/generated/zitadel-init-steps.yaml

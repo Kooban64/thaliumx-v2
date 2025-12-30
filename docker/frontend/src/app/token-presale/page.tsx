@@ -22,6 +22,7 @@ import {
 import { tokenPurchaseSchema, validateForm } from '@/lib/utils';
 import { getAccessToken } from '@/lib/auth/token-store';
 import { initKeycloak } from '@/lib/auth/keycloak';
+import { initZitadel } from '@/lib/auth/zitadel';
 
 export default function TokenPresalePage() {
   const [amount, setAmount] = useState('');
@@ -54,7 +55,18 @@ export default function TokenPresalePage() {
         setIsAuthenticated(!!getAccessToken());
         return;
       }
-      // legacy mode: backend cookies
+
+      if (authMode === 'zitadel') {
+        try {
+          await initZitadel();
+        } catch {
+          // ignore
+        }
+        setIsAuthenticated(!!getAccessToken());
+        return;
+      }
+
+      // legacy/local mode: backend cookies
       try {
         const res = await fetch('/api/auth/profile', { credentials: 'include' });
         setIsAuthenticated(res.ok);
@@ -66,7 +78,7 @@ export default function TokenPresalePage() {
 
   const authzHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = {};
-    const token = authMode === 'keycloak' ? getAccessToken() : null;
+    const token = authMode === 'keycloak' || authMode === 'zitadel' ? getAccessToken() : null;
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
@@ -189,7 +201,7 @@ export default function TokenPresalePage() {
             {!isAuthenticated ? (
               <>
                 <Button variant="ghost" size="sm" asChild>
-                  <a href="/auth?next=/token-presale">Sign In</a>
+                  <a href="/login?next=/token-presale">Sign In</a>
                 </Button>
                 <Button size="sm" asChild>
                   <a href="/dashboard">Launch App</a>
@@ -307,7 +319,7 @@ export default function TokenPresalePage() {
               {!isAuthenticated && (
                 <Alert>
                   <AlertDescription>
-                    <a href="/auth?next=/token-presale" className="text-primary underline">Sign in</a> to purchase tokens
+                    <a href="/login?next=/token-presale" className="text-primary underline">Sign in</a> to purchase tokens
                   </AlertDescription>
                 </Alert>
               )}

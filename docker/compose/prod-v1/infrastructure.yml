@@ -21,10 +21,10 @@ services:
     volumes:
       - vault-data:/vault/data
       # Vault runtime assets live under `docker/vault/*` in this repo.
-      # (Older iterations used a top-level `vault/*` directory; we keep behavior but point to the canonical location.)
-      - ./../../docker/vault/config:/vault/config:ro
-      - ./../../docker/vault/tls:/vault/userconfig/tls
-      - ./../../docker/vault/scripts:/vault/scripts:ro
+      # NOTE: this compose file is at `docker/compose/prod-v1/`, so `./../../vault/...` resolves to `docker/vault/...`.
+      - ./../../vault/config:/vault/config:ro
+      - ./../../vault/tls:/vault/userconfig/tls
+      - ./../../vault/scripts:/vault/scripts:ro
     command: sh -c "chown -R vault:vault /vault/data && exec vault server -config=/vault/config/vault.hcl"
     # Strict audit mode: no host-exposed ports (gateway-only exposure).
     networks:
@@ -56,13 +56,15 @@ services:
     restart: "no"  # Run once and exit
     depends_on:
       vault:
-        condition: service_healthy
+        # Vault may report `unhealthy` while sealed or during startup.
+        # The unseal job exists to fix that state, so only require the container to be started.
+        condition: service_started
     environment:
       VAULT_ADDR: https://thaliumx-vault:8200
       VAULT_CACERT: /vault/userconfig/tls/ca.crt
     volumes:
-      - ./../../docker/vault/tls:/vault/userconfig/tls:ro
-      - ./../../docker/vault/unseal.sh:/vault/unseal.sh:ro
+      - ./../../vault/tls:/vault/userconfig/tls:ro
+      - ./../../vault/unseal.sh:/vault/unseal.sh:ro
       - vault-keys:/vault/keys:rw
     # NOTE:
     # - `hashicorp/vault` image does not ship with `/bin/bash` or `jq` by default.

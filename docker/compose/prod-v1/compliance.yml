@@ -52,15 +52,14 @@ services:
       KAFKA_CLIENT_ID: cex-compliance-service
       KAFKA_GROUP_ID: cex-compliance-group
 
-      # Vault / Keycloak (optional for services; kept for parity)
+      # Vault
       VAULT_ADDR: https://vault:8200
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
-      KEYCLOAK_URL: https://keycloak:8443
-      # Single-realm mode: Keycloak realm is `thaliumx-platform`.
-      KEYCLOAK_REALM: thaliumx-platform
-      KEYCLOAK_CLIENT_ID: thaliumx-compliance-cex
-      KEYCLOAK_CLIENT_SECRET_FILE: /run/secrets/keycloak-compliance-cex-secret
+
+      # OIDC (Zitadel)
+      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-https://auth.thaliumx.com}
+      ZITADEL_JWKS_URI: ${ZITADEL_JWKS_URI:-http://zitadel:8080/oauth/v2/keys}
 
       # Observability toggles
       METRICS_ENABLED: "true"
@@ -72,29 +71,12 @@ services:
       - sh
       - -lc
       - |
-        # ---------------------------------------------------------------------
-        # Docker secrets hardening / compatibility
-        #
-        # In some environments, secrets under /run/secrets are mounted 0400 and
-        # owned by root, which becomes unreadable after we drop privileges.
-        # The service's config loader reads `KEYCLOAK_CLIENT_SECRET_FILE` at
-        # runtime; if it points to /run/secrets/* this can crash-loop with EACCES.
-        #
-        # Fix: copy the secret to a readable location before `su-exec`.
-        # ---------------------------------------------------------------------
-        mkdir -p /tmp/secrets;
-        cp /run/secrets/keycloak-compliance-cex-secret /tmp/secrets/keycloak-compliance-cex-secret;
-        chmod 0444 /tmp/secrets/keycloak-compliance-cex-secret;
-        export KEYCLOAK_CLIENT_SECRET_FILE=/tmp/secrets/keycloak-compliance-cex-secret;
-
         export DATABASE_PASSWORD="$(cat /run/secrets/postgres-password)";
         export DB_PASSWORD="$(cat /run/secrets/postgres-password)";
         export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
         export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
         export API_KEY="$(cat /run/secrets/api-key)";
         export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
-        # Keycloak client secret
-        export KEYCLOAK_CLIENT_SECRET="$(cat /run/secrets/keycloak-compliance-cex-secret)";
         # Disable SASL for PLAINTEXT Kafka
         unset KAFKA_SASL_MECHANISM;
         unset KAFKA_SASL_USERNAME;
@@ -107,7 +89,6 @@ services:
       - jwt-secret
       - api-key
       - encryption-key
-      - keycloak-compliance-cex-secret
       - vault-role-id
       - vault-secret-id
     volumes:
@@ -122,8 +103,6 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-      keycloak:
-        condition: service_started
       vault:
         condition: service_healthy
     healthcheck:
@@ -175,9 +154,10 @@ services:
       VAULT_ADDR: https://vault:8200
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
-      KEYCLOAK_URL: https://keycloak:8443
-      KEYCLOAK_REALM: thaliumx-platform
-      KEYCLOAK_CLIENT_ID: thaliumx-compliance-dex
+
+      # OIDC (Zitadel)
+      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-https://auth.thaliumx.com}
+      ZITADEL_JWKS_URI: ${ZITADEL_JWKS_URI:-http://zitadel:8080/oauth/v2/keys}
 
       METRICS_ENABLED: "true"
       AUDIT_LOG_ENABLED: "true"
@@ -193,7 +173,6 @@ services:
         export JWT_SECRET="$(cat /run/secrets/jwt-secret)";
         export API_KEY="$(cat /run/secrets/api-key)";
         export ENCRYPTION_KEY="$(cat /run/secrets/encryption-key)";
-        export KEYCLOAK_CLIENT_SECRET="$(cat /run/secrets/keycloak-compliance-dex-secret)";
         # Disable SASL for PLAINTEXT Kafka
         unset KAFKA_SASL_MECHANISM;
         unset KAFKA_SASL_USERNAME;
@@ -205,7 +184,6 @@ services:
       - jwt-secret
       - api-key
       - encryption-key
-      - keycloak-compliance-dex-secret
       - vault-role-id
       - vault-secret-id
     volumes:
@@ -221,8 +199,6 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-      keycloak:
-        condition: service_started
       vault:
         condition: service_healthy
     healthcheck:
@@ -274,9 +250,10 @@ services:
       VAULT_ADDR: https://vault:8200
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /certs/ca.crt
-      KEYCLOAK_URL: https://keycloak:8443
-      KEYCLOAK_REALM: thaliumx-platform
-      KEYCLOAK_CLIENT_ID: thaliumx-compliance-nft
+
+      # OIDC (Zitadel)
+      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-https://auth.thaliumx.com}
+      ZITADEL_JWKS_URI: ${ZITADEL_JWKS_URI:-http://zitadel:8080/oauth/v2/keys}
 
       METRICS_ENABLED: "true"
       AUDIT_LOG_ENABLED: "true"
@@ -299,7 +276,6 @@ services:
       - jwt-secret
       - api-key
       - encryption-key
-      - keycloak-compliance-nft-secret
       - vault-role-id
       - vault-secret-id
     volumes:
@@ -314,8 +290,6 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-      keycloak:
-        condition: service_started
       vault:
         condition: service_healthy
     healthcheck:
@@ -367,9 +341,10 @@ services:
       VAULT_ADDR: https://vault:8200
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
-      KEYCLOAK_URL: https://keycloak:8443
-      KEYCLOAK_REALM: thaliumx-platform
-      KEYCLOAK_CLIENT_ID: thaliumx-compliance-token
+
+      # OIDC (Zitadel)
+      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-https://auth.thaliumx.com}
+      ZITADEL_JWKS_URI: ${ZITADEL_JWKS_URI:-http://zitadel:8080/oauth/v2/keys}
 
       METRICS_ENABLED: "true"
       AUDIT_LOG_ENABLED: "true"
@@ -396,7 +371,6 @@ services:
       - jwt-secret
       - api-key
       - encryption-key
-      - keycloak-compliance-token-secret
       - vault-role-id
       - vault-secret-id
     volumes:
@@ -411,8 +385,6 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-      keycloak:
-        condition: service_started
       vault:
         condition: service_healthy
     healthcheck:
@@ -469,9 +441,10 @@ services:
       VAULT_ADDR: https://vault:8200
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
-      KEYCLOAK_URL: https://keycloak:8443
-      KEYCLOAK_REALM: thaliumx-platform
-      KEYCLOAK_CLIENT_ID: thaliumx-compliance-coordinator
+
+      # OIDC (Zitadel)
+      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-https://auth.thaliumx.com}
+      ZITADEL_JWKS_URI: ${ZITADEL_JWKS_URI:-http://zitadel:8080/oauth/v2/keys}
 
       METRICS_ENABLED: "true"
       AUDIT_LOG_ENABLED: "true"
@@ -496,7 +469,6 @@ services:
       - jwt-secret
       - api-key
       - encryption-key
-      - keycloak-compliance-coordinator-secret
       - vault-role-id
       - vault-secret-id
     volumes:

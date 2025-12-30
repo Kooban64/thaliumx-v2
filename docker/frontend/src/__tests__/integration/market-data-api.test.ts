@@ -13,6 +13,7 @@ const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
 describe('Market Data API Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    marketDataService.clearCache();
   });
 
   describe('Price API', () => {
@@ -33,12 +34,14 @@ describe('Market Data API Integration', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' } as any,
         json: async () => mockResponse,
       } as Response);
 
       const result = await marketDataService.getPrice('BTC');
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/market/prices/BTC');
+      expect(mockFetch).toHaveBeenCalledWith('/api/market/prices/BTC', expect.any(Object));
       expect(result).toEqual(mockResponse.data);
     });
 
@@ -46,6 +49,7 @@ describe('Market Data API Integration', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
+        headers: { get: () => 'application/json' } as any,
         json: async () => ({ error: { message: 'Internal server error' } }),
       } as Response);
 
@@ -83,12 +87,14 @@ describe('Market Data API Integration', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' } as any,
         json: async () => mockResponse,
       } as Response);
 
       const result = await marketDataService.getHistoricalPrices('BTC', 7);
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/market/historical/BTC?days=7');
+      expect(mockFetch).toHaveBeenCalledWith('/api/market/historical/BTC?days=7', expect.any(Object));
       expect(result).toEqual(mockHistoricalData);
     });
   });
@@ -111,12 +117,14 @@ describe('Market Data API Integration', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' } as any,
         json: async () => mockResponse,
       } as Response);
 
       const result = await marketDataService.getMarketStats();
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/market/stats');
+      expect(mockFetch).toHaveBeenCalledWith('/api/market/stats', expect.any(Object));
       expect(result).toEqual(mockStats);
     });
   });
@@ -157,12 +165,14 @@ describe('Market Data API Integration', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' } as any,
         json: async () => mockResponse,
       } as Response);
 
       const result = await marketDataService.getPrices(['BTC', 'ETH']);
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/market/prices?symbols=BTC,ETH');
+      expect(mockFetch).toHaveBeenCalledWith('/api/market/prices?symbols=BTC,ETH', expect.any(Object));
       expect(result.size).toBe(2);
       expect(result.get('BTC')).toEqual(mockPrices.BTC);
       expect(result.get('ETH')).toEqual(mockPrices.ETH);
@@ -174,6 +184,7 @@ describe('Market Data API Integration', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 429,
+        headers: { get: () => 'application/json' } as any,
         json: async () => ({
           error: {
             code: 'RATE_LIMITED',
@@ -191,6 +202,7 @@ describe('Market Data API Integration', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
+        headers: { get: () => 'application/json' } as any,
         json: async () => ({
           error: {
             code: 'NOT_FOUND',
@@ -223,6 +235,8 @@ describe('Market Data API Integration', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' } as any,
         json: async () => mockResponse,
       } as Response);
 

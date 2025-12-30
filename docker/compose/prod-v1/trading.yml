@@ -206,13 +206,24 @@ services:
       - sh
       - -lc
       - |
+        uri_encode_all() {
+          # Percent-encode ALL bytes of the input so passwords with any special chars are safe in DSNs.
+          # Keep this dependency-free (no python/jq) for slimmer images.
+          printf '%s' "$$1" | od -An -tx1 -v | tr -d ' \n' | sed 's/../%&/g'
+        }
+
         export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
         export MONGO_INITDB_ROOT_PASSWORD="$(cat /run/secrets/mongodb-password)";
+
+        # DSNs embed passwords in a URI -> use encoded forms only for URL construction.
+        export REDIS_PASSWORD_URI="$(uri_encode_all "$$REDIS_PASSWORD")";
+        export MONGO_INITDB_ROOT_PASSWORD_URI="$(uri_encode_all "$$MONGO_INITDB_ROOT_PASSWORD")";
+
         # Use $$ to prevent docker-compose interpolation; container shell will expand runtime vars.
-        export REDIS_URL="redis://:$$REDIS_PASSWORD@redis:6379/0";
+        export REDIS_URL="redis://:$$REDIS_PASSWORD_URI@redis:6379/0";
         export MONGO_USER="thaliumx";
         export MONGO_DB="thaliumx";
-        export MONGODB_URL="mongodb://$$MONGO_USER:$$MONGO_INITDB_ROOT_PASSWORD@mongodb:27017/$$MONGO_DB?authSource=admin";
+        export MONGODB_URL="mongodb://$$MONGO_USER:$$MONGO_INITDB_ROOT_PASSWORD_URI@mongodb:27017/$$MONGO_DB?authSource=admin";
         export VAULT_ADDR="http://vault:8200";
         exec uvicorn src.main:app --host 0.0.0.0 --port 3010
     environment:

@@ -35,7 +35,7 @@ export default function RootLayout({
                 {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
                 <a className="text-sm underline" href="/portfolio">Portfolio</a>
                 {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-                <a className="text-sm underline" href="/auth?next=/dashboard">Login</a>
+                <a className="text-sm underline" href="/login?next=/dashboard">Login</a>
               </div>
             </div>
             <div className="p-4">{children}</div>

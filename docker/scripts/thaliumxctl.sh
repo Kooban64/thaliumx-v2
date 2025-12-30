@@ -12,7 +12,7 @@ cd "${REPO_ROOT}"
 # Works for both audit and non-audit profiles.
 
 FILES=(
-  base infrastructure databases messaging security gateway monitoring monitoring-extras
+  base infrastructure identity databases messaging security gateway monitoring monitoring-extras
   applications search trading fintech compliance wazuh
 )
 
@@ -139,7 +139,19 @@ doctor() {
 
 start_stack() {
   banner
-  echo "Starting full stack in mode=$mode"
+  echo "Starting full stack in mode=$mode (recommended)"
+  echo
+  # Use the hardened bring-up script so:
+  # - we always use the full prod-v1 file set
+  # - required one-shot init jobs run (Vault unseal + Keycloak post-import patch)
+  # - we wait for core readiness
+  docker/scripts/prod-v1-stack.sh "$mode"
+  pause
+}
+
+start_stack_fast() {
+  banner
+  echo "Starting stack in mode=$mode (FAST; compose up only; DOES NOT run init jobs)"
   echo
   compose up -d --remove-orphans
   pause
@@ -184,12 +196,49 @@ run_init_jobs() {
   banner
   echo "Running one-shot init jobs (idempotent):"
   echo " - vault-unseal"
-  echo " - keycloak-post-import-seed"
   echo
   # These jobs are intentionally NOT part of the default `up` set.
   # They live behind the compose profile `init-jobs` to avoid showing up as “exited” containers.
   compose_with_extra_profile init-jobs run --rm vault-unseal
-  compose_with_extra_profile init-jobs run --rm keycloak-post-import-seed
+  pause
+}
+
+reseed_gateway_routes() {
+  banner
+  echo "Reseeding APISIX routes (idempotent)."
+  echo
+  echo "This will rerun the one-shot 'apisix-init' job which (re)creates routes + SSL objects in ETCD."
+  echo "Use this when switching the gateway /auth provider between Zitadel and Keycloak." 
+  echo
+
+  local provider
+  read -r -p "Auth provider [zitadel/keycloak] (default: zitadel): " provider
+  provider="${provider:-zitadel}"
+  if [[ "$provider" != "zitadel" && "$provider" != "keycloak" ]]; then
+    echo "Invalid provider: $provider" >&2
+    pause
+    return
+  fi
+
+  local enable_oidc
+  read -r -p "Enable APISIX OIDC enforcement? [true/false] (default: true): " enable_oidc
+  enable_oidc="${enable_oidc:-true}"
+  if [[ "$enable_oidc" != "true" && "$enable_oidc" != "false" ]]; then
+    echo "Invalid value: $enable_oidc" >&2
+    pause
+    return
+  fi
+
+  echo
+  echo "Running: THALIUMX_AUTH_PROVIDER=$provider APISIX_ENABLE_OIDC=$enable_oidc docker compose ... up -d apisix-init"
+  echo
+
+  # Force recreate ensures the init job reruns even if the container already exists in exited state.
+  THALIUMX_AUTH_PROVIDER="$provider" APISIX_ENABLE_OIDC="$enable_oidc" \
+    compose up -d --no-deps --force-recreate apisix-init
+
+  echo
+  echo "Done. APISIX reads config from ETCD dynamically; no APISIX restart should be required." 
   pause
 }
 
@@ -235,8 +284,10 @@ Usage:
   ./thaliumxctl.sh status         # show status + sanity check
   ./thaliumxctl.sh doctor         # verbose sanity + highlight non-running containers
   ./thaliumxctl.sh up             # start (no build)
+  ./thaliumxctl.sh up-fast        # start via raw compose up (no init jobs)
   ./thaliumxctl.sh up-build       # start with build + run init jobs
   ./thaliumxctl.sh init-jobs      # run one-shot init jobs
+  ./thaliumxctl.sh reseed-gateway # rerun apisix-init (switch /auth provider)
   ./thaliumxctl.sh stop           # stop containers (keep)
   ./thaliumxctl.sh down           # remove containers
 
@@ -255,12 +306,14 @@ main_menu() {
     echo "1) Switch mode (production/reduced)"
     echo "2) Status / health check"
     echo "2b) Doctor (verbose health + missing containers)"
-    echo "3) Start stack (no build)"
+    echo "3) Start stack (no build; includes init jobs + readiness waits)"
+    echo "3b) Start stack FAST (compose up only; no init jobs)"
     echo "4) Start stack (with build + run init jobs)"
     echo "5) Stop stack (containers remain)"
     echo "6) Down stack (remove containers)"
     echo "7) Restart core (frontend/backend/gateway/auth)"
     echo "8) Run init jobs (vault-unseal + keycloak seed)"
+    echo "8b) Reseed APISIX routes (switch /auth provider)"
     echo "9) Tail logs (pick service)"
     echo "10) Show logical groups (info)"
     echo "0) Exit"
@@ -272,11 +325,13 @@ main_menu() {
       2) status;;
       2b|2B) doctor;;
       3) start_stack;;
+      3b|3B) start_stack_fast;;
       4) start_stack_build;;
       5) stop_stack;;
       6) down_stack;;
       7) restart_core;;
       8) run_init_jobs;;
+      8b|8B) reseed_gateway_routes;;
       9) tail_logs;;
       10) show_groups;;
       0) exit 0;;
@@ -303,11 +358,17 @@ case "${1:-}" in
   up)
     start_stack
     ;;
+  up-fast)
+    start_stack_fast
+    ;;
   up-build)
     start_stack_build
     ;;
   init-jobs)
     run_init_jobs
+    ;;
+  reseed-gateway)
+    reseed_gateway_routes
     ;;
   stop)
     stop_stack

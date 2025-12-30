@@ -35,7 +35,21 @@ export interface MarketStats {
 export class MarketDataService {
   private static instance: MarketDataService;
 
+  // Simple in-memory cache for market data (client-side only).
+  // This is primarily to avoid spamming `/api/market/*` endpoints and to stabilize UI rendering.
+  // TTL is intentionally short.
+  private readonly priceCache = new Map<string, { value: MarketPrice; expiresAt: number }>();
+  private readonly priceCacheTtlMs = 30_000;
+
   private constructor() {}
+
+  /**
+   * Test/ops helper: clear in-memory caches.
+   * Safe in production but primarily intended for deterministic unit/integration tests.
+   */
+  clearCache(): void {
+    this.priceCache.clear();
+  }
 
   static getInstance(): MarketDataService {
     if (!MarketDataService.instance) {
@@ -49,9 +63,16 @@ export class MarketDataService {
    */
   async getPrice(symbol: string): Promise<MarketPrice | null> {
     try {
+      const now = Date.now();
+      const cached = this.priceCache.get(symbol);
+      if (cached && cached.expiresAt > now) {
+        return cached.value;
+      }
+
       const response = await apiCall<MarketPrice>(`/api/market/prices/${symbol}`);
 
       if (response.success && response.data) {
+        this.priceCache.set(symbol, { value: response.data, expiresAt: now + this.priceCacheTtlMs });
         return response.data;
       }
 

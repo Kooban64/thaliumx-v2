@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getAccessToken } from '@/lib/auth/token-store';
 import { initKeycloak } from '@/lib/auth/keycloak';
+import { initZitadel } from '@/lib/auth/zitadel';
 
 export default function VestingPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -15,9 +16,11 @@ export default function VestingPage() {
         const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
         if (authMode === 'keycloak') {
           await initKeycloak();
+        } else if (authMode === 'zitadel') {
+          await initZitadel();
         }
 
-        const token = authMode === 'keycloak' ? (getAccessToken() || '') : '';
+        const token = authMode === 'keycloak' || authMode === 'zitadel' ? (getAccessToken() || '') : '';
         const res = await fetch('/api/presale/vesting/user/me', {
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         });

@@ -22,6 +22,28 @@ import { AppError, createError } from '../utils';
 
 const router: Router = Router();
 
+// prod-v1 has moved to Zitadel as the primary identity provider.
+// Keep the Keycloak admin API router for rollback only.
+const isKeycloakProvider = () => {
+  const provider = String(process.env.THALIUMX_AUTH_PROVIDER || process.env.AUTH_PROVIDER || 'zitadel').toLowerCase();
+  return provider === 'keycloak';
+};
+
+router.use((_req, res, next) => {
+  if (!isKeycloakProvider()) {
+    res.status(410).json({
+      success: false,
+      error: {
+        code: 'KEYCLOAK_DEPRECATED',
+        message: 'Keycloak has been deprecated in this deployment. Use Zitadel (OIDC) instead.'
+      },
+      timestamp: new Date().toISOString()
+    });
+    return;
+  }
+  next();
+});
+
 // =============================================================================
 // BROKER REALM MANAGEMENT
 // =============================================================================

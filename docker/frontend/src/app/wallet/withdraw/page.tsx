@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import apiClient from '@/lib/api/client';
 import { initKeycloak } from '@/lib/auth/keycloak';
+import { initZitadel } from '@/lib/auth/zitadel';
 import { getAccessToken } from '@/lib/auth/token-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,11 +39,18 @@ export default function WithdrawPage() {
   useEffect(() => {
     (async () => {
       try {
-        await initKeycloak();
-        if (!getAccessToken()) {
-          window.location.href = `/auth?next=/wallet/withdraw`;
+        const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+        if (authMode === 'keycloak') {
+          await initKeycloak();
+        } else if (authMode === 'zitadel') {
+          await initZitadel();
+        }
+
+        if ((authMode === 'keycloak' || authMode === 'zitadel') && !getAccessToken()) {
+          window.location.href = `/login?next=/wallet/withdraw`;
           return;
         }
+
         await loadBankAccounts();
       } catch (e: any) {
         setError(e?.message || 'Failed to initialize auth');

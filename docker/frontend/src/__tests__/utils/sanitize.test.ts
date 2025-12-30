@@ -23,7 +23,7 @@ describe('Input Sanitization Utilities', () => {
     });
 
     it('should remove dangerous characters', () => {
-      expect(sanitizeText('<script>alert("xss")</script>')).toBe('scriptalert("xss")script');
+      expect(sanitizeText('<script>alert("xss")</script>')).toBe('alert("xss")');
     });
 
     it('should normalize whitespace', () => {
@@ -47,7 +47,7 @@ describe('Input Sanitization Utilities', () => {
     });
 
     it('should remove dangerous characters', () => {
-      expect(sanitizeEmail('user<script>@example.com')).toBe('user@exampl.com');
+      expect(sanitizeEmail('user<script>@example.com')).toBe('user@example.com');
     });
 
     it('should limit length', () => {
@@ -124,7 +124,7 @@ describe('Input Sanitization Utilities', () => {
 
   describe('sanitizeHtml', () => {
     it('should escape HTML entities', () => {
-      expect(sanitizeHtml('<script>alert("xss")</script>')).toBe('<script>alert("xss")</script>');
+      expect(sanitizeHtml('<script>alert("xss")</script>')).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;&#x2F;script&gt;');
     });
 
     it('should handle null input', () => {

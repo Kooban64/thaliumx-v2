@@ -156,7 +156,11 @@ services:
       - api-key
       # Used to configure APISIX openid-connect (bearer_only) plugin.
       # NOTE: APISIX openid-connect schema requires `client_secret`.
-      - keycloak-backend-secret
+      - apisix-oidc-client-secret
+    environment:
+      # Keycloak decommissioned; Zitadel is the only supported auth provider.
+      THALIUMX_AUTH_PROVIDER: ${THALIUMX_AUTH_PROVIDER:-zitadel}
+      APISIX_ENABLE_OIDC: ${APISIX_ENABLE_OIDC:-true}
     volumes:
       - /home/ubuntu/thaliumx-v1/docker/gateway/scripts/init-apisix-routes.sh:/scripts/init-apisix-routes.sh:ro
       # Provide TLS material so the init script can create an APISIX SSL object (stored in ETCD).
@@ -170,12 +174,13 @@ services:
         export APISIX_ADMIN_KEY="$(cat /run/secrets/api-key)";
         export FRONTEND_UPSTREAM="thaliumx-frontend:3000";
         export BACKEND_UPSTREAM="thaliumx-backend:3002";
-        # Use the Compose service name for DNS stability
-        export KEYCLOAK_UPSTREAM="keycloak:8443";
-        # Configure APISIX OIDC verification against Keycloak.
-        # Use the confidential backend client for token introspection/JWKS bootstrap.
+        # Auth provider selection (Keycloak decommissioned)
+        export AUTH_PROVIDER="zitadel";
+        export ZITADEL_UPSTREAM="zitadel:8080";
+
+        # Configure APISIX OIDC verification.
         export OIDC_CLIENT_ID="thaliumx-backend";
-        export OIDC_CLIENT_SECRET="$(cat /run/secrets/keycloak-backend-secret)";
+        export OIDC_CLIENT_SECRET="$(cat /run/secrets/apisix-oidc-client-secret)";
         # Enable gateway-side OIDC enforcement for protected APIs.
         # Frontend is Keycloak-first and sends Bearer tokens.
         export APISIX_ENABLE_OIDC="${APISIX_ENABLE_OIDC:-true}";

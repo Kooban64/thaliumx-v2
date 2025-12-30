@@ -60,9 +60,16 @@ services:
     # Use list form so Docker receives the entire script as a single argv element.
     command:
       - |
-        export POSTGRES_PASSWORD="$(cat /run/secrets/postgres-password)";
+        uri_encode_all() {
+          # Percent-encode ALL bytes of the input so passwords with any special chars are safe in DSNs.
+          # Keep this dependency-free (no python/jq) for slimmer images.
+          printf '%s' "$$1" | od -An -tx1 -v | tr -d ' \n' | sed 's/../%&/g'
+        }
+
+        postgres_pass_raw="$$(cat /run/secrets/postgres-password | tr -d '\n')";
+        postgres_pass_uri="$$(uri_encode_all "$$postgres_pass_raw")";
         # Use $$ to prevent docker-compose interpolation; let the container shell expand it.
-        export DATA_SOURCE_NAME="postgresql://thaliumx:$$POSTGRES_PASSWORD@postgres:5432/thaliumx?sslmode=disable";
+        export DATA_SOURCE_NAME="postgresql://thaliumx:$$postgres_pass_uri@postgres:5432/thaliumx?sslmode=disable";
         exec /bin/postgres_exporter
     # Strict audit mode: no host-exposed ports (gateway-only exposure).
     secrets:

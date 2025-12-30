@@ -1032,6 +1032,10 @@ export class ConfigService {
     const config = this.getConfig();
     const errors: string[] = [];
 
+    // Identity provider selection (defaults to Zitadel in prod-v1).
+    // Keycloak is supported for rollback only.
+    const authProvider = String(process.env.THALIUMX_AUTH_PROVIDER || process.env.AUTH_PROVIDER || 'zitadel').toLowerCase();
+
     // JWT validation
     if (!config.jwt.secret || config.jwt.secret.length < 32) {
       errors.push('JWT secret must be at least 32 characters long');
@@ -1053,8 +1057,11 @@ export class ConfigService {
         errors.push('Database SSL must be enabled in production');
       }
       
-      if (config.keycloak.adminPassword === 'admin') {
-        errors.push('Default Keycloak admin password must be changed in production');
+      // Only enforce Keycloak admin credential hardening when Keycloak is enabled.
+      if (authProvider === 'keycloak') {
+        if (config.keycloak.adminPassword === 'admin') {
+          errors.push('Default Keycloak admin password must be changed in production');
+        }
       }
       
       if (!this.isVaultConnected()) {

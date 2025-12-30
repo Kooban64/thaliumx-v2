@@ -101,16 +101,24 @@ services:
     command:
       - |
         set -eu
+        # NOTE: docker-compose performs host-side interpolation for `$VAR`.
+        # Use `$$` to defer expansion to the container shell.
+        uri_encode_all() {
+          # Percent-encode ALL bytes of the input so passwords with any special chars are safe in DSNs.
+          # Keep this dependency-free (no python/jq) for slimmer images.
+          printf '%s' "$$1" | od -An -tx1 -v | tr -d ' \n' | sed 's/../%&/g'
+        }
+
         # Postgres init for this service uses a fixed user.
         db_user="ballerine";
         db_pass_raw="$$(cat /run/secrets/ballerine-db-password | tr -d '\n')";
-        # DB password is embedded in a URI -> must be URL-encoded for special chars.
-        db_pass_uri="$$(printf '%s' "$$db_pass_raw" | sed 's/+/%2B/g; s/\//%2F/g; s/@/%40/g; s/:/%3A/g')";
+        # DB password is embedded in a URI -> must be percent-encoded.
+        db_pass_uri="$$(uri_encode_all "$$db_pass_raw")";
         export DB_URL="postgresql://$$db_user:$$db_pass_uri@thaliumx-ballerine-postgres:5432/ballerine";
         export DATABASE_URL="postgresql://$$db_user:$$db_pass_uri@thaliumx-ballerine-postgres:5432/ballerine";
 
         redis_pass_raw="$$(cat /run/secrets/redis-password | tr -d '\n')";
-        redis_pass_uri="$$(printf '%s' "$$redis_pass_raw" | sed 's/+/%2B/g; s/\//%2F/g; s/@/%40/g; s/:/%3A/g')";
+        redis_pass_uri="$$(uri_encode_all "$$redis_pass_raw")";
         export REDIS_URL="redis://:$$redis_pass_uri@thaliumx-redis:6379";
 
         export BCRYPT_SALT="$$(cat /run/secrets/ballerine-bcrypt-salt | tr -d '\r\n')";
@@ -177,22 +185,30 @@ services:
     hostname: thaliumx-blnkfinance-migrate
     restart: "no"
     environment:
-      BLNK_DATA_SOURCE_DNS: postgresql://thaliumx:$(cat /run/secrets/postgres-password | sed 's/+/%2B/g; s/\//%2F/g')@postgres:5432/blnkfinance?sslmode=require
-      BLNK_REDIS_DNS: redis://:$(cat /run/secrets/redis-password)@thaliumx-redis:6379
+      # Values are populated at runtime in the `command` block.
+      # Keep placeholders here only for documentation clarity.
+      BLNK_DATA_SOURCE_DNS: CHANGEME__SET_VIA_ENTRYPOINT
+      BLNK_REDIS_DNS: CHANGEME__SET_VIA_ENTRYPOINT
     command:
       - sh
       - -lc
       - |
         # NOTE: docker-compose performs host-side interpolation for `$VAR`.
         # Use `$$` to defer expansion to the container shell.
-        password="$$(cat /run/secrets/postgres-password | tr -d '\n' | sed 's/+/%2B/g' | sed 's/\//%2F/g')"
-        redis_password_raw="$$(cat /run/secrets/redis-password | tr -d '\n')"
-        # Redis password is embedded in a URI -> must be URL-encoded for special chars.
-        redis_password_uri="$$(printf '%s' "$$redis_password_raw" | sed 's/+/%2B/g; s/\//%2F/g; s/@/%40/g; s/:/%3A/g')"
-        echo "Raw password: $$(cat /run/secrets/postgres-password)"
-        echo "Encoded password: $$password"
-        export BLNK_DATA_SOURCE_DNS="postgresql://thaliumx:$$password@postgres:5432/blnkfinance?sslmode=require";
-        export BLNK_REDIS_DNS="redis://:$$redis_password_uri@thaliumx-redis:6379";
+        uri_encode_all() {
+          # Percent-encode ALL bytes of the input so passwords with any special chars are safe in DSNs.
+          # This is intentionally dependency-free (no python/jq) for the slim runtime image.
+          printf '%s' "$$1" | od -An -tx1 -v | tr -d ' \n' | sed 's/../%&/g'
+        }
+
+        pg_pass_raw="$$(cat /run/secrets/postgres-password | tr -d '\n')"
+        pg_pass_uri="$$(uri_encode_all "$$pg_pass_raw")"
+
+        redis_pass_raw="$$(cat /run/secrets/redis-password | tr -d '\n')"
+        redis_pass_uri="$$(uri_encode_all "$$redis_pass_raw")"
+
+        export BLNK_DATA_SOURCE_DNS="postgresql://thaliumx:$$pg_pass_uri@postgres:5432/blnkfinance?sslmode=require";
+        export BLNK_REDIS_DNS="redis://:$$redis_pass_uri@thaliumx-redis:6379";
         exec /usr/local/bin/blnk migrate up
     secrets:
       - postgres-password
@@ -222,22 +238,30 @@ services:
       BLNK_ENABLE_TELEMETRY: "false"
       REDIS_HOST: thaliumx-redis
       REDIS_PORT: "6379"
-      REDIS_PASSWORD: $(cat /run/secrets/redis-password)
-      BLNK_DATA_SOURCE_DNS: postgresql://thaliumx:$(cat /run/secrets/postgres-password | sed 's/+/%2B/g; s/\//%2F/g')@postgres:5432/blnkfinance?sslmode=require
-      BLNK_REDIS_DNS: redis://:$(cat /run/secrets/redis-password)@thaliumx-redis:6379
+      # Values are populated at runtime in the `command` block.
+      REDIS_PASSWORD: CHANGEME__SET_VIA_ENTRYPOINT
+      BLNK_DATA_SOURCE_DNS: CHANGEME__SET_VIA_ENTRYPOINT
+      BLNK_REDIS_DNS: CHANGEME__SET_VIA_ENTRYPOINT
     command:
       - sh
       - -lc
       - |
         # NOTE: docker-compose performs host-side interpolation for `$VAR`.
         # Use `$$` to defer expansion to the container shell.
-        password="$$(cat /run/secrets/postgres-password | tr -d '\n' | sed 's/+/%2B/g; s/\//%2F/g')"
-        redis_password_raw="$$(cat /run/secrets/redis-password | tr -d '\n')"
-        redis_password_uri="$$(printf '%s' "$$redis_password_raw" | sed 's/+/%2B/g; s/\//%2F/g; s/@/%40/g; s/:/%3A/g')"
-        export BLNK_DATA_SOURCE_DNS="postgresql://thaliumx:$$password@postgres:5432/blnkfinance?sslmode=require";
-        export BLNK_REDIS_DNS="redis://:$$redis_password_uri@thaliumx-redis:6379";
+        uri_encode_all() {
+          printf '%s' "$$1" | od -An -tx1 -v | tr -d ' \n' | sed 's/../%&/g'
+        }
+
+        pg_pass_raw="$$(cat /run/secrets/postgres-password | tr -d '\n')"
+        pg_pass_uri="$$(uri_encode_all "$$pg_pass_raw")"
+
+        redis_pass_raw="$$(cat /run/secrets/redis-password | tr -d '\n')"
+        redis_pass_uri="$$(uri_encode_all "$$redis_pass_raw")"
+
+        export BLNK_DATA_SOURCE_DNS="postgresql://thaliumx:$$pg_pass_uri@postgres:5432/blnkfinance?sslmode=require";
+        export BLNK_REDIS_DNS="redis://:$$redis_pass_uri@thaliumx-redis:6379";
         # For libraries that take a raw password (not a URI), keep it unencoded.
-        export REDIS_PASSWORD="$$redis_password_raw";
+        export REDIS_PASSWORD="$$redis_pass_raw";
         export REDIS_HOST="thaliumx-redis";
         export REDIS_PORT="6379";
         exec /usr/local/bin/blnk start

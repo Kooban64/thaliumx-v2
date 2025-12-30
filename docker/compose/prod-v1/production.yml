@@ -55,11 +55,6 @@ services:
       service: mongodb
 
   # Applications Layer
-  keycloak:
-    extends:
-      file: applications.yml
-      service: keycloak
-
   backend:
     extends:
       file: applications.yml

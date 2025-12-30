@@ -6,6 +6,8 @@ import { LoginForm } from '@/components/auth/LoginForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import { submitDeviceFingerprint } from '@/lib/device/fingerprint';
 import { getKeycloak, initKeycloak } from '@/lib/auth/keycloak';
+import { initZitadel, loginZitadel } from '@/lib/auth/zitadel';
+import { getAccessToken } from '@/lib/auth/token-store';
 import { Button } from '@/components/ui/button';
 
 export default function AuthClient() {
@@ -31,6 +33,20 @@ export default function AuthClient() {
           await initKeycloak();
           const kc = getKeycloak();
           if (kc.authenticated) {
+            setIsAuthenticated(true);
+          }
+        } catch {
+          // ignore
+        }
+      })();
+      return;
+    }
+
+    if (authMode === 'zitadel') {
+      (async () => {
+        try {
+          await initZitadel();
+          if (getAccessToken()) {
             setIsAuthenticated(true);
           }
         } catch {
@@ -109,6 +125,22 @@ export default function AuthClient() {
               </Button>
             </div>
           </div>
+        ) : authMode === 'zitadel' ? (
+          <div className="space-y-4 rounded-lg border bg-background p-6 shadow-sm">
+            <h1 className="text-xl font-semibold">Sign in</h1>
+            <p className="text-sm text-muted-foreground">
+              Continue with Zitadel (secure OIDC + PKCE).
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={() => {
+                  void loginZitadel({ nextPath });
+                }}
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
         ) : isLogin ? (
           <LoginForm onSuccess={handleAuthSuccess} onSwitchToRegister={() => setIsLogin(false)} />
         ) : (
@@ -118,4 +150,3 @@ export default function AuthClient() {
     </div>
   );
 }
-

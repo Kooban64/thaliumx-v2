@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+
 // Test user credentials (seeded in database)
 const TEST_USERS = {
   platformAdmin: {
@@ -40,7 +42,9 @@ const TEST_USERS = {
   }
 };
 
-test.describe('Authentication - Browser Flow', () => {
+test.describe('Authentication - Browser Flow (legacy local auth)', () => {
+  test.skip(AUTH_MODE !== 'legacy', 'Legacy local-auth E2E suite (skipped when using Zitadel/Keycloak modes).');
+
   test.beforeEach(async ({ page }) => {
     // Clear any existing session
     await page.context().clearCookies();

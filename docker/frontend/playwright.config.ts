@@ -1,4 +1,7 @@
+/// <reference types="node" />
+
 import { defineConfig, devices } from '@playwright/test';
+import fs from 'node:fs';
 
 /**
  * @see https://playwright.dev/docs/test-configuration
@@ -21,6 +24,8 @@ export default defineConfig({
     process.env.CI ? ['github'] : ['list']
   ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  /* Timeout for each test */
+  timeout: 60000,
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001',
@@ -37,8 +42,13 @@ export default defineConfig({
     /* Timeout for each action */
     actionTimeout: 10000,
 
-    /* Timeout for each test */
-    timeout: 60000,
+    /* Reuse authenticated storage state when available */
+    storageState: (() => {
+      const envPath = process.env.PLAYWRIGHT_STORAGE_STATE;
+      if (envPath && fs.existsSync(envPath)) return envPath;
+      const defaultPath = 'test-results/storageState.json';
+      return fs.existsSync(defaultPath) ? defaultPath : undefined;
+    })(),
   },
 
   /* Configure projects for major browsers */

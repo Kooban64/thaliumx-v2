@@ -25,7 +25,7 @@ shift || true
 UP_EXTRA_ARGS=("$@")
 
 FILES=(
-  base infrastructure databases messaging security gateway monitoring monitoring-extras
+  base infrastructure identity databases messaging security gateway monitoring monitoring-extras
   applications search trading fintech compliance wazuh
 )
 
@@ -78,12 +78,21 @@ wait_container() {
 
 echo "=== ThaliumX prod-v1 bring-up (mode=$MODE) ==="
 
+# Ensure zitadel local secret files exist (gitignored). Safe to re-run.
+docker/scripts/zitadel-generate-secrets.sh || true
+
 echo "1) docker compose up -d (full file set)"
 docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" up -d --remove-orphans "${UP_EXTRA_ARGS[@]}"
 
 echo "2) wait for core services"
 wait_container thaliumx-vault 300
-wait_container thaliumx-keycloak 420
+if [[ "${THALIUMX_AUTH_PROVIDER:-zitadel}" == "keycloak" ]]; then
+  wait_container thaliumx-keycloak 420
+else
+  # Zitadel path (Keycloak is disabled by default / rollback only).
+  wait_container thaliumx-zitadel-postgres 180
+  wait_container thaliumx-zitadel 180
+fi
 wait_container thaliumx-backend 420
 wait_container thaliumx-frontend 180
 wait_container thaliumx-apisix 180
@@ -107,7 +116,11 @@ echo "4) run one-shot init jobs (idempotent)"
 docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" --profile init-jobs run --rm vault-unseal
 
 # Keycloak post-import patching: safe to rerun; it re-applies secrets/redirects.
-docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" --profile init-jobs run --rm keycloak-post-import-seed
+if [[ "${THALIUMX_AUTH_PROVIDER:-zitadel}" == "keycloak" ]]; then
+  docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" --profile init-jobs run --rm keycloak-post-import-seed
+else
+  echo "Skipping keycloak-post-import-seed (auth provider is zitadel)"
+fi
 
 echo "5) final status"
 docker ps --format 'table {{.Names}}\t{{.Status}}' | sed -n '1,120p'

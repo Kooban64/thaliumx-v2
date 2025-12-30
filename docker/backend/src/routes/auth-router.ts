@@ -38,7 +38,7 @@ const router: Router = Router();
 // =============================================================================
 // KEYCLOAK-ONLY AUTH MODE
 // =============================================================================
-// The ThaliumX platform has standardized on Keycloak (OIDC) as the system-of-record
+// The ThaliumX platform has standardized on Zitadel (OIDC) as the system-of-record
 // for authentication. The legacy email/password + JWT endpoints below are retained
 // only as stubs to avoid breaking old clients; they intentionally return HTTP 410.
 const legacyAuthGone = (_req: any, res: any) => {
@@ -46,7 +46,7 @@ const legacyAuthGone = (_req: any, res: any) => {
     success: false,
     error: {
       code: 'LEGACY_AUTH_DISABLED',
-      message: 'Legacy auth is disabled. Use Keycloak (OIDC) login.'
+      message: 'Legacy auth is disabled. Use Zitadel (OIDC) login.'
     },
     timestamp: new Date()
   });
@@ -96,12 +96,12 @@ router.get('/profile', authenticateToken, async (req, res, next) => {
 });
 
 router.put('/profile', authenticateToken, (_req, res) => {
-  // Profile updates must be performed via Keycloak Admin API / Account Console.
+  // Profile updates must be performed via the IdP (Zitadel) account console.
   res.status(501).json({
     success: false,
     error: {
       code: 'NOT_IMPLEMENTED',
-      message: 'Profile updates are managed by Keycloak.'
+      message: 'Profile updates are managed by the identity provider.'
     },
     timestamp: new Date()
   });

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getAccessToken } from '@/lib/auth/token-store';
 import { getKeycloak, initKeycloak } from '@/lib/auth/keycloak';
+import { initZitadel, logoutZitadel } from '@/lib/auth/zitadel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,15 +42,17 @@ export default function Dashboard() {
       try {
         if (authMode === 'keycloak') {
           await initKeycloak();
+        } else if (authMode === 'zitadel') {
+          await initZitadel();
         }
 
-        const token = authMode === 'keycloak' ? getAccessToken() : null;
+        const token = authMode === 'keycloak' || authMode === 'zitadel' ? getAccessToken() : null;
         const response = await fetch('/api/auth/profile', {
           credentials: 'include',
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (!response.ok) {
-          window.location.href = '/auth';
+          window.location.href = '/login?next=/dashboard';
           return;
         }
 
@@ -60,7 +63,7 @@ export default function Dashboard() {
         setUser(u);
         setIsLoading(false);
       } catch (error) {
-        window.location.href = '/auth';
+        window.location.href = '/login?next=/dashboard';
       }
     };
     checkAuth();
@@ -112,6 +115,15 @@ export default function Dashboard() {
         return;
       } catch (error) {
         console.error('Keycloak logout error:', error);
+      }
+    }
+
+    if (authMode === 'zitadel') {
+      try {
+        await logoutZitadel();
+        return;
+      } catch (error) {
+        console.error('Zitadel logout error:', error);
       }
     }
 
@@ -436,11 +448,23 @@ export default function Dashboard() {
                     <Button
                       type="button"
                       onClick={() => {
-                        // Backend profile updates are managed by Keycloak (OIDC).
-                        // Send the user to the Keycloak account console.
-                        const kc = getKeycloak();
-                        const accountUrl = `${kc.authServerUrl}/realms/${kc.realm}/account`;
-                        window.open(accountUrl, '_blank', 'noopener,noreferrer');
+                        const mode = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+                        if (mode === 'keycloak') {
+                          // Backend profile updates are managed by Keycloak (OIDC).
+                          // Send the user to the Keycloak account console.
+                          const kc = getKeycloak();
+                          const accountUrl = `${kc.authServerUrl}/realms/${kc.realm}/account`;
+                          window.open(accountUrl, '_blank', 'noopener,noreferrer');
+                          return;
+                        }
+
+                        if (mode === 'zitadel') {
+                          const issuer = (process.env.NEXT_PUBLIC_ZITADEL_ISSUER || 'https://auth.thaliumx.com').replace(/\/+$/, '');
+                          window.open(issuer, '_blank', 'noopener,noreferrer');
+                          return;
+                        }
+
+                        window.open(window.location.origin, '_blank', 'noopener,noreferrer');
                       }}
                     >
                       Manage in Account Console

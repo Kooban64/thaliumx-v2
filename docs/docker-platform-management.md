@@ -42,6 +42,18 @@ They live behind compose profile `init-jobs` and are run by the manager with `do
 ./thaliumxctl.sh up
 ```
 
+If you prefer `pnpm` scripts, the default `docker:up` now targets prod-v1:
+
+```bash
+pnpm docker:up
+```
+
+The legacy compose stack is still available (deprecated):
+
+```bash
+pnpm docker:up:legacy
+```
+
 ### Start the full stack (rebuild images + run init jobs)
 
 ```bash

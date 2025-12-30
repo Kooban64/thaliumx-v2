@@ -83,9 +83,18 @@ export async function fetchWithRetry(
 
   for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
     try {
+      const timeoutSignal = (() => {
+        // Jest/jsdom environments may not implement AbortSignal.timeout.
+        const anyAbortSignal = AbortSignal as any;
+        if (anyAbortSignal && typeof anyAbortSignal.timeout === 'function') {
+          return anyAbortSignal.timeout(10000);
+        }
+        return undefined;
+      })();
+
       const response = await fetch(url, {
         ...options,
-        signal: options.signal || AbortSignal.timeout(10000), // 10 second timeout
+        signal: options.signal || timeoutSignal, // 10 second timeout when supported
       });
 
       // Don't retry on client errors (4xx) except rate limiting
@@ -203,30 +212,39 @@ export async function apiCall<T = any>(
   try {
     const response = await fetchWithRetry(url, options, retryConfig);
 
+    // Be tolerant in test environments/mocks where headers may be missing.
     let data: any;
-    const contentType = response.headers.get('content-type');
-
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json();
+    const hasJson = typeof (response as any)?.json === 'function';
+    if (hasJson) {
+      try {
+        data = await (response as any).json();
+      } catch {
+        data = typeof (response as any)?.text === 'function' ? await (response as any).text() : undefined;
+      }
     } else {
-      data = await response.text();
+      data = typeof (response as any)?.text === 'function' ? await (response as any).text() : undefined;
     }
 
-    if (!response.ok) {
+    // If backend uses { success: boolean, data, error, timestamp, requestId } shape,
+    // normalize it here so callers can depend on `StructuredResponse<T>`.
+    const maybeStructured = data && typeof data === 'object' ? data : null;
+
+    if (!response.ok || maybeStructured?.success === false) {
       const error = parseApiError(response, data);
       return {
         success: false,
         error,
-        timestamp: new Date().toISOString(),
-        requestId: data?.requestId,
+        timestamp: maybeStructured?.timestamp || new Date().toISOString(),
+        requestId: maybeStructured?.requestId,
       };
     }
 
+    const payload = (maybeStructured && 'data' in maybeStructured) ? (maybeStructured.data as T) : (data as T);
     return {
       success: true,
-      data,
-      timestamp: new Date().toISOString(),
-      requestId: data?.requestId,
+      data: payload,
+      timestamp: maybeStructured?.timestamp || new Date().toISOString(),
+      requestId: maybeStructured?.requestId,
     };
 
   } catch (error) {

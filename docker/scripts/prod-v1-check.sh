@@ -17,6 +17,13 @@ cd "${REPO_ROOT}"
 MODE="${1:-production}" # production(full) | reduced(test) | audit(alias) | non-audit(alias)
 shift || true
 
+# Non-fatal warning helper (does not change exit code).
+warn_count=0
+warn() {
+  warn_count=$((warn_count + 1))
+  echo "WARN: $*" >&2
+}
+
 # By default, suppress noisy `docker compose config` warnings (obsolete `version:`, unset vars).
 # Use `--verbose` to show them.
 VERBOSE=0
@@ -27,7 +34,7 @@ for arg in "$@"; do
 done
 
 FILES=(
-  base infrastructure databases messaging security gateway monitoring monitoring-extras
+  base infrastructure identity databases messaging security gateway monitoring monitoring-extras
   applications search trading fintech compliance wazuh
 )
 
@@ -53,6 +60,74 @@ esac
 tmpdir="$(mktemp -d)"
 cleanup() { rm -rf "$tmpdir"; }
 trap cleanup EXIT
+
+# ----
+# Secret-format preflight checks (non-fatal)
+#
+# Requirements:
+# - Be safe if secrets dir/files are absent.
+# - Never print secret values.
+# - Only print details for failing checks.
+
+check_secret_file_format() {
+  local secret_name="$1"
+  local secret_path="$2"
+
+  [[ -f "$secret_path" ]] || return 0
+
+  # CRLF check
+  if LC_ALL=C grep -q $'\r' "$secret_path" 2>/dev/null; then
+    warn "secret file '${secret_name}' contains CRLF (\\r) line endings"
+  fi
+
+  # Trailing whitespace (spaces/tabs at end of line). Newlines are fine.
+  if LC_ALL=C grep -qE '[[:blank:]]+$' "$secret_path" 2>/dev/null; then
+    warn "secret file '${secret_name}' contains trailing whitespace"
+  fi
+}
+
+SECRETS_DIR="${REPO_ROOT}/.secrets/generated"
+
+# Sample-check a small set of high-impact secrets.
+SECRET_SAMPLE_NAMES=(
+  postgres-password
+  redis-password
+  mongodb-password
+  api-key
+)
+
+for s in "${SECRET_SAMPLE_NAMES[@]}"; do
+  check_secret_file_format "$s" "${SECRETS_DIR}/${s}"
+done
+
+# Validate redis-exporter password file is valid JSON (expects a map) if present.
+redis_exporter_json="${SECRETS_DIR}/redis-exporter-passwords.json"
+if [[ -f "$redis_exporter_json" ]]; then
+  json_err_file="$tmpdir/redis-exporter-passwords.json.err"
+  if ! python3 - "$redis_exporter_json" > /dev/null 2>"$json_err_file" <<'PY'
+import json
+import sys
+
+p = sys.argv[1]
+with open(p, 'r', encoding='utf-8') as f:
+    data = json.load(f)
+
+# redis_exporter v1.58+ expects a JSON object (map). Values are typically passwords.
+if not isinstance(data, dict):
+    raise SystemExit(2)
+
+for k, v in data.items():
+    if not isinstance(k, str) or not isinstance(v, str):
+        raise SystemExit(3)
+PY
+  then
+    warn "secret file 'redis-exporter-passwords.json' is not valid JSON (expected an object/map for redis_exporter)"
+    if [[ -s "$json_err_file" ]]; then
+      # Error messages only; never echo the file contents.
+      tail -n 1 "$json_err_file" >&2
+    fi
+  fi
+fi
 
 docker ps -a --format '{{.Names}}' | sort >"$tmpdir/containers_all.txt"
 
@@ -116,6 +191,76 @@ expected_oneshot="${#ONESHOOT_CONTAINERS[@]}"
 running_now="$(docker ps --filter name=thaliumx- --format '{{.Names}}' | wc -l | tr -d ' ')"
 echo "Summary: expected_total_services=$expected_total expected_long_running=$expected_persistent known_one_shot_jobs=$expected_oneshot running_now(thaliumx-*)=$running_now"
 
+# ----
+# Placeholder-value detection in running container env (non-fatal)
+#
+# Detect obviously broken placeholder tokens that should have been replaced via
+# entrypoint/secrets. We only report the env *keys* (never values).
+
+check_container_placeholder_env() {
+  local container="$1"
+  local state
+
+  if ! docker inspect "$container" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  state="$(docker inspect -f '{{.State.Status}}' "$container" 2>/dev/null || true)"
+  [[ "$state" == "running" ]] || return 0
+
+  local env_lines
+  env_lines="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container" 2>/dev/null || true)"
+  [[ -n "$env_lines" ]] || return 0
+
+  local -a bad_keys=()
+  local line key val
+  while IFS= read -r line; do
+    [[ "$line" == *=* ]] || continue
+    key="${line%%=*}"
+    val="${line#*=}"
+
+     # Some services intentionally keep placeholder values in `environment:` for documentation
+     # but overwrite them in the runtime wrapper (`command`/`entrypoint`) before exec.
+     # Do not warn for those known-safe cases.
+     case "$container" in
+       thaliumx-blnkfinance)
+         case "$key" in
+           BLNK_REDIS_DNS|BLNK_DATA_SOURCE_DNS|REDIS_PASSWORD)
+             continue
+             ;;
+         esac
+         ;;
+     esac
+
+    if [[ "$val" == *CHANGEME__SET_VIA_ENTRYPOINT* || "$val" == *CHANGEME__SET_VIA_SECRETS* ]]; then
+      bad_keys+=("$key")
+    fi
+  done <<<"$env_lines"
+
+  if (( ${#bad_keys[@]} > 0 )); then
+    # Keep output concise.
+    local shown="${bad_keys[*]}"
+    warn "$container has placeholder env values for keys: $shown"
+  fi
+}
+
+# Key services only (skip missing containers).
+PLACEHOLDER_CHECK_CONTAINERS=(
+  thaliumx-backend
+  thaliumx-keycloak
+  thaliumx-apisix
+  thaliumx-redis
+  thaliumx-postgres
+  thaliumx-mongodb
+  thaliumx-redis-exporter
+  thaliumx-dingir-restapi
+  thaliumx-blnkfinance
+)
+
+for c in "${PLACEHOLDER_CHECK_CONTAINERS[@]}"; do
+  check_container_placeholder_env "$c"
+done
+
 echo "Checking one-shot job containers (optional)…"
 for c in "${ONESHOOT_CONTAINERS[@]}"; do
   if ! docker inspect "$c" >/dev/null 2>&1; then
@@ -166,6 +311,15 @@ while IFS= read -r name; do
 
   health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$name" 2>/dev/null || echo unknown)"
   if [[ "$health" == "unhealthy" ]]; then
+    # ZITADEL runs with TLS terminated at the gateway.
+    # Older containers had a healthcheck that attempted HTTPS on localhost and would remain unhealthy.
+    # Newer compose definitions intentionally omit the healthcheck.
+    # Do not hard-fail the stack check on this known incompatibility.
+    if [[ "$name" == "thaliumx-zitadel" ]]; then
+      echo "WARN: $name is unhealthy (likely due to legacy healthcheck using HTTPS on localhost while TLS is terminated at the gateway)." >&2
+      echo "      Fix: recreate the container so the updated compose (no healthcheck) takes effect." >&2
+      continue
+    fi
     echo "FAIL: $name is unhealthy" >&2
     fail=1
   fi

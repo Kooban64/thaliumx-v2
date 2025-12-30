@@ -6,6 +6,8 @@
 
 import { FullConfig } from '@playwright/test';
 
+const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+
 async function globalSetup(config: FullConfig) {
   console.log('🚀 Setting up E2E test environment...');
 
@@ -26,9 +28,14 @@ async function globalSetup(config: FullConfig) {
       console.warn('⚠️ Backend health check returned:', healthResponse.status);
     }
 
-    // Seed test data via backend API (faster + more reliable than UI clicking)
-    console.log('🌱 Seeding test data...');
-    await seedTestDataViaApi(backendUrl);
+    // Seed test data via backend API (legacy local-auth only).
+    // In Zitadel mode, test users should be provisioned in Zitadel, not via backend `/api/auth/register`.
+    if (AUTH_MODE === 'legacy') {
+      console.log('🌱 Seeding legacy test users via backend API...');
+      await seedTestDataViaApi(backendUrl);
+    } else {
+      console.log(`ℹ️ Skipping backend user seeding (AUTH_MODE=${AUTH_MODE}).`);
+    }
 
     console.log('✅ Global setup completed successfully');
   } catch (error: any) {

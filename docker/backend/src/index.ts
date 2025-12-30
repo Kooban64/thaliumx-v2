@@ -209,6 +209,12 @@ class ThaliumXBackend {
       { name: 'EventStreamingService', init: () => EventStreamingService.initialize() },
       { name: 'MarginTradingService', init: () => MarginTradingService.initialize() },
       { name: 'KeycloakService', init: async () => {
+        const authProvider = String(process.env.THALIUMX_AUTH_PROVIDER || process.env.AUTH_PROVIDER || 'zitadel').toLowerCase();
+        if (authProvider !== 'keycloak') {
+          LoggerService.info('Skipping KeycloakService initialization (auth provider is not keycloak)', { authProvider });
+          return;
+        }
+
         await KeycloakService.initialize();
         // Align Keycloak realms with known brokers (best-effort)
         try {
