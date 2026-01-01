@@ -739,7 +739,7 @@ export class PresaleService {
         try {
           await (PresaleModel as any).upsert({
             id: presale.id,
-            tenantId: (process.env.KEYCLOAK_DEFAULT_TENANT_ID || null),
+            tenantId: (process.env.ZITADEL_DEFAULT_TENANT_ID || null),
             name: presale.name,
             symbol: presale.symbol,
             description: presale.description,
@@ -1120,7 +1120,7 @@ export class PresaleService {
         const PresaleModel = DatabaseService.getModel('Presale');
         await (PresaleModel as any).create({
           id: presale.id,
-          tenantId: (process.env.KEYCLOAK_DEFAULT_TENANT_ID || null),
+          tenantId: (process.env.ZITADEL_DEFAULT_TENANT_ID || null),
           name: presale.name,
           symbol: presale.symbol,
           description: presale.description,

@@ -35,7 +35,7 @@ routes:
     host: auth.thaliumx.com
     upstream:
       nodes:
-        # Keycloak upstream removed - migrated to Zitadel
+        thaliumx-zitadel:8080: 1
       type: roundrobin
   - id: 3
     uri: /*

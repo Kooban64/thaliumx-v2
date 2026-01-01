@@ -111,7 +111,6 @@ const VAULT_SECRET_PATHS = {
   // Authentication & Security
   jwt: 'thaliumx/jwt/signing',
   encryption: 'thaliumx/encryption/keys',
-  keycloak: 'thaliumx/oauth/keycloak',
   
   // Messaging
   smtp: 'thaliumx/smtp/config',
@@ -652,7 +651,6 @@ export class ConfigService {
     const encryptionSecret = await this.getVaultSecret(VAULT_SECRET_PATHS.encryption);
     const smtpSecret = await this.getVaultSecret(VAULT_SECRET_PATHS.smtp);
     const kafkaSecret = await this.getVaultSecret(VAULT_SECRET_PATHS.kafka);
-    const keycloakSecret = await this.getVaultSecret(VAULT_SECRET_PATHS.keycloak);
     const stripeSecret = await this.getVaultSecret(VAULT_SECRET_PATHS.stripe);
     const twilioSecret = await this.getVaultSecret(VAULT_SECRET_PATHS.twilio);
     const sendgridSecret = await this.getVaultSecret(VAULT_SECRET_PATHS.sendgrid);
@@ -720,15 +718,10 @@ export class ConfigService {
         } : undefined
       },
 
-      keycloak: {
-        baseUrl: keycloakSecret?.url || process.env.KEYCLOAK_URL || 'http://localhost:8080',
-        realm: keycloakSecret?.realm || process.env.KEYCLOAK_REALM || 'master',
-        clientId: keycloakSecret?.client_id || process.env.KEYCLOAK_CLIENT_ID || 'admin-cli',
-        clientSecret: keycloakSecret?.client_secret || process.env.KEYCLOAK_CLIENT_SECRET || '',
-        adminUsername: keycloakSecret?.admin_username || process.env.KEYCLOAK_ADMIN_USERNAME || 'admin',
-        adminPassword: keycloakSecret?.admin_password || process.env.KEYCLOAK_ADMIN_PASSWORD || 'admin',
-        timeout: parseInt(keycloakSecret?.timeout || process.env.KEYCLOAK_TIMEOUT || '30000'),
-        retryAttempts: parseInt(keycloakSecret?.retry_attempts || process.env.KEYCLOAK_RETRY_ATTEMPTS || '3')
+      zitadel: {
+        issuer: process.env.ZITADEL_ISSUER || 'https://auth.thaliumx.com',
+        jwksUri: process.env.ZITADEL_JWKS_URI || 'https://auth.thaliumx.com/oauth/v2/keys',
+        audience: process.env.ZITADEL_AUDIENCE || 'thaliumx-backend'
       },
 
       blockchain: {
@@ -812,15 +805,10 @@ export class ConfigService {
         } : undefined
       },
 
-      keycloak: {
-        baseUrl: process.env.KEYCLOAK_URL || 'http://localhost:8080',
-        realm: process.env.KEYCLOAK_REALM || 'master',
-        clientId: process.env.KEYCLOAK_CLIENT_ID || 'admin-cli',
-        clientSecret: process.env.KEYCLOAK_CLIENT_SECRET || '',
-        adminUsername: process.env.KEYCLOAK_ADMIN_USERNAME || 'admin',
-        adminPassword: process.env.KEYCLOAK_ADMIN_PASSWORD || 'admin',
-        timeout: parseInt(process.env.KEYCLOAK_TIMEOUT || '30000'),
-        retryAttempts: parseInt(process.env.KEYCLOAK_RETRY_ATTEMPTS || '3')
+      zitadel: {
+        issuer: process.env.ZITADEL_ISSUER || 'https://auth.thaliumx.com',
+        jwksUri: process.env.ZITADEL_JWKS_URI || 'https://auth.thaliumx.com/oauth/v2/keys',
+        audience: process.env.ZITADEL_AUDIENCE || 'thaliumx-backend'
       },
 
       blockchain: {
@@ -1056,14 +1044,9 @@ export class ConfigService {
       if (!config.database.ssl) {
         errors.push('Database SSL must be enabled in production');
       }
-      
-      // Only enforce Keycloak admin credential hardening when Keycloak is enabled.
-      if (authProvider === 'keycloak') {
-        if (config.keycloak.adminPassword === 'admin') {
-          errors.push('Default Keycloak admin password must be changed in production');
-        }
-      }
-      
+
+      // Keycloak validation removed - migrated to Zitadel
+
       if (!this.isVaultConnected()) {
         LoggerService.warn('Vault is not connected in production - secrets may not be properly managed');
       }

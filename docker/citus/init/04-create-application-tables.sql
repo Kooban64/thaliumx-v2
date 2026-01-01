@@ -13,7 +13,7 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    keycloak_id VARCHAR(255) UNIQUE,
+    zitadel_id VARCHAR(255) UNIQUE,
     email VARCHAR(255) UNIQUE NOT NULL,
     email_verified BOOLEAN DEFAULT FALSE,
     phone VARCHAR(50),
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_keycloak_id ON users(keycloak_id);
+CREATE INDEX idx_users_zitadel_id ON users(zitadel_id);
 CREATE INDEX idx_users_status ON users(status);
 CREATE INDEX idx_users_kyc_status ON users(kyc_status);
 CREATE INDEX idx_users_created_at ON users(created_at);

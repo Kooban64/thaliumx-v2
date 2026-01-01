@@ -1,26 +1,26 @@
 /**
  * Dashboard Service
- * 
+ *
  * Aggregates system information and service status for admin dashboards.
- * 
+ *
  * Features:
  * - System information (Node.js, OS metrics)
  * - Service health status aggregation
  * - Database connection status
  * - Redis connection status
- * - Keycloak realm information
+ * - Zitadel realm information
  * - RBAC statistics
  * - DEX service status
  * - Exchange service status
  * - Ledger service status
  * - KYC service status
- * 
+ *
  * Metrics Collected:
  * - Node.js version, PID, uptime, memory, CPU
  * - OS platform, architecture, CPU count, memory, load average
  * - Service health checks
  * - Connection status for external services
- * 
+ *
  * Use Cases:
  * - Admin dashboard data
  * - System monitoring

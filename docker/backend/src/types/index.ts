@@ -356,15 +356,10 @@ export interface AppConfig {
       password: string;
     };
   };
-    keycloak: {
-      baseUrl: string;
-      realm: string;
-      clientId: string;
-      clientSecret: string;
-      adminUsername: string;
-      adminPassword: string;
-      timeout: number;
-      retryAttempts: number;
+    zitadel: {
+      issuer: string;
+      jwksUri: string;
+      audience?: string;
     };
     blockchain: {
       rpcUrl: string;

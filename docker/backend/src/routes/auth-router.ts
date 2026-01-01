@@ -36,7 +36,7 @@ import { authenticateToken } from '../middleware/error-handler';
 const router: Router = Router();
 
 // =============================================================================
-// KEYCLOAK-ONLY AUTH MODE
+// ZITADEL AUTH MODE
 // =============================================================================
 // The ThaliumX platform has standardized on Zitadel (OIDC) as the system-of-record
 // for authentication. The legacy email/password + JWT endpoints below are retained
@@ -60,7 +60,7 @@ router.post('/register', validateRegister, legacyAuthGone);
 router.post('/refresh', legacyAuthGone);
 
 router.post('/logout', authenticateToken, async (_req, res) => {
-  // Keycloak is stateless for bearer tokens. Client should redirect to Keycloak
+  // Zitadel is stateless for bearer tokens. Client should redirect to Zitadel
   // end-session endpoint if it wants to actively terminate the SSO session.
   res.json({ success: true, message: 'Logged out (client-side)', timestamp: new Date() });
 });

@@ -110,27 +110,8 @@ generate_secrets() {
         fi
     done
     
-    # Keycloak admin password
-    if [ ! -f "${SECRETS_DIR}/generated/keycloak-admin-password" ]; then
-        log_step "Generating Keycloak admin password..."
-        openssl rand -base64 24 | tr -d '\n' > "${SECRETS_DIR}/generated/keycloak-admin-password"
-        chmod 600 "${SECRETS_DIR}/generated/keycloak-admin-password"
-        log_info "Keycloak admin password generated"
-    else
-        log_info "Keycloak admin password already exists"
-    fi
-    
-    # Keycloak client secrets
-    for client in backend trading fintech; do
-        if [ ! -f "${SECRETS_DIR}/generated/keycloak-${client}-secret" ]; then
-            log_step "Generating Keycloak ${client} client secret..."
-            openssl rand -hex 32 > "${SECRETS_DIR}/generated/keycloak-${client}-secret"
-            chmod 600 "${SECRETS_DIR}/generated/keycloak-${client}-secret"
-            log_info "Keycloak ${client} client secret generated"
-        else
-            log_info "Keycloak ${client} client secret already exists"
-        fi
-    done
+    # Keycloak secrets removed - migrated to Zitadel
+    # Keycloak admin password and client secrets no longer needed
     
     # APISIX admin key
     if [ ! -f "${SECRETS_DIR}/generated/apisix-admin-key" ]; then
@@ -409,22 +390,8 @@ populate_vault_secrets() {
         key="$encryption_key" \
         algorithm=aes-256-gcm
     
-    # Keycloak secrets
-    log_step "Writing Keycloak secrets..."
-    local keycloak_admin_password keycloak_backend_secret keycloak_trading_secret keycloak_fintech_secret
-    keycloak_admin_password=$(cat "${SECRETS_DIR}/generated/keycloak-admin-password")
-    keycloak_backend_secret=$(cat "${SECRETS_DIR}/generated/keycloak-backend-secret")
-    keycloak_trading_secret=$(cat "${SECRETS_DIR}/generated/keycloak-trading-secret")
-    keycloak_fintech_secret=$(cat "${SECRETS_DIR}/generated/keycloak-fintech-secret")
-    
-    docker exec -e VAULT_TOKEN="$root_token" thaliumx-vault \
-        vault kv put kv/thaliumx/oauth/keycloak \
-        url=http://keycloak:8080 \
-        realm=thaliumx \
-        admin_username=admin \
-        admin_password="$keycloak_admin_password" \
-        client_id=thaliumx-backend \
-        client_secret="$keycloak_backend_secret"
+    # Keycloak secrets removed - migrated to Zitadel
+    # No Keycloak secrets to write to Vault
     
     # SMTP secrets (from existing .secrets if available)
     log_step "Writing SMTP secrets..."
@@ -516,14 +483,13 @@ populate_vault_secrets() {
 generate_env_file() {
     log_section "Generating Production Environment File"
     
-    local jwt_secret encryption_key postgres_password redis_password keycloak_admin_password
+    local jwt_secret encryption_key postgres_password redis_password
     local vault_role_id vault_secret_id apisix_admin_key
-    
+
     jwt_secret=$(cat "${SECRETS_DIR}/generated/jwt-secret")
     encryption_key=$(cat "${SECRETS_DIR}/generated/encryption-key")
     postgres_password=$(cat "${SECRETS_DIR}/generated/postgres-password")
     redis_password=$(cat "${SECRETS_DIR}/generated/redis-password")
-    keycloak_admin_password=$(cat "${SECRETS_DIR}/generated/keycloak-admin-password")
     vault_role_id=$(cat "${SECRETS_DIR}/generated/vault-role-id")
     vault_secret_id=$(cat "${SECRETS_DIR}/generated/vault-secret-id")
     apisix_admin_key=$(cat "${SECRETS_DIR}/generated/apisix-admin-key")
@@ -569,12 +535,8 @@ VAULT_ROLE_ID=${vault_role_id}
 VAULT_SECRET_ID=${vault_secret_id}
 VAULT_MOUNT_PATH=kv
 
-# Keycloak
-KEYCLOAK_URL=http://keycloak:8080
-KEYCLOAK_REALM=thaliumx
-KEYCLOAK_CLIENT_ID=thaliumx-backend
-KEYCLOAK_ADMIN_USERNAME=admin
-KEYCLOAK_ADMIN_PASSWORD=${keycloak_admin_password}
+# Keycloak removed - migrated to Zitadel
+# No Keycloak configuration needed
 
 # APISIX
 APISIX_ADMIN_KEY=${apisix_admin_key}

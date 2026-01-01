@@ -59,7 +59,6 @@ services:
         export APISIX_ADMIN_KEY="ci-admin-key";
         export FRONTEND_UPSTREAM="mock-backend:3000";
         export BACKEND_UPSTREAM="mock-backend:3000";
-        export KEYCLOAK_UPSTREAM="mock-backend:3000";
         bash /scripts/init-apisix-routes.sh
     networks:
       - ci-net

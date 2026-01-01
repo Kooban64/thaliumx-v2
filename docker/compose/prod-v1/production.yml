@@ -281,3 +281,5 @@ volumes:
     name: thaliumx-etcd-data
   apisix_logs:
     name: thaliumx-apisix-logs
+  zitadel-postgres-data:
+    name: thaliumx-zitadel-postgres-data

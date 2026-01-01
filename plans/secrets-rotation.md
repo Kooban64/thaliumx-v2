@@ -52,8 +52,9 @@ The seeding script expects the following environment variables to be set:
 - Banking: `NEDBANK_DEPOSITS_API_KEY`, `NEDBANK_DEPOSITS_BASE_URL`, `NEDBANK_ACCOUNT_NUMBER`, `NEDBANK_PAYOUT_BASE_URL`
 - SMTP: `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_HOST`, `SMTP_PORT`
 
-## Keycloak note (private keys)
+## Keycloak note (private keys) - ARCHIVED
 Keycloak **does** store realm signing keys (private key material) internally for token signing/encryption.
-That is normal and is visible as key metadata via the Admin API `/keys` endpoint, e.g. [`/admin/realms/{realm}/keys`](docker/scripts/keycloak-post-import-seed.sh:104) usage patterns.
+That is normal and is visible as key metadata via the Admin API `/keys` endpoint, e.g. [`/admin/realms/{realm}/keys`](docker/compose/archive/deprecated/scripts/keycloak-post-import-seed.sh:104) usage patterns.
+**Note:** Script archived after migration to Zitadel.
 
 **Blockchain wallet private keys should not be stored in Keycloak**. If you suspect they are, the next step is to identify which storage location they are actually in (Vault paths, Docker secrets, DB rows, filesystem mounts) and rotate them.

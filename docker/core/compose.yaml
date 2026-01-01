@@ -140,8 +140,6 @@ services:
       # - KEYCLOAK_REALM=thaliumx
       # - KEYCLOAK_CLIENT_ID=thaliumx-backend
       # - KEYCLOAK_CLIENT_SECRET=thaliumx-keycloak-secret-2025
-      # - KEYCLOAK_ADMIN_USERNAME=admin
-      - KEYCLOAK_ADMIN_PASSWORD=admin123
       # Kafka Configuration
       - KAFKA_BROKERS=thaliumx-kafka:9092
       - KAFKA_SSL=false

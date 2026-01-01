@@ -51,28 +51,28 @@ else
 fi
 
 echo ""
-echo "🧪 Running Migration Verification Tests..."
+echo "🧪 Running Python-Based Migration Verification Tests..."
 
-# Change to frontend directory for E2E tests
-cd docker/frontend
+# Change to scripts directory for Python tests
+cd scripts
 
-# Run the migration verification tests
-echo "Running Zitadel migration verification tests..."
-npx playwright test zitadel-migration-verification.spec.ts --reporter=line --verbose
-
-echo ""
-echo "📊 Running Existing Zitadel Tests..."
-
-# Also run the existing Zitadel smoke tests
-echo "Running Zitadel smoke tests..."
-npx playwright test zitadel-smoke.spec.ts --reporter=line --verbose
+# Run the comprehensive Python verification
+echo "Running comprehensive migration verification..."
+python3 migration_verification.py
 
 echo ""
-echo "🔍 Running Debug Authentication Test..."
+echo "📊 Running Service Health Checks..."
 
-# Run the debug auth test to capture any issues
-echo "Running debug authentication test..."
-npx playwright test debug-auth.spec.ts --reporter=line --verbose
+# Run the health check
+echo "Running service health verification..."
+python3 service_health_check.py
+
+echo ""
+echo "🔍 Running Authentication Flow Tests..."
+
+# Run the auth flow test
+echo "Running authentication flow verification..."
+python3 auth_flow_test.py
 
 echo ""
 echo "📋 Migration Verification Complete!"

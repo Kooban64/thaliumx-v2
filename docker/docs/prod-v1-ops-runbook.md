@@ -93,18 +93,18 @@ This uses the hardened runner and replays required init jobs (see [`docker/scrip
 - A rebuild (`./thaliumxctl.sh up-build`) is designed to be **repeatable** and will re-run init jobs.
 - If you destroy named volumes (e.g. `docker compose down -v`), data persistence is lost and you should expect to rerun bootstrap/init flows.
 
-## 3) Auth provider cutover (Zitadel ↔ Keycloak) with rollback
+## 3) Auth provider (Zitadel)
 
-### What “auth provider” means in this stack
+### What "auth provider" means in this stack
 
 There are **two separate concerns**:
 
 1. **Gateway routing for `/auth`** (APISIX)
-   - APISIX routes `/auth` either to Zitadel or Keycloak
+   - APISIX routes `/auth` to Zitadel
    - This is seeded into ETCD by [`docker/gateway/scripts/init-apisix-routes.sh`](docker/gateway/scripts/init-apisix-routes.sh:1) via the one-shot service `apisix-init` in [`docker/compose/prod-v1/gateway.yml`](docker/compose/prod-v1/gateway.yml:1)
 
 2. **Backend JWT acceptance**
-   - The backend can accept both Keycloak and Zitadel JWTs during migration
+   - The backend accepts Zitadel JWTs
    - Implemented in [`authenticateToken()`](docker/backend/src/middleware/error-handler.ts:363)
 
 ### Reseed routes (idempotent)
@@ -115,11 +115,11 @@ Use the interactive helper:
 ./thaliumxctl.sh reseed-gateway
 ```
 
-### Keycloak deprecation status (prod-v1)
+### Auth provider status (prod-v1)
 
-- prod-v1 now treats **Zitadel as the default identity provider**.
-- **Keycloak is disabled by default** and kept only for rollback.
-  - In Compose, Keycloak is behind profile `legacy-keycloak` (see [`keycloak`](docker/compose/prod-v1/applications.yml:15)).
+- prod-v1 uses **Zitadel as the identity provider**.
+- Legacy auth is disabled by default and kept only for rollback.
+  - In Compose, legacy auth is behind profile `legacy-keycloak` (see [`keycloak`](docker/compose/prod-v1/applications.yml:15)).
   - Enable it only when you explicitly need rollback/testing:
 
 ```bash
@@ -128,13 +128,13 @@ docker/scripts/prod-v1-compose.sh production --profile legacy-keycloak up -d key
 
 This force-recreates the one-shot `apisix-init` container and re-applies route definitions into ETCD.
 
-### Roll forward (default): Zitadel
+### Reseed to Zitadel (default)
 
 ```bash
 THALIUMX_AUTH_PROVIDER=zitadel ./thaliumxctl.sh reseed-gateway
 ```
 
-### Rollback: Keycloak
+### Rollback: Legacy auth
 
 ```bash
 THALIUMX_AUTH_PROVIDER=keycloak ./thaliumxctl.sh reseed-gateway
@@ -149,7 +149,7 @@ Backend OIDC/Zitadel config lives in [`docker/compose/prod-v1/applications.yml`]
 - `OIDC_ALLOWED_ISSUERS` (optional allowlist; if unset defaults to `ZITADEL_ISSUER`)
 - `ZITADEL_AUDIENCE` (optional; if set, enforced)
 
-Keycloak settings remain unchanged (`KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, etc.).
+Legacy auth settings remain unchanged (`KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, etc.).
 
 ### Frontend (Zitadel PKCE)
 

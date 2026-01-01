@@ -5,6 +5,7 @@
  */
 
 import { FullConfig } from '@playwright/test';
+import { setupTestData } from './test-data-setup';
 
 const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'zitadel';
 

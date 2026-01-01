@@ -141,15 +141,24 @@ groups:
           summary: "High CPU usage"
           description: "CPU usage is {{ $value }}%."
 
-      # Security alerts
-      - alert: MultipleFailedLogins
-        expr: increase(keycloak_login_errors_total[10m]) > 10
+      # Identity Provider alerts
+      - alert: ZitadelDown
+        expr: up{job="zitadel"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Zitadel Identity Provider is down"
+          description: "Zitadel has been down for more than 2 minutes."
+
+      - alert: ZitadelHighLatency
+        expr: probe_duration_seconds{job="zitadel"} > 2
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Multiple login failures detected"
-          description: "More than 10 login failures in the last 10 minutes."
+          summary: "Zitadel high response latency"
+          description: "Zitadel health check latency is above 2 seconds."
 
       # Database alerts
       - alert: DatabaseConnectionHigh
@@ -186,7 +195,7 @@ echo "  • Alertmanager: http://localhost:9093"
 echo ""
 echo "📈 Available Dashboards:"
 echo "  • ThaliumX System Overview"
-echo "  • Keycloak Identity Management"
+echo "  • Zitadel Identity Management"
 echo "  • Redis Cache & Sessions"
 echo "  • PostgreSQL Database"
 echo ""

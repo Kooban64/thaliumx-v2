@@ -31,12 +31,13 @@ Updated: 2025-12-27
 - `https://auth.thaliumx.com/auth/` returns `302` (Keycloak reachable via APISIX).
 - `https://thaliumx.com/api/auth/profile` returns `401` without Bearer token (gateway OIDC enforcement active).
 
-### Keycloak seeding notes
+### Keycloak seeding notes (ARCHIVED)
 - Post-import seeder patches:
   - backend client secret + redirect URIs
   - disables legacy realms
   - SMTP realm settings (from Docker secrets/env)
-  in [`docker/scripts/keycloak-post-import-seed.sh`](docker/scripts/keycloak-post-import-seed.sh:1).
+  in [`docker/compose/archive/deprecated/scripts/keycloak-post-import-seed.sh`](docker/compose/archive/deprecated/scripts/keycloak-post-import-seed.sh:1).
+  **Note:** Archived after migration to Zitadel.
 
 ### Single-realm Keycloak (CURRENT)
 We are now standardizing on a single realm for simplicity + security:

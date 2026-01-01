@@ -226,15 +226,10 @@ export class ConfigService {
           password: process.env.KAFKA_SASL_PASSWORD || ''
         } : undefined
       },
-      keycloak: {
-        baseUrl: process.env.KEYCLOAK_URL || 'http://localhost:8080',
-        realm: process.env.KEYCLOAK_REALM || 'master',
-        clientId: process.env.KEYCLOAK_CLIENT_ID || 'admin-cli',
-        clientSecret: process.env.KEYCLOAK_CLIENT_SECRET || '',
-        adminUsername: process.env.KEYCLOAK_ADMIN_USERNAME || 'admin',
-        adminPassword: process.env.KEYCLOAK_ADMIN_PASSWORD || 'admin',
-        timeout: parseInt(process.env.KEYCLOAK_TIMEOUT || '30000'),
-        retryAttempts: parseInt(process.env.KEYCLOAK_RETRY_ATTEMPTS || '3')
+      zitadel: {
+        issuer: process.env.ZITADEL_ISSUER || 'https://auth.thaliumx.com',
+        jwksUri: process.env.ZITADEL_JWKS_URI || 'https://auth.thaliumx.com/oauth/v2/keys',
+        audience: process.env.ZITADEL_AUDIENCE || 'thaliumx-backend'
       },
       blockchain: {
         rpcUrl: process.env.BLOCKCHAIN_RPC_URL || 'http://localhost:8545',
@@ -366,7 +361,7 @@ export class ConfigService {
       'thaliumx/twilio',
       'thaliumx/sendgrid',
       'thaliumx/kafka',
-      'thaliumx/keycloak',
+      'thaliumx/zitadel',
       'thaliumx/blockchain',
       'thaliumx/blnk-finance',
       'thaliumx/api-keys',
@@ -573,15 +568,15 @@ export class ConfigService {
     const config = this.getConfig();
     const isProduction = process.env.NODE_ENV === 'production';
 
-    // If Keycloak is configured, treat it as the system-of-record for auth.
+    // If Zitadel is configured, treat it as the system-of-record for auth.
     // Legacy JWT secrets may still exist in env for backward compatibility, but are not required.
-    const keycloakOnly = !!(process.env.KEYCLOAK_URL || process.env.KEYCLOAK_ADMIN_URL);
+    const zitadelOnly = !!(process.env.ZITADEL_ISSUER);
 
     // Critical configuration validation
     const errors: string[] = [];
 
     // JWT validation (legacy)
-    if (!keycloakOnly) {
+    if (!zitadelOnly) {
       if (!config.jwt.secret || config.jwt.secret.length < 32) {
         if (isProduction) {
           errors.push('JWT secret must be at least 32 characters long');
@@ -634,12 +629,9 @@ export class ConfigService {
     }
     */
 
-    // Keycloak configuration validation
-    if (!config.keycloak.baseUrl) {
-      errors.push('Keycloak base URL is required');
-    }
-    if (!config.keycloak.realm) {
-      errors.push('Keycloak realm is required');
+    // Zitadel configuration validation
+    if (!config.zitadel.issuer) {
+      errors.push('Zitadel issuer is required');
     }
 
     // Blockchain configuration validation
