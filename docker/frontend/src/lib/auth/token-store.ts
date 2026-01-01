@@ -1,11 +1,11 @@
 // Minimal in-memory token store for browser usage.
 //
 // This enables:
-// - `keycloak-js` to update the current access token
+// - `zitadel-js` to update the current access token
 // - API client to attach `Authorization: Bearer <token>` to requests
 //
 // NOTE: This intentionally does NOT persist the token in localStorage.
-// Persistence is handled by Keycloak SSO session + PKCE re-auth.
+// Persistence is handled by Zitadel SSO session + PKCE re-auth.
 
 let accessToken: string | null = null;
 

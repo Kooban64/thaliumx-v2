@@ -3,14 +3,13 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getKeycloak, initKeycloak } from '@/lib/auth/keycloak';
 import { initZitadel } from '@/lib/auth/zitadel';
 import { getAccessToken } from '@/lib/auth/token-store';
 
 export default function LandingPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || 'zitadel';
+  const authMode = 'zitadel';
 
   // Set default tenant ID for landing page (platform-default-tenant)
   useEffect(() => {
@@ -26,24 +25,11 @@ export default function LandingPage() {
     }
   }, []);
 
-  // Fast/seamless login: attempt silent SSO so returning users can skip the Keycloak UI.
+  // Fast/seamless login: attempt silent SSO so returning users can skip the auth UI.
   useEffect(() => {
     (async () => {
       try {
-        if (authMode === 'keycloak') {
-          await initKeycloak();
-          const kc = getKeycloak();
-          setIsAuthenticated(!!kc.authenticated);
-          return;
-        }
-
-        if (authMode === 'zitadel') {
-          await initZitadel();
-          setIsAuthenticated(!!getAccessToken());
-          return;
-        }
-
-        // Legacy/local auth mode: best-effort token presence.
+        await initZitadel();
         setIsAuthenticated(!!getAccessToken());
       } catch {
         setIsAuthenticated(!!getAccessToken());

@@ -1,21 +1,13 @@
-# Keycloak Deprecation Inventory (for future removal after Zitadel cutover)
+# Keycloak Deprecation Inventory - COMPLETED
 
-This file is a **map of Keycloak coupling points** in this repo.
+This file documents the **completed migration** from Keycloak to Zitadel.
 
-Goal:
+**Migration Status: ✅ COMPLETE**
 
-- Make it straightforward to remove Keycloak **after** Zitadel is fully proven.
-- Keep the current system working (no deletions, no functionality loss).
+All Keycloak components have been removed and replaced with Zitadel. The system now runs exclusively on Zitadel for authentication.
 
-We use the grep-able tag:
-
-- `THALIUMX_KEYCLOAK_DEPRECATE`
-
-You can locate all tagged locations with:
-
-```bash
-rg "THALIUMX_KEYCLOAK_DEPRECATE" -n
-```
+**Historical Reference:**
+This file originally mapped Keycloak coupling points for systematic removal after Zitadel cutover. All items have been addressed.
 
 ## Primary runtime components
 

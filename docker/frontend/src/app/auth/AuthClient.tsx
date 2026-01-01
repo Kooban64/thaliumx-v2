@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import { submitDeviceFingerprint } from '@/lib/device/fingerprint';
-import { getKeycloak, initKeycloak } from '@/lib/auth/keycloak';
 import { initZitadel, loginZitadel } from '@/lib/auth/zitadel';
 import { getAccessToken } from '@/lib/auth/token-store';
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,7 @@ export default function AuthClient() {
   const searchParams = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+  const authMode = 'zitadel';
 
   // Preserve the desired post-login destination for seamless UX.
   const nextParam = searchParams.get('next') || '/dashboard';
@@ -27,21 +26,6 @@ export default function AuthClient() {
   }, [isAuthenticated, nextPath]);
 
   useEffect(() => {
-    if (authMode === 'keycloak') {
-      (async () => {
-        try {
-          await initKeycloak();
-          const kc = getKeycloak();
-          if (kc.authenticated) {
-            setIsAuthenticated(true);
-          }
-        } catch {
-          // ignore
-        }
-      })();
-      return;
-    }
-
     if (authMode === 'zitadel') {
       (async () => {
         try {
@@ -99,53 +83,21 @@ export default function AuthClient() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {authMode === 'keycloak' ? (
-          <div className="space-y-4 rounded-lg border bg-background p-6 shadow-sm">
-            <h1 className="text-xl font-semibold">Sign in</h1>
-            <p className="text-sm text-muted-foreground">
-              Use your ThaliumX account (Keycloak) to continue.
-            </p>
-            <div className="flex flex-col gap-2">
-              <Button
-                onClick={() => {
-                  const kc = getKeycloak();
-                  void kc.login({ redirectUri: `${window.location.origin}${nextPath}` });
-                }}
-              >
-                Continue
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  const kc = getKeycloak();
-                  void kc.register({ redirectUri: `${window.location.origin}${nextPath}` });
-                }}
-              >
-                Create account
-              </Button>
-            </div>
+        <div className="space-y-4 rounded-lg border bg-background p-6 shadow-sm">
+          <h1 className="text-xl font-semibold">Sign in</h1>
+          <p className="text-sm text-muted-foreground">
+            Continue with Zitadel (secure OIDC + PKCE).
+          </p>
+          <div className="flex flex-col gap-2">
+            <Button
+              onClick={() => {
+                void loginZitadel({ nextPath });
+              }}
+            >
+              Continue
+            </Button>
           </div>
-        ) : authMode === 'zitadel' ? (
-          <div className="space-y-4 rounded-lg border bg-background p-6 shadow-sm">
-            <h1 className="text-xl font-semibold">Sign in</h1>
-            <p className="text-sm text-muted-foreground">
-              Continue with Zitadel (secure OIDC + PKCE).
-            </p>
-            <div className="flex flex-col gap-2">
-              <Button
-                onClick={() => {
-                  void loginZitadel({ nextPath });
-                }}
-              >
-                Continue
-              </Button>
-            </div>
-          </div>
-        ) : isLogin ? (
-          <LoginForm onSuccess={handleAuthSuccess} onSwitchToRegister={() => setIsLogin(false)} />
-        ) : (
-          <RegisterForm onSuccess={handleAuthSuccess} onSwitchToLogin={() => setIsLogin(true)} />
-        )}
+        </div>
       </div>
     </div>
   );

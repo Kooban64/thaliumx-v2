@@ -395,31 +395,6 @@ init_dingir_schema() {
     " 2>/dev/null && print_success "Hypertable created" || print_warning "Hypertable creation skipped (TimescaleDB may not be available)"
 }
 
-# ============================================
-# KEYCLOAK DATABASE
-# ============================================
-init_keycloak_db() {
-    print_header "Initializing Keycloak Database"
-    
-    echo "Creating Keycloak database..."
-    docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$CITUS_COORDINATOR" \
-        psql -U "$POSTGRES_USER" -c "CREATE DATABASE keycloak;" 2>/dev/null || print_warning "Database may already exist"
-    
-    echo "Creating Keycloak user..."
-    docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$CITUS_COORDINATOR" \
-        psql -U "$POSTGRES_USER" -c "
-        DO \$\$
-        BEGIN
-            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'keycloak') THEN
-                CREATE USER keycloak WITH PASSWORD 'keycloak';
-            END IF;
-        END
-        \$\$;
-        GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
-    " 2>/dev/null && print_success "Keycloak database ready" || print_warning "Keycloak setup may already exist"
-    
-    print_success "Keycloak will auto-create its schema on first startup"
-}
 
 # ============================================
 # SEED DEFAULT DATA
@@ -491,7 +466,6 @@ main() {
     
     init_citus_schema
     init_dingir_schema
-    init_keycloak_db
     seed_default_data
     
     print_header "Schema Initialization Complete"

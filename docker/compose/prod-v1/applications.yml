@@ -69,7 +69,7 @@ services:
       # ZITADEL_AUDIENCE: thaliumx-backend
 
       # Default tenant context (header injection + DB tenancy)
-      DEFAULT_TENANT_ID: 10000000-0000-0000-0000-000000000000
+      DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID:-10000000-0000-0000-0000-000000000000}
       DEFAULT_TENANT_SLUG: thaliumx-platform
 
       # JWT configuration
@@ -82,9 +82,6 @@ services:
       # NOTE: thaliumx.com = main platform, thal.thaliumx.com = token presale platform
       ALLOWED_ORIGINS: https://thaliumx.com,https://thal.thaliumx.com,http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001
 
-      # Application tenant defaults
-      # Canonical default tenant used by thaliumx.com and token-presale experience.
-      DEFAULT_TENANT_SLUG: thaliumx-platform
 
       # Kafka integration
       # Current ThaliumX Kafka deployment is PLAINTEXT on :9094 (no SSL/SASL).

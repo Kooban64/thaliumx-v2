@@ -101,29 +101,12 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32),
   API_KEY: z.string().min(32),
   ENCRYPTION_KEY: z.string().min(32),
-
-  // Keycloak Configuration
-  KEYCLOAK_URL: z.string().url().default('http://localhost:8080'),
-  KEYCLOAK_REALM: z.string().default('thaliumx'),
-  KEYCLOAK_CLIENT_ID: z.string().default('thaliumx-compliance-cex'),
-  // Allow either direct secret or a mounted secret file.
-  KEYCLOAK_CLIENT_SECRET: z.string().min(1).optional(),
-  KEYCLOAK_CLIENT_SECRET_FILE: z.string().optional(),
+  jwtSecret: z.string().min(32),
 
   // External Services
   VASPS_REGISTRY_URL: z.string().url().optional(),
   SANCTIONS_CHECK_URL: z.string().url().optional(),
   REGULATORY_API_BASE_URL: z.string().url().optional(),
-}).superRefine((val, ctx) => {
-  const hasSecret = typeof val.KEYCLOAK_CLIENT_SECRET === 'string' && val.KEYCLOAK_CLIENT_SECRET.trim().length > 0;
-  const hasFile = typeof val.KEYCLOAK_CLIENT_SECRET_FILE === 'string' && val.KEYCLOAK_CLIENT_SECRET_FILE.trim().length > 0;
-  if (!hasSecret && !hasFile) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['KEYCLOAK_CLIENT_SECRET'],
-      message: 'KEYCLOAK_CLIENT_SECRET or KEYCLOAK_CLIENT_SECRET_FILE is required',
-    });
-  }
 });
 
 /**
@@ -177,15 +160,6 @@ export const config: ComplianceConfig = {
     ...(env.KAFKA_SASL_PASSWORD && { saslPassword: env.KAFKA_SASL_PASSWORD }),
   },
 
-  keycloak: {
-    url: env.KEYCLOAK_URL,
-    realm: env.KEYCLOAK_REALM,
-    clientId: env.KEYCLOAK_CLIENT_ID,
-    clientSecret: env.KEYCLOAK_CLIENT_SECRET_FILE
-      ? require('fs').readFileSync(env.KEYCLOAK_CLIENT_SECRET_FILE, 'utf8').trim()
-      : (env.KEYCLOAK_CLIENT_SECRET || ''),
-  },
-
   riskThresholds: {
     low: env.RISK_LOW_THRESHOLD,
     medium: env.RISK_MEDIUM_THRESHOLD,
@@ -215,6 +189,7 @@ export const config: ComplianceConfig = {
       ? JSON.parse(env.REGULATORY_SUBMISSION_ENDPOINTS)
       : {},
   },
+  jwtSecret: env.JWT_SECRET,
 };
 
 // ==================== CONFIGURATION VALIDATION ====================

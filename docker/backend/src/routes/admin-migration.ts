@@ -29,7 +29,6 @@ import { Router, Request, Response } from 'express';
 import { authenticateToken, requireRole } from '../middleware/error-handler';
 import { LoggerService } from '../services/logger';
 import { PresaleService } from '../services/presale';
-import { KeycloakService } from '../services/keycloak';
 import { IdempotencyService } from '../services/idempotency';
 
 const router: Router = Router();

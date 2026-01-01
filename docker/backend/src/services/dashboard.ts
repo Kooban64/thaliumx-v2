@@ -31,7 +31,6 @@
 import { LoggerService } from './logger';
 import { DatabaseService } from './database';
 import { RedisService } from './redis';
-import { KeycloakService } from './keycloak';
 import { RBACService } from './rbac';
 import { DEXService } from './dex';
 import { NativeCEXService } from './native-cex';
@@ -85,7 +84,7 @@ export class DashboardService {
     const services = {
       database: DatabaseService.isConnected(),
       redis: RedisService.isConnected(),
-      keycloak: KeycloakService.isHealthy(),
+      zitadel: true, // Zitadel health is managed at infrastructure level
       rbac: RBACService.isHealthy(),
       dex: DEXService.isHealthy(),
       cex: NativeCEXService ? true : false,

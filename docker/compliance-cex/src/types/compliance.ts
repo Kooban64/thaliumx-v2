@@ -445,12 +445,6 @@ export interface ComplianceConfig {
     saslUsername?: string;
     saslPassword?: string;
   };
-  keycloak: {
-    url: string;
-    realm: string;
-    clientId: string;
-    clientSecret: string;
-  };
   riskThresholds: {
     low: number;
     medium: number;
@@ -475,6 +469,7 @@ export interface ComplianceConfig {
     autoSubmit: boolean;
     submissionEndpoints: Record<string, string>;
   };
+  jwtSecret: string;
 }
 
 /**

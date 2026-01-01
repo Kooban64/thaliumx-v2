@@ -3,9 +3,6 @@
 // In SSR: Use NEXT_PUBLIC_API_URL or default to backend service name
 import { getAccessToken } from '@/lib/auth/token-store';
 
-// Default to Keycloak-first auth.
-const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
-
 const getApiBaseUrl = (): string => {
   // Always check NEXT_PUBLIC_API_URL first (set at build time)
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -13,13 +10,13 @@ const getApiBaseUrl = (): string => {
   // Normalize common misconfiguration: setting NEXT_PUBLIC_API_URL to ".../api".
   // The frontend code already prefixes requests with `/api/...`, so we must not double it.
   const normalize = (url: string): string => url.replace(/\/+$/, '').replace(/\/api$/, '');
-  
+
   if (typeof window !== 'undefined') {
     // Browser: Use relative URLs - Next.js API routes will proxy to backend
     // This maintains same-origin policy and avoids CORS issues
     return '';
   }
-  
+
   // SSR: Use environment variable or default to backend service name
   return normalize(envUrl || 'http://thaliumx-backend:3002');
 };
@@ -33,38 +30,24 @@ const DEFAULT_TENANT_ID = '10000000-0000-0000-0000-000000000000';
 // Get tenant ID from URL params, localStorage, or use default
 function getTenantId(): string {
   if (typeof window === 'undefined') return DEFAULT_TENANT_ID;
-  
+
   // Check URL query parameter
   const urlParams = new URLSearchParams(window.location.search);
   const tenantIdFromUrl = urlParams.get('tenantId');
   if (tenantIdFromUrl) return tenantIdFromUrl;
-  
+
   // Check localStorage
   const tenantIdFromStorage = localStorage.getItem('tenantId');
   if (tenantIdFromStorage) return tenantIdFromStorage;
-  
+
   // Use default
   return DEFAULT_TENANT_ID;
 }
 
-// CSRF token management
-let csrfToken: string | null = null;
-
+// CSRF token management - not needed for Zitadel Bearer token auth
 export async function getCSRFToken(): Promise<string> {
-  // Keycloak mode uses Bearer tokens and should not depend on backend CSRF cookies.
-  if (AUTH_MODE === 'keycloak') return '';
-  if (csrfToken) return csrfToken;
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/csrf-token`, {
-      credentials: 'include'
-    });
-    const data = await response.json();
-    csrfToken = data.csrfToken;
-    return csrfToken!;
-  } catch (error) {
-    throw error;
-  }
+  // Zitadel uses Bearer tokens and should not depend on backend CSRF cookies.
+  return '';
 }
 
 // API Response Types
@@ -107,68 +90,16 @@ class ApiClient {
    * Checks token expiration and refreshes before it expires
    */
   private setupTokenPreRefresh(): void {
-    if (AUTH_MODE !== 'legacy') return;
-    // Check token status every minute
-    setInterval(async () => {
-      try {
-        // Check if token needs refresh by making a lightweight request
-        // If we get 401, token is expired and we should refresh
-        const response = await fetch(`${this.baseURL}/api/auth/profile`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'X-Tenant-ID': getTenantId(),
-          },
-        });
-
-        if (response.status === 401) {
-          // Token expired, try to refresh
-          await this.refreshTokenIfNeeded();
-        }
-      } catch (error) {
-        // Silently fail - token refresh will happen on next API call
-        console.debug('Token pre-refresh check failed:', error);
-      }
-    }, 60000); // Check every minute
+    // Zitadel handles token refresh automatically via OIDC flow
+    // No need for manual pre-refresh checks
   }
 
   /**
-   * Refresh token if needed (prevents multiple simultaneous refresh calls)
+   * Refresh token if needed (Zitadel handles this automatically)
    */
   private async refreshTokenIfNeeded(): Promise<boolean> {
-    if (AUTH_MODE !== 'legacy') return false;
-    // Prevent multiple simultaneous refresh calls
-    if (isRefreshing && refreshPromise) {
-      return refreshPromise;
-    }
-
-    isRefreshing = true;
-    refreshPromise = (async () => {
-      try {
-        // Call refresh endpoint (uses httpOnly cookies)
-        const response = await fetch(`${this.baseURL}/api/auth/refresh`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Tenant-ID': getTenantId(),
-          },
-        });
-
-        if (response.ok) {
-          return true;
-        }
-        return false;
-      } catch (error) {
-        console.error('Token refresh failed:', error);
-        return false;
-      } finally {
-        isRefreshing = false;
-        refreshPromise = null;
-      }
-    })();
-
-    return refreshPromise;
+    // Zitadel manages token refresh automatically via OIDC flow
+    return false;
   }
 
   private async request<T>(
@@ -184,22 +115,14 @@ class ApiClient {
       'X-Tenant-ID': getTenantId(), // Always include tenant ID
     };
 
-    // If running in Keycloak mode, attach Bearer token when available.
+    // Attach Zitadel Bearer token when available.
     // This allows backend+APISIX to authenticate without relying on cookies.
     const accessToken = typeof window !== 'undefined' ? getAccessToken() : null;
     if (accessToken && !('Authorization' in (options.headers as any || {}))) {
       defaultHeaders['Authorization'] = `Bearer ${accessToken}`;
     }
 
-    // Add CSRF token for non-GET requests (legacy cookie mode only)
-    if (AUTH_MODE === 'legacy' && options.method && options.method !== 'GET') {
-      try {
-        const csrfToken = await getCSRFToken();
-        if (csrfToken) defaultHeaders['X-CSRF-Token'] = csrfToken;
-      } catch (error) {
-        console.warn('Failed to get CSRF token:', error);
-      }
-    }
+    // CSRF tokens not needed for Zitadel Bearer token authentication
 
     const config: RequestInit = {
       ...options,
@@ -222,20 +145,8 @@ class ApiClient {
 
       clearTimeout(timeoutId);
 
-      // Handle token expiration (401) - legacy cookie refresh only.
-      if (
-        AUTH_MODE === 'legacy' &&
-        response.status === 401 &&
-        retryOn401 &&
-        endpoint !== '/api/auth/refresh' &&
-        endpoint !== '/api/auth/login'
-      ) {
-        const refreshed = await this.refreshTokenIfNeeded();
-        if (refreshed) {
-          // Retry the original request once
-          return this.request<T>(endpoint, options, false);
-        }
-      }
+      // Handle token expiration (401) - Zitadel handles refresh automatically
+      // No manual refresh needed as Zitadel manages token lifecycle
 
       // Handle both success and error responses
       const data = await response.json();

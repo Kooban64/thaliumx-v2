@@ -238,16 +238,6 @@ groups:
           summary: "High rate limit violations"
           description: "More than 100 rate limit violations per minute."
 
-      - alert: KeycloakDown
-        expr: up{job="keycloak"} == 0
-        for: 1m
-        labels:
-          severity: critical
-          category: security
-        annotations:
-          summary: "Keycloak is down"
-          description: "Keycloak authentication service is not responding."
-
   # ============================================
   # FINANCIAL ALERTS
   # ============================================

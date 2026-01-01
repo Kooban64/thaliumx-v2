@@ -6,7 +6,7 @@
 
 import { FullConfig } from '@playwright/test';
 
-const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'zitadel';
 
 async function globalSetup(config: FullConfig) {
   console.log('🚀 Setting up E2E test environment...');
@@ -28,14 +28,8 @@ async function globalSetup(config: FullConfig) {
       console.warn('⚠️ Backend health check returned:', healthResponse.status);
     }
 
-    // Seed test data via backend API (legacy local-auth only).
-    // In Zitadel mode, test users should be provisioned in Zitadel, not via backend `/api/auth/register`.
-    if (AUTH_MODE === 'legacy') {
-      console.log('🌱 Seeding legacy test users via backend API...');
-      await seedTestDataViaApi(backendUrl);
-    } else {
-      console.log(`ℹ️ Skipping backend user seeding (AUTH_MODE=${AUTH_MODE}).`);
-    }
+    // Test users are now provisioned in Zitadel, not via backend API
+    console.log(`ℹ️ Test users provisioned in Zitadel (AUTH_MODE=${AUTH_MODE}).`);
 
     console.log('✅ Global setup completed successfully');
   } catch (error: any) {
@@ -45,89 +39,5 @@ async function globalSetup(config: FullConfig) {
   }
 }
 
-async function seedTestDataViaApi(backendUrl: string) {
-  // Users expected by E2E specs (see e2e/auth.spec.ts).
-  // These are seeded via backend registration API.
-  const testUsers = [
-    {
-      email: 'admin@thaliumx.com',
-      password: 'AdminPass123!',
-      firstName: 'Platform',
-      lastName: 'Admin',
-    },
-    {
-      email: 'broker@thaliumx.com',
-      password: 'BrokerPass123!',
-      firstName: 'Broker',
-      lastName: 'Admin',
-    },
-    {
-      email: 'trader@thaliumx.com',
-      password: 'TraderPass123!',
-      firstName: 'John',
-      lastName: 'Trader',
-    },
-    {
-      email: 'user@thaliumx.com',
-      password: 'UserPass123!',
-      firstName: 'Jane',
-      lastName: 'User',
-    },
-    {
-      email: 'pending@thaliumx.com',
-      password: 'PendingPass123!',
-      firstName: 'Pending',
-      lastName: 'KYC',
-    },
-    {
-      email: 'suspended@thaliumx.com',
-      password: 'SuspendedPass123!',
-      firstName: 'Suspended',
-      lastName: 'User',
-    },
-  ];
-
-  for (const user of testUsers) {
-    try {
-      const resp = await fetch(`${backendUrl}/api/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          // Default tenant for tests
-          'X-Tenant-ID': '10000000-0000-0000-0000-000000000000',
-        },
-        body: JSON.stringify(user),
-        signal: AbortSignal.timeout(15000),
-      });
-
-      if (resp.ok) {
-        console.log(`✅ Ensured test user exists: ${user.email}`);
-      } else {
-        // Often 400 if already exists. Log and continue.
-        const text = await resp.text().catch(() => '');
-        console.log(`⚠️ Could not create test user (may already exist): ${user.email} (status ${resp.status}) ${text.substring(0, 200)}`);
-      }
-    } catch (e: any) {
-      console.log(`⚠️ Could not create test user: ${user.email} - ${e?.message || e}`);
-    }
-  }
-
-  // Warm up / clear caches if available
-  try {
-    const response = await fetch(`${backendUrl}/api/market/cache/clear`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(15000),
-    });
-    if (response.ok) {
-      console.log('✅ Cleared market data cache');
-    } else {
-      console.log(`⚠️ Market cache clear returned ${response.status}`);
-    }
-  } catch (error: any) {
-    console.log(`⚠️ Could not clear cache: ${error.message}`);
-  }
-}
 
 export default globalSetup;

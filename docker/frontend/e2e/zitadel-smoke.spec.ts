@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'zitadel';
 
 test.describe('Zitadel integration (smoke)', () => {
   test.skip(AUTH_MODE !== 'zitadel', 'Zitadel smoke suite only runs when NEXT_PUBLIC_AUTH_MODE=zitadel');

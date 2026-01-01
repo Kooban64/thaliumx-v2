@@ -1,46 +1,8 @@
 # Thaliumx Security
 # =================
-# Keycloak, Vault, OPA
+# Vault, OPA
 
 services:
-  keycloak:
-    image: quay.io/keycloak/keycloak:24.0
-    container_name: thaliumx-keycloak
-    hostname: thaliumx-keycloak
-    restart: unless-stopped
-    # Development mode - for production, build an optimized image
-    command: start-dev
-    environment:
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      # No insecure defaults; must be provided via env/secret manager
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://thaliumx-postgres:5432/keycloak
-      KC_DB_USERNAME: ${POSTGRES_USER:-thaliumx}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      KC_HEALTH_ENABLED: "true"
-      KC_METRICS_ENABLED: "true"
-      # Security settings
-      KC_HOSTNAME_STRICT: "false"
-      KC_HOSTNAME_STRICT_HTTPS: "false"
-      KC_HTTP_ENABLED: "true"
-      KC_PROXY: edge
-      # Cache configuration
-      KC_CACHE: local
-    ports:
-      - "${KEYCLOAK_PORT:-8080}:8080"
-    volumes:
-      - keycloak_data:/opt/keycloak/data
-    networks:
-      - thaliumx-net
-    # Note: postgres dependency is handled by startup order - postgres must be running before keycloak
-    healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
-
   vault:
     image: hashicorp/vault:1.18
     container_name: thaliumx-vault
@@ -130,8 +92,6 @@ services:
       retries: 5
 
 volumes:
-  keycloak_data:
-    name: thaliumx-keycloak-data
   vault_data:
     name: thaliumx-vault-data
   vault_logs:

@@ -188,7 +188,7 @@ restart_core() {
   echo "NOTE: This does not restart databases." 
   echo
   # Service names are compose service keys (without thaliumx- prefix)
-  compose restart apisix backend frontend keycloak opa || true
+  compose restart apisix backend frontend opa || true
   pause
 }
 
@@ -208,17 +208,10 @@ reseed_gateway_routes() {
   echo "Reseeding APISIX routes (idempotent)."
   echo
   echo "This will rerun the one-shot 'apisix-init' job which (re)creates routes + SSL objects in ETCD."
-  echo "Use this when switching the gateway /auth provider between Zitadel and Keycloak." 
+  echo "Auth provider is set to Zitadel."
   echo
 
-  local provider
-  read -r -p "Auth provider [zitadel/keycloak] (default: zitadel): " provider
-  provider="${provider:-zitadel}"
-  if [[ "$provider" != "zitadel" && "$provider" != "keycloak" ]]; then
-    echo "Invalid provider: $provider" >&2
-    pause
-    return
-  fi
+  local provider="zitadel"
 
   local enable_oidc
   read -r -p "Enable APISIX OIDC enforcement? [true/false] (default: true): " enable_oidc
@@ -261,7 +254,7 @@ show_groups() {
   echo "Logical groups (informational):"
   cat <<'TXT'
 CORE:
-  apisix, frontend, backend, keycloak, opa, vault, postgres, redis, kafka, mongodb, schema-registry
+  apisix, frontend, backend, opa, vault, postgres, redis, kafka, mongodb, schema-registry
 
 OBSERVABILITY:
   grafana, prometheus, alertmanager, loki, tempo, otel-collector, promtail, cadvisor, blackbox-exporter
@@ -312,7 +305,7 @@ main_menu() {
     echo "5) Stop stack (containers remain)"
     echo "6) Down stack (remove containers)"
     echo "7) Restart core (frontend/backend/gateway/auth)"
-    echo "8) Run init jobs (vault-unseal + keycloak seed)"
+    echo "8) Run init jobs (vault-unseal)"
     echo "8b) Reseed APISIX routes (switch /auth provider)"
     echo "9) Tail logs (pick service)"
     echo "10) Show logical groups (info)"

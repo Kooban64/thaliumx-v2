@@ -249,6 +249,17 @@ services:
       file: compliance.yml
       service: compliance-coordinator
 
+  # Identity Layer - Zitadel OIDC Provider
+  zitadel-postgres:
+    extends:
+      file: identity.yml
+      service: zitadel-postgres
+
+  zitadel:
+    extends:
+      file: identity.yml
+      service: zitadel
+
   # Wazuh SIEM/XDR
   wazuh-manager:
     extends:

@@ -38,8 +38,6 @@ import { Request, Response, NextFunction } from 'express';
 import { AppError, createError, verifyToken } from '../utils';
 import { LoggerService } from '../services/logger';
 import { JWTPayload } from '../types';
-import axios from 'axios';
-import fs from 'fs';
 
 // Extend Express Request type to include user
 declare global {
@@ -335,7 +333,6 @@ const getJwksClient = (jwksUri: string): JwksClient => {
 
 const normalizeIssuer = (iss: string): string => iss.replace(/\/+$/, '');
 
-const isKeycloakIssuer = (iss: string): boolean => /\/realms\//.test(iss);
 
 const getZitadelIssuerDefault = (): string => {
   // Prefer explicit config. Fall back to standard prod hostname.
@@ -366,8 +363,8 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Zitadel-first auth (prod-v1).
-    // Keycloak support is retained for explicit rollback only.
+    // Zitadel-only auth (prod-v1).
+    // Only Zitadel OIDC tokens are supported.
     // (Legacy internal JWT + cookie auth is intentionally disabled.)
     const authHeader = req.headers.authorization;
     const bearer = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
@@ -387,20 +384,11 @@ export const authenticateToken = async (
       throw createError('Invalid token issuer', 401, 'INVALID_TOKEN');
     }
 
-    // Provider selection:
-    // - default: accept ONLY Zitadel tokens
-    // - rollback: accept ONLY Keycloak tokens
-    // - explicit transition: allow both
-    const authProvider = String(process.env.THALIUMX_AUTH_PROVIDER || process.env.AUTH_PROVIDER || 'zitadel').toLowerCase();
-    const allowBothProviders = String(process.env.THALIUMX_OIDC_ALLOW_BOTH || '').toLowerCase() === '1';
-    const allowKeycloak = allowBothProviders || authProvider === 'keycloak';
-    const allowZitadel = allowBothProviders || authProvider === 'zitadel';
-
-    const isKeycloakToken = isKeycloakIssuer(issuerNorm);
+    // Only Zitadel tokens are supported
     const allowedZitadelIssuers = getAllowedIssuers();
-    const isZitadelToken = !isKeycloakToken && allowedZitadelIssuers.includes(issuerNorm);
+    const isZitadelToken = allowedZitadelIssuers.includes(issuerNorm);
 
-    if ((isKeycloakToken && !allowKeycloak) || (isZitadelToken && !allowZitadel) || (!isKeycloakToken && !isZitadelToken)) {
+    if (!isZitadelToken) {
       throw createError('Invalid token issuer', 401, 'INVALID_TOKEN');
     }
 
@@ -464,7 +452,7 @@ export const authenticateToken = async (
 
       const headerTenantId = (req.headers['x-tenant-id'] as string | undefined) || undefined;
       const tokenTenantId = (decoded?.tenant_id as string | undefined) || (decoded?.tenantId as string | undefined) || undefined;
-      const resolvedTenantId = tokenTenantId || headerTenantId || process.env.KEYCLOAK_DEFAULT_TENANT_ID || '10000000-0000-0000-0000-000000000000';
+      const resolvedTenantId = tokenTenantId || headerTenantId || process.env.DEFAULT_TENANT_ID || '10000000-0000-0000-0000-000000000000';
 
       const payload: JWTPayload = {
         id: (decoded?.sub as string) || 'unknown',
@@ -484,140 +472,6 @@ export const authenticateToken = async (
       return;
     }
 
-    // ------------------------------
-    // Keycloak token verification
-    // ------------------------------
-    const keycloakBaseUrl = process.env.KEYCLOAK_URL || 'https://keycloak:8443';
-
-    const clientId = process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend';
-    // Client secret is ONLY required for introspection fallback.
-    const clientSecret = (() => {
-      if (process.env.KEYCLOAK_CLIENT_SECRET && process.env.KEYCLOAK_CLIENT_SECRET.trim()) {
-        return process.env.KEYCLOAK_CLIENT_SECRET.trim();
-      }
-      const filePath = process.env.KEYCLOAK_CLIENT_SECRET_FILE;
-      if (filePath && fs.existsSync(filePath)) {
-        return fs.readFileSync(filePath, 'utf8').trim();
-      }
-      return '';
-    })();
-
-    const realmMatch = issuerNorm.match(/\/realms\/([^/]+)$/);
-    const realmFromIss = realmMatch?.[1];
-    const expectedRealm = process.env.KEYCLOAK_REALM || 'thaliumx-platform';
-    const realm = realmFromIss || expectedRealm;
-
-    // Enforce single-realm (end-user) API tokens.
-    // If you later decide to accept multiple realms, add an allowlist here.
-    if (realm !== expectedRealm) {
-      throw createError('Invalid token realm', 401, 'INVALID_TOKEN');
-    }
-
-    // Prefer local JWT verification via JWKS (faster + more reliable than per-request introspection).
-    // Fall back to introspection for edge cases (revocation checks, JWKS fetch failure).
-    const jwksUri = `${keycloakBaseUrl}/auth/realms/${realm}/protocol/openid-connect/certs`;
-
-    let verifiedToken: any | null = null;
-    try {
-      const client = getJwksClient(jwksUri);
-      const getKey: jwt.GetPublicKeyOrSecret = (header, callback) => {
-        const kid = header.kid;
-        if (!kid) return callback(new Error('Missing kid'), undefined);
-        client.getSigningKey(kid, (err, key) => {
-          if (err) return callback(err, undefined);
-          if (!key) return callback(new Error('No signing key returned'), undefined);
-          const signingKey = key.getPublicKey();
-          callback(null, signingKey);
-        });
-      };
-
-      verifiedToken = await new Promise((resolve, reject) => {
-        jwt.verify(
-          token,
-          getKey,
-          {
-            algorithms: ['RS256'],
-            // Accept both raw and normalized issuer variants (some IdPs include a trailing slash).
-            issuer: [issuerRaw, issuerNorm],
-          },
-          (err, payload) => {
-            if (err) return reject(err);
-            resolve(payload);
-          },
-        );
-      });
-    } catch (verifyErr) {
-      LoggerService.warn('Keycloak JWKS verification failed; falling back to introspection', {
-        error: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
-        jwksUri,
-      });
-    }
-
-    // If local verification succeeded, we treat the token as valid.
-    // Otherwise, perform standard introspection (active flag) as fallback (requires client secret).
-    if (!verifiedToken) {
-      if (!clientSecret) {
-        throw createError('Keycloak client secret not configured (required for introspection fallback)', 500, 'KEYCLOAK_MISCONFIGURED');
-      }
-      const introspectUrl = `${keycloakBaseUrl}/auth/realms/${realm}/protocol/openid-connect/token/introspect`;
-      const body = new URLSearchParams({
-        token,
-        client_id: clientId,
-        client_secret: clientSecret
-      }).toString();
-
-      const introspection = await axios.post(introspectUrl, body, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        timeout: 10_000
-      });
-
-      const active = !!introspection.data?.active;
-      if (!active) {
-        throw createError('Invalid token', 401, 'INVALID_TOKEN');
-      }
-    }
-
-    // Strict audience check (defense-in-depth).
-    // User tokens should be minted for `thaliumx-frontend` but MUST include backend as audience.
-    const aud = decoded?.aud;
-    const audList = Array.isArray(aud) ? aud : typeof aud === 'string' ? [aud] : [];
-    if (!audList.includes(clientId)) {
-      throw createError('Invalid token audience', 401, 'INVALID_TOKEN');
-    }
-
-    // Map Keycloak JWT claims into our internal JWTPayload shape.
-    const realmRoles: string[] = Array.isArray(decoded?.realm_access?.roles) ? decoded.realm_access.roles : [];
-    const resourceRoles: string[] = (() => {
-      const ra = decoded?.resource_access?.[clientId];
-      return Array.isArray(ra?.roles) ? ra.roles : [];
-    })();
-    const allRoles = Array.from(new Set([...realmRoles, ...resourceRoles]));
-
-    // Role selection: pick the highest-privilege role first.
-    const rolePriority = ['super_admin', 'admin', 'broker', 'compliance', 'finance', 'support', 'user'];
-    const selectedRole = allRoles.find(r => rolePriority.includes(r)) || allRoles[0] || 'user';
-
-    // Tenant context: prefer token claim (if present), otherwise fall back to header injection.
-    const headerTenantId = (req.headers['x-tenant-id'] as string | undefined) || undefined;
-    const tokenTenantId = (decoded?.tenant_id as string | undefined) || (decoded?.tenantId as string | undefined) || undefined;
-    const resolvedTenantId = tokenTenantId || headerTenantId || process.env.KEYCLOAK_DEFAULT_TENANT_ID || '10000000-0000-0000-0000-000000000000';
-
-    const payload: JWTPayload = {
-      id: (decoded?.sub as string) || 'unknown',
-      userId: (decoded?.sub as string) || 'unknown',
-      email: (decoded?.email as string) || (decoded?.preferred_username as string) || 'unknown',
-      role: selectedRole as any,
-      roles: allRoles as any,
-      tenantId: resolvedTenantId,
-      brokerId: (decoded?.broker_id as string | undefined) || (decoded?.brokerId as string | undefined) || undefined,
-      permissions: [],
-      iat: typeof decoded?.iat === 'number' ? decoded.iat : Math.floor(Date.now() / 1000),
-      exp: typeof decoded?.exp === 'number' ? decoded.exp : Math.floor(Date.now() / 1000) + 300
-    };
-
-    req.user = payload;
-
-    next();
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
       next(createError('Invalid token', 401, 'INVALID_TOKEN'));

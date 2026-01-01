@@ -160,16 +160,6 @@ scrape_configs:
           service: messaging
           __path__: /var/log/kafka/*.log
 
-  # Keycloak logs
-  - job_name: keycloak
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: keycloak
-          service: auth
-          __path__: /var/log/keycloak/*.log
-
   # Vault audit logs
   - job_name: vault-audit
     static_configs:

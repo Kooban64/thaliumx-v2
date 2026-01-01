@@ -247,7 +247,6 @@ check_container_placeholder_env() {
 # Key services only (skip missing containers).
 PLACEHOLDER_CHECK_CONTAINERS=(
   thaliumx-backend
-  thaliumx-keycloak
   thaliumx-apisix
   thaliumx-redis
   thaliumx-postgres
@@ -290,7 +289,6 @@ echo "Legacy init containers (informational)…"
 # typically run with `docker compose --profile init-jobs run --rm ...`.
 LEGACY_INIT_CONTAINERS=(
   thaliumx-vault-unseal
-  thaliumx-keycloak-post-import-seed
 )
 for c in "${LEGACY_INIT_CONTAINERS[@]}"; do
   if docker inspect "$c" >/dev/null 2>&1; then

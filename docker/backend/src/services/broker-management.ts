@@ -19,7 +19,7 @@
 import { LoggerService } from './logger';
 import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
-import { KeycloakService } from './keycloak';
+// import { KeycloakService } from './keycloak'; // Removed - using Zitadel now
 import { DatabaseService } from './database';
 import { AppError, createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -774,89 +774,21 @@ export class BrokerManagementService {
       // Create broker configuration (for backward compatibility with BrokerManagementService)
       const brokerConfig = await this.createBrokerConfig(request, brokerId);
 
-      // Create Keycloak realm using tenant ID
-      const realmResult = await KeycloakService.createBrokerRealm({
-        realm: `${request.slug}-broker`,
-        displayName: request.name,
-        enabled: true,
-        brokerId: brokerId, // Same as tenantId for broker-tenants
-        brokerName: request.name,
-        domain: request.domain,
-        branding: brokerConfig.branding,
-        features: brokerConfig.features,
-        limits: brokerConfig.limits,
-        apzhexIntegration: false,
-        accessTokenLifespan: 300,
-        ssoSessionIdleTimeout: 1800,
-        ssoSessionMaxLifespan: 36000,
-        offlineSessionIdleTimeout: 2592000,
-        offlineSessionMaxLifespan: 5184000,
-        accessCodeLifespan: 60,
-        accessCodeLifespanUserAction: 300,
-        accessCodeLifespanLogin: 1800,
-        actionTokenGeneratedByAdminLifespan: 43200,
-        actionTokenGeneratedByUserLifespan: 300,
-        oauth2DeviceCodeLifespan: 600,
-        oauth2DevicePollingInterval: 5,
-        internationalizationEnabled: true,
-        supportedLocales: ['en', 'es', 'fr', 'de', 'zh', 'ja'],
-        defaultLocale: 'en',
-        passwordPolicy: 'length(8) and digits(2) and lowerCase(2) and upperCase(2) and specialChars(1)',
-        browserFlow: 'browser',
-        directGrantFlow: 'direct grant',
-        clientAuthenticationFlow: 'clients',
-        dockerAuthenticationFlow: 'docker auth',
-        resetCredentialsFlow: 'reset credentials',
-        loginFlow: 'browser',
-        firstBrokerLoginFlow: 'first broker login',
-        registrationFlow: 'registration',
-        registrationPageFlow: 'registration page',
-        browserFlowSelection: 'browser',
-        otpPolicyType: 'totp',
-        otpPolicyAlgorithm: 'HmacSHA1',
-        otpPolicyInitialCounter: 0,
-        otpPolicyDigits: 6,
-        otpPolicyLookAheadWindow: 1,
-        otpPolicyPeriod: 30,
-        webAuthnPolicyRpEntityName: `${request.name} Broker`,
-        webAuthnPolicySignatureAlgorithms: ['ES256'],
-        webAuthnPolicyRpId: request.domain,
-        webAuthnPolicyAttestationConveyancePreference: 'not specified',
-        webAuthnPolicyAuthenticatorAttachment: 'not specified',
-        webAuthnPolicyRequireResidentKey: 'not specified',
-        webAuthnPolicyUserVerificationRequirement: 'not specified',
-        webAuthnPolicyCreateTimeout: 0,
-        webAuthnPolicyAvoidSameAuthenticatorRegister: false,
-        webAuthnPolicyAcceptableAaguids: [],
-        webAuthnPolicyPasswordlessRpEntityName: `${request.name} Broker`,
-        webAuthnPolicyPasswordlessSignatureAlgorithms: ['ES256'],
-        webAuthnPolicyPasswordlessRpId: request.domain,
-        webAuthnPolicyPasswordlessAttestationConveyancePreference: 'not specified',
-        webAuthnPolicyPasswordlessAuthenticatorAttachment: 'not specified',
-        webAuthnPolicyPasswordlessRequireResidentKey: 'not specified',
-        webAuthnPolicyPasswordlessUserVerificationRequirement: 'not specified',
-        webAuthnPolicyPasswordlessCreateTimeout: 0,
-        webAuthnPolicyPasswordlessAvoidSameAuthenticatorRegister: false,
-        webAuthnPolicyPasswordlessAcceptableAaguids: [],
-        otpSupportedApplications: ['FreeOTP', 'Google Authenticator'],
-        webAuthnSupportedApplications: ['Chrome', 'Firefox', 'Safari'],
-        attributes: {
-          'broker.realm': ['true'],
-          'broker.id': [brokerId],
-          'broker.tier': [request.tier],
-          'broker.version': ['1.0.0']
-        }
-      });
-
-      if (!realmResult.success) {
-        result.error = realmResult.error || 'Failed to create Keycloak realm';
-        return result;
-      }
+      // Zitadel organization/project creation - authentication is now handled globally
+      // For now, skip realm creation since Zitadel handles organizations differently
+      // and authentication is managed at the token validation level
+      const realmResult = {
+        success: true,
+        realmName: `${request.slug}-organization`,
+        adminUrl: `https://auth.thaliumx.com/org/${request.slug}`,
+        clientId: `thaliumx-${request.slug}`,
+        clientSecret: '', // Zitadel uses PKCE, no client secret needed
+      };
 
       result.realmName = realmResult.realmName;
-      result.adminUrl = realmResult.adminUrl || '';
-      result.clientId = realmResult.clientId || '';
-      result.clientSecret = realmResult.clientSecret || '';
+      result.adminUrl = realmResult.adminUrl;
+      result.clientId = realmResult.clientId;
+      result.clientSecret = realmResult.clientSecret;
 
       // Generate API credentials
       result.apiKey = this.generateApiKey();

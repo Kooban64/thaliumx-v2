@@ -15,7 +15,6 @@ NC='\033[0m' # No Color
 # Configuration
 CITUS_COORDINATOR="${CITUS_COORDINATOR:-thaliumx-citus-coordinator}"
 TIMESCALEDB="${TIMESCALEDB:-thaliumx-timescaledb}"
-KEYCLOAK_DB="${KEYCLOAK_DB:-thaliumx-keycloak-postgres}"
 POSTGRES_USER="${POSTGRES_USER:-thaliumx}"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
 TIMESCALE_USER="${TIMESCALE_USER:-dingir}"
@@ -271,57 +270,6 @@ verify_timescaledb_schema() {
     fi
 }
 
-# ============================================
-# KEYCLOAK SCHEMA VERIFICATION
-# ============================================
-verify_keycloak_schema() {
-    print_header "Verifying Keycloak Schema"
-    
-    # Check if Keycloak uses its own database or Citus
-    if docker ps --format '{{.Names}}' | grep -q "$KEYCLOAK_DB"; then
-        local kc_container="$KEYCLOAK_DB"
-        local kc_database="keycloak"
-    else
-        # Keycloak might be using Citus
-        local kc_container="$CITUS_COORDINATOR"
-        local kc_database="keycloak"
-    fi
-    
-    echo "Checking Keycloak database..."
-    
-    # Check if keycloak database exists
-    db_exists=$(docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$kc_container" \
-        psql -U postgres -t -c \
-        "SELECT EXISTS (SELECT FROM pg_database WHERE datname = 'keycloak');" 2>/dev/null | tr -d ' ')
-    
-    if [ "$db_exists" = "t" ]; then
-        print_success "Keycloak database exists"
-        
-        # Check key Keycloak tables
-        local kc_tables=("realm" "client" "user_entity" "credential" "user_role_mapping")
-        
-        for table in "${kc_tables[@]}"; do
-            if check_table_exists "$kc_container" "keycloak" "$table"; then
-                print_success "Keycloak table exists: $table"
-            else
-                print_warning "Keycloak table not found: $table (Keycloak auto-creates on startup)"
-            fi
-        done
-        
-        # Check realm count
-        realm_count=$(docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$kc_container" \
-            psql -U postgres -d keycloak -t -c \
-            "SELECT COUNT(*) FROM realm;" 2>/dev/null | tr -d ' ' || echo "0")
-        
-        if [ "$realm_count" -gt 0 ]; then
-            print_success "Keycloak realms configured: $realm_count"
-        else
-            print_warning "No Keycloak realms found - import realm configuration"
-        fi
-    else
-        print_warning "Keycloak database not found - Keycloak will create on first startup"
-    fi
-}
 
 # ============================================
 # BACKEND APPLICATION SCHEMA VERIFICATION
@@ -456,7 +404,6 @@ main() {
     
     verify_citus_schema
     verify_timescaledb_schema
-    verify_keycloak_schema
     verify_backend_schema
     verify_mongodb_schema
     verify_redis

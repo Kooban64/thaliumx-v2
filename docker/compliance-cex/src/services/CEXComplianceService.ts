@@ -7,8 +7,8 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import Keycloak from 'keycloak-connect';
 import { z } from 'zod';
+import { authenticateJWT } from '../middleware/auth';
 import { config } from '../config';
 import { logger, requestLogging } from '../utils/logger';
 import { databaseService } from './database';
@@ -49,7 +49,6 @@ const LimitOffsetSchema = z.object({
  */
 export class CEXComplianceService {
   private app: Express;
-  private keycloak: Keycloak.Keycloak;
   private server: ReturnType<Express['listen']> | null = null;
   private isInitialized = false;
   private isRunning = false;
@@ -57,22 +56,6 @@ export class CEXComplianceService {
 
   constructor() {
     this.app = express();
-
-    // Initialize Keycloak
-    const keycloakConfig = {
-      'auth-server-url': config.keycloak.url,
-      'realm': config.keycloak.realm,
-      // Required by `keycloak-connect` config typing
-      // - 'external' is typical when the service is behind a gateway/ingress.
-      // - confidential-port is kept at 0 in containerized deployments.
-      'ssl-required': 'external',
-      'confidential-port': 0,
-      'resource': config.keycloak.clientId,
-      'credentials': {
-        'secret': config.keycloak.clientSecret
-      }
-    };
-    this.keycloak = new Keycloak({}, keycloakConfig);
 
     this.setupMiddleware();
     this.setupRoutes();
@@ -247,9 +230,6 @@ export class CEXComplianceService {
    * Setup Express middleware
    */
   private setupMiddleware(): void {
-    // Keycloak middleware (must be first)
-    this.app.use(this.keycloak.middleware());
-
     // Security middleware
     this.app.use(helmet());
     this.app.use(cors({
@@ -328,7 +308,7 @@ export class CEXComplianceService {
     });
 
     // Travel Rule endpoints
-    this.app.post('/api/v1/travel-rule/check', this.keycloak.protect(), async (req: Request, res: Response) => {
+    this.app.post('/api/v1/travel-rule/check', authenticateJWT, async (req: Request, res: Response) => {
       try {
         const validatedData = TravelRuleCheckSchema.parse(req.body);
         const result = travelRuleService.checkTravelRuleRequired(
@@ -354,7 +334,7 @@ export class CEXComplianceService {
       }
     });
 
-    this.app.get('/api/v1/travel-rule/:id', this.keycloak.protect(), async (req: Request, res: Response) => {
+    this.app.get('/api/v1/travel-rule/:id', authenticateJWT, async (req: Request, res: Response) => {
       try {
         const result = await travelRuleService.getTravelRuleById(req.params['id'] ?? '');
         if (result) {
@@ -368,7 +348,7 @@ export class CEXComplianceService {
       }
     });
 
-    this.app.get('/api/v1/travel-rule/stats', this.keycloak.protect(), async (req: Request, res: Response) => {
+    this.app.get('/api/v1/travel-rule/stats', authenticateJWT, async (req: Request, res: Response) => {
       try {
         const tenantId = TenantIdSchema.parse(req.query['tenantId']);
         const stats = await travelRuleService.getStatistics(tenantId);
@@ -390,7 +370,7 @@ export class CEXComplianceService {
     });
 
     // Risk Assessment endpoints
-    this.app.get('/api/v1/risk-assessment/:id', this.keycloak.protect(), async (req: Request, res: Response) => {
+    this.app.get('/api/v1/risk-assessment/:id', authenticateJWT, async (req: Request, res: Response) => {
       try {
         const result = await riskAssessmentService.getRiskAssessmentById(req.params['id'] ?? '');
         if (result) {
@@ -404,7 +384,7 @@ export class CEXComplianceService {
       }
     });
 
-    this.app.get('/api/v1/risk-assessment/stats', this.keycloak.protect(), async (req: Request, res: Response) => {
+    this.app.get('/api/v1/risk-assessment/stats', authenticateJWT, async (req: Request, res: Response) => {
       try {
         const tenantId = TenantIdSchema.parse(req.query['tenantId']);
         const stats = await riskAssessmentService.getStatistics(tenantId);
@@ -425,7 +405,7 @@ export class CEXComplianceService {
       }
     });
 
-    this.app.get('/api/v1/risk-assessment/review-required', this.keycloak.protect(), async (req: Request, res: Response) => {
+    this.app.get('/api/v1/risk-assessment/review-required', authenticateJWT, async (req: Request, res: Response) => {
       try {
         const tenantId = TenantIdSchema.parse(req.query['tenantId']);
         const assessments = await riskAssessmentService.getAssessmentsRequiringReview(tenantId);
@@ -447,7 +427,7 @@ export class CEXComplianceService {
     });
 
     // CARF endpoints
-    this.app.get('/api/v1/carf/:id', this.keycloak.protect(), async (req: Request, res: Response) => {
+    this.app.get('/api/v1/carf/:id', authenticateJWT, async (req: Request, res: Response) => {
       try {
         const result = await carfService.getReportById(req.params['id'] ?? '');
         if (result) {
@@ -461,7 +441,7 @@ export class CEXComplianceService {
       }
     });
 
-    this.app.get('/api/v1/carf/user/:userId', this.keycloak.protect(), async (req: Request, res: Response) => {
+    this.app.get('/api/v1/carf/user/:userId', authenticateJWT, async (req: Request, res: Response) => {
       try {
         const validatedParams = LimitOffsetSchema.parse(req.query);
         const result = await carfService.getUserReports(req.params['userId'] ?? '', validatedParams);
@@ -482,7 +462,7 @@ export class CEXComplianceService {
       }
     });
 
-    this.app.get('/api/v1/carf/stats', this.keycloak.protect(), async (req: Request, res: Response) => {
+    this.app.get('/api/v1/carf/stats', authenticateJWT, async (req: Request, res: Response) => {
       try {
         const tenantId = TenantIdSchema.parse(req.query['tenantId']);
         const stats = await carfService.getStatistics(tenantId);

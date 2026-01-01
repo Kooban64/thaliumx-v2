@@ -3,13 +3,11 @@
 # ===========================================
 # Production-ready configuration for:
 # - Vault (with TLS and file storage)
-# - Keycloak (optimized build)
 # - OPA (Open Policy Agent)
 #
 # Prerequisites:
 # 1. Run setup-production-tls.sh to generate certificates
 # 2. Initialize Vault with vault-production-init.sh
-# 3. Build optimized Keycloak image
 #
 # Usage:
 #   docker compose -f compose.production.yaml up -d
@@ -103,91 +101,6 @@ services:
   #     retries: 5
   #     start_period: 30s
 
-  # ===========================================
-  # Keycloak - Identity and Access Management
-  # ===========================================
-  keycloak:
-    image: thaliumx/keycloak:27.0.1-optimized
-    build:
-      context: .
-      dockerfile: Dockerfile.keycloak
-      args:
-        KEYCLOAK_VERSION: "27.0.1"
-    container_name: thaliumx-keycloak
-    hostname: thaliumx-keycloak
-    restart: unless-stopped
-    # Production mode with optimized build
-    command: start --optimized --import-realm
-    environment:
-      # Admin credentials
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      # No insecure defaults; must be provided via env/secret manager
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
-      
-      # Database configuration
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://thaliumx-postgres:5432/${POSTGRES_DB:-thaliumx}
-      KC_DB_USERNAME: ${POSTGRES_USER:-thaliumx}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      KC_DB_SCHEMA: keycloak
-      
-      # Health and metrics
-      KC_HEALTH_ENABLED: "true"
-      KC_METRICS_ENABLED: "true"
-      
-      # Hostname configuration
-      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-auth.thaliumx.local}
-      KC_HOSTNAME_STRICT: "true"
-      KC_HOSTNAME_STRICT_HTTPS: "true"
-      
-      # HTTP/HTTPS configuration
-      KC_HTTP_ENABLED: "false"
-      KC_HTTPS_PORT: "8443"
-      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/tls/tls.crt
-      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/tls/tls.key
-      
-      # Proxy configuration (for reverse proxy)
-      KC_PROXY: edge
-      
-      # Cache configuration
-      KC_CACHE: local
-      
-      # Logging
-      KC_LOG_LEVEL: info
-      KC_LOG_CONSOLE_OUTPUT: json
-      
-      # Features
-      KC_FEATURES: token-exchange,admin-fine-grained-authz
-    ports:
-      - "${KEYCLOAK_HTTPS_PORT:-8443}:8443"
-    volumes:
-      - keycloak_data:/opt/keycloak/data
-      - ./config/keycloak/tls:/opt/keycloak/conf/tls:ro
-      - ./config/keycloak/realm:/opt/keycloak/data/import:ro
-    networks:
-      - thaliumx-net
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8443 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 120s
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 1G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "50m"
-        max-file: "5"
 
   # ===========================================
   # OPA - Open Policy Agent
@@ -265,8 +178,6 @@ volumes:
   #   name: thaliumx-vault-unseal-data
   # vault_unseal_logs:
   #   name: thaliumx-vault-unseal-logs
-  keycloak_data:
-    name: thaliumx-keycloak-data
   postgres_data:
     name: thaliumx-postgres-data
 

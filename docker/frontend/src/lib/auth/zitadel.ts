@@ -155,7 +155,7 @@ export const handleZitadelCallback = async (search: string): Promise<{ nextPath:
     throw new Error(errorDescription || error);
   }
   if (!code || !state) {
-    throw new Error('Missing authorization code/state');
+    throw new Error('Authentication failed');
   }
 
   const storedState = sessionStorage.getItem(STORAGE_KEYS.state);

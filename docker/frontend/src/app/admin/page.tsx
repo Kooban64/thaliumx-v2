@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { initKeycloak, getKeycloak } from '@/lib/auth/keycloak';
 import { initZitadel } from '@/lib/auth/zitadel';
 import { getAccessToken } from '@/lib/auth/token-store';
 import apiClient from '@/lib/api/client';
@@ -11,18 +10,14 @@ import apiClient from '@/lib/api/client';
 export default function PlatformAdmin() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
-  const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+  const authMode = 'zitadel';
 
   useEffect(() => {
     (async () => {
       try {
-        if (authMode === 'keycloak') {
-          await initKeycloak();
-        } else if (authMode === 'zitadel') {
-          await initZitadel();
-        }
+        await initZitadel();
 
-        if ((authMode === 'keycloak' || authMode === 'zitadel') && !getAccessToken()) {
+        if (!getAccessToken()) {
           window.location.href = '/login?next=/admin';
           return;
         }
@@ -35,21 +30,10 @@ export default function PlatformAdmin() {
     })();
   }, [authMode]);
 
-  const openIdentityAdmin = (hashPath: string) => {
-    if (authMode === 'keycloak') {
-      const kc = getKeycloak();
-      // Example: https://thaliumx.com/auth/admin/thaliumx-platform/console/#/realms/thaliumx-platform/users
-      const url = `${kc.authServerUrl}/admin/${kc.realm}/console/${hashPath}`;
-      window.open(url, '_blank', 'noopener,noreferrer');
-      return;
-    }
-
-    if (authMode === 'zitadel') {
-      // Zitadel console path differs by deployment; open the issuer root as a safe fallback.
-      const issuer = (process.env.NEXT_PUBLIC_ZITADEL_ISSUER || 'https://auth.thaliumx.com').replace(/\/+$/, '');
-      window.open(issuer, '_blank', 'noopener,noreferrer');
-      return;
-    }
+  const openIdentityAdmin = () => {
+    // Zitadel console path differs by deployment; open the issuer root as a safe fallback.
+    const issuer = (process.env.NEXT_PUBLIC_ZITADEL_ISSUER || 'https://auth.thaliumx.com').replace(/\/+$/, '');
+    window.open(issuer, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -92,24 +76,6 @@ export default function PlatformAdmin() {
           </CardHeader>
           <CardContent>
             <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => openIdentityAdmin(`#/realms/${getKeycloak().realm}/users`)}
-                disabled={loading || !profile || authMode !== 'keycloak'}
-                title={authMode === 'keycloak' ? undefined : 'Identity admin console is only available in Keycloak mode in this UI.'}
-              >
-                Users
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => openIdentityAdmin(`#/realms/${getKeycloak().realm}/clients`)}
-                disabled={loading || !profile || authMode !== 'keycloak'}
-                title={authMode === 'keycloak' ? undefined : 'Identity admin console is only available in Keycloak mode in this UI.'}
-              >
-                Clients
-              </Button>
               <Button size="sm" variant="outline" asChild>
                 <a href="/broker">Broker Console</a>
               </Button>

@@ -72,13 +72,6 @@ scrape_configs:
     metrics_path: /metrics
     # Note: Requires kafka_exporter sidecar
 
-  # Keycloak
-  - job_name: 'keycloak'
-    static_configs:
-      - targets: ['keycloak:8080']
-    metrics_path: /metrics
-    scrape_interval: 30s
-
   # Vault
   - job_name: 'vault'
     static_configs:

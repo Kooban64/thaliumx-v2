@@ -11,7 +11,7 @@ cd "${REPO_ROOT}"
 # Goals:
 # - Always start the full set of compose files (so no services are accidentally skipped)
 # - Support both "audit" (default) and "non-audit" profiles
-# - Run required one-shot init jobs (Vault unseal + Keycloak post-import seeding)
+# - Run required one-shot init jobs (Vault unseal)
 # - Fail fast if required containers are missing/unhealthy
 
 # MODE is historically audit|non-audit.
@@ -86,13 +86,9 @@ docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" up -d --remove-orphans 
 
 echo "2) wait for core services"
 wait_container thaliumx-vault 300
-if [[ "${THALIUMX_AUTH_PROVIDER:-zitadel}" == "keycloak" ]]; then
-  wait_container thaliumx-keycloak 420
-else
-  # Zitadel path (Keycloak is disabled by default / rollback only).
-  wait_container thaliumx-zitadel-postgres 180
-  wait_container thaliumx-zitadel 180
-fi
+# Zitadel auth provider
+wait_container thaliumx-zitadel-postgres 180
+wait_container thaliumx-zitadel 180
 wait_container thaliumx-backend 420
 wait_container thaliumx-frontend 180
 wait_container thaliumx-apisix 180
@@ -110,17 +106,10 @@ fi
 
 echo "4) run one-shot init jobs (idempotent)"
 # NOTE: Some init jobs are intentionally NOT part of the default `up` set.
-# They live behind the compose profile `init-jobs` to avoid showing up as “exited” containers.
+# They live behind the compose profile `init-jobs` to avoid showing up as "exited" containers.
 #
 # Vault unseal: safe to run multiple times; exits 0 if already unsealed.
 docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" --profile init-jobs run --rm vault-unseal
-
-# Keycloak post-import patching: safe to rerun; it re-applies secrets/redirects.
-if [[ "${THALIUMX_AUTH_PROVIDER:-zitadel}" == "keycloak" ]]; then
-  docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" --profile init-jobs run --rm keycloak-post-import-seed
-else
-  echo "Skipping keycloak-post-import-seed (auth provider is zitadel)"
-fi
 
 echo "5) final status"
 docker ps --format 'table {{.Names}}\t{{.Status}}' | sed -n '1,120p'

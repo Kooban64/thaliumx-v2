@@ -60,7 +60,6 @@ import fiatRouter from './routes/fiat';
 import tokenRouter from './routes/token';
 import eventStreamingRouter from './routes/event-streaming';
 import marginRouter from './routes/margin';
-import keycloakRouter from './routes/keycloak';
 import brokerManagementRouter from './routes/broker-management';
 import smartContractsRouter from './routes/smart-contracts';
 import blnkfinanceRouter from './routes/blnkfinance';
@@ -94,7 +93,6 @@ import { FiatService } from './services/fiat';
 import { TokenService } from './services/token';
 import { EventStreamingService } from './services/event-streaming';
 import { MarginTradingService } from './services/margin';
-import { KeycloakService } from './services/keycloak';
 import { BrokerManagementService } from './services/broker-management';
 import { SmartContractService } from './services/smart-contracts';
 import { BlnkFinanceService } from './services/blnkfinance';
@@ -208,23 +206,6 @@ class ThaliumXBackend {
       { name: 'TokenService', init: () => TokenService.initialize() },
       { name: 'EventStreamingService', init: () => EventStreamingService.initialize() },
       { name: 'MarginTradingService', init: () => MarginTradingService.initialize() },
-      { name: 'KeycloakService', init: async () => {
-        const authProvider = String(process.env.THALIUMX_AUTH_PROVIDER || process.env.AUTH_PROVIDER || 'zitadel').toLowerCase();
-        if (authProvider !== 'keycloak') {
-          LoggerService.info('Skipping KeycloakService initialization (auth provider is not keycloak)', { authProvider });
-          return;
-        }
-
-        await KeycloakService.initialize();
-        // Align Keycloak realms with known brokers (best-effort)
-        try {
-          const brokers = BrokerManagementService.getAllBrokers().map(b => ({ id: b.id, name: b.name, slug: b.slug, domain: b.domain }));
-          await KeycloakService.syncBrokerRealms(brokers);
-          LoggerService.info('✅ Keycloak broker realm synchronization complete');
-        } catch (syncErr) {
-          LoggerService.warn('⚠️  Keycloak broker realm synchronization skipped/failed', { error: syncErr instanceof Error ? syncErr.message : String(syncErr) });
-        }
-      }},
       { name: 'BrokerManagementService', init: () => BrokerManagementService.initialize() },
       { name: 'SmartContractService', init: () => SmartContractService.initialize() },
       { name: 'BlnkFinanceService', init: () => BlnkFinanceService.initialize() },
@@ -459,7 +440,6 @@ class ThaliumXBackend {
           services: {
             database: DatabaseService.isConnected() ? 'connected' : 'disconnected',
             redis: RedisService.isConnected() ? 'connected' : 'disconnected',
-            keycloak: checkServiceHealth(KeycloakService, 'Keycloak'),
             brokerManagement: checkServiceHealth(BrokerManagementService, 'BrokerManagement'),
             smartContracts: checkServiceHealth(SmartContractService, 'SmartContract'),
             blnkfinance: checkServiceHealth(BlnkFinanceService, 'BlnkFinance'),
@@ -526,7 +506,6 @@ class ThaliumXBackend {
         services: {
           database: DatabaseService.isConnected() ? 'connected' : 'disconnected',
           redis: RedisService.isConnected() ? 'connected' : 'disconnected',
-          keycloak: checkServiceHealth(KeycloakService, 'Keycloak'),
           brokerManagement: checkServiceHealth(BrokerManagementService, 'BrokerManagement'),
           smartContracts: checkServiceHealth(SmartContractService, 'SmartContract'),
           blnkfinance: checkServiceHealth(BlnkFinanceService, 'BlnkFinance'),
@@ -628,7 +607,6 @@ class ThaliumXBackend {
     this.app.use('/api/token', tokenRouter);
     this.app.use('/api/events', eventStreamingRouter);
     this.app.use('/api/margin', marginRouter);
-    this.app.use('/api/keycloak', keycloakRouter);
     this.app.use('/api/brokers', brokerManagementRouter);
     this.app.use('/api/contracts', smartContractsRouter);
     this.app.use('/api/blnkfinance', blnkfinanceRouter);
@@ -670,7 +648,6 @@ class ThaliumXBackend {
           token: 'POST /api/token/transfers, POST /api/token/staking/stake, GET /api/token/sales',
           events: 'POST /api/events/audit, POST /api/events/transaction, GET /api/events/status',
           margin: 'POST /api/margin/accounts, POST /api/margin/orders, GET /api/margin/positions',
-          keycloak: 'POST /api/keycloak/brokers, POST /api/keycloak/users, POST /api/keycloak/migrate',
           brokers: 'POST /api/brokers/onboard, GET /api/brokers, GET /api/brokers/apzhex',
           contracts: 'POST /api/contracts/deploy, GET /api/contracts/token/:address/info, POST /api/contracts/:address/execute',
           blnkfinance: 'POST /api/blnkfinance/accounts, POST /api/blnkfinance/transactions, POST /api/blnkfinance/reports',

@@ -100,16 +100,6 @@ generate_secret "encryption-key-long" 64 base64
 log_info "Generating Redis exporter secrets..."
 generate_json_secret "redis-exporter-passwords.json"
 
-# Keycloak secrets
-log_info "Generating Keycloak secrets..."
-generate_secret "keycloak-admin-username" 12 alphanumeric
-generate_secret "keycloak-admin-password" 24 password
-generate_secret "keycloak-backend-secret" 32 hex
-generate_secret "keycloak-compliance-cex-secret" 32 hex
-generate_secret "keycloak-compliance-dex-secret" 32 hex
-generate_secret "keycloak-compliance-nft-secret" 32 hex
-generate_secret "keycloak-compliance-token-secret" 32 hex
-generate_secret "keycloak-compliance-coordinator-secret" 32 hex
 
 # Vault secrets
 log_info "Generating Vault secrets..."

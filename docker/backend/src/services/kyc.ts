@@ -16,7 +16,7 @@
 import { LoggerService } from './logger';
 import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
-import { KeycloakService } from './keycloak';
+// import { KeycloakService } from './keycloak'; // Removed - using Zitadel now
 import { BrokerManagementService } from './broker-management';
 import { getBallerineService } from './ballerine';
 import { AppError, createError } from '../utils';
@@ -31,7 +31,7 @@ import { kycLimitsConfig, KYCLevelConfig, KYCLevelLimits, getCurrencySymbol, for
 export interface KYCUser {
   id: string;
   tenantId: string;
-  keycloakUserId: string;
+  userId: string; // Zitadel user ID (previously keycloakUserId)
   brokerId: string;
   email: string;
   phoneNumber?: string;
@@ -597,7 +597,7 @@ export class KYCService {
    */
   public static async startKYCVerification(
     tenantId: string,
-    keycloakUserId: string,
+    userId: string, // Zitadel user ID (previously keycloakUserId)
     brokerId: string,
     email: string,
     phoneNumber?: string,
@@ -607,7 +607,7 @@ export class KYCService {
     try {
       LoggerService.info('Starting KYC verification process', {
         tenantId,
-        keycloakUserId,
+        userId,
         brokerId,
         email,
         requestedLevel
@@ -615,7 +615,7 @@ export class KYCService {
 
       // Check if user already exists
       const existingUser = Array.from(this.users.values()).find(
-        user => user.keycloakUserId === keycloakUserId && user.tenantId === tenantId
+        user => user.userId === userId && user.tenantId === tenantId
       );
 
       if (existingUser) {
@@ -626,7 +626,7 @@ export class KYCService {
       const user: KYCUser = {
         id,
         tenantId,
-        keycloakUserId,
+        userId,
         brokerId,
         email,
         phoneNumber,
@@ -676,7 +676,7 @@ export class KYCService {
         id,
         {
           tenantId,
-          keycloakUserId,
+          userId,
           brokerId,
           email,
           requestedLevel

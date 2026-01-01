@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'zitadel';
 
 // For Zitadel UI login (smoke only). If unset, this setup is skipped.
 const LOGINNAME = process.env.E2E_ZITADEL_LOGINNAME || '';

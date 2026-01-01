@@ -48,8 +48,6 @@ up-databases: network ## Start databases (postgres, mongodb, redis, typesense)
 up-messaging: network ## Start messaging (kafka)
 	docker compose -f messaging/compose.yaml up -d
 
-up-security: network ## Start security (keycloak, vault, opa)
-	docker compose -f security/compose.yaml up -d
 
 up-gateway: network ## Start gateway (apisix, etcd)
 	docker compose -f gateway/compose.yaml up -d
@@ -67,7 +65,7 @@ up-observability: network ## Start observability stack
 	docker compose -f observability/compose.yaml up -d
 
 # Combined operations
-up-infra: up-databases up-messaging up-security up-gateway ## Start all infrastructure services
+up-infra: up-databases up-messaging up-gateway ## Start all infrastructure services
 
 up-apps: up-core up-trading up-fintech ## Start all application services
 

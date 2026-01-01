@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import apiClient from '@/lib/api/client';
-import { initKeycloak } from '@/lib/auth/keycloak';
 import { initZitadel } from '@/lib/auth/zitadel';
 import { getAccessToken } from '@/lib/auth/token-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,14 +18,9 @@ export default function DepositPage() {
   useEffect(() => {
     (async () => {
       try {
-        const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
-        if (authMode === 'keycloak') {
-          await initKeycloak();
-        } else if (authMode === 'zitadel') {
-          await initZitadel();
-        }
+        await initZitadel();
 
-        if ((authMode === 'keycloak' || authMode === 'zitadel') && !getAccessToken()) {
+        if (!getAccessToken()) {
           window.location.href = `/login?next=/wallet/deposit`;
           return;
         }

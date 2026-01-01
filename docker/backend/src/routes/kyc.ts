@@ -61,7 +61,7 @@ const upload = multer({
 router.post('/verify',
   authenticateToken,
   validateRequest(Joi.object({
-    keycloakUserId: Joi.string().required(),
+    userId: Joi.string().required(),
     brokerId: Joi.string().required(),
     email: Joi.string().email().required(),
     phoneNumber: Joi.string().optional(),
@@ -72,7 +72,7 @@ router.post('/verify',
     try {
       const { tenantId } = req.user as any;
       const {
-        keycloakUserId,
+        userId,
         brokerId,
         email,
         phoneNumber,
@@ -82,7 +82,7 @@ router.post('/verify',
 
       LoggerService.info('Starting KYC verification process', {
         tenantId,
-        keycloakUserId,
+        userId,
         brokerId,
         email,
         requestedLevel
@@ -90,7 +90,7 @@ router.post('/verify',
 
       const user = await KYCService.startKYCVerification(
         tenantId,
-        keycloakUserId,
+        userId,
         brokerId,
         email,
         phoneNumber,

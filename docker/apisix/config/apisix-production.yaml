@@ -81,7 +81,6 @@ deployment:
 plugins:
   # Security plugins
   - api-breaker
-  - authz-keycloak
   - basic-auth
   - consumer-restriction
   - cors

@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import { tokenPurchaseSchema, validateForm } from '@/lib/utils';
 import { getAccessToken } from '@/lib/auth/token-store';
-import { initKeycloak } from '@/lib/auth/keycloak';
 import { initZitadel } from '@/lib/auth/zitadel';
 
 export default function TokenPresalePage() {
@@ -35,7 +34,7 @@ export default function TokenPresalePage() {
   const [brokerCode, setBrokerCode] = useState<string>('');
   const [thalPrice, setThalPrice] = useState<number>(0.10); // Default fallback price
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const authMode = process.env.NEXT_PUBLIC_AUTH_MODE || 'keycloak';
+  const authMode = 'zitadel';
 
   useEffect(() => {
     // Load presale data
@@ -46,39 +45,18 @@ export default function TokenPresalePage() {
 
     // Determine auth state
     (async () => {
-      if (authMode === 'keycloak') {
-        try {
-          await initKeycloak();
-        } catch {
-          // ignore
-        }
-        setIsAuthenticated(!!getAccessToken());
-        return;
-      }
-
-      if (authMode === 'zitadel') {
-        try {
-          await initZitadel();
-        } catch {
-          // ignore
-        }
-        setIsAuthenticated(!!getAccessToken());
-        return;
-      }
-
-      // legacy/local mode: backend cookies
       try {
-        const res = await fetch('/api/auth/profile', { credentials: 'include' });
-        setIsAuthenticated(res.ok);
+        await initZitadel();
       } catch {
-        setIsAuthenticated(false);
+        // ignore
       }
+      setIsAuthenticated(!!getAccessToken());
     })();
   }, []);
 
   const authzHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = {};
-    const token = authMode === 'keycloak' || authMode === 'zitadel' ? getAccessToken() : null;
+    const token = getAccessToken();
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }

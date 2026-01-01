@@ -10,10 +10,6 @@
 -- Create additional databases
 -- ===========================================
 
--- Keycloak database
-SELECT 'CREATE DATABASE keycloak'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'keycloak')\gexec
-
 -- Ballerine database
 SELECT 'CREATE DATABASE ballerine'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'ballerine')\gexec
@@ -47,9 +43,6 @@ $$;
 -- ===========================================
 -- Grant privileges
 -- ===========================================
-
--- Grant privileges on keycloak database
-GRANT ALL PRIVILEGES ON DATABASE keycloak TO thaliumx;
 
 -- Grant privileges on ballerine database
 GRANT ALL PRIVILEGES ON DATABASE ballerine TO ballerine;

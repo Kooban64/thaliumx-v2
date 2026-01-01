@@ -31,7 +31,6 @@ authentication:
 
 plugins:
   - api-breaker
-  - authz-keycloak
   - basic-auth
   - batch-requests
   - consumer-restriction

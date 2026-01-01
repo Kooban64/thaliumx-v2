@@ -84,29 +84,6 @@ services:
       retries: 3
       start_period: 40s
 
-  # Keycloak Identity Provider
-  keycloak:
-    image: quay.io/keycloak/keycloak:22.0
-    container_name: thaliumx-keycloak
-    environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_password}
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
-      KC_DB_USERNAME: thaliumx
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-thaliumx_dev_password}
-      KC_HOSTNAME: localhost
-      KC_HOSTNAME_PORT: 8080
-      KC_HOSTNAME_STRICT: false
-      KC_HTTP_ENABLED: true
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - thaliumx-network
-    command: ["start-dev"]
 
 volumes:
   postgres_data:

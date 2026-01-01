@@ -1,13 +1,15 @@
-# Zitadel Adoption Plan (Prod-v1) — OIDC-first, single issuer, multi-tenant via app DB
+# Zitadel Adoption Plan - COMPLETED
 
-This document describes a **careful, low-risk** plan to move ThaliumX from Keycloak to **Zitadel** with:
+**Migration Status: ✅ COMPLETE**
+
+This document describes the **completed migration** from Keycloak to Zitadel with:
 
 - **OIDC-only** integration (avoid IdP admin API coupling)
 - **Single issuer** (one identity provider instance)
 - **Multi-tenant + broker tenants** implemented primarily in **application DB + authorization**
 - Strong security defaults suitable for a financial platform
 
-Scope note: this is an adoption/migration **plan**. It does not delete Keycloak or remove functionality. Keycloak can be kept as a fallback until cutover is proven.
+**Migration completed:** Keycloak has been fully removed. The system now runs exclusively on Zitadel.
 
 ## Goals
 
