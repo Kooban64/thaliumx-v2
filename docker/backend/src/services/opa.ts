@@ -101,6 +101,7 @@ export class OPAService {
         return [];
       }
 
+      const startTime = Date.now();
       const response = await this.client.post<OPAResponse>(
         '/v1/data/thaliumx/aml/allow',
         { input }
@@ -151,6 +152,7 @@ export class OPAService {
         return [];
       }
 
+      const startTime = Date.now();
       const response = await this.client.post<OPAResponse>(
         '/v1/data/thaliumx/security/allow',
         { input }

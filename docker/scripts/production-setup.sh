@@ -36,7 +36,7 @@ print_error() {
 
 # Step 1: Create data directories
 print_status "Creating persistent data directories..."
-sudo mkdir -p "$DATA_DIR"/{postgres,redis,mongodb,vault,vault-logs,vault-file,opa,keycloak,prometheus,grafana,loki,etcd,apisix-logs,kafka,typesense,citus-coordinator,citus-worker1,citus-worker2,dingir,dingir-logs,liquibook,liquibook-logs,quantlib,quantlib-cache,quantlib-models,alertmanager,tempo,wazuh-indexer,wazuh-api-config,wazuh-etc,wazuh-logs,wazuh-queue,wazuh-multigroups,wazuh-integrations,wazuh-active-response,wazuh-agentless,wazuh-wodles,filebeat-etc,filebeat-var,wazuh-dashboard-config,wazuh-dashboard-custom,ballerine-postgres,blnkfinance,timescaledb} 2>/dev/null || true
+sudo mkdir -p "$DATA_DIR"/{postgres,redis,mongodb,vault,vault-logs,vault-file,opa,keycloak,prometheus,grafana,loki,etcd,apisix-logs,kafka,typesense,citus-coordinator,citus-worker1,citus-worker2,dingir,dingir-logs,liquibook,liquibook-logs,quantlib,quantlib-cache,quantlib-models,alertmanager,tempo,wazuh-indexer,wazuh-api-config,wazuh-etc,wazuh-logs,wazuh-queue,wazuh-multigroups,wazuh-integrations,wazuh-active-response,wazuh-agentless,wazuh-wodles,filebeat-etc,filebeat-var,wazuh-dashboard-config,wazuh-dashboard-custom,ballerine-postgres,blnkfinance,timescaledb,support-postgres,graphql-cache} 2>/dev/null || true
 sudo chown -R "$USER:$USER" /opt/thaliumx 2>/dev/null || true
 print_status "Data directories created"
 
@@ -60,7 +60,7 @@ docker compose -f compose.yaml build --parallel 2>&1 | tee /tmp/thaliumx-build.l
 print_status "Starting infrastructure services (databases, messaging, security)..."
 docker compose -f compose.yaml up -d postgres mongodb redis typesense
 docker compose -f compose.yaml up -d citus-coordinator citus-worker-1 citus-worker-2
-docker compose -f compose.yaml up -d timescaledb
+docker compose -f compose.yaml up -d timescaledb support-postgres
 docker compose -f compose.yaml up -d kafka schema-registry
 docker compose -f compose.yaml up -d keycloak vault opa
 
@@ -71,7 +71,7 @@ sleep 30
 # Step 6: Start gateway and core services
 print_status "Starting gateway and core services..."
 docker compose -f compose.yaml up -d etcd apisix
-docker compose -f compose.yaml up -d backend frontend
+docker compose -f compose.yaml up -d backend frontend graphql
 
 # Step 7: Start trading services
 print_status "Starting trading services..."
@@ -85,19 +85,23 @@ docker compose -f compose.yaml up -d ballerine-postgres ballerine-workflow balle
 print_status "Starting compliance services..."
 docker compose -f compose.yaml up -d compliance-cex compliance-dex compliance-nft compliance-token compliance-coordinator
 
-# Step 10: Start observability
+# Step 10: Start support services
+print_status "Starting support services..."
+docker compose -f compose.yaml up -d support-moderation-analytics live-helper-chat osticket
+
+# Step 11: Start observability
 print_status "Starting observability stack..."
 docker compose -f compose.yaml up -d prometheus grafana loki promtail tempo otel-collector alertmanager blackbox-exporter cadvisor postgres-exporter redis-exporter
 
-# Step 11: Start security monitoring
+# Step 12: Start security monitoring
 print_status "Starting security monitoring (Wazuh)..."
 docker compose -f compose.yaml up -d wazuh-indexer wazuh-manager wazuh-dashboard
 
-# Step 12: Wait for all services
+# Step 13: Wait for all services
 print_status "Waiting for all services to start..."
 sleep 60
 
-# Step 13: Check service health
+# Step 14: Check service health
 print_status "Checking service health..."
 cd "$DOCKER_DIR"
 docker compose -f compose.yaml ps

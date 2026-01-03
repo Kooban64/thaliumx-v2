@@ -966,6 +966,70 @@ export class KYCService {
   }
 
   /**
+   * Check if upgrade is needed and trigger workflow if required
+   */
+  public static async checkAndTriggerUpgrade(
+    userId: string,
+    requiredLevel: KYCLevel,
+    reason: string,
+    autoTrigger: boolean = true
+  ): Promise<{ upgradeNeeded: boolean; workflowTriggered: boolean; workflowId?: string; message: string }> {
+    try {
+      // Get current KYC status
+      const kycStatus = await this.getKYCStatus(userId);
+      const currentLevel = kycStatus.kycLevel;
+
+      // Check if upgrade is needed
+      const kycLevels = ['L0', 'L1', 'L2', 'L3', 'INSTITUTIONAL'];
+      const currentLevelIndex = kycLevels.indexOf(currentLevel);
+      const requiredLevelIndex = kycLevels.indexOf(requiredLevel);
+
+      if (currentLevelIndex >= requiredLevelIndex) {
+        return {
+          upgradeNeeded: false,
+          workflowTriggered: false,
+          message: `User already has required KYC level ${requiredLevel} or higher`
+        };
+      }
+
+      // Upgrade is needed
+      if (autoTrigger) {
+        // Import services dynamically to avoid circular dependencies
+        const { KYCUpgradeTriggerService } = await import('./kyc-upgrade-trigger.service');
+        
+        const workflowResult = await KYCUpgradeTriggerService.triggerUpgradeWorkflow({
+          userId,
+          tenantId: kycStatus.tenantId,
+          fromLevel: currentLevel,
+          toLevel: requiredLevel,
+          reason,
+          triggerType: 'blocking' // Default to blocking since this is called when upgrade is required
+        });
+
+        return {
+          upgradeNeeded: true,
+          workflowTriggered: workflowResult.workflowTriggered,
+          workflowId: workflowResult.workflowId,
+          message: workflowResult.message
+        };
+      } else {
+        return {
+          upgradeNeeded: true,
+          workflowTriggered: false,
+          message: `KYC upgrade to level ${requiredLevel} is required. Please initiate the upgrade workflow.`
+        };
+      }
+    } catch (error) {
+      LoggerService.error('Check and trigger upgrade failed:', error);
+      return {
+        upgradeNeeded: false,
+        workflowTriggered: false,
+        message: 'Failed to check upgrade requirements. Please contact support.'
+      };
+    }
+  }
+
+  /**
    * Get service health status
    */
   public static isHealthy(): boolean {
@@ -1205,6 +1269,55 @@ export class KYCService {
         userId: user.id,
         isValid: data.isValid
       });
+
+      // Trigger workflow continuation if this is part of an onboarding workflow
+      // The caseId or workflowId from Ballerine should match our workflow ID
+      try {
+        const { WorkflowOrchestratorService } = await import('./workflow-orchestrator');
+        
+        // Check if there's an active onboarding workflow waiting for KYC
+        // The workflow ID might be stored in document metadata or we can search by user
+        const onboardingWorkflows = await WorkflowOrchestratorService.getWorkflowsByUser(
+          user.id,
+          {
+            status: 'running' as any,
+            workflowType: 'user_onboarding' as any
+          }
+        );
+
+        // Find workflow that matches this KYC case
+        for (const workflow of onboardingWorkflows) {
+          if (workflow.data?.ballerineWorkflowId === workflowId || 
+              workflow.data?.ballerineCaseId === caseId) {
+            LoggerService.info('Continuing onboarding workflow after KYC completion', {
+              workflowId: workflow.workflowId,
+              kycStatus: data.isValid ? 'approved' : 'rejected'
+            });
+
+            // Continue workflow with KYC result
+            await WorkflowOrchestratorService.continueWorkflow(
+              workflow.workflowId,
+              {
+                kycCompleted: true,
+                kycResult: {
+                  status: data.isValid ? 'approved' : 'rejected',
+                  decision: data.decision,
+                  riskScore: data.riskScore,
+                  isValid: data.isValid
+                }
+              },
+              'create_user_account' // Next step after KYC
+            );
+            break;
+          }
+        }
+      } catch (workflowError: any) {
+        // Don't fail KYC processing if workflow continuation fails
+        LoggerService.warn('Failed to continue workflow after KYC completion', {
+          error: workflowError.message,
+          caseId
+        });
+      }
 
     } catch (error) {
       LoggerService.error('Handle workflow completed failed:', error);

@@ -8,7 +8,6 @@ export default function VestingPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const authMode = 'zitadel';
 
   useEffect(() => {
     const load = async () => {

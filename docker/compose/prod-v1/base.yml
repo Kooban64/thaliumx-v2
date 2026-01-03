@@ -260,3 +260,7 @@ secrets:
     file: ../../../.secrets/generated/zitadel-config-secrets.yaml
   zitadel-init-steps-yaml:
     file: ../../../.secrets/generated/zitadel-init-steps.yaml
+
+  # Support Services
+  support-db-password:
+    file: ../../../.secrets/generated/support-db-password

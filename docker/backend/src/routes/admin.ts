@@ -433,10 +433,10 @@ router.get('/settings', requireRole(['super_admin']), async (req: Request, res: 
         networkId: config.blockchain.networkId,
         confirmations: config.blockchain.confirmations
       },
-      keycloak: {
-        baseUrl: config.keycloak.baseUrl,
-        realm: config.keycloak.realm,
-        timeout: config.keycloak.timeout
+      zitadel: {
+        issuer: config.zitadel.issuer,
+        jwksUri: config.zitadel.jwksUri,
+        audience: config.zitadel.audience
       },
       kafka: {
         brokers: config.kafka.brokers,

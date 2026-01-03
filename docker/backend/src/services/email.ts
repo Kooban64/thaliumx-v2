@@ -114,5 +114,43 @@ export class EmailService {
     }
   }
 
+  public static async sendWelcomeEmail(params: {
+    email: string;
+    firstName: string;
+    userId: string;
+  }): Promise<void> {
+    if (!this.transporter) {
+      throw new Error('Email service not initialized');
+    }
+
+    const config = await ConfigService.getConfig();
+    const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`;
+
+    const mailOptions = {
+      from: config.smtp.from,
+      to: params.email,
+      subject: 'Welcome to ThaliumX!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Welcome to ThaliumX, ${params.firstName}!</h2>
+          <p>Your account has been successfully created and verified.</p>
+          <p>You can now start trading on our platform.</p>
+          <a href="${loginUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Login to Your Account</a>
+          <p>If you have any questions, please don't hesitate to contact our support team.</p>
+          <p>Best regards,<br>ThaliumX Team</p>
+        </div>
+      `,
+      text: `Welcome to ThaliumX, ${params.firstName}! Your account has been successfully created. Visit ${loginUrl} to login.`
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      LoggerService.info('Welcome email sent', { userId: params.userId, email: params.email });
+    } catch (error) {
+      LoggerService.error('Failed to send welcome email', { error, userId: params.userId });
+      throw error;
+    }
+  }
+
   // Add other email methods as needed, e.g., verification email, notifications, etc.
 }

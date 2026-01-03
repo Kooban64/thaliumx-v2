@@ -71,7 +71,7 @@ services:
         export APISIX_ADMIN_KEY="$(cat /run/secrets/api-key)";
         export APISIX_ID="thaliumx-apisix";
 
-        # Render ETCD-backed APISIX config from template (inject Admin API key).
+        # Render ETCD-backed APISIX config (inject Admin API key from secret).
         # NOTE: we do this at runtime to avoid relying on APISIX env-substitution behavior.
         # IMPORTANT: APISIX reads /usr/local/apisix/conf/config.yaml (not apisix.yaml) when running in etcd mode.
         # Escape replacement so sed doesn't break if the key contains '/' or '&'.
@@ -94,10 +94,10 @@ services:
         chmod 600 /tmp/certs/server.key;
         exec /docker-entrypoint.sh docker-start
     volumes:
-      # Mount the template (rendered into /usr/local/apisix/conf/apisix.yaml at runtime)
+      # Mount the config file (rendered into /usr/local/apisix/conf/config.yaml at runtime)
       # NOTE: gateway.yml is located at docker/compose/prod-v1/
       # so ../../apisix/... resolves to docker/apisix/... (correct).
-      - ./../../apisix/config/apisix-etcd.template.yaml:/config/apisix.yaml:ro
+      - ./../../apisix/config/apisix-etcd.yaml:/config/apisix.yaml:ro
       - apisix_logs:/usr/local/apisix/logs
       - /home/ubuntu/thaliumx-v1/docker/certs/services/apisix:/usr/local/apisix/certs:ro
       - /home/ubuntu/thaliumx-v1/docker/certs/ca/ca.crt:/usr/local/apisix/certs/ca.crt:ro
@@ -157,6 +157,7 @@ services:
       # Used to configure APISIX openid-connect (bearer_only) plugin.
       # NOTE: APISIX openid-connect schema requires `client_secret`.
       - apisix-oidc-client-secret
+      - redis-password
     environment:
       # Keycloak decommissioned; Zitadel is the only supported auth provider.
       THALIUMX_AUTH_PROVIDER: ${THALIUMX_AUTH_PROVIDER:-zitadel}
@@ -184,6 +185,17 @@ services:
         # Enable gateway-side OIDC enforcement for protected APIs.
         # Frontend is Keycloak-first and sends Bearer tokens.
         export APISIX_ENABLE_OIDC="${APISIX_ENABLE_OIDC:-true}";
+        # Redis configuration for rate limiting
+        export REDIS_HOST="${REDIS_HOST:-thaliumx-redis}";
+        export REDIS_PORT="${REDIS_PORT:-6379}";
+        export REDIS_DATABASE="${REDIS_DATABASE:-0}";
+        if [ -f /run/secrets/redis-password ]; then
+          export REDIS_PASSWORD="$(cat /run/secrets/redis-password)";
+        fi
+        # OPA configuration (HTTPS with TLS verification)
+        export OPA_HOST="${OPA_HOST:-https://thaliumx-opa:8181}";
+        export OPA_POLICY="${OPA_POLICY:-thaliumx/authz}";
+        export OPA_SSL_VERIFY="${OPA_SSL_VERIFY:-true}";
         bash /scripts/init-apisix-routes.sh
     networks:
       - thaliumx-net

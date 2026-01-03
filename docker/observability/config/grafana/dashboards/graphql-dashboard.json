@@ -1,0 +1,90 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "GraphQL API Gateway",
+    "tags": ["thaliumx", "graphql", "api"],
+    "timezone": "UTC",
+    "panels": [
+      {
+        "id": 1,
+        "title": "GraphQL Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"thaliumx-graphql\"}[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "GraphQL Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"thaliumx-graphql\"}[5m]))",
+            "legendFormat": "95th percentile"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "GraphQL Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(graphql_errors_total{job=\"thaliumx-graphql\"}[5m])",
+            "legendFormat": "Errors/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Active WebSocket Connections",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "websocket_connections_active{job=\"thaliumx-graphql\"}",
+            "legendFormat": "Active connections"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Cache Hit Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(cache_hits_total{job=\"thaliumx-graphql\"}[5m]) / rate(cache_requests_total{job=\"thaliumx-graphql\"}[5m]) * 100",
+            "legendFormat": "Cache hit %"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "container_memory_usage_bytes{name=\"thaliumx-graphql\"}",
+            "legendFormat": "Memory bytes"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      }
+    ],
+    "time": {"from": "now-1h", "to": "now"},
+    "timepicker": {},
+    "templating": {"list": []},
+    "annotations": {"list": []},
+    "refresh": "30s",
+    "schemaVersion": 27,
+    "version": 0,
+    "links": []
+  }
+}

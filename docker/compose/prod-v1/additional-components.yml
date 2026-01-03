@@ -1,0 +1,163 @@
+# ThaliumX Production v1 - Additional Components Layer
+# ====================================================
+# GraphQL, Live Helper Chat, osTicket
+# Updated: 2026-01-03
+
+version: '3.8'
+
+services:
+  # GraphQL API Gateway
+  graphql:
+    profiles: ["non-audit"]
+    build:
+      context: ./../../docker/graphql
+      dockerfile: Dockerfile
+    image: thaliumx/graphql:latest
+    container_name: thaliumx-graphql
+    hostname: thaliumx-graphql
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      REDIS_URL: redis://thaliumx-redis:6379
+      BACKEND_URL: http://thaliumx-backend:3002
+      KAFKA_BROKER: thaliumx-kafka:9094
+      KAFKA_CLIENT_ID: thaliumx-graphql
+      KAFKA_GROUP_ID: graphql-workflow-subscriptions
+    networks:
+      - thaliumx-net
+    depends_on:
+      - thaliumx-redis
+      - kafka
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Support Services Database
+  support-postgres:
+    profiles: ["non-audit"]
+    image: postgres:15
+    container_name: thaliumx-support-postgres
+    hostname: thaliumx-support-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: support
+      POSTGRES_PASSWORD_FILE: /run/secrets/support-db-password
+      POSTGRES_DB: support
+    secrets:
+      - support-db-password
+    volumes:
+      - support_postgres_data:/var/lib/postgresql/data
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U support -d support"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Chat Moderation + Analytics (Phase 3)
+  support-moderation-analytics:
+    profiles: ["non-audit"]
+    build:
+      context: /home/ubuntu/thaliumx-v1/docker/support/moderation-analytics
+      dockerfile: Dockerfile
+    image: thaliumx/support-moderation-analytics:latest
+    container_name: thaliumx-support-moderation-analytics
+    hostname: thaliumx-support-moderation-analytics
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      RATE_WINDOW_MS: "10000"
+      RATE_MAX_TOKENS: "30"
+      RATE_REFILL_PER_WINDOW: "30"
+      ANALYTICS_MAX_EVENTS: "200000"
+    networks:
+      - thaliumx-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Live Helper Chat
+  live-helper-chat:
+    profiles: ["non-audit"]
+    build:
+      context: /home/ubuntu/thaliumx-v1/docker/support/live-helper-chat
+      dockerfile: Dockerfile
+    image: thaliumx/live-helper-chat:latest
+    container_name: thaliumx-live-helper-chat
+    hostname: thaliumx-live-helper-chat
+    restart: unless-stopped
+    environment:
+      DB_HOST: thaliumx-support-postgres
+      DB_USER: support
+      DB_PASS_FILE: /run/secrets/support-db-password
+      DB_NAME: support
+      ZITADEL_CLIENT_ID: ${ZITADEL_CLIENT_ID}
+      ZITADEL_CLIENT_SECRET: ${ZITADEL_CLIENT_SECRET}
+      CHAT_ENCRYPTION_KEY: ${CHAT_ENCRYPTION_KEY}
+      SMTP_HOST: thaliumx-mailhog
+      SMTP_PORT: 1025
+      REDIS_URL: redis://thaliumx-redis:6379
+      MODERATION_API_URL: http://thaliumx-support-moderation-analytics:8080
+    secrets:
+      - support-db-password
+    networks:
+      - thaliumx-net
+    depends_on:
+      support-postgres:
+        condition: service_healthy
+      support-moderation-analytics:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # osTicket
+  osticket:
+    profiles: ["non-audit"]
+    build:
+      context: ./../../docker/support/osticket
+      dockerfile: Dockerfile
+    image: thaliumx/osticket:latest
+    container_name: thaliumx-osticket
+    hostname: thaliumx-osticket
+    restart: unless-stopped
+    environment:
+      DB_HOST: thaliumx-support-postgres
+      DB_USER: support
+      DB_PASS_FILE: /run/secrets/support-db-password
+      DB_NAME: support
+      ZITADEL_CLIENT_ID: ${ZITADEL_CLIENT_ID}
+      ZITADEL_CLIENT_SECRET: ${ZITADEL_CLIENT_SECRET}
+      OSTICKET_SECRET_SALT: ${OSTICKET_SECRET_SALT}
+      LHC_API_KEY: ${LHC_API_KEY}
+      SMTP_HOST: thaliumx-mailhog
+      SMTP_PORT: 1025
+    secrets:
+      - support-db-password
+    networks:
+      - thaliumx-net
+    depends_on:
+      support-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  support_postgres_data:
+    name: thaliumx-support-postgres-data
+
+networks:
+  thaliumx-net:
+    external: true

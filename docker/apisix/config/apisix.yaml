@@ -43,5 +43,52 @@ routes:
       nodes:
         thaliumx-frontend:3000: 1
       type: roundrobin
+  - id: 4
+    uri: /graphql
+    methods: ["GET", "POST"]
+    enable_websocket: true
+    upstream:
+      nodes:
+        thaliumx-graphql:4000: 1
+      type: roundrobin
+    plugins:
+      openid-connect:
+        client_id: ${ZITADEL_CLIENT_ID}
+        client_secret: ${ZITADEL_CLIENT_SECRET}
+        discovery: https://auth.thaliumx.com/.well-known/openid-configuration
+        redirect_uri: https://thaliumx.com/graphql/auth/callback
+        scope: openid profile email
+        session:
+          secret: ${APISIX_SESSION_SECRET}
+  - id: 5
+    uri: /support/chat/*
+    upstream:
+      nodes:
+        thaliumx-live-helper-chat:80: 1
+      type: roundrobin
+    plugins:
+      openid-connect:
+        client_id: ${ZITADEL_CLIENT_ID}
+        client_secret: ${ZITADEL_CLIENT_SECRET}
+        discovery: https://auth.thaliumx.com/.well-known/openid-configuration
+        redirect_uri: https://thaliumx.com/support/chat/auth/callback
+        scope: openid profile email
+        session:
+          secret: ${APISIX_SESSION_SECRET}
+  - id: 6
+    uri: /support/tickets/*
+    upstream:
+      nodes:
+        thaliumx-osticket:80: 1
+      type: roundrobin
+    plugins:
+      openid-connect:
+        client_id: ${ZITADEL_CLIENT_ID}
+        client_secret: ${ZITADEL_CLIENT_SECRET}
+        discovery: https://auth.thaliumx.com/.well-known/openid-configuration
+        redirect_uri: https://thaliumx.com/support/tickets/auth/callback
+        scope: openid profile email
+        session:
+          secret: ${APISIX_SESSION_SECRET}
 
 upstreams: []

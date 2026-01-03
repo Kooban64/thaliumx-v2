@@ -20,6 +20,7 @@ import { SmartContractService } from '../services/smart-contracts';
 import { Web3WalletService } from '../services/web3-wallet';
 import { authenticateToken, requireRole } from '../middleware/error-handler';
 import { validateRequest } from '../middleware/error-handler';
+import { investmentAuth } from '../middleware/investment-auth.middleware';
 import Joi from 'joi';
 import { Decimal } from 'decimal.js';
 import { LoggerService } from '../services/logger';
@@ -212,7 +213,7 @@ router.get('/status', async (_req, res) => {
  * POST /api/presale/presales
  * Create a new presale
  */
-router.post('/presales', authenticateToken, requireRole(['admin', 'presale_manager']), validateRequest(createPresaleSchema), async (req, res) => {
+router.post('/presales', authenticateToken, requireRole(['platform_admin', 'platform_operations']), validateRequest(createPresaleSchema), async (req, res) => {
   try {
     const presale = await PresaleService.createPresale(req.body);
     
@@ -335,7 +336,16 @@ router.put('/presales/:id', authenticateToken, requireRole(['admin', 'presale_ma
  * POST /api/presale/investments
  * Make an investment
  */
-router.post('/investments', authenticateToken, validateRequest(makeInvestmentSchema), async (req, res): Promise<void> => {
+router.post('/investments', 
+  authenticateToken, 
+  investmentAuth({ 
+    limitType: 'investment',
+    autoTriggerUpgrade: true,
+    resourceType: 'presale',
+    action: 'presale_investment'
+  }),
+  validateRequest(makeInvestmentSchema), 
+  async (req, res): Promise<void> => {
   try {
     const { presaleId, amount, paymentMethod, tier, referralCode, walletAddress } = req.body;
     const userId = (req as any).user?.id;
@@ -399,7 +409,8 @@ router.post('/investments', authenticateToken, validateRequest(makeInvestmentSch
       tier,
       referralCode,
       walletAddress, // Pass wallet address for on-chain purchase
-      attributedBrokerId
+      attributedBrokerId,
+      req // Pass request object for OPA evaluation
     );
     
     const responseBody = {
@@ -486,7 +497,7 @@ router.get('/investments/:id', authenticateToken, async (req, res) => {
  * GET /api/presale/presales/:id/investments
  * Get investments by presale
  */
-router.get('/presales/:id/investments', authenticateToken, requireRole(['admin', 'presale_manager']), async (req, res) => {
+router.get('/presales/:id/investments', authenticateToken, requireRole(['platform_admin', 'platform_operations']), async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -560,7 +571,7 @@ router.post('/whitelist', authenticateToken, requireRole(['admin', 'presale_mana
  * PUT /api/presale/whitelist/:id/approve
  * Approve whitelist entry
  */
-router.put('/whitelist/:id/approve', authenticateToken, requireRole(['admin', 'presale_manager']), validateRequest(approveWhitelistSchema), async (req, res) => {
+router.put('/whitelist/:id/approve', authenticateToken, requireRole(['platform_admin', 'platform_operations']), validateRequest(approveWhitelistSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -635,7 +646,7 @@ router.get('/presales/:id/whitelist', authenticateToken, requireRole(['admin', '
  * GET /api/presale/presales/:id/statistics
  * Get presale statistics
  */
-router.get('/presales/:id/statistics', authenticateToken, requireRole(['admin', 'presale_manager', 'analyst']), async (req, res) => {
+router.get('/presales/:id/statistics', authenticateToken, requireRole(['platform_admin', 'platform_operations', 'user_analyst']), async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -985,8 +996,20 @@ router.get('/vesting/user/:userId', authenticateToken, async (req, res): Promise
     const { userId } = req.params;
     const requestingUserId = (req as any).user?.id;
     
-    // Verify user can access this data
-    if (requestingUserId !== userId && !(req as any).user?.roles?.includes('admin')) {
+    // Verify user can access this data (using normalized roles)
+    const { RoleMapperService } = require('../services/role-mapper');
+    const userRoles = Array.from(
+      new Set([
+        (req as any).user?.role,
+        ...(Array.isArray((req as any).user?.roles) ? ((req as any).user?.roles as string[]) : [])
+      ].filter(Boolean))
+    );
+    const normalizedUserRoles = RoleMapperService.normalizeRoles(userRoles);
+    const isAdmin = normalizedUserRoles.some((role: any) => 
+      RoleMapperService.matchesAny(role, ['platform_admin', 'master_system_admin'])
+    );
+    
+    if (requestingUserId !== userId && !isAdmin) {
       res.status(403).json({
         success: false,
         error: {

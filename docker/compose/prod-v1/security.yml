@@ -18,7 +18,10 @@ services:
     command:
       - "run"
       - "--server"
-      - "--addr=http://0.0.0.0:8181"
+      - "--addr=https://0.0.0.0:8181"
+      - "--tls-cert-file=/certs/opa/server.crt"
+      - "--tls-private-key-file=/certs/opa/server.key"
+      - "--tls-ca-cert-file=/certs/ca/ca.crt"
       - "--log-level=info"
       - "--log-format=json"
       - "--set=decision_logs.console=true"
@@ -29,13 +32,14 @@ services:
     volumes:
       - ./../../opa/policies:/policies:ro
       - ./../../certs/services/opa:/certs/opa:ro
+      - ./../../certs/ca/ca.crt:/certs/ca/ca.crt:ro
       - opa_data:/data
     environment:
       - OPA_LOG_LEVEL=info
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD", "opa", "run", "--help"]
+      test: ["CMD-SHELL", "wget --no-check-certificate -qO- https://localhost:8181/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

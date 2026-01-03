@@ -102,4 +102,99 @@ export class ComplianceService {
       'compliant'
     );
   }
+
+  /**
+   * Get presale-to-trading conversion metrics
+   * Tracks users who purchase tokens on presale and then trade on main platform
+   */
+  static async getPresaleToTradingMetrics(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<{
+    totalPresaleInvestors: number;
+    totalTradingUsers: number;
+    conversionRate: number;
+    averageTimeToFirstTrade: number; // in hours
+    kycLevelDistribution: Record<string, number>;
+  }> {
+    try {
+      // Query audit logs for presale investments and trading activity
+      const AuditLogModel = DatabaseService.getModel('AuditLog');
+      
+      // Get presale investments in period
+      const presaleInvestments = await (AuditLogModel as any).findAll({
+        where: {
+          tenantId,
+          action: 'presale_investment_completed',
+          createdAt: {
+            [require('sequelize').Op.between]: [startDate, endDate]
+          }
+        },
+        attributes: ['userId', 'details', 'createdAt']
+      });
+
+      // Get trading activity in period
+      const tradingActivity = await (AuditLogModel as any).findAll({
+        where: {
+          tenantId,
+          action: {
+            [require('sequelize').Op.in]: ['trade_executed', 'order_placed', 'transaction_completed']
+          },
+          createdAt: {
+            [require('sequelize').Op.between]: [startDate, endDate]
+          }
+        },
+        attributes: ['userId', 'createdAt']
+      });
+
+      // Calculate metrics
+      const uniquePresaleInvestors = new Set(presaleInvestments.map((inv: any) => inv.userId));
+      const uniqueTradingUsers = new Set(tradingActivity.map((tx: any) => tx.userId));
+      
+      // Find users who did both
+      const convertedUsers = Array.from(uniquePresaleInvestors).filter((userId: any) => 
+        uniqueTradingUsers.has(userId)
+      );
+
+      // Calculate average time to first trade
+      let totalHours = 0;
+      let count = 0;
+      for (const userId of convertedUsers) {
+        const investment = presaleInvestments.find((inv: any) => inv.userId === userId);
+        const firstTrade = tradingActivity.find((tx: any) => tx.userId === userId);
+        if (investment && firstTrade) {
+          const hours = (new Date(firstTrade.createdAt).getTime() - new Date(investment.createdAt).getTime()) / (1000 * 60 * 60);
+          totalHours += hours;
+          count++;
+        }
+      }
+
+      // Get KYC level distribution from investments
+      const kycDistribution: Record<string, number> = {};
+      for (const inv of presaleInvestments) {
+        const kycLevel = (inv.details as any)?.kycLevel || 'L0';
+        kycDistribution[kycLevel] = (kycDistribution[kycLevel] || 0) + 1;
+      }
+
+      return {
+        totalPresaleInvestors: uniquePresaleInvestors.size,
+        totalTradingUsers: uniqueTradingUsers.size,
+        conversionRate: uniquePresaleInvestors.size > 0 
+          ? (convertedUsers.length / uniquePresaleInvestors.size) * 100 
+          : 0,
+        averageTimeToFirstTrade: count > 0 ? totalHours / count : 0,
+        kycLevelDistribution: kycDistribution
+      };
+    } catch (error) {
+      LoggerService.error('Failed to get presale-to-trading metrics:', error);
+      return {
+        totalPresaleInvestors: 0,
+        totalTradingUsers: 0,
+        conversionRate: 0,
+        averageTimeToFirstTrade: 0,
+        kycLevelDistribution: {}
+      };
+    }
+  }
 }

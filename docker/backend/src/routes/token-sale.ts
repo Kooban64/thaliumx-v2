@@ -14,6 +14,7 @@ import { TokenSaleService } from '../services/token-sale';
 import { LoggerService } from '../services/logger';
 import { AppError } from '../utils';
 import { authenticateToken, requireRole, validateRequest } from '../middleware/error-handler';
+import { investmentAuth } from '../middleware/investment-auth.middleware';
 import Joi from 'joi';
 
 const router: Router = Router();
@@ -28,7 +29,7 @@ const router: Router = Router();
  */
 router.post('/phases',
   authenticateToken,
-  requireRole(['platform-admin', 'broker-admin']),
+  requireRole(['platform_admin', 'broker_admin']),
   validateRequest(Joi.object({
     name: Joi.string().min(3).max(100).required(),
     description: Joi.string().min(10).max(500).required(),
@@ -244,7 +245,8 @@ router.post('/investments',
         walletAddress,
         investmentAmountUSD,
         paymentMethod,
-        paymentTxHash
+        paymentTxHash,
+        req // Pass request object for OPA evaluation (backup check)
       );
 
       res.status(201).json({
@@ -296,7 +298,8 @@ router.post('/eligibility',
       const eligibility = await TokenSaleService.checkInvestmentEligibility(
         userId,
         phaseId,
-        investmentAmountUSD
+        investmentAmountUSD,
+        req // Pass request object for OPA evaluation
       );
 
       res.json({
@@ -487,7 +490,7 @@ router.get('/stats',
  */
 router.get('/phases/:phaseId/stats',
   authenticateToken,
-  requireRole(['platform-admin', 'broker-admin']),
+  requireRole(['platform_admin', 'broker_admin']),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { phaseId } = req.params;

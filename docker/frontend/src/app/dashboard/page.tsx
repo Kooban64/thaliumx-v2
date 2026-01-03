@@ -1,5 +1,8 @@
 'use client';
 
+import { TransactionLimitsDisplay } from '@/components/opa/TransactionLimitsDisplay';
+import { KYCAccessInfo } from '@/components/opa/KYCAccessInfo';
+
 import { useState, useEffect } from 'react';
 import { getAccessToken } from '@/lib/auth/token-store';
 import { initZitadel, logoutZitadel } from '@/lib/auth/zitadel';
@@ -21,7 +24,8 @@ import {
   X,
   BarChart3,
   DollarSign,
-  Activity
+  Activity,
+  HelpCircle
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -34,7 +38,6 @@ export default function Dashboard() {
   const [priceChange, setPriceChange] = useState<number>(0);
 
   useEffect(() => {
-    const authMode = 'zitadel';
 
     // Check authentication and load user data
     const checkAuth = async () => {
@@ -117,12 +120,12 @@ export default function Dashboard() {
   }
 
   const sidebarItems = [
-    // Navigation back to marketing site.
     { id: 'home', label: 'Home', icon: BarChart3, href: '/landing' as const },
     { id: 'trading', label: 'Trading', icon: BarChart3 },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
     { id: 'portfolio', label: 'Portfolio', icon: DollarSign },
     { id: 'analytics', label: 'Analytics', icon: Activity },
+    { id: 'support', label: 'Support', icon: HelpCircle, href: '/support' as const },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -430,6 +433,12 @@ export default function Dashboard() {
             )}
           </div>
         </main>
+
+        {/* KYC Access Info and Transaction Limits */}
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <KYCAccessInfo showUpgradePrompt={true} />
+          <TransactionLimitsDisplay showUpgradePrompt={true} />
+        </div>
       </div>
     </div>
   );

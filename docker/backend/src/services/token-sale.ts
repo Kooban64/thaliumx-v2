@@ -19,9 +19,12 @@ import { EventStreamingService } from './event-streaming';
 import { KYCService } from './kyc';
 import { SmartContractService } from './smart-contracts';
 import { BlnkFinanceService } from './blnkfinance';
+import { OPAInputBuilder } from './opa-input-builder';
+import { OPAService } from './opa';
 import { AppError, createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
+import { Request } from 'express';
 
 // =============================================================================
 // CORE TYPES & INTERFACES
@@ -339,7 +342,8 @@ export class TokenSaleService {
     walletAddress: string,
     investmentAmountUSD: number,
     paymentMethod: PaymentMethod,
-    paymentTxHash?: string
+    paymentTxHash?: string,
+    req?: Request
   ): Promise<PresaleInvestment> {
     try {
       LoggerService.info('Processing investment', {
@@ -372,8 +376,9 @@ export class TokenSaleService {
         throw createError('Presale phase has ended', 400, 'PHASE_ENDED');
       }
 
-      // Check investment eligibility
-      const eligibility = await this.checkInvestmentEligibility(userId, phaseId, investmentAmountUSD);
+      // Check investment eligibility (OPA evaluation done by middleware at route level)
+      // Note: req parameter available in processInvestment but not in makeInvestment
+      const eligibility = await this.checkInvestmentEligibility(userId, phaseId, investmentAmountUSD, req);
       if (!eligibility.isEligible) {
         throw createError(eligibility.reason || 'Investment not eligible', 400, 'INVESTMENT_NOT_ELIGIBLE');
       }
@@ -463,7 +468,8 @@ export class TokenSaleService {
   public static async checkInvestmentEligibility(
     userId: string,
     phaseId: string,
-    investmentAmountUSD: number
+    investmentAmountUSD: number,
+    req?: Request
   ): Promise<InvestmentEligibility> {
     try {
       const phase = this.phases.get(phaseId);
@@ -537,6 +543,170 @@ export class TokenSaleService {
         };
       }
 
+      // Check unified transaction limits (cumulative across presale and main platform)
+      // Note: tenantId is needed for limit check - will be extracted from user context
+      // For now, we'll use a default tenant or get it from KYC status
+      let tenantId = '10000000-0000-0000-0000-000000000000'; // Default platform tenant
+      try {
+        // Try to get tenantId from KYC status if available
+        if (kycStatus.tenantId) {
+          tenantId = kycStatus.tenantId;
+        }
+      } catch (e) {
+        // Use default tenant
+      }
+
+      // Import services dynamically to avoid circular dependencies
+      const { TransactionVolumeTrackerService } = await import('./transaction-volume-tracker.service');
+      const { KYCUpgradeTriggerService } = await import('./kyc-upgrade-trigger.service');
+      const { TimePeriod } = await import('./transaction-volume-tracker.service');
+
+      // Check cumulative investment limit
+      const upgradeCheck = await KYCUpgradeTriggerService.checkUpgradeRequired(
+        userId,
+        tenantId,
+        'investment',
+        investmentAmountUSD,
+        TimePeriod.TOTAL
+      );
+
+      // If upgrade is required and transaction would be blocked
+      if (upgradeCheck.shouldUpgrade && !upgradeCheck.limitStatus.canProceed) {
+        return {
+          isEligible: false,
+          reason: upgradeCheck.message || `Investment limit exceeded. Current usage: ${upgradeCheck.limitStatus.current.toFixed(2)}, Limit: ${upgradeCheck.limitStatus.limit.toFixed(2)}. Please upgrade to KYC level ${upgradeCheck.requiredLevel}`,
+          requiredKycLevel: upgradeCheck.requiredLevel || phase.kycLevelRequired,
+          currentKycLevel,
+          maxInvestmentAllowed: upgradeCheck.limitStatus.remaining,
+          phaseLimits: {
+            minInvestment: phase.minInvestment,
+            maxInvestment: phase.maxInvestment,
+            tokensAvailable: phase.totalTokensAllocated - phase.tokensSold
+          },
+          limitStatus: upgradeCheck.limitStatus,
+          upgradeRequired: true
+        } as any;
+      }
+
+      // Evaluate OPA policy for investment authorization (if request object provided)
+      if (req) {
+        try {
+          const { OPAInputBuilder } = await import('./opa-input-builder');
+          const { OPAService } = await import('./opa');
+          const investmentId = uuidv4(); // Generate investment ID for OPA context
+          const opaInput = await OPAInputBuilder.buildFromRequest(
+            req,
+            'token_sale',
+            'token_sale_investment',
+            investmentId,
+            {
+              transaction: {
+                amount: investmentAmountUSD,
+                type: 'token_sale_investment',
+                currency: 'USD',
+                phaseId,
+                phaseName: phase.name
+              },
+              resource: {
+                type: 'token_sale_phase',
+                id: phaseId
+              }
+            }
+          );
+
+          const opaService = new OPAService();
+          const opaDecisions = await opaService.evaluateAMLPolicy(opaInput);
+
+          // Check if OPA denies the investment
+          const denied = opaDecisions.some((d: any) => d.allowed === false);
+          if (denied) {
+            const denialDecision = opaDecisions.find((d: any) => d.allowed === false);
+            const denialReason = denialDecision?.reason || 'Investment denied by compliance policy';
+            const ruleId = denialDecision?.rule_id || 'OPA-DENY';
+
+            // Log audit event for OPA denial
+            await LoggerService.logAudit(
+              'investment_blocked_opa_policy',
+              'token_sale_investment',
+              { userId, tenantId },
+              {
+                phaseId,
+                investmentAmount: investmentAmountUSD,
+                opaDecision: denialDecision,
+                ruleId,
+                reason: denialReason,
+                limitStatus: upgradeCheck.limitStatus
+              }
+            );
+
+            return {
+              isEligible: false,
+              reason: denialReason,
+              requiredKycLevel: denialDecision?.actions?.find(a => a.type === 'upgrade_required')?.parameters?.required_level || phase.kycLevelRequired,
+              currentKycLevel,
+              maxInvestmentAllowed: upgradeCheck.limitStatus.remaining,
+              phaseLimits: {
+                minInvestment: phase.minInvestment,
+                maxInvestment: phase.maxInvestment,
+                tokensAvailable: phase.totalTokensAllocated - phase.tokensSold
+              },
+              limitStatus: upgradeCheck.limitStatus,
+              upgradeRequired: true,
+              opaDenied: true,
+              opaRuleId: ruleId
+            } as any;
+          }
+
+          // Log OPA allow decision for audit
+          await LoggerService.logAudit(
+            'investment_approved_opa_policy',
+            'token_sale_investment',
+            { userId, tenantId },
+            {
+              phaseId,
+              investmentAmount: investmentAmountUSD,
+              opaDecisions: opaDecisions.map((d: any) => ({
+                rule_id: d.rule_id,
+                allowed: d.allowed,
+                severity: d.severity
+              }))
+            }
+          );
+        } catch (opaError) {
+          // If OPA evaluation fails, log but don't block (fail-secure: allow if OPA unavailable)
+          LoggerService.warn('OPA evaluation failed, allowing investment (fail-secure)', {
+            userId,
+            tenantId,
+            phaseId,
+            error: opaError instanceof Error ? opaError.message : 'unknown'
+          });
+
+          // Log audit event for OPA failure
+          await LoggerService.logAudit(
+            'opa_evaluation_failed',
+            'token_sale_investment',
+            { userId, tenantId },
+            {
+              phaseId,
+              investmentAmount: investmentAmountUSD,
+              error: opaError instanceof Error ? opaError.message : 'unknown',
+              action: 'allowed_fail_secure'
+            }
+          );
+        }
+      }
+
+      // Check if approaching limit (80% threshold) - return warning but allow
+      if (upgradeCheck.limitStatus.status === 'approaching_limit') {
+        LoggerService.warn('User approaching investment limit', {
+          userId,
+          tenantId,
+          percentage: upgradeCheck.limitStatus.percentage,
+          current: upgradeCheck.limitStatus.current,
+          limit: upgradeCheck.limitStatus.limit
+        });
+      }
+
       // Check tokens available
       const tokensAvailable = phase.totalTokensAllocated - phase.tokensSold;
       const requestedTokens = Math.floor(investmentAmountUSD / phase.tokenPrice);
@@ -560,13 +730,15 @@ export class TokenSaleService {
         isEligible: true,
         requiredKycLevel: phase.kycLevelRequired,
         currentKycLevel,
-        maxInvestmentAllowed: phase.maxInvestment,
+        maxInvestmentAllowed: Math.min(phase.maxInvestment, upgradeCheck.limitStatus.remaining),
         phaseLimits: {
           minInvestment: phase.minInvestment,
           maxInvestment: phase.maxInvestment,
           tokensAvailable
-        }
-      };
+        },
+        limitStatus: upgradeCheck.limitStatus,
+        upgradeRecommended: upgradeCheck.limitStatus.status === 'approaching_limit'
+      } as any;
 
     } catch (error) {
       LoggerService.error('Check investment eligibility failed:', error);
@@ -910,6 +1082,38 @@ export class TokenSaleService {
       investment.status = InvestmentStatus.COMPLETED;
       investment.updatedAt = new Date();
       this.investments.set(investment.id, investment);
+
+      // Track transaction volume (unified across presale and main platform)
+      try {
+        const { TransactionVolumeTrackerService, TransactionType, TimePeriod } = await import('./transaction-volume-tracker.service');
+        await TransactionVolumeTrackerService.trackTransaction(
+          investment.userId,
+          investment.tenantId,
+          TransactionType.INVESTMENT,
+          investment.investmentAmountUSD,
+          TimePeriod.TOTAL
+        );
+      } catch (trackingError) {
+        // Non-blocking: log but don't fail the investment
+        LoggerService.warn('Failed to track investment volume', {
+          investmentId: investment.id,
+          error: trackingError instanceof Error ? trackingError.message : 'unknown'
+        });
+      }
+
+      // Log audit event for successful investment
+      await LoggerService.logAudit(
+        'token_sale_investment_completed',
+        'token_sale_investment',
+        { userId: investment.userId, tenantId: investment.tenantId, brokerId: investment.brokerId },
+        {
+          investmentId: investment.id,
+          phaseId: investment.phaseId,
+          investmentAmountUSD: investment.investmentAmountUSD,
+          tokenAmount: investment.tokenAmount,
+          paymentMethod: investment.paymentMethod
+        }
+      );
 
       LoggerService.info('Payment and allocation processed', {
         investmentId: investment.id,

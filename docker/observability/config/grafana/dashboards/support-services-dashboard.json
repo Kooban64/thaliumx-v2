@@ -1,0 +1,138 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Support Services (Chat & Tickets)",
+    "tags": ["thaliumx", "support", "chat", "osticket"],
+    "timezone": "UTC",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Active Chat Sessions",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "chat_sessions_active{job=\"thaliumx-live-helper-chat\"}",
+            "legendFormat": "Active sessions"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Chat Messages Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(chat_messages_total{job=\"thaliumx-live-helper-chat\"}[5m])",
+            "legendFormat": "Messages/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Open Tickets",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "tickets_open_total{job=\"thaliumx-osticket\"}",
+            "legendFormat": "Open tickets"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Ticket Creation Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(tickets_created_total{job=\"thaliumx-osticket\"}[5m])",
+            "legendFormat": "Tickets created/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Chat to Ticket Escalations",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(chat_escalations_total{job=\"thaliumx-live-helper-chat\"}[5m])",
+            "legendFormat": "Escalations/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "Support Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(support_response_time_seconds_bucket{job=~\"thaliumx-(live-helper-chat|osticket)\"}[5m]))",
+            "legendFormat": "95th percentile response time"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "Ticket Priority Distribution",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum(tickets_by_priority{job=\"thaliumx-osticket\"}) by (priority)",
+            "legendFormat": "{{priority}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+      },
+      {
+        "id": 8,
+        "title": "Chat Moderation Actions",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(chat_moderation_actions_total{job=\"thaliumx-support-moderation-analytics\"}[5m])",
+            "legendFormat": "Moderation actions/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+      },
+      {
+        "id": 9,
+        "title": "Support Database Size",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "pg_database_size_bytes{datname=\"support\"}",
+            "legendFormat": "Database size"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32}
+      },
+      {
+        "id": 10,
+        "title": "WebSocket Connections",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "websocket_connections_active{job=\"thaliumx-live-helper-chat\"}",
+            "legendFormat": "WebSocket connections"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32}
+      }
+    ],
+    "time": {"from": "now-1h", "to": "now"},
+    "timepicker": {},
+    "templating": {"list": []},
+    "annotations": {"list": []},
+    "refresh": "30s",
+    "schemaVersion": 27,
+    "version": 0,
+    "links": []
+  }
+}

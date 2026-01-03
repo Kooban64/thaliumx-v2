@@ -15,6 +15,9 @@ import {
 } from 'lucide-react';
 import { tradingOrderSchema, validateForm, rateLimitedApiCall } from '@/lib/utils';
 import apiClient from '@/lib/api/client';
+import { useUserWorkflows } from '@/lib/api/hooks/workflows';
+import { WorkflowType } from '@/lib/api/types/workflows';
+import { WorkflowStatusCard } from '@/components/workflows/WorkflowStatusCard';
 
 export function TradingPanel() {
   const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
@@ -26,6 +29,41 @@ export function TradingPanel() {
   const [success, setSuccess] = useState('');
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [priceLoading, setPriceLoading] = useState(true);
+  const [recentOrderWorkflowId, setRecentOrderWorkflowId] = useState<string | null>(null);
+  
+  // Get user ID from auth (simplified - in real app would come from auth context)
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  // Fetch recent trading order workflows
+  const { data: workflowsData } = useUserWorkflows(userId || null, {
+    workflowType: WorkflowType.TRADING_ORDER,
+    limit: 1
+  });
+  
+  // Track most recent order workflow
+  useEffect(() => {
+    if (workflowsData?.workflows && workflowsData.workflows.length > 0) {
+      const latest = workflowsData.workflows[0];
+      if (latest && (latest.status === 'running' || latest.status === 'pending')) {
+        setRecentOrderWorkflowId(latest.workflowId);
+      }
+    }
+  }, [workflowsData]);
+  
+  // Get user ID on mount
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await apiClient.get<{ id: string }>('/api/auth/profile');
+        if (response.success && response.data?.id) {
+          setUserId(response.data.id);
+        }
+      } catch {
+        // Ignore errors
+      }
+    };
+    fetchUser();
+  }, []);
 
   // Fetch current BTC price on component mount
   useEffect(() => {
@@ -125,6 +163,22 @@ export function TradingPanel() {
           <Alert>
             <AlertDescription className="text-green-600">{success}</AlertDescription>
           </Alert>
+        )}
+
+        {/* Show workflow status if order is processing */}
+        {recentOrderWorkflowId && workflowsData?.workflows && (
+          <div className="mt-4">
+            {workflowsData.workflows
+              .filter((w: any) => w.workflowId === recentOrderWorkflowId)
+              .map((workflow: any) => (
+                <WorkflowStatusCard
+                  key={workflow.workflowId}
+                  workflow={workflow}
+                  showActions={false}
+                  className="border-blue-200"
+                />
+              ))}
+          </div>
         )}
 
         {/* Order Type Toggle */}

@@ -66,9 +66,9 @@ export interface ApiError {
   code?: string;
 }
 
-// Token refresh state management
-let isRefreshing = false;
-let refreshPromise: Promise<boolean> | null = null;
+// Token refresh state management (unused - Zitadel handles refresh automatically)
+// let isRefreshing = false;
+// let refreshPromise: Promise<boolean> | null = null;
 
 // API Client Class
 class ApiClient {
@@ -96,16 +96,27 @@ class ApiClient {
 
   /**
    * Refresh token if needed (Zitadel handles this automatically)
+   * @deprecated Zitadel manages token refresh automatically via OIDC flow
+   * Method kept for potential future use - prefixed with _ to indicate intentionally unused
    */
-  private async refreshTokenIfNeeded(): Promise<boolean> {
+  // @ts-ignore - Method kept for potential future use
+  private async _refreshTokenIfNeeded(): Promise<boolean> {
     // Zitadel manages token refresh automatically via OIDC flow
     return false;
   }
 
+  private determineEndpointType(url: string): string {
+    if (url.includes('/auth')) return 'auth';
+    if (url.includes('/financial') || url.includes('/fiat') || url.includes('/wallet') || url.includes('/transaction')) return 'financial';
+    if (url.includes('/trading') || url.includes('/exchange') || url.includes('/order')) return 'trading';
+    if (url.includes('/support')) return 'support';
+    return 'api';
+  }
+
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {},
-    retryOn401: boolean = true
+    options: RequestInit = {}
+    // _retryOn401: boolean = true // Reserved for future retry logic (prefixed with _ to indicate intentionally unused)
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
 
@@ -147,6 +158,30 @@ class ApiClient {
 
       // Handle token expiration (401) - Zitadel handles refresh automatically
       // No manual refresh needed as Zitadel manages token lifecycle
+
+      // Extract rate limit headers and dispatch event
+      const rateLimitLimit = response.headers.get('X-RateLimit-Limit');
+      const rateLimitRemaining = response.headers.get('X-RateLimit-Remaining');
+      const rateLimitReset = response.headers.get('X-RateLimit-Reset');
+      
+      if (rateLimitLimit && rateLimitRemaining !== null && typeof window !== 'undefined') {
+        const endpointType = this.determineEndpointType(url);
+        const rateLimitInfo = {
+          maxRequests: parseInt(rateLimitLimit),
+          windowSeconds: 60, // Could be extracted from header if available
+          currentRequests: parseInt(rateLimitLimit) - parseInt(rateLimitRemaining),
+          remainingRequests: parseInt(rateLimitRemaining),
+          resetTime: rateLimitReset ? new Date(rateLimitReset) : new Date(Date.now() + 60000),
+          endpointType,
+          role: 'user', // Would come from user context
+          kycLevel: 'basic' // Would come from user context
+        };
+        
+        // Dispatch custom event for rate limit display components
+        window.dispatchEvent(new CustomEvent('rateLimitUpdate', {
+          detail: rateLimitInfo
+        }));
+      }
 
       // Handle both success and error responses
       const data = await response.json();

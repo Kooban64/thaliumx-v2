@@ -2,6 +2,7 @@
 # ==========================
 # Security and access control policies
 # All thresholds are configurable via data.parameters
+# Enhanced with Zitadel attribute checks
 
 package thaliumx.security
 
@@ -14,6 +15,38 @@ default allow := true
 
 # Load configurable parameters from data
 parameters := data.parameters.security
+
+# Zitadel organization-based access control
+allow := false if {
+    input.action in ["login", "transaction", "withdrawal"]
+    input.user.organization_id
+    input.user.organization_id in parameters.blocked_organizations
+}
+
+zitadel_org_blocked contains decision if {
+    input.action in ["login", "transaction", "withdrawal"]
+    input.user.organization_id
+    input.user.organization_id in parameters.blocked_organizations
+    decision := {
+        "flagged": true,
+        "allowed": false,
+        "rule_id": "SEC-ZITADEL-001",
+        "severity": "critical",
+        "reason": sprintf("Access denied for organization: %v", [input.user.organization_id]),
+        "actions": [
+            {"type": "block", "target": "request", "parameters": {"permanent": true}},
+            {"type": "alert", "target": "security_team", "parameters": {"priority": "critical"}}
+        ]
+    }
+}
+
+# Zitadel project-based restrictions
+allow := false if {
+    input.action in ["login", "transaction"]
+    input.user.zitadel_project_id
+    input.user.zitadel_project_id in parameters.restricted_projects
+    not "platform-admin" in input.user.zitadel_roles
+}
 
 # ============================================
 # AUTHENTICATION SECURITY RULES

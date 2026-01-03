@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Providers } from "./providers";
+import { ChatWidget } from "@/components/support/ChatWidget";
+import { PolicyViolationAlertContainer } from "@/components/opa/PolicyViolationAlertContainer";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,6 +41,8 @@ export default function RootLayout({
               </div>
             </div>
             <div className="p-4">{children}</div>
+            <ChatWidget />
+            <PolicyViolationAlertContainer />
           </ErrorBoundary>
         </Providers>
       </body>

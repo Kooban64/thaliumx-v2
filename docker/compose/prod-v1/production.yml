@@ -276,6 +276,27 @@ services:
       file: wazuh.yml
       service: wazuh-dashboard
 
+  # Additional Components
+  graphql:
+    extends:
+      file: additional-components.yml
+      service: graphql
+
+  support-postgres:
+    extends:
+      file: additional-components.yml
+      service: support-postgres
+
+  live-helper-chat:
+    extends:
+      file: additional-components.yml
+      service: live-helper-chat
+
+  osticket:
+    extends:
+      file: additional-components.yml
+      service: osticket
+
 volumes:
   etcd_data:
     name: thaliumx-etcd-data

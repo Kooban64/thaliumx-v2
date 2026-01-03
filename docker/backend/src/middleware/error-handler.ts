@@ -447,19 +447,25 @@ export const authenticateToken = async (
           : [];
       const allRoles = Array.from(new Set(roleKeys));
 
-      const rolePriority = ['super_admin', 'admin', 'broker', 'compliance', 'finance', 'support', 'user'];
-      const selectedRole = allRoles.find(r => rolePriority.includes(r)) || allRoles[0] || 'user';
+      // Normalize roles using RoleMapperService
+      const { RoleMapperService } = await import('../services/role-mapper');
+      const normalizedRoles = RoleMapperService.normalizeRoles(allRoles);
+      const rolePriority = ['master_system_admin', 'platform_admin', 'broker_admin', 'platform_compliance', 'broker_compliance', 'platform_finance', 'broker_finance', 'platform_support', 'broker_support', 'user_trader', 'user_viewer'];
+      const selectedRole = normalizedRoles.find(r => rolePriority.includes(r)) || normalizedRoles[0] || 'user_viewer';
 
       const headerTenantId = (req.headers['x-tenant-id'] as string | undefined) || undefined;
       const tokenTenantId = (decoded?.tenant_id as string | undefined) || (decoded?.tenantId as string | undefined) || undefined;
       const resolvedTenantId = tokenTenantId || headerTenantId || process.env.DEFAULT_TENANT_ID || '10000000-0000-0000-0000-000000000000';
 
+      const userId = (decoded?.sub as string) || 'unknown';
+      const email = (decoded?.email as string) || (decoded?.preferred_username as string) || 'unknown';
+
       const payload: JWTPayload = {
-        id: (decoded?.sub as string) || 'unknown',
-        userId: (decoded?.sub as string) || 'unknown',
-        email: (decoded?.email as string) || (decoded?.preferred_username as string) || 'unknown',
+        id: userId,
+        userId: userId,
+        email: email,
         role: selectedRole as any,
-        roles: allRoles as any,
+        roles: normalizedRoles as any,
         tenantId: resolvedTenantId,
         brokerId: (decoded?.broker_id as string | undefined) || (decoded?.brokerId as string | undefined) || undefined,
         permissions: [],
@@ -468,11 +474,42 @@ export const authenticateToken = async (
       };
 
       req.user = payload;
+
+      // Log successful authentication
+      try {
+        await LoggerService.logAudit('authentication_success', 'authentication', { userId }, {
+          email,
+          result: 'success',
+          ip: req.ip || req.socket.remoteAddress,
+          userAgent: req.headers['user-agent'],
+          method: 'zitadel_oidc',
+          mfaUsed: false, // MFA status would come from token claims if available
+        });
+      } catch (logError) {
+        // Don't fail authentication on audit log errors
+        LoggerService.warn('Failed to log authentication event', logError);
+      }
+
       next();
       return;
     }
 
   } catch (error) {
+    // Log failed authentication
+    try {
+      const decoded: any = req.headers.authorization ? jwt.decode(req.headers.authorization.toString().replace('Bearer ', '')) : {};
+      await LoggerService.logAudit('authentication_failure', 'authentication', { userId: decoded?.sub }, {
+        email: decoded?.email || decoded?.preferred_username,
+        result: 'failure',
+        reason: error instanceof Error ? error.message : 'unknown_error',
+        ip: req.ip || req.socket.remoteAddress,
+        userAgent: req.headers['user-agent'],
+        method: 'zitadel_oidc',
+      });
+    } catch (logError) {
+      // Ignore audit log errors
+    }
+
     if (error instanceof jwt.JsonWebTokenError) {
       next(createError('Invalid token', 401, 'INVALID_TOKEN'));
     } else if (error instanceof jwt.TokenExpiredError) {
@@ -488,33 +525,8 @@ export const authenticateToken = async (
 // =============================================================================
 
 export const requireRole = (roles: string[]) => {
-  // Support legacy role names by mapping them to RBAC role IDs
-  const roleAliases: Record<string, string[]> = {
-    admin: ['platform-admin', 'broker-admin'],
-    super_admin: ['master_system_admin', 'platform-admin'],
-    finance: ['platform-finance', 'broker-finance'],
-    compliance: ['platform-compliance', 'broker-compliance'],
-    operations: ['platform-operations', 'broker-ops', 'broker-operations'],
-    support: ['platform-support', 'broker-support'],
-    risk: ['platform-risk', 'broker-risk'],
-    content: ['platform-content', 'broker-content'],
-    trading: ['broker-trading'],
-    security_officer: ['platform-security']
-  };
-
-  const expand = (input: string[]): Set<string> => {
-    const out = new Set<string>();
-    for (const r of input) {
-      if (!r) continue;
-      out.add(r);
-      const alias = roleAliases[r];
-      if (alias) alias.forEach(a => out.add(a));
-    }
-    return out;
-  };
-
-  // Expand allowed roles with aliases.
-  const expandedAllowed = expand(roles);
+  // Import RoleMapperService for role normalization
+  const { RoleMapperService } = require('../services/role-mapper');
 
   return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user) {
@@ -522,16 +534,25 @@ export const requireRole = (roles: string[]) => {
       return;
     }
 
-    // User may carry multiple roles (Keycloak realm/client roles). Accept if ANY matches.
+    // Normalize required roles
+    const normalizedRequired = RoleMapperService.normalizeRoles(roles);
+
+    // Get user roles and normalize them
     const userRoles = Array.from(
       new Set([
         req.user.role,
         ...(Array.isArray((req.user as any).roles) ? ((req.user as any).roles as string[]) : [])
       ].filter(Boolean))
     );
-    const expandedUser = expand(userRoles);
+    const normalizedUserRoles = RoleMapperService.normalizeRoles(userRoles);
 
-    const isAllowed = Array.from(expandedUser).some(r => expandedAllowed.has(r));
+    // Check if any normalized user role matches any normalized required role
+    const isAllowed = normalizedUserRoles.some((userRole: any) => 
+      normalizedRequired.some((requiredRole: any) => 
+        RoleMapperService.matchesAny(userRole, [requiredRole])
+      )
+    );
+
     if (!isAllowed) {
       next(createError('Insufficient permissions', 403, 'INSUFFICIENT_PERMISSIONS'));
       return;

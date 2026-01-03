@@ -1,8 +1,7 @@
 # ThaliumX APISIX configuration (ETCD-backed, persistent)
 # ======================================================
-# This is a TEMPLATE file.
-# - The gateway compose entrypoint replaces __APISIX_ADMIN_KEY__ at runtime
-#   using the Docker secret value.
+# This configuration file is processed at runtime by the gateway compose entrypoint.
+# - The __APISIX_ADMIN_KEY__ placeholder is replaced with the actual admin key from Docker secrets.
 # - Routes/upstreams/ssl objects are created via the init script and stored in ETCD.
 
 apisix:
@@ -66,11 +65,29 @@ plugins:
   # Core
   - cors
   - proxy-rewrite
+  - response-rewrite
   - redirect
   - request-id
   - prometheus
   - limit-req
   - limit-count
+  - limit-conn
+
+  # Security
+  - uri-blocker
+  - ip-restriction
+  - csrf
+  - request-validation
+
+  # Traffic Management
+  - api-breaker
+  - proxy-cache
+  - traffic-split
+
+  # Observability
+  - zipkin
+  - kafka-logger
+  - http-logger
 
   # Auth/Policy (available for future hardening)
   - jwt-auth

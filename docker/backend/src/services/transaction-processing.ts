@@ -189,7 +189,7 @@ export class TransactionProcessingService {
         };
       }
 
-      // Step 3: Check if dual authorization is required
+      // Step 4: Check if dual authorization is required
       const requiresDualAuth = this.requiresDualAuth(request.amount, request.type);
       
       if (requiresDualAuth) {
@@ -217,7 +217,7 @@ export class TransactionProcessingService {
       // Step 4: Process the transaction
       const result = await this.executeTransaction(request, transactionId, timestamp);
 
-      // Step 5: Publish success event
+      // Step 6: Publish success event
       await EventStreamingService.emitTransactionEvent(
         'fiat',
         transactionId,

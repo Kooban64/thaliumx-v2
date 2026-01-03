@@ -131,6 +131,24 @@ services:
       # Threat detection
       THREAT_DETECTION_ENABLED: "true"
       THREAT_DETECTION_SENSITIVITY: medium
+
+      # Public Support Features (for landing/presale pages)
+      # Enable public support chat and ticket creation (default: enabled)
+      ENABLE_PUBLIC_SUPPORT: ${ENABLE_PUBLIC_SUPPORT:-true}
+      # Public chat rate limit (messages per 10 minutes per IP)
+      PUBLIC_CHAT_RATE_LIMIT: ${PUBLIC_CHAT_RATE_LIMIT:-5}
+      # Public ticket rate limit (tickets per hour per IP)
+      PUBLIC_TICKET_RATE_LIMIT: ${PUBLIC_TICKET_RATE_LIMIT:-3}
+      # Block disposable email domains (default: false)
+      BLOCK_DISPOSABLE_EMAILS: ${BLOCK_DISPOSABLE_EMAILS:-false}
+      # CAPTCHA is disabled by default - enable when ready
+      # ENABLE_CAPTCHA: false
+      # RECAPTCHA_SITE_KEY: your-site-key
+      # RECAPTCHA_SECRET_KEY: your-secret-key
+
+      # Support Services Integration
+      OSTICKET_API_URL: ${OSTICKET_API_URL:-http://thaliumx-osticket}
+      LHC_API_URL: ${LHC_API_URL:-http://thaliumx-live-helper-chat}
     # Inject secrets via Docker secrets (no plaintext values in compose)
     command:
       - sh

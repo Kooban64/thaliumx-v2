@@ -1,0 +1,114 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Ballerina Workflows",
+    "tags": ["thaliumx", "ballerina", "workflows"],
+    "timezone": "UTC",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Workflow Execution Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(workflow_started_total{job=\"thaliumx-ballerina-workflows\"}[5m])",
+            "legendFormat": "Workflows started/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Workflow Completion Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(workflow_completed_total{job=\"thaliumx-ballerina-workflows\"}[5m])",
+            "legendFormat": "Workflows completed/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Active Workflows",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "workflow_active_count{job=\"thaliumx-ballerina-workflows\"}",
+            "legendFormat": "Active workflows"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Workflow Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(workflow_error_total{job=\"thaliumx-ballerina-workflows\"}[5m])",
+            "legendFormat": "Errors/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Kafka Consumer Lag",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "kafka_consumer_lag{job=\"thaliumx-ballerina-workflows\"}",
+            "legendFormat": "Consumer lag"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "Workflow Types",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "sum(rate(workflow_started_total{job=\"thaliumx-ballerina-workflows\"}[5m])) by (workflow_type)",
+            "legendFormat": "{{workflow_type}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "CPU Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{name=\"thaliumx-ballerina-workflows\"}[5m]) * 100",
+            "legendFormat": "CPU %"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+      },
+      {
+        "id": 8,
+        "title": "Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "container_memory_usage_bytes{name=\"thaliumx-ballerina-workflows\"}",
+            "legendFormat": "Memory bytes"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+      }
+    ],
+    "time": {"from": "now-1h", "to": "now"},
+    "timepicker": {},
+    "templating": {"list": []},
+    "annotations": {"list": []},
+    "refresh": "30s",
+    "schemaVersion": 27,
+    "version": 0,
+    "links": []
+  }
+}

@@ -24,6 +24,14 @@ import { marketDataService } from '../services/market-data';
 const router: Router = Router();
 let walletSystemService: WalletSystemService;
 
+// Export getter for service instance
+export const getWalletSystemService = (): WalletSystemService => {
+  if (!walletSystemService) {
+    throw new Error('WalletSystemService not initialized. Call initializeWalletSystem() first.');
+  }
+  return walletSystemService;
+};
+
 const getAuthUserId = (req: Request): string | undefined => {
   return (req as any).user?.userId;
 };

@@ -1,0 +1,51 @@
+# Workflow Orchestrator Load Test Configuration
+config:
+  target: "http://localhost:3002"
+  phases:
+    - duration: 60
+      arrivalRate: 2
+      name: "Warm-up"
+    - duration: 120
+      arrivalRate: 2
+      rampTo: 20
+      name: "Ramp-up"
+    - duration: 300
+      arrivalRate: 20
+      name: "Sustained load"
+    - duration: 120
+      arrivalRate: 50
+      name: "Peak load"
+    - duration: 60
+      arrivalRate: 5
+      name: "Cool-down"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+  plugins:
+    expect: {}
+  ensure:
+    p95: 1000
+    p99: 2000
+    maxErrorRate: 0.5
+scenarios:
+  - name: "Start Workflow"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/workflows/start"
+          json:
+            workflowType: "password_reset"
+            data:
+              email: "test@example.com"
+          capture:
+            - json: "$.workflowId"
+              as: "workflowId"
+          expect:
+            - statusCode: 201
+  - name: "Get Status"
+    weight: 40
+    flow:
+      - get:
+          url: "/api/workflows/{{ workflowId }}/status"
+          expect:
+            - statusCode: 200

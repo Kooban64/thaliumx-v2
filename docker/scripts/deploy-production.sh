@@ -78,22 +78,35 @@ wait_for_service "QuantLib" "http://localhost:3010/health"
 echo "🖥️ Step 5: Deploying application services..."
 docker compose -f backend/compose.yaml up -d
 docker compose -f frontend/compose.yaml up -d
+docker compose -f graphql/compose.yaml up -d
 
 # Wait for application services
 wait_for_service "Backend API" "http://localhost:3002/health"
 wait_for_service "Frontend" "http://localhost:3000"
+wait_for_service "GraphQL API" "http://localhost:4000/health"
 
-# Step 6: Deploy monitoring (optional)
-echo "📊 Step 6: Deploying monitoring services..."
+# Step 6: Deploy support services
+echo "💬 Step 6: Deploying support services..."
+docker compose -f support/compose.yaml up -d
+
+# Wait for support services
+wait_for_service "Live Helper Chat" "http://localhost:80"
+wait_for_service "osTicket" "http://localhost:80"
+
+# Step 7: Deploy monitoring (optional)
+echo "📊 Step 7: Deploying monitoring services..."
 docker compose -f observability/compose.yaml up -d 2>/dev/null || echo "Monitoring deployment skipped"
 
-# Step 7: Run final health checks
-echo "🔍 Step 7: Running final health checks..."
+# Step 8: Run final health checks
+echo "🔍 Step 8: Running final health checks..."
 
 # Check all critical services
 services=(
     "http://localhost:3002/health:Backend API"
     "http://localhost:3000:Frontend"
+    "http://localhost:4000/health:GraphQL API"
+    "http://localhost:80:Live Helper Chat"
+    "http://localhost:80:osTicket"
     "http://localhost:3003/health:Compliance DEX"
     "http://localhost:3004/health:Compliance CEX"
     "http://localhost:3005/health:Compliance NFT"
@@ -119,8 +132,8 @@ for service in "${services[@]}"; do
     fi
 done
 
-# Step 8: Run seeded tests
-echo "🧪 Step 8: Running seeded tests..."
+# Step 9: Run seeded tests
+echo "🧪 Step 9: Running seeded tests..."
 if ./docker/scripts/run-seeded-tests.sh; then
     echo "✅ Seeded tests passed!"
 else

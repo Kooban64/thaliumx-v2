@@ -81,6 +81,12 @@ import deviceFingerprintRouter from './routes/device-fingerprint';
 import policyManagementRouter from './routes/policy-management';
 import marketDataRouter from './routes/market-data';
 import tradingRouter from './routes/trading';
+import workflowsRouter from './routes/workflows';
+import supportRouter from './routes/support';
+// import complianceRouter from './routes/compliance-router';
+// import accessReviewRouter from './routes/access-review-router';
+// import mfaRouter from './routes/mfa-router';
+import ballerineWebhookRouter from './routes/ballerine-webhook-router';
 
 // Import services
 import { DatabaseService } from './services/database';
@@ -113,6 +119,7 @@ import { AdvancedMarginTradingService } from './services/advanced-margin';
 import { web3WalletService } from './services/web3-wallet';
 import { DeviceFingerprintService } from './services/device-fingerprint';
 import { KafkaService } from './services/kafka';
+import { WorkflowOrchestratorService } from './services/workflow-orchestrator';
 
 class ThaliumXBackend {
   private app: express.Application;
@@ -228,7 +235,15 @@ class ThaliumXBackend {
         await web3WalletService.initialize();
       }},
       { name: 'DeviceFingerprintService', init: () => DeviceFingerprintService.initialize() },
-      { name: 'MetricsService', init: () => MetricsService.initialize() }
+      { name: 'MetricsService', init: () => MetricsService.initialize() },
+      { name: 'WorkflowOrchestratorService', init: async () => {
+        await WorkflowOrchestratorService.initialize();
+        // Import workflows to register them
+        await import('./workflows');
+        // Initialize workflow consumer
+        const { WorkflowConsumer } = await import('./consumers/workflow-consumer');
+        await WorkflowConsumer.initialize();
+      }}
     ];
 
     for (const service of nonCriticalServices) {
@@ -526,6 +541,7 @@ class ThaliumXBackend {
           advancedMargin: checkServiceHealth(AdvancedMarginTradingService, 'AdvancedMargin'),
           web3Wallet: checkServiceHealth(web3WalletService, 'web3Wallet'),
           deviceFingerprint: checkServiceHealth(DeviceFingerprintService, 'DeviceFingerprint'),
+          workflowOrchestrator: 'healthy',
           api: 'running'
         },
         security: {
@@ -619,6 +635,10 @@ class ThaliumXBackend {
     this.app.use('/api/presale', presaleRouter);
     this.app.use('/api/security', securityOversightRouter);
     this.app.use('/api/graphsense', graphsenseRouter);
+    // this.app.use('/api/compliance', complianceRouter);
+    // this.app.use('/api/access-reviews', accessReviewRouter);
+    // this.app.use('/api/mfa', mfaRouter);
+    this.app.use('/api/ballerine', ballerineWebhookRouter);
     this.app.use('/api/omni-exchange', omniExchangeRouter);
     this.app.use('/api/wallets', walletSystemRouter);
     this.app.use('/api/cex', nativeCEXRouter);
@@ -630,6 +650,8 @@ class ThaliumXBackend {
     this.app.use('/api/admin/policies', policyManagementRouter);
     this.app.use('/api/market', marketDataRouter);
     this.app.use('/api/trading', tradingRouter);
+    this.app.use('/api/workflows', workflowsRouter);
+    this.app.use('/api/support', supportRouter);
 
     // API documentation endpoint
     this.app.get('/api/docs', (_req, res) => {
@@ -667,7 +689,8 @@ class ThaliumXBackend {
           cex: 'GET /api/cex/engines, GET /api/cex/pairs, GET /api/cex/pairs/thal, POST /api/cex/orders, GET /api/cex/orders/:orderId, GET /api/cex/orders/user/:userId, DELETE /api/cex/orders/:orderId, GET /api/cex/market-data/:symbol, GET /api/cex/market-data/thal/all, GET /api/cex/thal/business-model, GET /api/cex/thal/incentives/:userId, POST /api/cex/thal/credit-rewards, GET /api/cex/dashboard/:userId, GET /api/cex/analytics/platform',
           brokerDashboard: 'GET /api/broker/dashboard, GET /api/broker/health, GET /api/broker/metrics, GET /api/broker/users, GET /api/broker/transactions, GET /api/broker/kyc, GET /api/broker/audit-logs',
           advancedMargin: 'POST /api/advanced-margin/accounts, GET /api/advanced-margin/accounts, GET /api/advanced-margin/risk-limits, POST /api/advanced-margin/positions, POST /api/advanced-margin/positions/:positionId/close, GET /api/advanced-margin/positions, POST /api/advanced-margin/liquidate/:positionId, GET /api/advanced-margin/funding-rates, GET /api/advanced-margin/health, GET /api/advanced-margin/admin/accounts, GET /api/advanced-margin/admin/positions, GET /api/advanced-margin/admin/liquidations, GET /api/advanced-margin/segregation/user, GET /api/advanced-margin/segregation/all, POST /api/advanced-margin/risk-score/update',
-          web3Wallet: 'POST /api/web3-wallet/connect, DELETE /api/web3-wallet/:walletId/disconnect, GET /api/web3-wallet/wallets, GET /api/web3-wallet/:address/balance/:chainId, GET /api/web3-wallet/chains, GET /api/web3-wallet/chains/:chainId, POST /api/web3-wallet/purchase-tokens, GET /api/web3-wallet/trading/pairs, POST /api/web3-wallet/trading/order, GET /api/web3-wallet/:walletId/security'
+          web3Wallet: 'POST /api/web3-wallet/connect, DELETE /api/web3-wallet/:walletId/disconnect, GET /api/web3-wallet/wallets, GET /api/web3-wallet/:address/balance/:chainId, GET /api/web3-wallet/chains, GET /api/web3-wallet/chains/:chainId, POST /api/web3-wallet/purchase-tokens, GET /api/web3-wallet/trading/pairs, POST /api/web3-wallet/trading/order, GET /api/web3-wallet/:walletId/security',
+          workflows: 'POST /api/workflows/start, GET /api/workflows/:workflowId/status, GET /api/workflows/user/:userId, POST /api/workflows/:workflowId/retry, POST /api/workflows/:workflowId/cancel, POST /api/workflows/:workflowId/continue, GET /api/workflows/health, GET /api/workflows/types'
         },
         documentation: 'https://docs.thaliumx.com'
       });

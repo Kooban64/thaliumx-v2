@@ -2,16 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { LoginForm } from '@/components/auth/LoginForm';
-import { RegisterForm } from '@/components/auth/RegisterForm';
-import { submitDeviceFingerprint } from '@/lib/device/fingerprint';
 import { initZitadel, loginZitadel } from '@/lib/auth/zitadel';
 import { getAccessToken } from '@/lib/auth/token-store';
 import { Button } from '@/components/ui/button';
 
 export default function AuthClient() {
   const searchParams = useSearchParams();
-  const [isLogin, setIsLogin] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const authMode = 'zitadel';
 
@@ -57,13 +53,7 @@ export default function AuthClient() {
     checkAuth();
   }, [authMode]);
 
-  const handleAuthSuccess = (_token: string) => {
-    setIsAuthenticated(true);
-    // Fire-and-forget device fingerprint submission
-    submitDeviceFingerprint();
-    // Redirect to nextPath (defaults to dashboard)
-    window.location.href = nextPath;
-  };
+  // Removed unused handleAuthSuccess - redirect handled by Zitadel
 
   if (isAuthenticated) {
     return (

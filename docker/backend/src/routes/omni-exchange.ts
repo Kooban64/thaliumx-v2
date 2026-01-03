@@ -33,6 +33,14 @@ import { DatabaseService } from '../services/database';
 const router: Router = Router();
 let omniExchangeService: OmniExchangeService;
 
+// Export getter for service instance
+export const getOmniExchangeService = (): OmniExchangeService => {
+  if (!omniExchangeService) {
+    throw new Error('OmniExchangeService not initialized. Call initializeOmniExchange() first.');
+  }
+  return omniExchangeService;
+};
+
 // Rate limiter for auditor endpoints (more restrictive)
 const auditorRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

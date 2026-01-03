@@ -1013,4 +1013,91 @@ router.get('/health', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+/**
+ * GET /api/kyc/status/unified
+ * Get unified KYC status with cumulative usage across both presale and main platform
+ */
+router.get('/status/unified',
+  authenticateToken,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId } = req.user as any;
+      const { tenantId } = req.user as any;
+
+      LoggerService.info('Fetching unified KYC status', { userId, tenantId });
+
+      // Get KYC status (unified across both platforms)
+      const kycStatus = await KYCService.getKYCStatus(userId);
+
+      // Get cumulative usage across both platforms
+      const { TransactionVolumeTrackerService, TimePeriod } = await import('../services/transaction-volume-tracker.service');
+      
+      const [investmentUsage, tradingUsage, withdrawalUsage] = await Promise.all([
+        TransactionVolumeTrackerService.getCumulativeUsage(userId, tenantId, 'investment', TimePeriod.TOTAL),
+        TransactionVolumeTrackerService.getCumulativeUsage(userId, tenantId, 'trading', TimePeriod.TOTAL),
+        TransactionVolumeTrackerService.getCumulativeUsage(userId, tenantId, 'withdrawal', TimePeriod.TOTAL)
+      ]);
+
+      // Get limit status for each type
+      const [investmentLimit, tradingLimit, withdrawalLimit] = await Promise.all([
+        TransactionVolumeTrackerService.checkLimit(userId, tenantId, 'investment', 0, TimePeriod.TOTAL),
+        TransactionVolumeTrackerService.checkLimit(userId, tenantId, 'trading', 0, TimePeriod.TOTAL),
+        TransactionVolumeTrackerService.checkLimit(userId, tenantId, 'withdrawal', 0, TimePeriod.TOTAL)
+      ]);
+
+      res.json({
+        success: true,
+        data: {
+          kycLevel: kycStatus.kycLevel,
+          kycStatus: kycStatus.status,
+          limits: {
+            investment: {
+              current: investmentUsage.total,
+              limit: investmentLimit.limit,
+              remaining: investmentLimit.remaining,
+              percentage: investmentLimit.percentage,
+              status: investmentLimit.status,
+              breakdown: investmentUsage
+            },
+            trading: {
+              current: tradingUsage.total,
+              limit: tradingLimit.limit,
+              remaining: tradingLimit.remaining,
+              percentage: tradingLimit.percentage,
+              status: tradingLimit.status,
+              breakdown: tradingUsage
+            },
+            withdrawal: {
+              current: withdrawalUsage.total,
+              limit: withdrawalLimit.limit,
+              remaining: withdrawalLimit.remaining,
+              percentage: withdrawalLimit.percentage,
+              status: withdrawalLimit.status,
+              breakdown: withdrawalUsage
+            }
+          },
+          upgradeRecommended: investmentLimit.status === 'approaching_limit' || 
+                              tradingLimit.status === 'approaching_limit' || 
+                              withdrawalLimit.status === 'approaching_limit'
+        }
+      });
+    } catch (error) {
+      LoggerService.error('Get unified KYC status failed:', error);
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error',
+          code: 'INTERNAL_ERROR'
+        });
+      }
+    }
+  }
+);
+
 export default router;

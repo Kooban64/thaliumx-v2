@@ -1265,6 +1265,243 @@ export class DatabaseService {
     this.models.set('FinancialAuditLog', FinancialAuditLogModel);
     this.models.set('FinancialReport', FinancialReportModel);
 
+    // =============================================================================
+    // WORKFLOW ORCHESTRATOR MODELS
+    // =============================================================================
+
+    // Workflow State Model
+    const WorkflowStateModel = this.sequelize.define('WorkflowState', {
+      workflowId: {
+        type: DataTypes.STRING,
+        primaryKey: true,
+        allowNull: false
+      },
+      workflowType: {
+        type: DataTypes.STRING,
+        allowNull: false
+      },
+      userId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: {
+          model: 'Users',
+          key: 'id'
+        }
+      },
+      tenantId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: {
+          model: 'Tenants',
+          key: 'id'
+        }
+      },
+      brokerId: {
+        type: DataTypes.UUID,
+        allowNull: true
+      },
+      status: {
+        type: DataTypes.ENUM('pending', 'running', 'completed', 'failed', 'cancelled', 'compensating'),
+        allowNull: false,
+        defaultValue: 'pending'
+      },
+      currentStep: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      stepIndex: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+      },
+      data: {
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: {}
+      },
+      errorMessage: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+      retryCount: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+      },
+      maxRetries: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 3
+      },
+      completedAt: {
+        type: DataTypes.DATE,
+        allowNull: true
+      },
+      metadata: {
+        type: DataTypes.JSONB,
+        allowNull: true,
+        defaultValue: {}
+      }
+    }, {
+      tableName: 'workflow_states',
+      timestamps: true,
+      indexes: [
+        { fields: ['userId'] },
+        { fields: ['status'] },
+        { fields: ['workflowType'] },
+        { fields: ['tenantId'] },
+        { fields: ['createdAt'] },
+        { fields: ['status', 'workflowType'] }
+      ]
+    });
+
+    this.models.set('WorkflowState', WorkflowStateModel);
+
+    // =============================================================================
+    // SUPPORT MODELS
+    // =============================================================================
+
+    // Support Ticket Model
+    const SupportTicketModel = this.sequelize.define('SupportTicket', {
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+      },
+      ticketId: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true
+      },
+      osticketId: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      userId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+          model: 'users',
+          key: 'id'
+        }
+      },
+      subject: {
+        type: DataTypes.STRING(200),
+        allowNull: false
+      },
+      message: {
+        type: DataTypes.TEXT,
+        allowNull: false
+      },
+      priority: {
+        type: DataTypes.ENUM('low', 'normal', 'high', 'critical'),
+        defaultValue: 'normal'
+      },
+      status: {
+        type: DataTypes.ENUM('open', 'in_progress', 'resolved', 'closed'),
+        defaultValue: 'open'
+      },
+      department: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      issueType: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      metadata: {
+        type: DataTypes.JSONB,
+        defaultValue: {}
+      },
+      resolvedAt: {
+        type: DataTypes.DATE,
+        allowNull: true
+      }
+    }, {
+      tableName: 'support_tickets',
+      timestamps: true,
+      indexes: [
+        { fields: ['userId'] },
+        { fields: ['status'] },
+        { fields: ['priority'] },
+        { fields: ['createdAt'] },
+        { fields: ['ticketId'] },
+        { fields: ['osticketId'] },
+        { fields: ['guestEmail'] },
+        { fields: ['isPublic'] },
+        { fields: ['ipAddress'] }
+      ]
+    });
+
+    this.models.set('SupportTicket', SupportTicketModel);
+
+    // Chat Message Model (for storing chat history)
+    const ChatMessageModel = this.sequelize.define('ChatMessage', {
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+      },
+      chatId: {
+        type: DataTypes.STRING,
+        allowNull: false
+      },
+      sessionId: {
+        type: DataTypes.STRING,
+        allowNull: false
+      },
+      userId: {
+        type: DataTypes.UUID,
+        allowNull: true // Allow null for public messages
+      },
+      guestEmail: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      guestName: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      agentId: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      message: {
+        type: DataTypes.TEXT,
+        allowNull: false
+      },
+      type: {
+        type: DataTypes.ENUM('user', 'agent', 'system'),
+        defaultValue: 'user'
+      },
+      ipAddress: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      isPublic: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+      },
+      timestamp: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW
+      }
+    }, {
+      tableName: 'chat_messages',
+      timestamps: true,
+      indexes: [
+        { fields: ['chatId'] },
+        { fields: ['sessionId'] },
+        { fields: ['userId'] },
+        { fields: ['guestEmail'] },
+        { fields: ['isPublic'] },
+        { fields: ['ipAddress'] },
+        { fields: ['timestamp'] }
+      ]
+    });
+
+    this.models.set('ChatMessage', ChatMessageModel);
+
     // Define associations
     this.defineAssociations();
   }
@@ -1291,6 +1528,11 @@ export class DatabaseService {
     const Web3WalletModel = this.models.get('Web3Wallet')!;
     UserModel.hasMany(Web3WalletModel, { foreignKey: 'userId', as: 'web3Wallets' });
     Web3WalletModel.belongsTo(UserModel, { foreignKey: 'userId', as: 'user' });
+
+    // User has many Support Tickets
+    const SupportTicketModel = this.models.get('SupportTicket')!;
+    UserModel.hasMany(SupportTicketModel, { foreignKey: 'userId', as: 'supportTickets' });
+    SupportTicketModel.belongsTo(UserModel, { foreignKey: 'userId', as: 'user' });
 
     // Add exchange associations
     const OrderModel = this.models.get('Order')!;
@@ -1345,6 +1587,15 @@ export class DatabaseService {
     // Client associations
     TenantModel.hasMany(ClientModel, { foreignKey: 'tenantId', as: 'clients' });
     ClientModel.belongsTo(TenantModel, { foreignKey: 'tenantId', as: 'tenant' });
+
+    // Workflow State associations
+    const WorkflowStateModel = this.models.get('WorkflowState')!;
+    if (WorkflowStateModel) {
+      UserModel.hasMany(WorkflowStateModel, { foreignKey: 'userId', as: 'workflows' });
+      WorkflowStateModel.belongsTo(UserModel, { foreignKey: 'userId', as: 'user' });
+      TenantModel.hasMany(WorkflowStateModel, { foreignKey: 'tenantId', as: 'workflows' });
+      WorkflowStateModel.belongsTo(TenantModel, { foreignKey: 'tenantId', as: 'tenant' });
+    }
 
     // Client-Account associations
     ClientModel.hasMany(ClientAccountModel, { foreignKey: 'clientId', as: 'accountRelationships' });

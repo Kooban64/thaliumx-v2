@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { WorkflowStatusCard } from '@/components/workflows/WorkflowStatusCard';
+import { useUserWorkflows } from '@/lib/api/hooks/workflows';
+import { WorkflowType } from '@/lib/api/types/workflows';
 
 type BankAccount = {
   id: string;
@@ -29,6 +32,14 @@ export default function WithdrawPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [recentWithdrawalWorkflowId, setRecentWithdrawalWorkflowId] = useState<string | null>(null);
+  
+  // Fetch recent withdrawal workflows
+  const { data: workflowsData } = useUserWorkflows(userId, {
+    workflowType: WorkflowType.FIAT_OPERATIONS,
+    limit: 1
+  });
 
   const filteredAccounts = useMemo(() => {
     const ccy = currency.toUpperCase();
@@ -43,6 +54,12 @@ export default function WithdrawPage() {
         if (!getAccessToken()) {
           window.location.href = `/login?next=/wallet/withdraw`;
           return;
+        }
+
+        // Get user ID
+        const profileRes = await apiClient.get<{ id: string }>('/api/auth/profile');
+        if (profileRes.success && profileRes.data?.id) {
+          setUserId(profileRes.data.id);
         }
 
         await loadBankAccounts();
@@ -107,6 +124,11 @@ export default function WithdrawPage() {
         return;
       }
 
+      // Check if response includes workflow ID
+      if (res.data?.workflowId) {
+        setRecentWithdrawalWorkflowId(res.data.workflowId);
+      }
+
       setSuccess(`Withdrawal initiated (transaction: ${res.data?.id || 'created'})`);
       setAmount('');
     } finally {
@@ -142,6 +164,22 @@ export default function WithdrawPage() {
                 <Alert>
                   <AlertDescription>{success}</AlertDescription>
                 </Alert>
+              )}
+
+              {/* Show workflow status if withdrawal is processing */}
+              {recentWithdrawalWorkflowId && workflowsData?.workflows && (
+                <div className="mt-4">
+                  {workflowsData.workflows
+                    .filter(w => w.workflowId === recentWithdrawalWorkflowId)
+                    .map(workflow => (
+                      <WorkflowStatusCard
+                        key={workflow.workflowId}
+                        workflow={workflow}
+                        showActions={false}
+                        className="border-blue-200"
+                      />
+                    ))}
+                </div>
               )}
 
               <div className="grid gap-4 md:grid-cols-2">

@@ -8,12 +8,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { useUserWorkflows } from '@/lib/api/hooks/workflows';
+import { WorkflowType } from '@/lib/api/types/workflows';
+import { WorkflowStatusCard } from '@/components/workflows/WorkflowStatusCard';
 
 export default function DepositPage() {
   const [currency, setCurrency] = useState('ZAR');
   const [reference, setReference] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [recentDepositWorkflowId, setRecentDepositWorkflowId] = useState<string | null>(null);
+  
+  // Fetch recent deposit workflows
+  const { data: workflowsData } = useUserWorkflows(userId, {
+    workflowType: WorkflowType.FIAT_OPERATIONS,
+    limit: 1
+  });
+  
+  // Track most recent deposit workflow
+  useEffect(() => {
+    if (workflowsData?.workflows && workflowsData.workflows.length > 0) {
+      const latest = workflowsData.workflows[0];
+      if (latest && (latest.status === 'running' || latest.status === 'pending')) {
+        setRecentDepositWorkflowId(latest.workflowId);
+      }
+    }
+  }, [workflowsData]);
 
   useEffect(() => {
     (async () => {
@@ -23,6 +44,12 @@ export default function DepositPage() {
         if (!getAccessToken()) {
           window.location.href = `/login?next=/wallet/deposit`;
           return;
+        }
+
+        // Get user ID for workflow tracking
+        const profileRes = await apiClient.get<{ id: string }>('/api/auth/profile');
+        if (profileRes.success && profileRes.data?.id) {
+          setUserId(profileRes.data.id);
         }
 
         await refresh();
@@ -86,6 +113,22 @@ export default function DepositPage() {
                 <Label htmlFor="ref">Deposit reference</Label>
                 <Input id="ref" value={reference} readOnly />
               </div>
+
+              {/* Show workflow status if deposit is processing */}
+              {recentDepositWorkflowId && workflowsData?.workflows && (
+                <div className="mt-4">
+                  {workflowsData.workflows
+                    .filter((w) => w.workflowId === recentDepositWorkflowId)
+                    .map((workflow) => (
+                      <WorkflowStatusCard
+                        key={workflow.workflowId}
+                        workflow={workflow as any}
+                        showActions={false}
+                        className="border-blue-200"
+                      />
+                    ))}
+                </div>
+              )}
             </>
           )}
         </CardContent>

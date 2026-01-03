@@ -25,11 +25,14 @@ import { KYCService } from './kyc';
 import { RBACService } from './rbac';
 import { Web3WalletService } from './web3-wallet';
 import { DatabaseService } from './database';
+import { TransactionVolumeTrackerService, TransactionType, TimePeriod } from './transaction-volume-tracker.service';
+import { KYCUpgradeTriggerService } from './kyc-upgrade-trigger.service';
 import { AppError, createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
 import { ethers, Wallet } from 'ethers';
 import Decimal from 'decimal.js';
 import { getContractAddresses } from '../contracts/addresses/testnet';
+import { Request } from 'express';
 
 // Type alias for Decimal
 type DecimalType = InstanceType<typeof Decimal>;
@@ -1260,7 +1263,8 @@ export class PresaleService {
     tier: InvestmentTier,
     referralCode?: string,
     walletAddress?: string, // User's wallet address for on-chain transactions
-    attributedBrokerId?: string // optional broker attribution
+    attributedBrokerId?: string, // optional broker attribution
+    req?: Request // Optional Express request for OPA evaluation
   ): Promise<PresaleInvestment> {
     try {
       const presale = this.presales.get(presaleId);
@@ -1286,6 +1290,200 @@ export class PresaleService {
         }
       }
 
+      // Check unified transaction limits (cumulative across presale and main platform)
+      const investmentAmount = amount.toNumber();
+      const upgradeCheck = await KYCUpgradeTriggerService.checkAndTriggerUpgrade(
+        userId,
+        tenantId,
+        'investment',
+        investmentAmount,
+        TimePeriod.TOTAL,
+        true, // Auto-trigger workflow if upgrade required
+        req // Pass request for Zitadel context
+      );
+
+      // Block transaction if upgrade is required
+      if (upgradeCheck.shouldUpgrade && !upgradeCheck.limitStatus.canProceed) {
+        // Log audit event for compliance
+        await LoggerService.logAudit(
+          'investment_blocked_kyc_limit',
+          'presale_investment',
+          { userId, tenantId },
+          {
+            presaleId,
+            investmentAmount: investmentAmount,
+            currentLevel: upgradeCheck.currentLevel,
+            requiredLevel: upgradeCheck.requiredLevel,
+            limitStatus: upgradeCheck.limitStatus,
+            workflowTriggered: upgradeCheck.workflowTriggered,
+            reason: 'KYC level limit exceeded'
+          }
+        );
+
+        const error = createError(
+          upgradeCheck.message || `Investment limit exceeded. Please upgrade to KYC level ${upgradeCheck.requiredLevel}`,
+          403,
+          'INVESTMENT_LIMIT_EXCEEDED'
+        );
+        (error as any).details = {
+          currentLevel: upgradeCheck.currentLevel,
+          requiredLevel: upgradeCheck.requiredLevel,
+          limitStatus: upgradeCheck.limitStatus,
+          workflowTriggered: upgradeCheck.workflowTriggered
+        };
+        throw error;
+      }
+
+      // Log warning if approaching limit (80% threshold)
+      if (upgradeCheck.limitStatus.status === 'approaching_limit') {
+        LoggerService.warn('User approaching investment limit', {
+          userId,
+          tenantId,
+          percentage: upgradeCheck.limitStatus.percentage,
+          current: upgradeCheck.limitStatus.current,
+          limit: upgradeCheck.limitStatus.limit
+        });
+
+        // Log audit event for compliance tracking
+        await LoggerService.logAudit(
+          'kyc_upgrade_recommended',
+          'presale_investment',
+          { userId, tenantId },
+          {
+            presaleId,
+            investmentAmount: investmentAmount,
+            currentLevel: upgradeCheck.currentLevel,
+            recommendedLevel: upgradeCheck.requiredLevel,
+            limitStatus: upgradeCheck.limitStatus,
+            reason: 'Approaching investment limit (80% threshold)'
+          }
+        );
+      }
+
+      // Evaluate OPA policy for investment authorization (if request object provided)
+      if (req) {
+        try {
+          const { OPAInputBuilder } = await import('./opa-input-builder');
+          const { OPAService } = await import('./opa');
+          const investmentId = uuidv4(); // Generate investment ID for OPA context
+          const opaInput = await OPAInputBuilder.buildFromRequest(
+            req as any,
+            'presale',
+            'presale_investment',
+            investmentId,
+            {
+              transaction: {
+                amount: investmentAmount,
+                type: 'presale_investment',
+                currency: 'USD',
+                presaleId,
+                paymentMethod,
+                tier
+              },
+              resource: {
+                type: 'presale',
+                id: presaleId
+              }
+            }
+          );
+
+          const opaService = new OPAService();
+          const opaDecisions = await opaService.evaluateAMLPolicy(opaInput);
+
+          // Check if OPA denies the investment
+          const denied = opaDecisions.some((d: any) => d.allowed === false);
+          if (denied) {
+            const denialDecision = opaDecisions.find((d: any) => d.allowed === false);
+            const denialReason = denialDecision?.reason || 'Investment denied by compliance policy';
+            const ruleId = denialDecision?.rule_id || 'OPA-DENY';
+
+            // Log audit event for OPA denial
+            await LoggerService.logAudit(
+              'investment_blocked_opa_policy',
+              'presale_investment',
+              { userId, tenantId },
+              {
+                presaleId,
+                investmentAmount: investmentAmount,
+                opaDecision: denialDecision,
+                ruleId,
+                reason: denialReason,
+                limitStatus: upgradeCheck.limitStatus
+              }
+            );
+
+            // If OPA suggests upgrade, trigger it
+            const upgradeAction = denialDecision?.actions?.find((a: any) => 
+              a.type === 'upgrade_required' || a.type === 'upgrade_prompt' || a.type === 'trigger_workflow'
+            );
+            
+            if (upgradeAction && upgradeAction.parameters?.required_level) {
+              const { KYCUpgradeTriggerService } = await import('./kyc-upgrade-trigger.service');
+              await KYCUpgradeTriggerService.triggerUpgradeWorkflow({
+                userId,
+                tenantId,
+                brokerId: attributedBrokerId,
+                fromLevel: upgradeCheck.currentLevel,
+                toLevel: upgradeAction.parameters.required_level,
+                reason: `OPA policy requires KYC level ${upgradeAction.parameters.required_level}: ${denialReason}`,
+                triggerType: 'blocking',
+                metadata: {
+                  opaRuleId: ruleId,
+                  opaDecision: denialDecision,
+                  presaleId
+                }
+              });
+            }
+
+            const error = createError(denialReason, 403, 'INVESTMENT_DENIED_BY_POLICY');
+            (error as any).details = {
+              ruleId,
+              opaDecision: denialDecision,
+              currentLevel: upgradeCheck.currentLevel,
+              requiredLevel: upgradeAction?.parameters?.required_level
+            };
+            throw error;
+          }
+
+          // Log OPA allow decision for audit
+          await LoggerService.logAudit(
+            'investment_approved_opa_policy',
+            'presale_investment',
+            { userId, tenantId },
+            {
+              presaleId,
+              investmentAmount: investmentAmount,
+              opaDecisions: opaDecisions.map(d => ({
+                rule_id: d.rule_id,
+                allowed: d.allowed,
+                severity: d.severity
+              }))
+            }
+          );
+        } catch (opaError) {
+          // If OPA evaluation fails, log but don't block (fail-secure: allow if OPA unavailable)
+          LoggerService.warn('OPA evaluation failed, allowing investment (fail-secure)', {
+            userId,
+            tenantId,
+            presaleId,
+            error: opaError instanceof Error ? opaError.message : 'unknown'
+          });
+
+          // Log audit event for OPA failure
+          await LoggerService.logAudit(
+            'opa_evaluation_failed',
+            'presale_investment',
+            { userId, tenantId },
+            {
+              presaleId,
+              investmentAmount: investmentAmount,
+              error: opaError instanceof Error ? opaError.message : 'unknown',
+              action: 'allowed_fail_secure'
+            }
+          );
+        }
+      }
+
       // Calculate token amount
       const amountDecimal = new Decimal(amount.toString());
       const tokenPriceDecimal = new Decimal(presale.tokenPrice.toString());
@@ -1294,6 +1492,66 @@ export class PresaleService {
       const referralBonus = referralCode ? (tokenAmount as any).mul(0.05) : new Decimal(0); // 5% referral bonus
 
       const investmentId = uuidv4();
+      
+      // Fetch actual KYC level from KYC service (unified across both platforms)
+      let userKycLevel: string = 'L0'; // Default to L0 if not found
+      try {
+        const kycStatus = await KYCService.getKYCStatus(userId);
+        userKycLevel = kycStatus.kycLevel;
+      } catch (kycError) {
+        // If user doesn't have KYC status yet, default to L0
+        LoggerService.warn('KYC status not found for user, defaulting to L0', {
+          userId,
+          error: kycError instanceof Error ? kycError.message : 'unknown'
+        });
+        userKycLevel = 'L0';
+      }
+
+      // Calculate required KYC level based on investment amount (if presale has progressive requirements)
+      // Progressive KYC: higher investment amounts require higher KYC levels
+      const amountNum = typeof investmentAmount === 'string' ? parseFloat(investmentAmount) : investmentAmount;
+      let requiredKycLevel = 'L0';
+      if (amountNum >= 100000) {
+        requiredKycLevel = 'L3';
+      } else if (amountNum >= 50000) {
+        requiredKycLevel = 'L2';
+      } else if (amountNum >= 10000) {
+        requiredKycLevel = 'L1';
+      } else {
+        requiredKycLevel = 'L0';
+      }
+      
+      // Check if user's KYC level meets the requirement
+      const kycLevels = ['L0', 'L1', 'L2', 'L3', 'INSTITUTIONAL'];
+      const userLevelIndex = kycLevels.indexOf(userKycLevel);
+      const requiredLevelIndex = kycLevels.indexOf(requiredKycLevel);
+      
+      if (userLevelIndex < requiredLevelIndex) {
+        // User needs to upgrade - trigger workflow automatically
+        const { KYCUpgradeTriggerService } = await import('./kyc-upgrade-trigger.service');
+        const workflowResult = await KYCUpgradeTriggerService.triggerUpgradeWorkflow({
+          userId,
+          tenantId,
+          fromLevel: userKycLevel,
+          toLevel: requiredKycLevel,
+          reason: `Investment amount ${investmentAmount} requires KYC level ${requiredKycLevel}`,
+          triggerType: 'blocking'
+        }, req as any);
+        
+        const error = createError(
+          `KYC level ${requiredKycLevel} required for this investment amount. Current level: ${userKycLevel}. Please complete the verification process.`,
+          403,
+          'KYC_LEVEL_INSUFFICIENT'
+        );
+        (error as any).details = {
+          currentLevel: userKycLevel,
+          requiredLevel: requiredKycLevel,
+          investmentAmount: investmentAmount.toString(),
+          workflowTriggered: workflowResult.workflowTriggered,
+          workflowId: workflowResult.workflowId
+        };
+        throw error;
+      }
       
       const platformFeeUsd = new Decimal(0); // configurable per tenant
       const paymentProcessorFeeUsd = paymentMethod === PaymentMethod.CREDIT_CARD ? new Decimal(amount.toString()).times(0.03) : new Decimal(0);
@@ -1312,7 +1570,7 @@ export class PresaleService {
         bonusAmount,
         referralCode,
         referralBonus,
-        kycLevel: 'L1', // Would be fetched from KYC service
+        kycLevel: userKycLevel, // Fetched from unified KYC service
         status: InvestmentStatus.PENDING,
         vestingSchedule: presale.vestingSchedule,
         metadata: {
@@ -1439,6 +1697,49 @@ export class PresaleService {
           presale.raisedAmount = currentRaised.plus(investmentAmount);
           this.presales.set(presaleId, presale);
 
+          // Track transaction volume (unified across presale and main platform)
+          await TransactionVolumeTrackerService.trackTransaction(
+            userId,
+            tenantId,
+            TransactionType.INVESTMENT,
+            investmentAmount.toNumber(),
+            TimePeriod.TOTAL
+          );
+
+          // Log audit event for successful investment
+          await LoggerService.logAudit(
+            'presale_investment_completed',
+            'presale_investment',
+            { userId, tenantId, brokerId: attributedBrokerId },
+            {
+              investmentId,
+              presaleId,
+              investmentAmount: investmentAmount.toNumber(),
+              tokenAmount: (tokenAmount as any).add(bonusAmount).add(referralBonus).toNumber(),
+              paymentMethod,
+              kycLevel: userKycLevel,
+              transactionHash: purchaseResult.transaction.hash
+            }
+          );
+
+          // Initialize post-purchase trading flow (non-blocking)
+          try {
+            const { PostPurchaseFlowService } = await import('./post-purchase-flow.service');
+            await PostPurchaseFlowService.initializeTrading(
+              userId,
+              tenantId,
+              investmentAmount.toNumber(),
+              (tokenAmount as any).add(bonusAmount).add(referralBonus).toNumber()
+            );
+          } catch (postPurchaseError) {
+            // Non-blocking: log but don't fail the investment
+            LoggerService.warn('Post-purchase flow initialization failed (non-blocking)', {
+              userId,
+              tenantId,
+              error: postPurchaseError instanceof Error ? postPurchaseError.message : 'unknown'
+            });
+          }
+
           LoggerService.info(`On-chain investment completed successfully`, {
             investmentId,
             presaleId,
@@ -1474,6 +1775,9 @@ export class PresaleService {
         const investmentAmount = new Decimal(amount.toString());
         presale.raisedAmount = (currentRaised as any).add(investmentAmount);
         this.presales.set(presaleId, presale);
+
+        // Note: Volume tracking for off-chain payments will happen when payment is confirmed
+        // For now, we track it as pending - will be updated when status changes to CONFIRMED
 
         LoggerService.info(`Off-chain investment recorded`, {
           investmentId,

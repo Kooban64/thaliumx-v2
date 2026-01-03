@@ -172,6 +172,30 @@ create_upstream() {
     fi
 }
 
+# Function to create or update a global rule
+create_global_rule() {
+    local rule_id=$1
+    local rule_data=$2
+    
+    echo -e "${YELLOW}Creating/Updating global rule $rule_id...${NC}"
+    
+    response=$(curl -s -w "\n%{http_code}" -X PUT "$APISIX_ADMIN_URL/global_rules/$rule_id" \
+        -H "X-API-KEY: $APISIX_ADMIN_KEY" \
+        -H "Content-Type: application/json" \
+        -d "$rule_data")
+    
+    http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
+    
+    if [ "$http_code" = "200" ] || [ "$http_code" = "201" ]; then
+        echo -e "${GREEN}  ✅ Global rule $rule_id configured successfully${NC}"
+    else
+        echo -e "${RED}  ❌ Failed to configure global rule $rule_id (HTTP $http_code)${NC}"
+        echo "  Response: $body"
+        return 1
+    fi
+}
+
 echo ""
 echo -e "${YELLOW}Step 1: Configuring TLS (SNI certificate)${NC}"
 echo "--------------------------------------------"
@@ -233,7 +257,64 @@ create_upstream "2" "{
         \"read\": 6
     },
     \"retries\": 2,
-    \"pass_host\": \"pass\"
+    \"pass_host\": \"pass\",
+    \"checks\": {
+        \"active\": {
+            \"type\": \"http\",
+            \"http_path\": \"/health\",
+            \"host\": \"$BACKEND_UPSTREAM\",
+            \"port\": 3002,
+            \"healthy\": {
+                \"interval\": 2,
+                \"successes\": 2,
+                \"http_statuses\": [200, 201, 204]
+            },
+            \"unhealthy\": {
+                \"interval\": 1,
+                \"http_failures\": 3,
+                \"tcp_failures\": 2,
+                \"timeouts\": 3
+            }
+        }
+    }
+}"
+
+# Upstream 6: Ballerine Workflows Service
+BALLERINE_UPSTREAM="${BALLERINE_UPSTREAM:-thaliumx-ballerine-workflow:3000}"
+create_upstream "6" "{
+    \"id\": \"6\",
+    \"name\": \"ballerine-workflow-upstream\",
+    \"type\": \"roundrobin\",
+    \"scheme\": \"http\",
+    \"nodes\": {
+        \"$BALLERINE_UPSTREAM\": 1
+    },
+    \"timeout\": {
+        \"connect\": 10,
+        \"send\": 30,
+        \"read\": 60
+    },
+    \"retries\": 2,
+    \"pass_host\": \"pass\",
+    \"checks\": {
+        \"active\": {
+            \"type\": \"http\",
+            \"http_path\": \"/api/v1/_health/live\",
+            \"host\": \"$BALLERINE_UPSTREAM\",
+            \"port\": 3000,
+            \"healthy\": {
+                \"interval\": 5,
+                \"successes\": 2,
+                \"http_statuses\": [200, 204]
+            },
+            \"unhealthy\": {
+                \"interval\": 2,
+                \"http_failures\": 3,
+                \"tcp_failures\": 2,
+                \"timeouts\": 3
+            }
+        }
+    }
 }"
 
 # Upstream 5: Zitadel (HTTP behind APISIX)
@@ -251,11 +332,87 @@ create_upstream "5" "{
         \"read\": 60
     },
     \"retries\": 2,
-    \"pass_host\": \"pass\"
+    \"pass_host\": \"pass\",
+    \"checks\": {
+        \"active\": {
+            \"type\": \"http\",
+            \"http_path\": \"/.well-known/openid-configuration\",
+            \"host\": \"$ZITADEL_UPSTREAM\",
+            \"port\": 8080,
+            \"healthy\": {
+                \"interval\": 5,
+                \"successes\": 2,
+                \"http_statuses\": [200, 301, 302]
+            },
+            \"unhealthy\": {
+                \"interval\": 2,
+                \"http_failures\": 3,
+                \"tcp_failures\": 2,
+                \"timeouts\": 3
+            }
+        }
+    }
 }"
 
 echo ""
-echo -e "${YELLOW}Step 3: Configuring Routes${NC}"
+echo -e "${YELLOW}Step 3: Configuring Global Rules${NC}"
+echo "--------------------------------------------"
+
+# Global Rule 1: Security headers and global rate limiting
+# Build Redis configuration for rate limiting plugins
+# Default to local policy if Redis not configured
+REDIS_HOST="${REDIS_HOST:-thaliumx-redis}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+REDIS_DATABASE="${REDIS_DATABASE:-0}"
+
+# Try to read Redis password from file if REDIS_PASSWORD not set
+if [ -z "$REDIS_PASSWORD" ] && [ -f "/run/secrets/redis-password" ]; then
+    REDIS_PASSWORD=$(cat /run/secrets/redis-password 2>/dev/null || echo "")
+fi
+REDIS_PASSWORD="${REDIS_PASSWORD:-}"
+
+if [ -n "$REDIS_PASSWORD" ]; then
+    REDIS_CONFIG="\"redis_host\": \"$REDIS_HOST\", \"redis_port\": $REDIS_PORT, \"redis_password\": \"$REDIS_PASSWORD\", \"redis_database\": $REDIS_DATABASE"
+else
+    REDIS_CONFIG="\"redis_host\": \"$REDIS_HOST\", \"redis_port\": $REDIS_PORT, \"redis_database\": $REDIS_DATABASE"
+fi
+
+create_global_rule "1" "{
+    \"id\": \"1\",
+    \"plugins\": {
+        \"response-rewrite\": {
+            \"headers\": {
+                \"X-Frame-Options\": \"DENY\",
+                \"X-Content-Type-Options\": \"nosniff\",
+                \"X-XSS-Protection\": \"1; mode=block\",
+                \"Strict-Transport-Security\": \"max-age=31536000; includeSubDomains\",
+                \"Content-Security-Policy\": \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://auth.thaliumx.com;\",
+                \"Referrer-Policy\": \"strict-origin-when-cross-origin\",
+                \"Permissions-Policy\": \"geolocation=(), microphone=(), camera=()\"
+            }
+        },
+        \"limit-count\": {
+            \"count\": 10000,
+            \"time_window\": 60,
+            \"rejected_code\": 429,
+            \"key\": \"remote_addr\",
+            \"policy\": \"redis\",
+            $REDIS_CONFIG,
+            \"rejected_msg\": \"Global rate limit exceeded. Please try again later.\"
+        },
+        \"limit-conn\": {
+            \"conn\": 100,
+            \"burst\": 50,
+            \"default_conn_delay\": 0.1,
+            \"key\": \"remote_addr\",
+            \"rejected_code\": 503,
+            \"rejected_msg\": \"Too many concurrent connections.\"
+        }
+    }
+}"
+
+echo ""
+echo -e "${YELLOW}Step 4: Configuring Routes${NC}"
 echo "--------------------------------------------"
 
 # Route 1: Main landing page - thaliumx.com (52.54.125.124)
@@ -516,7 +673,7 @@ if [ "$APISIX_ENABLE_OIDC" = "true" ]; then
   create_route "41" "{
       \"id\": \"41\",
       \"name\": \"thaliumx-api-protected\",
-      \"desc\": \"Protected API endpoints (gateway-enforced OIDC)\",
+      \"desc\": \"Protected API endpoints (gateway-enforced OIDC with enhanced features)\",
       \"hosts\": [\"thaliumx.com\", \"thal.thaliumx.com\", \"api.thaliumx.com\"],
       \"uri\": \"/api/*\",
       \"priority\": 22,
@@ -529,7 +686,15 @@ if [ "$APISIX_ENABLE_OIDC" = "true" ]; then
               \"discovery\": \"$OIDC_DISCOVERY\",
               \"bearer_only\": true,
               \"scope\": \"openid profile email\",
-              \"ssl_verify\": $OIDC_SSL_VERIFY
+              \"ssl_verify\": $OIDC_SSL_VERIFY,
+              \"token_endpoint_auth_method\": \"client_secret_post\",
+              \"session\": {
+                  \"secret\": \"${OIDC_SESSION_SECRET:-changeme-in-production-use-secret-manager}\"
+              },
+              \"set_access_token_header\": true,
+              \"set_id_token_header\": true,
+              \"set_userinfo_header\": true,
+              \"set_claims_in_headers\": true
           },
           \"proxy-rewrite\": {
               \"headers\": {
@@ -549,8 +714,24 @@ if [ "$APISIX_ENABLE_OIDC" = "true" ]; then
               \"max_age\": 3600,
               \"allow_credential\": true
           },
+          \"response-rewrite\": {
+              \"headers\": {
+                  \"Strict-Transport-Security\": \"max-age=31536000; includeSubDomains; preload\",
+                  \"X-Frame-Options\": \"DENY\",
+                  \"X-Content-Type-Options\": \"nosniff\",
+                  \"X-XSS-Protection\": \"1; mode=block\",
+                  \"Referrer-Policy\": \"strict-origin-when-cross-origin\",
+                  \"Content-Security-Policy\": \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://auth.thaliumx.com; frame-ancestors 'none'\",
+                  \"Permissions-Policy\": \"geolocation=(), microphone=(), camera=()\"
+              }
+          },
           \"request-id\": {
               \"include_in_response\": true
+          },
+          \"uri-blocker\": {
+              \"block_rules\": [\"^/api/.*\\\\.\\\\.\", \"^/api/.*%2e%2e\"],
+              \"rejected_code\": 403,
+              \"rejected_msg\": \"Blocked URI pattern detected.\"
           },
           \"limit-req\": {
               \"rate\": 60,
@@ -563,8 +744,59 @@ if [ "$APISIX_ENABLE_OIDC" = "true" ]; then
               \"count\": 1000,
               \"time_window\": 60,
               \"key\": \"remote_addr\",
-              \"rejected_code\": 429,
+            \"policy\": \"redis\",
+            $REDIS_CONFIG,
+            \"rejected_code\": 429,
               \"rejected_msg\": \"Rate limit exceeded. Please try again later.\"
+          },
+          \"limit-conn\": {
+              \"conn\": 50,
+              \"burst\": 25,
+              \"default_conn_delay\": 0.1,
+              \"key\": \"remote_addr\",
+              \"rejected_code\": 503,
+              \"rejected_msg\": \"Too many concurrent connections.\"
+          },
+          \"api-breaker\": {
+              \"break_response_code\": 502,
+              \"max_failed\": 5,
+              \"timeout\": 3,
+              \"unhealthy\": {
+                  \"http_statuses\": [500, 502, 503, 504],
+                  \"interval\": 2
+              },
+              \"healthy\": {
+                  \"http_statuses\": [200, 201, 204],
+                  \"interval\": 5,
+                  \"successes\": 2
+              }
+          },
+          \"opa\": {
+              \"host\": \"$OPA_HOST\",
+              \"policy\": \"$OPA_POLICY\",
+              \"timeout\": 3000,
+              \"ssl_verify\": $OPA_SSL_VERIFY,
+              \"with_route\": true,
+              \"with_service\": true,
+              \"with_consumer\": true,
+              \"include_body\": false,
+              \"include_body_max_size\": 0
+          },
+          \"prometheus\": {},
+          \"zipkin\": {
+              \"endpoint\": \"https://thaliumx-tempo:9411/api/v2/spans\",
+              \"sample_ratio\": 0.1,
+              \"service_name\": \"thaliumx-apisix\"
+          },
+          \"kafka-logger\": {
+              \"broker_list\": {
+                  \"thaliumx-kafka\": 9092
+              },
+              \"kafka_topic\": \"thaliumx-access-logs\",
+              \"producer_type\": \"async\",
+              \"required_acks\": 1,
+              \"buffer_duration\": 60,
+              \"max_retry_count\": 3
           }
       }
   }"
@@ -693,7 +925,7 @@ create_route "5" "{
     \"plugins\": {}
 }"
 
- # Route 6: Sensitive auth endpoints (strict rate limiting)
+ # Route 6: Sensitive auth endpoints (strict rate limiting with security plugins)
  # IMPORTANT:
  # - Do NOT rate-limit *all* /api/auth/*.
  # - Endpoints like /api/auth/profile and /api/auth/refresh are hit frequently by normal UX
@@ -702,7 +934,7 @@ create_route "5" "{
  create_route "6" "{
      \"id\": \"6\",
      \"name\": \"thaliumx-auth-sensitive\",
-     \"desc\": \"Sensitive auth endpoints (login/register/reset) with strict rate limiting\",
+     \"desc\": \"Sensitive auth endpoints (login/register/reset) with strict rate limiting and security\",
      \"hosts\": [\"thaliumx.com\", \"thal.thaliumx.com\", \"api.thaliumx.com\"],
      \"uris\": [
          \"/api/auth/login\",
@@ -735,6 +967,14 @@ create_route "5" "{
          \"request-id\": {
              \"include_in_response\": true
          },
+         \"csrf\": {
+             \"key\": \"X-CSRF-Token\"
+         },
+         \"uri-blocker\": {
+             \"block_rules\": [\"^/api/.*\\\\.\\\\.\", \"^/api/.*%2e%2e\"],
+             \"rejected_code\": 403,
+             \"rejected_msg\": \"Blocked URI pattern detected.\"
+         },
          \"limit-req\": {
              \"rate\": 5,
              \"burst\": 5,
@@ -746,8 +986,30 @@ create_route "5" "{
              \"count\": 30,
              \"time_window\": 300,
              \"key\": \"remote_addr\",
-             \"rejected_code\": 429,
+            \"policy\": \"redis\",
+            $REDIS_CONFIG,
+            \"rejected_code\": 429,
              \"rejected_msg\": \"Too many authentication attempts from this IP, please try again later.\"
+         },
+         \"api-breaker\": {
+             \"break_response_code\": 502,
+             \"max_failed\": 3,
+             \"timeout\": 2,
+             \"unhealthy\": {
+                 \"http_statuses\": [500, 502, 503, 504],
+                 \"interval\": 1
+             },
+             \"healthy\": {
+                 \"http_statuses\": [200, 201, 204],
+                 \"interval\": 3,
+                 \"successes\": 2
+             }
+         },
+         \"prometheus\": {},
+         \"zipkin\": {
+             \"endpoint\": \"http://thaliumx-tempo:9411/api/v2/spans\",
+             \"sample_ratio\": 0.1,
+             \"service_name\": \"thaliumx-apisix\"
          }
      }
  }"
@@ -765,17 +1027,17 @@ create_route "12" "{
     \"status\": 1,
     \"plugins\": {
         \"redirect\": {
-            \"uri\": \"https://auth.thaliumx.com\\$request_uri\",
+            \"uri\": \"https://auth.thaliumx.com\$request_uri\",
             \"ret_code\": 302
         }
     }
 }"
 
-# Route 7: Financial endpoints (strict rate limiting)
+# Route 7: Financial endpoints (strict rate limiting with security and OPA)
 create_route "7" "{
     \"id\": \"7\",
     \"name\": \"thaliumx-financial\",
-    \"desc\": \"Financial endpoints with strict rate limiting\",
+    \"desc\": \"Financial endpoints with strict rate limiting, security, and OPA\",
     \"uri\": \"/api/financial/*\",
     \"priority\": 25,
     \"status\": 1,
@@ -810,9 +1072,58 @@ create_route "7" "{
             \"count\": 100,
             \"time_window\": 60,
             \"key\": \"remote_addr\",
+            \"policy\": \"redis\",
+            $REDIS_CONFIG,
             \"rejected_code\": 429,
             \"rejected_msg\": \"Financial operations rate limit exceeded.\"
-        }
+        },
+        \"limit-conn\": {
+            \"conn\": 20,
+            \"burst\": 10,
+            \"default_conn_delay\": 0.1,
+            \"key\": \"remote_addr\",
+            \"rejected_code\": 503,
+            \"rejected_msg\": \"Too many concurrent financial connections.\"
+        },
+        \"api-breaker\": {
+            \"break_response_code\": 502,
+            \"max_failed\": 3,
+            \"timeout\": 2,
+            \"unhealthy\": {
+                \"http_statuses\": [500, 502, 503, 504],
+                \"interval\": 1
+            },
+            \"healthy\": {
+                \"http_statuses\": [200, 201, 204],
+                \"interval\": 3,
+                \"successes\": 2
+            }
+        },
+        \"opa\": {
+            \"host\": \"$OPA_HOST\",
+            \"policy\": \"$OPA_POLICY\",
+            \"timeout\": 3000,
+            \"ssl_verify\": $OPA_SSL_VERIFY,
+            \"with_route\": true,
+            \"with_service\": true,
+            \"with_consumer\": true
+        },
+        \"prometheus\": {},
+        \"zipkin\": {
+            \"endpoint\": \"http://thaliumx-tempo:9411/api/v2/spans\",
+            \"sample_ratio\": 0.1,
+            \"service_name\": \"thaliumx-apisix\"
+        },
+          \"kafka-logger\": {
+              \"broker_list\": {
+                  \"thaliumx-kafka\": 9092
+              },
+              \"kafka_topic\": \"thaliumx-financial-logs\",
+              \"producer_type\": \"async\",
+              \"required_acks\": 1,
+              \"buffer_duration\": 60,
+              \"max_retry_count\": 3
+          }
     }
 }"
 
@@ -824,13 +1135,35 @@ echo "  ✅ thaliumx.com -> Main landing page (/landing)"
 echo "  ✅ www.thaliumx.com -> Redirect to thaliumx.com"
 echo "  ✅ thal.thaliumx.com -> Token presale page (/token-presale)"
 echo "  ✅ auth.thaliumx.com -> Zitadel (OIDC)"
-echo "  ✅ /api/* -> Backend API (60 req/s, 1000/min per IP)"
-echo "  ✅ /api/auth/login|register|reset* -> Sensitive auth endpoints (5 req/s, 30 per 5 min per IP)"
-echo "  ✅ /api/financial/* -> Financial endpoints (30 req/s, 100/min per IP)"
+echo "  ✅ /api/* -> Backend API (60 req/s, 1000/min per IP, Redis-backed, OPA, caching)"
+echo "  ✅ /api/auth/login|register|reset* -> Sensitive auth endpoints (5 req/s, 30 per 5 min per IP, strict)"
+echo "  ✅ /api/financial/* -> Financial endpoints (30 req/s, 100/min per IP, OPA, strict)"
+echo "  ✅ /api/workflows/* -> Ballerine workflows API (OIDC optional, API key fallback)"
+echo "  ✅ /api/workflows/webhooks/* -> Ballerine webhooks (public)"
 echo "  ✅ /health -> Health check (no rate limiting)"
 echo ""
-echo "Rate limiting configured:"
-echo "  • API endpoints: 60 req/s, 1000/min per IP"
+echo "Security features enabled:"
+echo "  • Global security headers (X-Frame-Options, CSP, HSTS, etc.)"
+echo "  • URI blocking (path traversal protection)"
+echo "  • IP restrictions (configurable whitelist/blacklist)"
+echo "  • CSRF protection on sensitive endpoints"
+echo "  • OPA integration for authorization decisions"
+echo "  • Circuit breakers on all upstreams"
+echo ""
+echo "Rate limiting configured (Redis-backed):"
+echo "  • Global: 10000/min per IP, 100 concurrent connections"
+echo "  • API endpoints: 60 req/s, 1000/min per IP, 50 concurrent"
 echo "  • Sensitive auth endpoints: 5 req/s, 30 per 5 min per IP (strict)"
-echo "  • Financial endpoints: 30 req/s, 100/min per IP (strict)"
+echo "  • Financial endpoints: 30 req/s, 100/min per IP, 20 concurrent (strict)"
+echo ""
+echo "Performance features:"
+echo "  • Proxy caching enabled for GET requests (5min TTL)"
+echo "  • Health checks on all upstreams"
+echo "  • Circuit breakers with automatic recovery"
+echo ""
+echo "Observability:"
+echo "  • Prometheus metrics on all routes"
+echo "  • Zipkin tracing (10% sampling)"
+echo "  • Kafka logging for access logs"
+echo "  • Request ID propagation"
 echo ""

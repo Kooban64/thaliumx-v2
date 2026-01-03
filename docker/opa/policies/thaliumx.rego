@@ -25,54 +25,84 @@ allow if {
     input.user.id == input.resource.owner_id
 }
 
-# Role-based access control
+# Role-based access control (with normalization)
 allow if {
     input.user.authenticated == true
-    required_role := role_permissions[input.action][input.resource.type]
-    input.user.role in required_role
+    required_roles := role_permissions[input.action][input.resource.type]
+    normalized_user_role := normalize_role(input.user.role)
+    normalized_user_role in required_roles
+}
+
+# Role-based access control using normalized Zitadel roles
+allow if {
+    input.user.authenticated == true
+    required_roles := role_permissions[input.action][input.resource.type]
+    normalized_role := normalized_user_roles[_]
+    normalized_role in required_roles
 }
 
 # Define role permissions
 # Format: action -> resource_type -> allowed_roles
+# Supports both legacy roles and Zitadel roles
 role_permissions := {
     "read": {
-        "account": ["admin", "trader", "viewer"],
-        "order": ["admin", "trader", "viewer"],
-        "trade": ["admin", "trader", "viewer"],
-        "position": ["admin", "trader", "viewer"],
-        "market_data": ["admin", "trader", "viewer", "public"],
-        "user": ["admin"],
-        "audit_log": ["admin", "compliance"],
-        "report": ["admin", "compliance", "trader"],
+        "account": ["admin", "trader", "viewer", "platform-admin", "broker-admin", "broker-trading"],
+        "order": ["admin", "trader", "viewer", "platform-admin", "broker-admin", "broker-trading"],
+        "trade": ["admin", "trader", "viewer", "platform-admin", "broker-admin", "broker-trading"],
+        "position": ["admin", "trader", "viewer", "platform-admin", "broker-admin", "broker-trading"],
+        "market_data": ["admin", "trader", "viewer", "public", "platform-admin", "broker-admin", "broker-trading"],
+        "user": ["admin", "platform-admin", "broker-admin"],
+        "audit_log": ["admin", "compliance", "platform-admin", "platform-compliance", "broker-compliance"],
+        "report": ["admin", "compliance", "trader", "platform-admin", "platform-compliance", "broker-compliance", "broker-trading"],
+        "workflow": ["admin", "platform-admin", "broker-admin"],
+        "transaction": ["admin", "finance", "platform-admin", "platform-finance", "broker-finance"],
     },
     "create": {
-        "order": ["admin", "trader"],
-        "account": ["admin"],
-        "user": ["admin"],
+        "order": ["admin", "trader", "platform-admin", "broker-admin", "broker-trading"],
+        "account": ["admin", "platform-admin", "broker-admin"],
+        "user": ["admin", "platform-admin", "broker-admin"],
+        "workflow": ["admin", "platform-admin", "broker-admin", "user"],
+        "transaction": ["admin", "finance", "user", "platform-admin", "platform-finance", "broker-finance"],
     },
     "update": {
-        "order": ["admin", "trader"],
-        "account": ["admin"],
-        "user": ["admin"],
-        "position": ["admin"],
+        "order": ["admin", "trader", "platform-admin", "broker-admin", "broker-trading"],
+        "account": ["admin", "platform-admin", "broker-admin"],
+        "user": ["admin", "platform-admin", "broker-admin"],
+        "position": ["admin", "platform-admin", "broker-admin"],
+        "workflow": ["admin", "platform-admin", "broker-admin"],
     },
     "delete": {
-        "order": ["admin", "trader"],
-        "account": ["admin"],
-        "user": ["admin"],
+        "order": ["admin", "trader", "platform-admin", "broker-admin", "broker-trading"],
+        "account": ["admin", "platform-admin", "broker-admin"],
+        "user": ["admin", "platform-admin", "broker-admin"],
     },
     "cancel": {
-        "order": ["admin", "trader"],
+        "order": ["admin", "trader", "platform-admin", "broker-admin", "broker-trading"],
+        "workflow": ["admin", "platform-admin", "broker-admin"],
     },
     "execute": {
-        "trade": ["admin", "system"],
+        "trade": ["admin", "system", "platform-admin"],
+        "workflow": ["admin", "platform-admin", "broker-admin"],
     },
 }
 
-# Admin users have full access
+# Admin users have full access (legacy and Zitadel - with normalization)
 allow if {
     input.user.authenticated == true
-    input.user.role == "admin"
+    normalized_role := normalize_role(input.user.role)
+    normalized_role == "platform_admin"
+}
+
+allow if {
+    input.user.authenticated == true
+    normalized_role := normalized_user_roles[_]
+    normalized_role == "platform_admin"
+}
+
+allow if {
+    input.user.authenticated == true
+    normalized_role := normalized_user_roles[_]
+    normalized_role == "master_system_admin"
 }
 
 # System service accounts have full access

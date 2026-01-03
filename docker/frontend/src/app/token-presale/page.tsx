@@ -22,6 +22,9 @@ import {
 import { tokenPurchaseSchema, validateForm } from '@/lib/utils';
 import { getAccessToken } from '@/lib/auth/token-store';
 import { initZitadel } from '@/lib/auth/zitadel';
+import { ChatWidget } from '@/components/support/ChatWidget';
+import { UpgradePrompt } from '@/components/kyc/UpgradePrompt';
+import { PostPurchaseTrading } from '@/components/presale/PostPurchaseTrading';
 
 export default function TokenPresalePage() {
   const [amount, setAmount] = useState('');
@@ -34,7 +37,7 @@ export default function TokenPresalePage() {
   const [brokerCode, setBrokerCode] = useState<string>('');
   const [thalPrice, setThalPrice] = useState<number>(0.10); // Default fallback price
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const authMode = 'zitadel';
+  const [purchaseSuccess, setPurchaseSuccess] = useState<{ amount: number; tokens: number; kycLevel: string } | null>(null);
 
   useEffect(() => {
     // Load presale data
@@ -149,6 +152,15 @@ export default function TokenPresalePage() {
       }
 
       setSuccess('Token purchase request submitted!');
+      
+      // Store purchase success data for post-purchase CTA
+      const tokenAmount = Math.floor(parseFloat(amount) / thalPrice);
+      setPurchaseSuccess({
+        amount: parseFloat(amount),
+        tokens: tokenAmount,
+        kycLevel: 'L1' // Would be fetched from API response
+      });
+      
       setAmount('');
       setWalletAddress('');
       loadPresaleData();
@@ -280,6 +292,11 @@ export default function TokenPresalePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Show upgrade prompt if user is authenticated */}
+              {isAuthenticated && (
+                <UpgradePrompt limitType="investment" />
+              )}
+
               {error && (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
@@ -288,10 +305,20 @@ export default function TokenPresalePage() {
               )}
 
               {success && (
-                <Alert>
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertDescription className="text-green-600">{success}</AlertDescription>
-                </Alert>
+                <>
+                  <Alert>
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertDescription className="text-green-600">{success}</AlertDescription>
+                  </Alert>
+                  {/* Show post-purchase trading CTA if we have investment data */}
+                  {presaleData && parseFloat(amount) > 0 && (
+                    <PostPurchaseTrading
+                      investmentAmount={parseFloat(amount)}
+                      tokenAmount={Math.floor(parseFloat(amount) / thalPrice)}
+                      kycLevel="L1" // Would be fetched from API
+                    />
+                  )}
+                </>
               )}
 
               {!isAuthenticated && (
@@ -485,6 +512,9 @@ export default function TokenPresalePage() {
           </p>
         </div>
       </footer>
+
+      {/* Public Support Chat Widget */}
+      <ChatWidget isPublic={true} />
     </div>
   );
 }

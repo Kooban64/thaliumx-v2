@@ -184,19 +184,42 @@ unusual_pattern_flag contains decision if {
 }
 
 # ============================================
-# KYC VERIFICATION RULES
+# KYC VERIFICATION RULES (UNIFIED - Presale + Main Platform)
 # ============================================
 
-# Rule: KYC Level Requirements
+# Rule: KYC Level Requirements (Unified - applies to both presale and main platform)
+# Note: Backend services (TransactionVolumeTrackerService) handle cumulative limit checking
+# OPA provides additional policy layer for compliance
+
+# Check if transaction exceeds KYC level limit
 kyc_insufficient if {
-    input.action == "withdrawal"
-    input.transaction.amount > parameters.kyc_level_thresholds[input.user.kyc_level]
+    input.action in ["withdrawal", "investment", "trading"]
+    # Get limit from input (provided by backend TransactionVolumeTrackerService)
+    input.transaction.amount > input.user.kyc_limit
+}
+
+# Check if approaching limit (80% threshold) - warning but allow
+kyc_approaching_limit if {
+    input.action in ["withdrawal", "investment", "trading"]
+    input.user.kyc_usage_percentage >= 80
+    input.user.kyc_usage_percentage < 100
+}
+
+# Check if at limit (100% threshold) - block
+kyc_at_limit if {
+    input.action in ["withdrawal", "investment", "trading"]
+    input.user.kyc_usage_percentage >= 100
 }
 
 allow := false if {
     kyc_insufficient
 }
 
+allow := false if {
+    kyc_at_limit
+}
+
+# KYC insufficient flag (blocking)
 kyc_flag contains decision if {
     kyc_insufficient
     decision := {
@@ -205,11 +228,48 @@ kyc_flag contains decision if {
         "rule_id": "KYC-001",
         "severity": "high",
         "framework": "KYC",
-        "reason": sprintf("KYC level %v insufficient for withdrawal amount %v", [input.user.kyc_level, input.transaction.amount]),
+        "reason": sprintf("KYC level %v insufficient for %v amount %v (cumulative usage: %v%%)", [input.user.kyc_level, input.action, input.transaction.amount, input.user.kyc_usage_percentage]),
         "actions": [
-            {"type": "block", "target": "withdrawal", "parameters": {}},
+            {"type": "block", "target": input.action, "parameters": {}},
             {"type": "notification", "target": "user", "parameters": {"message": "Please complete KYC verification"}},
-            {"type": "upgrade_prompt", "target": "user", "parameters": {"required_level": "level_2"}}
+            {"type": "upgrade_prompt", "target": "user", "parameters": {"required_level": input.user.required_kyc_level, "workflow_url": input.user.workflow_url}},
+            {"type": "trigger_workflow", "target": "ballerine", "parameters": {"workflow_type": "kyc_upgrade", "from_level": input.user.kyc_level, "to_level": input.user.required_kyc_level}}
+        ]
+    }
+}
+
+# KYC approaching limit flag (warning)
+kyc_warning_flag contains decision if {
+    kyc_approaching_limit
+    decision := {
+        "flagged": true,
+        "allowed": true,  # Still allow, but warn
+        "rule_id": "KYC-002",
+        "severity": "medium",
+        "framework": "KYC",
+        "reason": sprintf("Approaching KYC level %v limit (usage: %v%%)", [input.user.kyc_level, input.user.kyc_usage_percentage]),
+        "actions": [
+            {"type": "notification", "target": "user", "parameters": {"message": "You're approaching your transaction limit. Consider upgrading your KYC level."}},
+            {"type": "upgrade_recommendation", "target": "user", "parameters": {"recommended_level": input.user.required_kyc_level, "workflow_url": input.user.workflow_url}}
+        ]
+    }
+}
+
+# KYC at limit flag (blocking)
+kyc_limit_flag contains decision if {
+    kyc_at_limit
+    decision := {
+        "flagged": true,
+        "allowed": false,
+        "rule_id": "KYC-003",
+        "severity": "high",
+        "framework": "KYC",
+        "reason": sprintf("KYC level %v limit reached (usage: %v%%)", [input.user.kyc_level, input.user.kyc_usage_percentage]),
+        "actions": [
+            {"type": "block", "target": input.action, "parameters": {}},
+            {"type": "notification", "target": "user", "parameters": {"message": "Your transaction limit has been reached. Please upgrade your KYC level to continue."}},
+            {"type": "upgrade_required", "target": "user", "parameters": {"required_level": input.user.required_kyc_level, "workflow_url": input.user.workflow_url}},
+            {"type": "trigger_workflow", "target": "ballerine", "parameters": {"workflow_type": "kyc_upgrade", "from_level": input.user.kyc_level, "to_level": input.user.required_kyc_level, "auto_trigger": true}}
         ]
     }
 }
@@ -245,8 +305,8 @@ kyc_expiry_flag contains decision if {
 # AGGREGATE DECISIONS
 # ============================================
 
-# Collect all flagged decisions
-all_flags := large_transaction_flag | structuring_flag | rapid_movement_flag | high_risk_country_flag | sanctioned_country_flag | pep_flag | new_account_flag | unusual_pattern_flag | kyc_flag | kyc_expiry_flag
+# Collect all flagged decisions (including new KYC warning and limit flags)
+all_flags := large_transaction_flag | structuring_flag | rapid_movement_flag | high_risk_country_flag | sanctioned_country_flag | pep_flag | new_account_flag | unusual_pattern_flag | kyc_flag | kyc_warning_flag | kyc_limit_flag | kyc_expiry_flag
 
 # Risk assessment based on flags
 assess_risk := result if {

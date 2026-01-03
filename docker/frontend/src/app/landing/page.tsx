@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { initZitadel } from '@/lib/auth/zitadel';
 import { getAccessToken } from '@/lib/auth/token-store';
+import { ChatWidget } from '@/components/support/ChatWidget';
 
 export default function LandingPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const authMode = 'zitadel';
 
   // Set default tenant ID for landing page (platform-default-tenant)
   useEffect(() => {
@@ -208,6 +208,9 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Public Support Chat Widget */}
+      <ChatWidget isPublic={true} />
     </div>
   );
 }

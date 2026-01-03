@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { initZitadel } from '@/lib/auth/zitadel';
 import { getAccessToken } from '@/lib/auth/token-store';
 import apiClient from '@/lib/api/client';
+import { PolicyViolationAlertContainer } from '@/components/opa/PolicyViolationAlertContainer';
 
 export default function PlatformAdmin() {
   const [loading, setLoading] = useState(true);
@@ -30,11 +31,6 @@ export default function PlatformAdmin() {
     })();
   }, [authMode]);
 
-  const openIdentityAdmin = () => {
-    // Zitadel console path differs by deployment; open the issuer root as a safe fallback.
-    const issuer = (process.env.NEXT_PUBLIC_ZITADEL_ISSUER || 'https://auth.thaliumx.com').replace(/\/+$/, '');
-    window.open(issuer, '_blank', 'noopener,noreferrer');
-  };
 
   return (
     <div className="p-6 space-y-6">
@@ -100,6 +96,19 @@ export default function PlatformAdmin() {
         </Card>
         <Card>
           <CardHeader>
+            <CardTitle>Workflow Management</CardTitle>
+            <CardDescription>Monitor and manage all workflows</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" asChild>
+                <a href="/admin/workflows">Workflow Dashboard</a>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
             <CardTitle>Policy Management</CardTitle>
             <CardDescription>OPA policies and compliance rules</CardDescription>
           </CardHeader>
@@ -123,16 +132,22 @@ export default function PlatformAdmin() {
             <CardDescription>Compliance reports and audit logs</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" disabled title="Reports UI not implemented in this frontend yet">Reports</Button>
+            <div className="flex gap-2 flex-wrap">
+              <Button size="sm" variant="outline" asChild>
+                <a href="/admin/compliance">Compliance Dashboard</a>
+              </Button>
               <Button size="sm" variant="outline" asChild>
                 <a href="/admin/policies?audit=1">Audit Log</a>
               </Button>
+              <Button size="sm" variant="outline" disabled title="Reports UI not implemented in this frontend yet">Reports</Button>
               <Button size="sm" variant="outline" disabled title="SAR filing UI not implemented in this frontend yet">SAR Filing</Button>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Policy Violation Alerts */}
+      <PolicyViolationAlertContainer />
     </div>
   );
 }

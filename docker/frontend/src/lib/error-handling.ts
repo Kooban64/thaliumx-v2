@@ -179,6 +179,70 @@ export function parseApiError(response: Response, data?: any): ApiError {
 }
 
 /**
+ * Extract detailed error information from OPA decisions
+ */
+export function extractOPAErrorDetails(error: ApiError): {
+  message: string;
+  ruleId?: string;
+  reason?: string;
+  actionable?: string;
+} {
+  // Check if error details contain OPA decision information
+  if (error.details && typeof error.details === 'object') {
+    const details = error.details as any;
+    
+    // Check for OPA decision structure
+    if (details.complianceDecision || details.decision) {
+      const decision = details.complianceDecision || details.decision;
+      const ruleId = decision.rule_id || decision.ruleId;
+      const reason = decision.reason;
+      
+      // Map rule IDs to actionable messages
+      const actionableMessages: Record<string, string> = {
+        'TX-LIMIT-001': 'Try a smaller amount or upgrade your KYC level to increase limits.',
+        'TX-LIMIT-002': 'Wait until tomorrow or upgrade your KYC level for higher daily limits.',
+        'TX-LIMIT-003': 'Wait until next month or upgrade your KYC level for higher monthly limits.',
+        'TX-LIMIT-004': 'This currency requires a higher KYC level. Complete KYC verification to access more currencies.',
+        'KYC-RISK-001': 'Contact support to review your account status.',
+        'KYC-COMP-001': 'Contact support for assistance with compliance requirements.',
+        'KYC-EXP-001': 'Complete KYC verification again to restore access.',
+        'WF-KYC-001': 'Complete KYC verification to execute this workflow.',
+        'WF-RISK-001': 'Contact support to review your account risk status.',
+        'RATE-LIMIT-001': 'Please wait a few minutes before trying again.',
+      };
+      
+      return {
+        message: reason || getUserFriendlyErrorMessage(error),
+        ruleId,
+        reason,
+        actionable: ruleId ? actionableMessages[ruleId] : undefined
+      };
+    }
+    
+    // Check for limit exceeded details
+    if (details.limit_type || details.limit_value) {
+      const limitType = details.limit_type;
+      const limitValue = details.limit_value;
+      const actualValue = details.actual_value;
+      
+      let message = `Your ${limitType} limit is ${limitValue?.toLocaleString() || 'unknown'}`;
+      if (actualValue) {
+        message += `, but you attempted ${actualValue.toLocaleString()}`;
+      }
+      
+      return {
+        message,
+        actionable: 'Upgrade your KYC level to increase limits, or try a smaller amount.'
+      };
+    }
+  }
+  
+  return {
+    message: getUserFriendlyErrorMessage(error)
+  };
+}
+
+/**
  * Create user-friendly error messages
  */
 export function getUserFriendlyErrorMessage(error: ApiError): string {

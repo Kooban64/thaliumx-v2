@@ -63,6 +63,7 @@ pnpm docker:up:legacy
 Notes:
 
 - The prod-v1 Fintech layer (Ballerine) is configured to **build from the vendored source** in this repo (see [`docker/compose/prod-v1/fintech.yml`](docker/compose/prod-v1/fintech.yml:1)).
+- The prod-v1 Additional Components layer (GraphQL, Ballerina Workflows, Live Helper Chat, osTicket) is configured to **build from the vendored source** in this repo (see [`docker/compose/prod-v1/additional-components.yml`](docker/compose/prod-v1/additional-components.yml:1)).
 - If you explicitly want to run *only* prebuilt images (no local build), use the hardened runner directly with `--no-build --pull always`:
 
 ```bash
@@ -94,10 +95,21 @@ Doctor runs the checker and prints:
 - unhealthy containers
 - *origin labels* (compose project + working dir) to detect mixed compose stacks
 
-## About “audit/non-audit”
+## Additional Components
+
+The production stack includes the following additional components for enhanced functionality:
+
+- **GraphQL API Gateway**: Flexible API layer for efficient data querying at `/graphql`
+- **Ballerina Workflows**: Orchestration engine for complex microservice interactions
+- **Live Helper Chat**: Real-time customer support with WebSocket connections
+- **osTicket**: Structured issue tracking and escalation system
+
+These services are integrated into the prod-v1 stack and start automatically with `./thaliumxctl.sh up`.
+
+## About "audit/non-audit"
 
 Historically, some services (Wazuh + Ballerine + BLNK) were behind compose profile `non-audit`.
-For production, **everything is required**, so the manager’s default mode is a *single full production bring-up* (equivalent to including the `non-audit` profile).
+For production, **everything is required**, so the manager's default mode is a *single full production bring-up* (equivalent to including the `non-audit` profile).
 
 The old names are retained as aliases for backward compatibility in:
 

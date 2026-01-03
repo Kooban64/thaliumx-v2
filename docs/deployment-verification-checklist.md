@@ -1,4 +1,4 @@
-# Zitadel Deployment Verification Checklist
+# ThaliumX Production Deployment Verification Checklist
 
 ## Pre-Deployment Verification
 
@@ -42,9 +42,13 @@ docker compose -f docker/compose/prod-v1/base.yml -f docker/compose/prod-v1/prod
 
 #### Supporting Services
 - [ ] **APISIX Gateway**: Running and healthy
-- [ ] **Backend API**: Running and healthy  
+- [ ] **Backend API**: Running and healthy
 - [ ] **Frontend**: Running and healthy
 - [ ] **Database**: PostgreSQL instances running
+- [ ] **GraphQL API Gateway**: Running and healthy
+- [ ] **Ballerina Workflows**: Running and healthy
+- [ ] **Live Helper Chat**: Running and healthy
+- [ ] **osTicket**: Running and healthy
 
 ### **2. Network Connectivity**
 
@@ -124,6 +128,32 @@ curl -H "Host: auth.thaliumx.com" http://localhost/health
 - [ ] **API Endpoints**: Protected API endpoints require authentication
 - [ ] **Tenant Isolation**: Users can only access their tenant's data
 - [ ] **Role-Based Access**: Different roles have appropriate permissions
+
+### **7. Additional Components Verification**
+
+#### GraphQL API Gateway
+- [ ] **GraphQL Endpoint**: `/graphql` accessible and responding
+- [ ] **GraphQL Playground**: Available at `/graphql` in development
+- [ ] **Schema Introspection**: Schema queries work correctly
+- [ ] **Real-time Subscriptions**: WebSocket connections for price updates
+- [ ] **Caching**: Redis cache working for market data
+- [ ] **Backend Integration**: Can query user portfolios and trading history
+
+#### Ballerina Workflows
+- [ ] **Workflow API**: `/workflows/*` endpoints responding
+- [ ] **Kafka Integration**: Consumer connected to Kafka topics
+- [ ] **User Onboarding**: Can trigger and complete onboarding workflows
+- [ ] **Trading Workflows**: Order processing workflows functional
+- [ ] **Event Processing**: Kafka events processed correctly
+- [ ] **State Persistence**: Workflow state stored in database
+
+#### Support Services
+- [ ] **Live Helper Chat**: Chat interface accessible
+- [ ] **WebSocket Connections**: Real-time messaging working
+- [ ] **Chat History**: Messages persisted in database
+- [ ] **osTicket Integration**: Chat escalation to tickets works
+- [ ] **Moderation**: Chat moderation and analytics functional
+- [ ] **Email Integration**: Ticket notifications sent via SMTP
 
 ### **7. Error Scenarios**
 
