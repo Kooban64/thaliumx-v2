@@ -11,7 +11,8 @@
  * Production-ready with comprehensive validation
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { MarginTradingService } from '../services/margin';
 import { LoggerService } from '../services/logger';
 import { authenticateToken } from '../middleware/error-handler';
@@ -47,7 +48,7 @@ router.post('/accounts', authenticateToken, validateRequest, async (req: Request
     LoggerService.info('Margin account created via API', { 
       accountId: account.id, 
       userId, 
-      accountType: account.accountType 
+      accountType: account.accountType
     });
     
     res.status(201).json({
@@ -156,7 +157,7 @@ router.post('/deposits', authenticateToken, validateRequest, async (req: Request
       transferId: transfer.id, 
       userId, 
       amount, 
-      asset 
+      asset
     });
     
     res.status(201).json({
@@ -215,7 +216,7 @@ router.post('/withdrawals', authenticateToken, validateRequest, async (req: Requ
       transferId: transfer.id, 
       userId, 
       amount, 
-      asset 
+      asset
     });
     
     res.status(201).json({
@@ -302,7 +303,7 @@ router.post('/orders', authenticateToken, validateRequest, async (req: Request, 
       symbol, 
       side, 
       quantity, 
-      leverage 
+                leverage
     });
     
     res.status(201).json({

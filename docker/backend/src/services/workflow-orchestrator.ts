@@ -25,15 +25,17 @@ import { LoggerService } from './logger';
 import { EventStreamingService } from './event-streaming';
 import { SupportService } from './support';
 import { SagaExecutor } from '../utils/saga-executor';
-import {
-  WorkflowType,
-  WorkflowStatus,
+import type {
   WorkflowState,
   WorkflowInput,
   WorkflowResult,
   SagaStep,
   SagaContext,
-  WorkflowExecutionOptions
+                WorkflowExecutionOptions
+} from '../types/workflow';
+import {
+  WorkflowType,
+                WorkflowStatus
 } from '../types/workflow';
 
 // Workflow registry - maps workflow types to their implementations
@@ -90,7 +92,7 @@ export class WorkflowOrchestratorService {
     const workflowId = uuidv4();
     const {
       maxRetries = 3,
-      timeout,
+      timeout: _timeout,
       retryDelay = 1000,
       enableCompensation = true
     } = options;
@@ -401,7 +403,7 @@ export class WorkflowOrchestratorService {
 
     LoggerService.info('Cancelling workflow', {
       workflowId,
-      reason
+                reason
     });
 
     await this.updateWorkflowState(workflowId, {
@@ -638,7 +640,7 @@ export class WorkflowOrchestratorService {
 
     await this.emitWorkflowEvent('workflow.step.completed', workflowId, {
       stepIndex: state.stepIndex,
-      nextStep
+      nextStep: state.stepIndex < steps.length - 1 ? steps[state.stepIndex + 1]?.name : null
     });
   }
 }

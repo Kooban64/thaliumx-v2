@@ -6,7 +6,7 @@
 
 import { LoggerService } from './logger';
 import { RedisService } from './redis';
-import { createError } from '../utils';
+// createError imported but not used in this file
 
 const DISPOSABLE_EMAIL_DOMAINS = new Set([
   '10minutemail.com', 'tempmail.com', 'guerrillamail.com', 'mailinator.com',

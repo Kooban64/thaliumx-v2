@@ -36,7 +36,7 @@
 // API GATEWAY MIDDLEWARE
 // =============================================================================
 
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { LoggerService } from '../services/logger';
 import { createError } from '../utils';
 // crypto imported but not used in this file
@@ -140,7 +140,7 @@ export const apiGateway = (config: Partial<APIGatewayConfig> = {}) => {
             requestQueue.push({ req, res, next, timestamp: Date.now() });
             LoggerService.info('Request queued due to high load', {
               queueSize: requestQueue.length,
-              activeRequests
+                activeRequests
             });
             return; // Don't call next() yet
           } else {

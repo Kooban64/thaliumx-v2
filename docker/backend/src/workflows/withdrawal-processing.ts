@@ -2,7 +2,7 @@
  * Withdrawal Processing Workflow
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { TransactionProcessingService } from '../services/transaction-processing';
@@ -10,7 +10,7 @@ import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 
 export async function createWithdrawalProcessingWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {

@@ -5,7 +5,7 @@
  * Enhances input with unified transaction volume data for progressive compliance checks.
  */
 
-import { Request } from 'express';
+import type { Request } from 'express';
 import { LoggerService } from './logger';
 import { TransactionVolumeTrackerService, TimePeriod } from './transaction-volume-tracker.service';
 import { KYCService } from './kyc';

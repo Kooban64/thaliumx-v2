@@ -31,7 +31,8 @@
  * - VAULT_MOUNT_PATH: Secret engine mount path (default: secret)
  */
 
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import type { AxiosInstance, AxiosError } from 'axios';
+import axios from 'axios';
 import { LoggerService } from './logger';
 
 interface VaultConfig {
@@ -227,20 +228,22 @@ export class SecretsService {
     // Renew token every 30 minutes (Vault default token TTL is 1 hour)
     const renewalInterval = 30 * 60 * 1000;
 
-    this.tokenRenewalTimer = setInterval(async () => {
-      try {
-        if (this.client) {
-          await this.client.post('/v1/auth/token/renew-self');
-          LoggerService.debug('Vault token renewed successfully');
-        }
-      } catch (error: any) {
+    this.tokenRenewalTimer = setInterval(() => {
+      void (async () => {
+        try {
+          if (this.client) {
+            await this.client.post('/v1/auth/token/renew-self');
+            LoggerService.debug('Vault token renewed successfully');
+          }
+        } catch (error: any) {
         LoggerService.warn('Failed to renew Vault token, re-authenticating...', { error: error.message });
         // Re-authenticate
         const newToken = await this.authenticateWithAppRole();
         if (newToken && this.client) {
           this.client.defaults.headers['X-Vault-Token'] = newToken;
         }
-      }
+        }
+      })();
     }, renewalInterval);
   }
 

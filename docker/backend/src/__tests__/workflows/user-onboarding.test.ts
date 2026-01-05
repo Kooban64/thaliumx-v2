@@ -7,8 +7,8 @@
  * - Compensation on failure
  */
 
-import { createUserOnboardingWorkflow } from '../../workflows/user-onboarding';
-import { WorkflowInput, SagaContext } from '../../types/workflow';
+import { _createUserOnboardingWorkflow } from '../../workflows/user-onboarding';
+import { _WorkflowInput, SagaContext } from '../../types/workflow';
 import { WorkflowType } from '../../types/workflow';
 
 // Mock services

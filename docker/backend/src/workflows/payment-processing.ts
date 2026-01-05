@@ -13,7 +13,7 @@
  * Compensation: Reverse transaction if settlement fails
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { TransactionProcessingService } from '../services/transaction-processing';
@@ -32,7 +32,7 @@ interface PaymentContext {
  * Payment Processing Workflow Implementation
  */
 export async function createPaymentProcessingWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   const context: PaymentContext = {};
 
@@ -52,7 +52,8 @@ export async function createPaymentProcessingWorkflow(
         if (amount <= 0 || isNaN(amount)) {
           throw new Error('Invalid transaction amount');
         }
-        const limitCheck = { allowed: true };
+        // limitCheck extracted but not used in this function
+        const _limitCheck = { allowed: true };
       },
       retryable: false
     },
@@ -132,7 +133,7 @@ export async function createPaymentProcessingWorkflow(
             // Store transaction for approval (simplified - would use proper service in production)
             LoggerService.info('Dual authorization required for high-value transaction', {
               workflowId: sagaContext.workflowId,
-              amount
+                amount
             });
 
             throw new Error('Dual authorization required - waiting for approval');
@@ -265,5 +266,5 @@ export async function createPaymentProcessingWorkflow(
 // Register workflow with orchestrator
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.PAYMENT_PROCESSING,
-  createPaymentProcessingWorkflow
+                createPaymentProcessingWorkflow
 );

@@ -12,12 +12,12 @@
  * - Broker status management
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { BrokerManagementService } from '../services/broker-management';
 import { authenticateToken, validateRequest } from '../middleware/error-handler';
 import { LoggerService } from '../services/logger';
-import { EventStreamingService } from '../services/event-streaming';
-import { AppError, createError } from '../utils';
+// EventStreamingService, AppError, createError imported but not used in this file
 
 const router: Router = Router();
 
@@ -874,7 +874,11 @@ router.get('/apzhex', authenticateToken, async (req: Request, res: Response): Pr
  */
 router.get('/search', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { q, status, tier, limit = 10, offset = 0 } = req.query;
+    const q = req.query.q as string | undefined;
+    const status = req.query.status as string | undefined;
+    const tier = req.query.tier as string | undefined;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = parseInt(req.query.offset as string) || 0;
 
     let brokers = BrokerManagementService.getAllBrokers();
 
@@ -888,7 +892,7 @@ router.get('/search', authenticateToken, async (req: Request, res: Response): Pr
     }
 
     if (q) {
-      const query = (q as string).toLowerCase();
+      const query = q.toLowerCase();
       brokers = brokers.filter(broker => 
         broker.name.toLowerCase().includes(query) ||
         broker.slug.toLowerCase().includes(query) ||

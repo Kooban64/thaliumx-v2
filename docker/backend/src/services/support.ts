@@ -23,7 +23,8 @@
  * - Input validation on all operations
  */
 
-import axios, { AxiosInstance } from 'axios';
+import type { AxiosInstance } from 'axios';
+import axios from 'axios';
 import { LoggerService } from './logger';
 import { DatabaseService } from './database';
 import { EmailValidatorService } from './email-validator';
@@ -124,7 +125,8 @@ export class SupportService {
         throw createError('User not found', 404, 'USER_NOT_FOUND');
       }
 
-      const userData = user.toJSON() as any;
+      // userData extracted but not used in this function
+      user.toJSON() as any;
 
       // Prepare ticket data for osTicket escalation endpoint
       const ticketData = {
@@ -498,7 +500,7 @@ export class SupportService {
     email: string,
     name?: string,
     ipAddress?: string,
-    metadata?: Record<string, any>
+    _metadata?: Record<string, any>
   ): Promise<ChatSession> {
     try {
       // Validate email
@@ -607,28 +609,30 @@ export class SupportService {
       });
 
       // Simulate agent response (in production, this would come from Live Helper Chat)
-      setTimeout(async () => {
-        const agentMessage: ChatMessage = {
-          id: `msg-${Date.now()}-agent`,
-          sessionId,
-          userId: '',
-          agentId: 'agent-1',
-          message: 'Thank you for your message. An agent will respond shortly.',
-          timestamp: new Date().toISOString(),
-          type: 'agent',
-        };
+      setTimeout(() => {
+        void (async () => {
+          const agentMessage: ChatMessage = {
+            id: `msg-${Date.now()}-agent`,
+            sessionId,
+            userId: '',
+            agentId: 'agent-1',
+            message: 'Thank you for your message. An agent will respond shortly.',
+            timestamp: new Date().toISOString(),
+            type: 'agent',
+          };
 
-        await ChatMessageModel.create({
-          id: agentMessage.id,
-          chatId: sessionId,
-          sessionId,
-          userId: null,
-          message: agentMessage.message,
-          type: 'agent',
-          agentId: 'agent-1',
-          isPublic: true,
-          timestamp: new Date(),
-        });
+          await ChatMessageModel.create({
+            id: agentMessage.id,
+            chatId: sessionId,
+            sessionId,
+            userId: null,
+            message: agentMessage.message,
+            type: 'agent',
+            agentId: 'agent-1',
+            isPublic: true,
+            timestamp: new Date(),
+          });
+        })();
       }, 1000);
 
       return chatMessage;

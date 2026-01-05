@@ -116,7 +116,7 @@ export class TransactionProcessingService {
             transactionId,
             status: 'rejected',
             reason: 'DUPLICATE_OR_IN_PROGRESS',
-            timestamp
+                timestamp
           };
         }
       }
@@ -152,7 +152,7 @@ export class TransactionProcessingService {
           transactionId,
           status: 'rejected',
           reason: limitCheck.reason || 'Transaction limit exceeded',
-          timestamp
+                timestamp
         };
       }
 
@@ -185,7 +185,7 @@ export class TransactionProcessingService {
           status: 'rejected',
           reason: 'Transaction blocked due to fraud risk',
           fraudScore: fraudScore.score,
-          timestamp
+                timestamp
         };
       }
 
@@ -210,7 +210,7 @@ export class TransactionProcessingService {
           transactionId,
           status: 'requires_approval',
           fraudScore: fraudScore.score,
-          timestamp
+                timestamp
         };
       }
 
@@ -252,7 +252,7 @@ export class TransactionProcessingService {
         status: 'approved',
         journalEntryId: result.journalEntryId,
         fraudScore: fraudScore.score,
-        timestamp
+                timestamp
       };
     } catch (error: any) {
       LoggerService.error('Transaction processing failed', {
@@ -287,7 +287,7 @@ export class TransactionProcessingService {
         transactionId,
         status: 'rejected',
         reason: 'Transaction processing failed',
-        timestamp
+                timestamp
       };
     } finally {
       // Always attempt to release the lock, even if transaction failed
@@ -536,7 +536,7 @@ export class TransactionProcessingService {
       LoggerService.warn('Transaction limit check failed, allowing transaction', {
         error: error.message,
         userId,
-        amount
+                amount
       });
       // Fail open - allow transaction if limit check fails
       return { allowed: true };
@@ -568,7 +568,7 @@ export class TransactionProcessingService {
     return {
       score,
       recommendation,
-      factors
+                factors
     };
   }
 
@@ -669,7 +669,7 @@ export class TransactionProcessingService {
         targetAccountId: transactionData.toAccountId,
         description: transactionData.description,
         metadata: transactionData.metadata,
-        ipAddress
+                ipAddress
       };
 
       const result = await this.executeTransaction(request, transactionId, new Date());
@@ -682,7 +682,7 @@ export class TransactionProcessingService {
 
       LoggerService.info('Transaction approved via dual authorization', {
         transactionId,
-        approverId
+                approverId
       });
 
       return {
@@ -740,7 +740,7 @@ export class TransactionProcessingService {
       LoggerService.info('Transaction rejected', {
         transactionId,
         rejectedBy,
-        reason
+                reason
       });
     } catch (error: any) {
       LoggerService.error('Failed to reject transaction', {
@@ -815,9 +815,9 @@ export class TransactionProcessingService {
     const script = `
       if redis.call('get', KEYS[1]) == ARGV[1] then
         return redis.call('del', KEYS[1])
-      else
+                else
         return 0
-      end
+                end
     `;
 
     try {

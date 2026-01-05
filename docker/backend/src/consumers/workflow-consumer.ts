@@ -79,7 +79,7 @@ export class WorkflowConsumer {
       default:
         LoggerService.debug('Unhandled event type', {
           eventType: metadata.eventType,
-          topic
+                topic
         });
     }
   }
@@ -124,7 +124,7 @@ export class WorkflowConsumer {
     LoggerService.info('Order filled event received', {
       orderId,
       filledQuantity,
-      averagePrice
+                averagePrice
     });
 
     // Find workflow waiting for this order
@@ -148,7 +148,7 @@ export class WorkflowConsumer {
             {
               orderFilled: true,
               filledQuantity,
-              averagePrice
+                averagePrice
             },
             'settle_funds'
           );
@@ -174,7 +174,7 @@ export class WorkflowConsumer {
     }
 
     LoggerService.info('Transaction completed event received', {
-      transactionId
+                transactionId
     });
 
     // Find workflow waiting for this transaction
@@ -193,7 +193,7 @@ export class WorkflowConsumer {
             workflow.workflowId,
             {
               transactionCompleted: true,
-              transactionId
+                transactionId
             },
             'verify_settlement'
           );
@@ -212,12 +212,12 @@ export class WorkflowConsumer {
    * Handle Ballerine workflow completed event
    */
   private static async handleBallerineWorkflowCompleted(payload: any): Promise<void> {
-    const { workflowId, caseId, status, decision } = payload;
+    const { workflowId, caseId, status } = payload;
 
     LoggerService.info('Ballerine workflow completed event received', {
       workflowId,
       caseId,
-      status
+                status
     });
 
     // This is handled by KYCService.processBallerineWebhook

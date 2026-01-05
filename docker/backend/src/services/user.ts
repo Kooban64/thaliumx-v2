@@ -24,7 +24,7 @@
  * - Error handling with proper error codes
  */
 
-import { User, DeepPartial, KycStatus, KycLevel } from '../types';
+import type { User, DeepPartial, KycStatus, KycLevel } from '../types';
 import { DatabaseService } from './database';
 import { LoggerService } from './logger';
 import { createError } from '../utils';

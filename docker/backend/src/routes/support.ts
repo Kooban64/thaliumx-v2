@@ -19,11 +19,13 @@
  * - Tenant isolation enforced
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { authenticateToken, validateRequest } from '../middleware/error-handler';
 import { publicSupportRateLimiter } from '../middleware/rate-limiter';
 import { verifyCaptcha, optionalCaptcha } from '../middleware/captcha';
-import { SupportService, Ticket, ChatSession } from '../services/support';
+import type { ChatSession } from '../services/support';
+import { SupportService } from '../services/support';
 import { DatabaseService } from '../services/database';
 import { LoggerService } from '../services/logger';
 import { createError } from '../utils';
@@ -59,7 +61,7 @@ const escalateChatSchema = Joi.object({
   metadata: Joi.object().optional(),
 });
 
-const listTicketsSchema = Joi.object({
+const _listTicketsSchema = Joi.object({
   status: Joi.string().valid('open', 'in_progress', 'resolved', 'closed'),
   priority: Joi.string().valid('low', 'normal', 'high', 'critical'),
   limit: Joi.number().integer().min(1).max(100).default(50),

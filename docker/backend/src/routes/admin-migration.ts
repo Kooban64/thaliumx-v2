@@ -25,7 +25,8 @@
  * - Keycloak realm setup
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { authenticateToken, requireRole } from '../middleware/error-handler';
 import { LoggerService } from '../services/logger';
 import { PresaleService } from '../services/presale';
@@ -36,7 +37,7 @@ const router: Router = Router();
 // Dry-run: preview users attributed to a broker and presale investments
 router.post('/migration/dry-run', authenticateToken, requireRole(['super_admin', 'admin']), async (req: Request, res: Response): Promise<void> => {
   try {
-    const { attributedBrokerId, limit = 100 } = req.body || {};
+    const { attributedBrokerId, limit = 100 } = req.body;
     if (!attributedBrokerId) {
       res.status(400).json({ success: false, error: { code: 'BROKER_ID_REQUIRED', message: 'attributedBrokerId is required' } });
       return;
@@ -69,7 +70,7 @@ router.post('/migration/dry-run', authenticateToken, requireRole(['super_admin',
 // Soft-migration: link account into broker realm (no data movement), idempotent
 router.post('/migration/soft', authenticateToken, requireRole(['super_admin']), async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId, brokerRealm, idempotencyKey } = req.body || {};
+    const { userId, brokerRealm, idempotencyKey } = req.body;
     if (!userId || !brokerRealm) {
       res.status(400).json({ success: false, error: { code: 'INVALID_INPUT', message: 'userId and brokerRealm are required' } });
       return;

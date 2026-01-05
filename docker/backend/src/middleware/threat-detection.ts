@@ -35,7 +35,7 @@
 // THREAT DETECTION MIDDLEWARE
 // =============================================================================
 
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { LoggerService } from '../services/logger';
 import { createError } from '../utils';
 
@@ -44,8 +44,8 @@ const THREAT_PATTERNS = {
   // SQL Injection patterns
   sqlInjection: [
     /(\bUNION\b|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bCREATE\b|\bALTER\b)/i,
-    /('|(\\x27)|(\\x2D\\x2D)|(\#)|(\%27)|(\%22)|(\%3B)|(\%3C)|(\%3E)|(\%00)|(\%2D\\x2D))/i,
-    /('|(\\x27)|(\\x2D\\x2D)|(\#)|(\%27)|(\%22)|(\%3B)|(\%3C)|(\%3E)|(\%00)|(\%2D\\x2D)|(\;)|(\-\-)|(\#)|(\*))/i
+    /('|(\\x27)|(\\x2D\\x2D)|(#)|(%27)|(%22)|(%3B)|(%3C)|(%3E)|(%00)|(%2D\\x2D))/i,
+    /('|(\\x27)|(\\x2D\\x2D)|(#)|(%27)|(%22)|(%3B)|(%3C)|(%3E)|(%00)|(%2D\\x2D)|(;)|(--)|(#)|(\*))/i
   ],
 
   // XSS patterns
@@ -64,7 +64,7 @@ const THREAT_PATTERNS = {
 
   // Command injection patterns
   commandInjection: [
-    /(\||&|;|\$\(|\`)/,
+    /(\||&|;|\$\(|`)/,
     /(rm\s|del\s|format\s|shutdown\s)/i,
     /(\.\.|\/etc\/|\/bin\/|\/usr\/)/
   ],
@@ -128,7 +128,6 @@ function analyzeRequest(req: Request): ThreatDetectionResult {
   const body = JSON.stringify(req.body || {});
   const query = JSON.stringify(req.query || {});
   const params = JSON.stringify(req.params || {});
-  const headers = JSON.stringify(req.headers || {});
   const userAgent = req.get('User-Agent') || '';
 
   // Check for SQL injection
@@ -207,7 +206,7 @@ function analyzeRequest(req: Request): ThreatDetectionResult {
     threatLevel,
     score: totalScore,
     threats,
-    recommendedAction
+                recommendedAction
   };
 }
 
@@ -274,7 +273,6 @@ export const behavioralAnalysis = (req: Request, res: Response, next: NextFuncti
   }
 
   const clientIP = req.ip || req.connection.remoteAddress || '';
-  const now = Date.now();
 
   // Track request frequency per IP
   const recentRequests = THREAT_INTELLIGENCE.recentAttacks.get(clientIP) || 0;
@@ -292,7 +290,7 @@ export const behavioralAnalysis = (req: Request, res: Response, next: NextFuncti
     LoggerService.warn('Potential DoS attack detected', {
       ip: clientIP,
       url: req.url,
-      recentRequests
+                recentRequests
     });
 
     // Add to blocked IPs temporarily

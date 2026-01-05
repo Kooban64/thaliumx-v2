@@ -11,7 +11,7 @@
 import { FinancialRepository } from './financial-repository';
 import { DatabaseService } from './database';
 import { LoggerService } from './logger';
-import { v4 as uuidv4 } from 'uuid';
+// uuidv4 imported but not used in this file
 
 interface FinancialReport {
   id: string;
@@ -102,7 +102,7 @@ export class FinancialReportingService {
         liabilities,
         equity,
         totalEquity,
-        totalLiabilitiesAndEquity
+                totalLiabilitiesAndEquity
       };
 
       report.status = 'completed';
@@ -184,7 +184,7 @@ export class FinancialReportingService {
         expenses,
         totalExpenses,
         grossProfit,
-        netIncome
+                netIncome
       };
 
       report.status = 'completed';
@@ -288,7 +288,7 @@ export class FinancialReportingService {
         accounts: accountsArray,
         totalDebits,
         totalCredits,
-        isBalanced
+                isBalanced
       };
 
       report.status = 'completed';
@@ -352,8 +352,8 @@ export class FinancialReportingService {
   async listReports(
     tenantId: string,
     reportType?: string,
-    limit: number = 50,
-    offset: number = 0
+    _limit: number = 50,
+    _offset: number = 0
   ): Promise<FinancialReport[]> {
     // TODO: Retrieve from database
     return [];

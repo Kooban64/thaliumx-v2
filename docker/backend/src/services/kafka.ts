@@ -27,7 +27,8 @@
  * - Message acknowledgment
  */
 
-import { Kafka, Producer, Consumer, SASLOptions } from 'kafkajs';
+import type { Producer, Consumer, SASLOptions } from 'kafkajs';
+import { Kafka } from 'kafkajs';
 import { ConfigService } from './config';
 import { LoggerService } from './logger';
 
@@ -103,7 +104,7 @@ export class KafkaService {
     if (messageSize > 1024 * 1024) {
       LoggerService.warn('Large Kafka message detected', {
         topic,
-        messageSize
+                messageSize
       });
     }
 

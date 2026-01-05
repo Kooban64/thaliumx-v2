@@ -10,14 +10,14 @@
  * 6. Emit monitoring event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 
 export async function createRiskMonitoringWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -85,7 +85,7 @@ export async function createRiskMonitoringWorkflow(
     {
       name: 'trigger_alerts_if_needed',
       execute: async (sagaContext: SagaContext) => {
-        const { exceedsThreshold, riskScore } = sagaContext.data;
+        const { exceedsThreshold, riskScore } = (sagaContext as any).stepData || sagaContext.data;
         // Trigger alerts if risk exceeds thresholds
         if (exceedsThreshold) {
           LoggerService.warn('Risk threshold exceeded - triggering alerts', {

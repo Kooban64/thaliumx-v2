@@ -5,8 +5,9 @@
  * All endpoints from original 200+ line routes file
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import { authenticateToken, requirePermission, requireRole } from '../middleware/error-handler';
+import type { Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
+import { authenticateToken, requireRole } from '../middleware/error-handler';
 import { FinancialController } from '../controllers/financial-controller';
 import { FinancialRepository } from '../services/financial-repository';
 import { TransactionController } from '../controllers/transaction-controller';
@@ -96,7 +97,7 @@ router.get('/ready', async (_req: Request, res: Response) => {
       return;
     }
     res.json({ status: 'ready', service: 'financial', timestamp: new Date().toISOString() });
-  } catch (error) {
+  } catch {
     res.status(503).json({
       status: 'not_ready',
       service: 'financial',
@@ -329,7 +330,7 @@ router.get('/por/latest', async (req: Request, res: Response, next: NextFunction
 
 router.post('/por/recompute', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { exchange, asset } = req.body || {};
+    const { exchange, asset } = req.body;
     if (!exchange || !asset) {
       throw AppError.badRequest('exchange and asset are required');
     }
@@ -556,7 +557,7 @@ router.post(
         tenantId,
         name,
         currency,
-        bankAccount
+                bankAccount
       );
       res.status(201).json({
         success: true,
@@ -631,7 +632,7 @@ router.post(
         name,
         currency,
         parentAccountId,
-        bankAccount
+                bankAccount
       );
       res.status(201).json({
         success: true,
@@ -741,7 +742,7 @@ router.post(
         name,
         currency,
         parentAccountId,
-        bankAccount
+                bankAccount
       );
       res.status(201).json({
         success: true,
@@ -986,7 +987,12 @@ router.get(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { accountId } = req.params;
-      const { fromDate, toDate, status, transactionType, limit, offset } = req.query;
+      const fromDate = req.query.fromDate as string | undefined;
+      const toDate = req.query.toDate as string | undefined;
+      const status = req.query.status as string | undefined;
+      const transactionType = req.query.transactionType as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
       
       if (!accountId) {
         res.status(400).json({
@@ -1034,7 +1040,10 @@ router.get(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { tenantId } = req.params;
-      const { accountId, segregationType, status, currency } = req.query;
+      const accountId = req.query.accountId as string | undefined;
+      const segregationType = req.query.segregationType as string | undefined;
+      const status = req.query.status as string | undefined;
+      const currency = req.query.currency as string | undefined;
       
       if (!tenantId) {
         res.status(400).json({
@@ -1197,7 +1206,11 @@ router.get(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { tenantId } = req.params;
-      const { fromDate, toDate, status, limit, offset } = req.query;
+      const fromDate = req.query.fromDate as string | undefined;
+      const toDate = req.query.toDate as string | undefined;
+      const status = req.query.status as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
 
       if (!tenantId) {
         res.status(400).json({
@@ -1386,7 +1399,7 @@ router.post(
         amount,
         currency,
         reference,
-        description
+                description
       );
 
       res.status(201).json({
@@ -1437,7 +1450,7 @@ router.post(
         amount,
         currency,
         bankAccountId,
-        description
+                description
       );
 
       res.status(201).json({
@@ -1470,7 +1483,14 @@ router.get(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { tenantId } = req.params;
-      const { accountId, type, status, currency, fromDate, toDate, limit, offset } = req.query;
+      const accountId = req.query.accountId as string | undefined;
+      const type = req.query.type as string | undefined;
+      const status = req.query.status as string | undefined;
+      const currency = req.query.currency as string | undefined;
+      const fromDate = req.query.fromDate as string | undefined;
+      const toDate = req.query.toDate as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
 
       if (!tenantId) {
         res.status(400).json({
@@ -1609,7 +1629,7 @@ router.post(
         tenantId || (req.user as any)?.tenantId,
         fundId,
         targetAccountId,
-        allocationReason
+                allocationReason
       );
 
       res.json({

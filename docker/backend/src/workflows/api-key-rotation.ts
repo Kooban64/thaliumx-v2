@@ -2,7 +2,7 @@
  * API Key Rotation Workflow
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 
 export async function createApiKeyRotationWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -51,7 +51,8 @@ export async function createApiKeyRotationWorkflow(
     {
       name: 'update_key_mappings',
       execute: async (sagaContext: SagaContext) => {
-        const { apiKeyId, newApiKeyId } = sagaContext.data;
+        const { apiKeyId } = sagaContext.data;
+        const { newApiKeyId } = (sagaContext as any).stepData || sagaContext.data;
         LoggerService.info('API key mappings updated', { oldApiKeyId: apiKeyId, newApiKeyId });
         return { mappingsUpdated: true };
       },
@@ -90,5 +91,5 @@ export async function createApiKeyRotationWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.API_KEY_ROTATION,
-  createApiKeyRotationWorkflow
+                createApiKeyRotationWorkflow
 );

@@ -9,15 +9,14 @@
  * 5. Update password
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { AuthService } from '../services/auth';
-import { EmailService } from '../services/email';
-import { LoggerService } from '../services/logger';
+// EmailService, LoggerService imported but not used in this file
 
 export async function createPasswordResetWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {

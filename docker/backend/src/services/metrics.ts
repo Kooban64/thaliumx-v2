@@ -188,9 +188,10 @@ export class MetricsService {
   }
 
   private static startBusinessMetricsCollection(): void {
-    setInterval(async () => {
-      try {
-        // Collect real business metrics from database
+    setInterval(() => {
+      void (async () => {
+        try {
+          // Collect real business metrics from database
         const { DatabaseService } = await import('./database');
         
         // Active users count
@@ -246,6 +247,7 @@ export class MetricsService {
       } catch (error) {
         LoggerService.error('Error collecting business metrics:', { error });
       }
+      })();
     }, 30000); // Every 30 seconds
   }
 

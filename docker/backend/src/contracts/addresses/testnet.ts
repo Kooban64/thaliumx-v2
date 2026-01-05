@@ -19,6 +19,10 @@ export const TESTNET_ADDRESSES = {
   // Infrastructure
   USDT_TOKEN: process.env.USDT_TOKEN_ADDRESS || '', // BSC Testnet USDT address
   
+  // Security Contracts
+  THALIUM_SECURITY: process.env.THALIUM_SECURITY_ADDRESS || '', // ThaliumSecurity contract
+  EMERGENCY_CONTROLS: process.env.EMERGENCY_CONTROLS_ADDRESS || '', // EmergencyControls contract
+  
   // Admin Wallet
   ADMIN_WALLET: '0x310Ff4fE76974DF5977a1a269F60F7B0a83d835A',
 } as const;
@@ -36,6 +40,10 @@ export const MAINNET_ADDRESSES = {
   
   // Infrastructure
   USDT_TOKEN: process.env.MAINNET_USDT_TOKEN || '',
+  
+  // Security Contracts
+  THALIUM_SECURITY: process.env.MAINNET_THALIUM_SECURITY || '',
+  EMERGENCY_CONTROLS: process.env.MAINNET_EMERGENCY_CONTROLS || '',
   
   // Admin Wallet
   ADMIN_WALLET: process.env.MAINNET_ADMIN_WALLET || '',

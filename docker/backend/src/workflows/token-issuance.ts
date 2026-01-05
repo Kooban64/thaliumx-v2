@@ -10,7 +10,7 @@
  * 6. Emit issuance event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 // SmartContractService used for contract deployment (simplified in workflow)
@@ -18,13 +18,13 @@ import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 
 export async function createTokenIssuanceWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
       name: 'validate_issuance_request',
       execute: async (sagaContext: SagaContext) => {
-        const { tokenName, symbol, totalSupply, decimals } = sagaContext.data;
+        const { tokenName, symbol, totalSupply, decimals: _decimals } = sagaContext.data;
         if (!tokenName || !symbol || !totalSupply) {
           throw new Error('Token name, symbol, and total supply required');
         }
@@ -46,7 +46,7 @@ export async function createTokenIssuanceWorkflow(
     {
       name: 'create_token_contract',
       execute: async (sagaContext: SagaContext) => {
-        const { tokenName, symbol, totalSupply, decimals } = sagaContext.data;
+        const { tokenName: _tokenName, symbol: _symbol, totalSupply: _totalSupply, decimals: _decimals } = sagaContext.data;
         
         // Deploy token contract using SmartContractService
         // Note: This is a simplified implementation - actual deployment requires ABI and bytecode
@@ -72,7 +72,8 @@ export async function createTokenIssuanceWorkflow(
     {
       name: 'mint_tokens',
       execute: async (sagaContext: SagaContext) => {
-        const { contractAddress, totalSupply } = sagaContext.data;
+        const { contractAddress } = sagaContext.stepResults?.get('create_token_contract') || {};
+        const { totalSupply } = sagaContext.data;
         
         // Mint tokens - simplified implementation
         // In production, this would call the contract's mint function via SmartContractService
@@ -127,5 +128,5 @@ export async function createTokenIssuanceWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.TOKEN_ISSUANCE,
-  createTokenIssuanceWorkflow
+                createTokenIssuanceWorkflow
 );

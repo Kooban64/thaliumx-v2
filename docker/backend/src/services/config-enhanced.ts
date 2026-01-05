@@ -21,12 +21,13 @@
  */
 
 import * as dotenv from 'dotenv';
-import { AppConfig, DatabaseConfig, RedisConfig, JWTConfig } from '../types';
+import type { AppConfig, DatabaseConfig, RedisConfig, JWTConfig } from '../types';
 import { LoggerService } from './logger';
 import * as fs from 'fs';
 import * as path from 'path';
 import { EventEmitter } from 'events';
-import axios, { AxiosInstance } from 'axios';
+import type { AxiosInstance } from 'axios';
+import axios from 'axios';
 
 dotenv.config();
 
@@ -510,8 +511,8 @@ export class ConfigService {
     }
 
     // Check every minute
-    this.tokenRenewalTimer = setInterval(async () => {
-      await this.checkAndRenewToken();
+    this.tokenRenewalTimer = setInterval(() => {
+      void this.checkAndRenewToken();
     }, 60000);
   }
 
@@ -922,7 +923,7 @@ export class ConfigService {
       if (fs.existsSync(filePath)) {
         return fs.readFileSync(filePath, 'utf8').trim();
       }
-    } catch (error) {
+    } catch {
       LoggerService.warn(`Failed to read secret file: ${filename}`);
     }
     return '';
@@ -944,7 +945,7 @@ export class ConfigService {
         }
       }
       return Array.from(domains);
-    } catch (err) {
+    } catch {
       LoggerService.warn('Failed to load DNS origins from .secrets/dns-details');
       return [];
     }
@@ -966,7 +967,7 @@ export class ConfigService {
           if (curr.mtime !== prev.mtime) {
             LoggerService.info('.env file changed, reloading configuration...');
             dotenv.config({ override: true });
-            this.reloadConfig();
+            void this.reloadConfig();
           }
         });
         LoggerService.info('Watching .env file for changes');
@@ -983,7 +984,7 @@ export class ConfigService {
           if (filename && (eventType === 'change' || eventType === 'rename')) {
             LoggerService.info(`Secrets file changed: ${filename}, reloading configuration...`);
             setTimeout(() => {
-              this.reloadConfig();
+              void this.reloadConfig();
             }, 500);
           }
         });
@@ -1022,7 +1023,8 @@ export class ConfigService {
 
     // Identity provider selection (defaults to Zitadel in prod-v1).
     // Keycloak is supported for rollback only.
-    const authProvider = String(process.env.THALIUMX_AUTH_PROVIDER || process.env.AUTH_PROVIDER || 'zitadel').toLowerCase();
+    // authProvider extracted but not used in this function
+    String(process.env.THALIUMX_AUTH_PROVIDER || process.env.AUTH_PROVIDER || 'zitadel').toLowerCase();
 
     // JWT validation
     if (!config.jwt.secret || config.jwt.secret.length < 32) {

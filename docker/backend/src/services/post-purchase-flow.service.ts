@@ -44,7 +44,7 @@ export class PostPurchaseFlowService {
         userId,
         tenantId,
         investmentAmount,
-        tokenAmount
+                tokenAmount
       });
 
       let kycLevel = 'L0';
@@ -100,7 +100,7 @@ export class PostPurchaseFlowService {
           tokenAmount,
           kycLevel,
           tradingFeatures,
-          tradingDashboardUrl
+                tradingDashboardUrl
         );
       } catch (error) {
         LoggerService.warn('Failed to send trading welcome email (non-blocking)', {
@@ -130,7 +130,7 @@ export class PostPurchaseFlowService {
         userId,
         tenantId,
         tradingAccountCreated,
-        tradingAccountEnabled
+                tradingAccountEnabled
       });
 
       return {
@@ -175,7 +175,7 @@ export class PostPurchaseFlowService {
       try {
         const kycStatus = await KYCService.getKYCStatus(userId);
         kycLevel = kycStatus.kycLevel;
-      } catch (error) {}
+      } catch { /* Ignore KYC status errors */ }
 
       const tradingEnabled = user.isActive && user.isVerified && kycLevel !== 'L0';
       const features = this.getTradingFeatures(kycLevel);
@@ -185,7 +185,7 @@ export class PostPurchaseFlowService {
         enabled: tradingEnabled,
         kycLevel,
         tradingEnabled,
-        features
+                features
       };
     } catch (error) {
       LoggerService.warn('Failed to check trading account status', { userId, tenantId, error });
@@ -256,7 +256,7 @@ export class PostPurchaseFlowService {
     return features[kycLevel] || features.L0 || [];
   }
 
-  private static getTradingDashboardUrl(tenantId: string): string {
+  private static getTradingDashboardUrl(_tenantId: string): string {
     const baseUrl = process.env.FRONTEND_URL || process.env.PLATFORM_URL || 'https://thaliumx.com';
     return `${baseUrl}/trading`;
   }
@@ -324,7 +324,7 @@ export class PostPurchaseFlowService {
       // Email service integration - use appropriate method
       // Note: EmailService.sendEmail may need to be implemented or use a different method
       try {
-        const { EmailService } = await import('./email');
+                EmailService
         if ((EmailService as any).sendEmail) {
           await (EmailService as any).sendEmail(email, subject, html);
         } else {

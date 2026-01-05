@@ -12,7 +12,7 @@
  * - External wallet connection (MetaMask, WalletConnect)
  */
 
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { LoggerService } from '../services/logger';
 import { DatabaseService } from '../services/database';
 import { BlnkFinanceService, AccountType as BlnkAccountType } from '../services/blnkfinance';
@@ -92,8 +92,7 @@ export class WalletInfrastructureController {
    */
   async createUserWalletInfrastructure(req: Request, res: Response): Promise<void> {
     try {
-      const { tenantId, brokerId, userId } = req.params;
-      const { userInfo, currencies = ['ZAR'], createCryptoWallets = false } = req.body;
+      const { tenantId, brokerId, userId, currencies = ['ZAR'], createCryptoWallets = false } = req.body;
 
       if (!tenantId || !brokerId || !userId) {
         res.status(400).json({
@@ -253,8 +252,11 @@ export class WalletInfrastructureController {
    */
   async getUserWallets(req: Request, res: Response): Promise<void> {
     try {
-      const { userId, tenantId } = req.params;
-      const { walletType, currency, status } = req.query;
+      const userId = req.params.userId || req.query.userId as string;
+      const tenantId = req.query.tenantId as string | undefined;
+      const walletType = req.query.walletType as string | undefined;
+      const currency = req.query.currency as string | undefined;
+      const status = req.query.status as string | undefined;
 
       if (!userId) {
         res.status(400).json({
@@ -406,7 +408,7 @@ export class WalletInfrastructureController {
    */
   async getWalletBalance(req: Request, res: Response): Promise<void> {
     try {
-      const { walletId } = req.params;
+      const walletId = req.params.walletId || req.query.walletId as string;
 
       if (!walletId) {
         res.status(400).json({
@@ -562,7 +564,12 @@ export class WalletInfrastructureController {
   async getWalletTransactions(req: Request, res: Response): Promise<void> {
     try {
       const { walletId } = req.params;
-      const { type, status, startDate, endDate, limit = 50, offset = 0 } = req.query;
+      const type = req.query.type as string | undefined;
+      const status = req.query.status as string | undefined;
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
 
       if (!walletId) {
         res.status(400).json({
@@ -583,8 +590,8 @@ export class WalletInfrastructureController {
           const dbTransactions = await TransactionModel.findAll({
             where: { walletId },
             order: [['createdAt', 'DESC']],
-            limit: Number(limit),
-            offset: Number(offset)
+            limit,
+            offset
           });
           transactions = dbTransactions.map((t: any) => t.toJSON());
         } catch (dbError) {
@@ -613,7 +620,7 @@ export class WalletInfrastructureController {
 
       // Paginate
       const total = transactions.length;
-      transactions = transactions.slice(Number(offset), Number(offset) + Number(limit));
+      transactions = transactions.slice(offset, offset + limit);
 
       res.status(200).json({
         success: true,
@@ -622,9 +629,9 @@ export class WalletInfrastructureController {
           transactions,
           pagination: {
             total,
-            limit: Number(limit),
-            offset: Number(offset),
-            hasMore: Number(offset) + Number(limit) < total
+            limit,
+            offset,
+            hasMore: offset + limit < total
           }
         },
         message: 'Wallet transactions retrieved successfully'
@@ -888,7 +895,9 @@ export class WalletInfrastructureController {
    */
   async connectExternalWallet(req: Request, res: Response): Promise<void> {
     try {
-      const { userId, tenantId, brokerId } = req.params;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
+      const tenantId = (req.user as any)?.tenantId;
+      const brokerId = (req.user as any)?.brokerId;
       const { providerId, walletAddress, network } = req.body;
 
       LoggerService.info('Connecting external wallet', { userId, providerId, walletAddress, network });
@@ -1272,7 +1281,7 @@ export class WalletInfrastructureController {
           },
           message: 'Wallet backup restored successfully'
         });
-      } catch (decryptError) {
+      } catch {
         res.status(400).json({
           success: false,
           error: 'DECRYPTION_FAILED',

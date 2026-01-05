@@ -10,7 +10,7 @@
  * 6. Emit farming event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
@@ -18,7 +18,7 @@ import { LoggerService } from '../services/logger';
 import crypto from 'crypto';
 
 export async function createYieldFarmingWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -59,7 +59,7 @@ export async function createYieldFarmingWorkflow(
         LoggerService.info('Liquidity deposited', {
           poolId,
           lpTokenAmount,
-          transactionHash
+                transactionHash
         });
         
         return { lpTokenAmount: lpTokenAmount.toString(), transactionHash };
@@ -75,7 +75,9 @@ export async function createYieldFarmingWorkflow(
     {
       name: 'start_earning_yield',
       execute: async (sagaContext: SagaContext) => {
-        const { poolId, lpTokenAmount } = sagaContext.data;
+        const { poolId } = sagaContext.data;
+        const depositResult = sagaContext.stepResults?.get('deposit_liquidity');
+        const lpTokenAmount = depositResult?.lpTokenAmount || sagaContext.data.lpTokenAmount;
         // Start earning yield on deposited liquidity
         LoggerService.info('Yield farming started', {
           poolId,
@@ -120,5 +122,5 @@ export async function createYieldFarmingWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.YIELD_FARMING,
-  createYieldFarmingWorkflow
+                createYieldFarmingWorkflow
 );

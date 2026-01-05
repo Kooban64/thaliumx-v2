@@ -15,7 +15,8 @@
  * - Amounts are stored as DECIMAL and JSONB metadata keeps extra fields.
  */
 
-import { QueryInterface, DataTypes } from 'sequelize';
+import type { QueryInterface} from 'sequelize';
+import { DataTypes } from 'sequelize';
 
 export async function up(queryInterface: QueryInterface): Promise<void> {
   const tables = await queryInterface.showAllTables();

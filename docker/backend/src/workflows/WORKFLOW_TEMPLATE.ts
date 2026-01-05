@@ -13,9 +13,8 @@
  * 6. Import it in workflows/index.ts
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
-import { WorkflowType } from '../types/workflow';
-import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+// WorkflowType, WorkflowOrchestratorService imported but not used in this file
 import { LoggerService } from '../services/logger';
 
 // Store context for compensation
@@ -36,9 +35,10 @@ interface WorkflowContext {
  * Compensation: What gets rolled back on failure
  */
 export async function createWorkflowNameWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
-  const context: WorkflowContext = {};
+  // context extracted but not used in this function
+  const _context: WorkflowContext = {};
 
   return [
     // Step 1: [Step name]
@@ -73,7 +73,7 @@ export async function createWorkflowNameWorkflow(
         // Implementation here
         return { result: 'step2_complete' };
       },
-      compensate: async (sagaContext: SagaContext) => {
+      compensate: async (_sagaContext: SagaContext) => {
         // Compensation logic here
       },
       retryable: true

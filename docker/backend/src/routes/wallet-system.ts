@@ -11,8 +11,9 @@
  * - Pool account management
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import { WalletSystemService, Wallet, UniqueReference, PoolAccount, CEXOrder, THALReward } from '../services/wallet-system';
+import type { Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
+import { WalletSystemService } from '../services/wallet-system';
 import { NedbankService } from '../services/nedbank';
 import { authenticateToken, requireRole } from '../middleware/error-handler';
 import { LoggerService } from '../services/logger';
@@ -354,7 +355,7 @@ router.post('/reference/generate', authenticateToken, async (req: Request, res: 
       brokerId,
       referenceType,
       currency,
-      expectedAmount
+                expectedAmount
     );
     
     res.json({
@@ -383,7 +384,7 @@ router.post('/reference/generate', authenticateToken, async (req: Request, res: 
       const userId = getAuthUserId(req);
       const tenantId = (req.user as any)?.tenantId || 'default-tenant';
       const brokerId = (req.user as any)?.brokerId || (req.user as any)?.tenantId || 'default-broker';
-      const { currency } = req.params;
+      const { currency } = req.body;
 
     if (!userId || !currency) {
       res.status(400).json({ success: false, error: 'Missing required fields: userId, currency' });
@@ -457,7 +458,9 @@ router.get('/convert/quote', authenticateToken, async (req: Request, res: Respon
     const userId = (req as any).user?.id;
     const tenantId = (req as any).tenantId || 'default-tenant';
     const brokerId = (req as any).brokerId || 'default-broker';
-    const { from, to, amount } = req.query as any;
+    const from = req.query.from as string;
+    const to = req.query.to as string;
+    const amount = req.query.amount as string;
 
     if (!userId || !from || !to || !amount) {
       res.status(400).json({ success: false, error: 'Missing required query: from, to, amount' });
@@ -500,7 +503,7 @@ router.post('/convert/confirm', authenticateToken, async (req: Request, res: Res
       toCurrency,
       amount,
       quoteId,
-      acceptFees
+                acceptFees
     });
 
     res.json({ success: true, data: result, timestamp: new Date().toISOString() });
@@ -525,7 +528,7 @@ router.post('/deposit/fiat', authenticateToken, async (req: Request, res: Respon
     const result = await walletSystemService.processFiatDeposit(
       reference,
       actualAmount,
-      bankTransaction
+                bankTransaction
     );
     
     res.json({
@@ -561,7 +564,7 @@ router.post('/pool-accounts', authenticateToken, requireRole(['admin', 'super_ad
     const poolAccount = await walletSystemService.createPoolAccount(
       brokerId,
       accountType,
-      bankDetails
+                bankDetails
     );
     
     res.json({
@@ -623,7 +626,10 @@ router.post('/withdrawals/bank', authenticateToken, async (req: Request, res: Re
 
 router.get('/deposits/scrape', authenticateToken, requireRole(['admin', 'super_admin']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { brokerId, poolAccountNumber, fromDate, toDate } = req.query as any;
+    const brokerId = req.query.brokerId as string | undefined;
+    const poolAccountNumber = req.query.poolAccountNumber as string | undefined;
+    const fromDate = req.query.fromDate as string | undefined;
+    const toDate = req.query.toDate as string | undefined;
     const records = await NedbankService.scrapeDeposits({
       brokerId: brokerId ? String(brokerId) : undefined,
       poolAccountNumber: poolAccountNumber ? String(poolAccountNumber) : undefined,
@@ -652,7 +658,9 @@ router.post('/fiat-admin/unallocated', authenticateToken, requireRole(['admin', 
 // List unallocated deposits
 router.get('/fiat-admin/unallocated', authenticateToken, requireRole(['admin', 'super_admin']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { brokerId, currency, status } = req.query as any;
+    const brokerId = req.query.brokerId as string | undefined;
+    const currency = req.query.currency as string | undefined;
+    const status = req.query.status as string | undefined;
     const items = walletSystemService.listUnallocatedDeposits({ brokerId: brokerId ? String(brokerId) : undefined, currency: currency ? String(currency) : undefined, status: status ? String(status) : undefined });
     res.json({ success: true, data: items, timestamp: new Date().toISOString() });
   } catch (error) {
@@ -707,13 +715,13 @@ router.post('/fiat-admin/allocation/execute', authenticateToken, requireRole(['a
 // Scrape and auto-apply deposits to FIAT wallets via persistent references
 router.post('/deposits/apply', authenticateToken, requireRole(['admin', 'super_admin']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { brokerId, poolAccountNumber, fromDate, toDate, dryRun = true } = req.body || {};
+    const { brokerId, poolAccountNumber, fromDate, toDate, dryRun = true } = req.body;
 
     const records = await NedbankService.scrapeDeposits({
       brokerId,
       poolAccountNumber,
       fromDate,
-      toDate
+                toDate
     });
 
     const results: Array<{
@@ -821,7 +829,7 @@ router.post('/cex/orders', authenticateToken, async (req: Request, res: Response
         type,
         quantity,
         price,
-        stopPrice
+                stopPrice
       }
     );
     
@@ -971,7 +979,7 @@ router.post('/recovery/hot-wallet', authenticateToken, async (req: Request, res:
     const result = await walletSystemService.recoverHotWallet(
       userId,
       mfaCode,
-      recoveryMethod
+                recoveryMethod
     );
     
     res.json({
@@ -1052,7 +1060,9 @@ router.get('/dashboard/:userId', authenticateToken, async (req: Request, res: Re
 // Generate wallet statement CSV for a date range
 router.get('/statements', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { walletId, from, to } = req.query as any;
+    const walletId = req.query.walletId as string;
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
     if (!walletId) {
       res.status(400).json({ success: false, error: 'walletId is required' });
       return;
@@ -1079,7 +1089,10 @@ router.get('/statements', authenticateToken, async (req: Request, res: Response,
 router.get('/tax-report', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const userId = getAuthUserId(req);
-    const { from, to, method = 'fifo', baseCurrency = 'ZAR' } = req.query as any;
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
+    const method = (req.query.method as string) || 'fifo';
+    const baseCurrency = (req.query.baseCurrency as string) || 'ZAR';
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
       return;

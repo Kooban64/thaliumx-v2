@@ -10,14 +10,14 @@
  * 6. Emit reporting event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 
 export async function createRegulatoryReportingWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -120,5 +120,5 @@ export async function createRegulatoryReportingWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.REGULATORY_REPORTING,
-  createRegulatoryReportingWorkflow
+                createRegulatoryReportingWorkflow
 );

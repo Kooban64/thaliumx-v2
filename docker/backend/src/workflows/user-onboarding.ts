@@ -14,16 +14,15 @@
  * Compensation: If any step fails, rollback previous steps
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { UserService } from '../services/user';
 import { BallerineService } from '../services/ballerine';
 // WalletSystemService accessed via routes
 import { EmailService } from '../services/email';
-import { ExchangeService } from '../services/exchange';
 import { LoggerService } from '../services/logger';
-import { DatabaseService } from '../services/database';
+// ExchangeService, DatabaseService imported but not used in this file
 
 // Store created resources for compensation
 interface OnboardingContext {
@@ -37,7 +36,7 @@ interface OnboardingContext {
  * User Onboarding Workflow Implementation
  */
 export async function createUserOnboardingWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   const context: OnboardingContext = {};
 
@@ -255,7 +254,7 @@ export async function createUserOnboardingWorkflow(
 
         LoggerService.info('Trading account created', {
           workflowId: sagaContext.workflowId,
-          tradingAccountId
+                tradingAccountId
         });
 
         return { tradingAccountId };
@@ -299,7 +298,7 @@ export async function createUserOnboardingWorkflow(
           context.userId!,
           sagaContext.tenantId || '',
           sagaContext.brokerId || '',
-          userInfo
+                userInfo
         );
 
         context.walletId = walletInfrastructure[0]?.id || '';
@@ -409,5 +408,5 @@ export async function createUserOnboardingWorkflow(
 // Register workflow with orchestrator
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.USER_ONBOARDING,
-  createUserOnboardingWorkflow
+                createUserOnboardingWorkflow
 );

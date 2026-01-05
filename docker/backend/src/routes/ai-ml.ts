@@ -161,7 +161,7 @@ router.post('/predictions', authenticateToken, validateRequest(predictionRequest
  */
 router.get('/predictions', authenticateToken, async (req, res) => {
   try {
-    const { modelId } = req.query;
+    const modelId = req.query.modelId as string | undefined;
     const predictions = await AIMLService.getPredictionHistory(modelId as string);
     
     res.json({
@@ -216,7 +216,7 @@ router.post('/trading-signals', authenticateToken, requireRole(['trader', 'analy
  */
 router.get('/trading-signals', authenticateToken, async (req, res) => {
   try {
-    const { symbol } = req.query;
+    const symbol = req.query.symbol as string | undefined;
     const signals = await AIMLService.getTradingSignals(symbol as string);
     
     res.json({
@@ -271,7 +271,7 @@ router.post('/risk-assessment', authenticateToken, requireRole(['risk', 'analyst
  */
 router.get('/risk-assessment', authenticateToken, async (req, res) => {
   try {
-    const { userId } = req.query;
+    const userId = req.query.userId as string | undefined;
     const assessments = await AIMLService.getRiskAssessments(userId as string);
     
     res.json({
@@ -326,8 +326,15 @@ router.post('/fraud-detection', authenticateToken, requireRole(['compliance', 's
  */
 router.get('/fraud-detection', authenticateToken, requireRole(['compliance', 'security', 'admin']), async (req, res) => {
   try {
-    const { userId } = req.query;
-    const detections = await AIMLService.getFraudDetections(userId as string);
+    const userId = req.query.userId as string | undefined;
+    if (!userId) {
+      res.status(400).json({
+        success: false,
+        error: 'User ID is required'
+      });
+      return;
+    }
+    const detections = await AIMLService.getFraudDetections(userId);
     
     res.json({
       success: true,
@@ -381,8 +388,15 @@ router.post('/sentiment-analysis', authenticateToken, validateRequest(sentimentA
  */
 router.get('/sentiment-analysis', authenticateToken, async (req, res) => {
   try {
-    const { source } = req.query;
-    const analyses = await AIMLService.getSentimentAnalyses(source as string);
+    const source = req.query.source as string | undefined;
+    if (!source) {
+      res.status(400).json({
+        success: false,
+        error: 'Source is required'
+      });
+      return;
+    }
+    const analyses = await AIMLService.getSentimentAnalyses(source);
     
     res.json({
       success: true,
@@ -436,8 +450,15 @@ router.post('/portfolio-optimization', authenticateToken, requireRole(['analyst'
  */
 router.get('/portfolio-optimization', authenticateToken, async (req, res) => {
   try {
-    const { userId } = req.query;
-    const optimizations = await AIMLService.getPortfolioOptimizations(userId as string);
+    const userId = req.query.userId as string | undefined;
+    if (!userId) {
+      res.status(400).json({
+        success: false,
+        error: 'User ID is required'
+      });
+      return;
+    }
+    const optimizations = await AIMLService.getPortfolioOptimizations(userId);
     
     res.json({
       success: true,

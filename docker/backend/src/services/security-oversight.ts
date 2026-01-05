@@ -14,15 +14,17 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
+// ConfigService, BlnkFinanceService, KYCService, RBACService, createError, ethers imported but not used in this file
 import { EventStreamingService } from './event-streaming';
-import { BlnkFinanceService } from './blnkfinance';
-import { KYCService } from './kyc';
-import { RBACService } from './rbac';
-import { opaService, OPADecision } from './opa';
-import { AppError, createError } from '../utils';
+// import { BlnkFinanceService } from './blnkfinance';
+// import { KYCService } from './kyc';
+// import { RBACService } from './rbac';
+import type { OPADecision } from './opa';
+import { OPAService } from './opa';
+// import { createError } from '../utils';
+// AppError imported but not used in this file
 import { v4 as uuidv4 } from 'uuid';
-import { ethers } from 'ethers';
+// import { ethers } from 'ethers';
 
 // =============================================================================
 // SECURITY TYPES & INTERFACES
@@ -137,6 +139,17 @@ export interface SecurityEventMetadata {
   alertType?: string;
   entityId?: string;
   entityType?: string;
+  contractAddress?: string;
+  component?: string;
+  transactionHash?: string;
+  reason?: string;
+  eventId?: string;
+  patterns?: any;
+  geographicAnomalies?: any;
+  behavioralAnomalies?: any;
+  blockNumber?: number;
+  eventType?: string;
+  source?: string;
 }
 
 export interface ComplianceRule {
@@ -354,6 +367,7 @@ export class SecurityOversightService {
       await this.loadExistingData();
       
       // Initialize OPA service (replaces hardcoded rules)
+      const opaService = new OPAService();
       const opaHealthy = await opaService.healthCheck();
       if (!opaHealthy) {
         LoggerService.warn('OPA service health check failed, compliance checks may fail');
@@ -424,22 +438,22 @@ export class SecurityOversightService {
       
       // Start compliance monitoring
       if (this.SECURITY_CONFIG.enableComplianceMonitoring) {
-        setInterval(async () => {
-          await this.monitorCompliance();
+        setInterval(() => {
+          void this.monitorCompliance();
         }, this.SECURITY_CONFIG.complianceCheckInterval);
       }
       
       // Start threat detection
       if (this.SECURITY_CONFIG.enableThreatDetection) {
-        setInterval(async () => {
-          await this.detectThreats();
+        setInterval(() => {
+          void this.detectThreats();
         }, this.SECURITY_CONFIG.threatDetectionInterval);
       }
       
       // Start risk assessment
       if (this.SECURITY_CONFIG.enableRiskAssessment) {
-        setInterval(async () => {
-          await this.assessRisks();
+        setInterval(() => {
+          void this.assessRisks();
         }, this.SECURITY_CONFIG.riskAssessmentInterval * 24 * 60 * 60 * 1000);
       }
       
@@ -481,6 +495,7 @@ export class SecurityOversightService {
     }
   ): Promise<OPADecision[]> {
     try {
+      const opaService = new OPAService();
       const decisions = await opaService.evaluateAMLPolicy({
         action: 'transaction_review',
         ...transaction
@@ -537,6 +552,7 @@ export class SecurityOversightService {
     }
   ): Promise<OPADecision[]> {
     try {
+      const opaService = new OPAService();
       const decisions = await opaService.evaluateSecurityPolicy({
         action: 'login_attempt',
         ...loginData

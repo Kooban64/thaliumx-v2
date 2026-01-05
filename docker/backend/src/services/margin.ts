@@ -14,9 +14,9 @@
 
 import { LoggerService } from '../services/logger';
 import { DatabaseService } from '../services/database';
-import { RedisService } from '../services/redis';
+// RedisService, AppError imported but not used in this file
 import { EventStreamingService } from './event-streaming';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
 
 // =============================================================================
 // TYPES & INTERFACES
@@ -213,7 +213,7 @@ export class MarginTradingService {
         accountId: account.id, 
         userId, 
         tenantId, 
-        accountType 
+                accountType
       });
       
       // Emit audit event
@@ -279,7 +279,7 @@ export class MarginTradingService {
         transferId: transfer.id, 
         userId, 
         amount, 
-        asset 
+                asset
       });
       
       return transfer;
@@ -334,7 +334,7 @@ export class MarginTradingService {
         transferId: transfer.id, 
         userId, 
         amount, 
-        asset 
+                asset
       });
       
       return transfer;
@@ -409,7 +409,7 @@ export class MarginTradingService {
         symbol, 
         side, 
         quantity, 
-        leverage 
+                leverage
       });
       
       // Emit transaction event
@@ -469,7 +469,7 @@ export class MarginTradingService {
       LoggerService.info(`Margin position closed: ${position.id}`, { 
         positionId: position.id, 
         userId, 
-        finalPnl 
+                finalPnl
       });
       
       // Emit transaction event
@@ -559,56 +559,58 @@ export class MarginTradingService {
       transfer.updatedAt = new Date();
       
       // Simulate processing delay
-      setTimeout(async () => {
-        try {
-          const account = await this.getMarginAccount(transfer.userId, transfer.tenantId);
-          if (!account) {
+      setTimeout(() => {
+        void (async () => {
+          try {
+            const account = await this.getMarginAccount(transfer.userId, transfer.tenantId);
+            if (!account) {
+              transfer.status = 'failed';
+              transfer.updatedAt = new Date();
+              return;
+            }
+            
+            if (transfer.type === 'deposit') {
+              account.totalEquity += transfer.amount;
+              account.availableBalance += transfer.amount;
+            } else if (transfer.type === 'withdrawal') {
+              account.totalEquity -= transfer.amount;
+              account.availableBalance -= transfer.amount;
+            }
+            
+            account.updatedAt = new Date();
+            await this.updateMarginLevel(account);
+            
+            transfer.status = 'completed';
+            transfer.updatedAt = new Date();
+            
+            // Save transfer
+            const key = `${transfer.userId}:${transfer.tenantId}`;
+            const transfers = this.transfers.get(key) || [];
+            transfers.push(transfer);
+            this.transfers.set(key, transfers);
+            
+            LoggerService.info(`Margin transfer completed: ${transfer.id}`, { 
+              transferId: transfer.id, 
+              type: transfer.type, 
+              amount: transfer.amount 
+            });
+            
+            // Emit transaction event
+            await EventStreamingService.emitTransactionEvent(
+              'margin',
+              transfer.id,
+              transfer.amount,
+              transfer.asset,
+              'completed',
+              undefined,
+              { transferType: transfer.type }
+            );
+          } catch (error) {
+            LoggerService.error('Margin transfer processing failed:', error);
             transfer.status = 'failed';
             transfer.updatedAt = new Date();
-            return;
           }
-          
-          if (transfer.type === 'deposit') {
-            account.totalEquity += transfer.amount;
-            account.availableBalance += transfer.amount;
-          } else if (transfer.type === 'withdrawal') {
-            account.totalEquity -= transfer.amount;
-            account.availableBalance -= transfer.amount;
-          }
-          
-          account.updatedAt = new Date();
-          await this.updateMarginLevel(account);
-          
-          transfer.status = 'completed';
-          transfer.updatedAt = new Date();
-          
-          // Save transfer
-          const key = `${transfer.userId}:${transfer.tenantId}`;
-          const transfers = this.transfers.get(key) || [];
-          transfers.push(transfer);
-          this.transfers.set(key, transfers);
-          
-          LoggerService.info(`Margin transfer completed: ${transfer.id}`, { 
-            transferId: transfer.id, 
-            type: transfer.type, 
-            amount: transfer.amount 
-          });
-          
-          // Emit transaction event
-          await EventStreamingService.emitTransactionEvent(
-            'margin',
-            transfer.id,
-            transfer.amount,
-            transfer.asset,
-            'completed',
-            undefined,
-            { transferType: transfer.type }
-          );
-        } catch (error) {
-          LoggerService.error('Margin transfer processing failed:', error);
-          transfer.status = 'failed';
-          transfer.updatedAt = new Date();
-        }
+        })();
       }, 2000); // 2 second delay
       
     } catch (error) {
@@ -623,49 +625,51 @@ export class MarginTradingService {
       order.updatedAt = new Date();
       
       // Simulate order processing
-      setTimeout(async () => {
-        try {
-          const currentPrice = await this.getCurrentPrice(order.symbol);
-          
-          // For market orders, fill immediately
-          if (order.type === 'market') {
-            order.status = 'filled';
-            order.filledQuantity = order.quantity;
-            order.averagePrice = currentPrice;
-            order.updatedAt = new Date();
+      setTimeout(() => {
+        void (async () => {
+          try {
+            const currentPrice = await this.getCurrentPrice(order.symbol);
             
-            // Create position
-            await this.createPosition(order, currentPrice);
-            
-            // Update account
-            const account = await this.getMarginAccount(order.userId, order.tenantId);
-            if (account) {
-              account.availableBalance -= order.marginRequired;
-              account.usedMargin += order.marginRequired;
-              account.updatedAt = new Date();
-              await this.updateMarginLevel(account);
+            // For market orders, fill immediately
+            if (order.type === 'market') {
+              order.status = 'filled';
+              order.filledQuantity = order.quantity;
+              order.averagePrice = currentPrice;
+              order.updatedAt = new Date();
+              
+              // Create position
+              await this.createPosition(order, currentPrice);
+              
+              // Update account
+              const account = await this.getMarginAccount(order.userId, order.tenantId);
+              if (account) {
+                account.availableBalance -= order.marginRequired;
+                account.usedMargin += order.marginRequired;
+                account.updatedAt = new Date();
+                await this.updateMarginLevel(account);
+              }
+            } else {
+              // For limit orders, keep as pending
+              order.status = 'pending';
             }
-          } else {
-            // For limit orders, keep as pending
-            order.status = 'pending';
+            
+            // Save order
+            const key = `${order.userId}:${order.tenantId}`;
+            const orders = this.orders.get(key) || [];
+            orders.push(order);
+            this.orders.set(key, orders);
+            
+            LoggerService.info(`Margin order processed: ${order.id}`, { 
+              orderId: order.id, 
+              status: order.status 
+            });
+            
+          } catch (error) {
+            LoggerService.error('Margin order processing failed:', error);
+            order.status = 'rejected';
+            order.updatedAt = new Date();
           }
-          
-          // Save order
-          const key = `${order.userId}:${order.tenantId}`;
-          const orders = this.orders.get(key) || [];
-          orders.push(order);
-          this.orders.set(key, orders);
-          
-          LoggerService.info(`Margin order processed: ${order.id}`, { 
-            orderId: order.id, 
-            status: order.status 
-          });
-          
-        } catch (error) {
-          LoggerService.error('Margin order processing failed:', error);
-          order.status = 'rejected';
-          order.updatedAt = new Date();
-        }
+        })();
       }, 1000); // 1 second delay
       
     } catch (error) {
@@ -890,7 +894,7 @@ export class MarginTradingService {
   private static startFundingRateUpdates(): void {
     // Update funding rates every 8 hours
     setInterval(() => {
-      this.updateFundingRates();
+      void this.updateFundingRates();
     }, 8 * 60 * 60 * 1000); // 8 hours
     
     LoggerService.info('Funding rate updates started');
@@ -899,7 +903,7 @@ export class MarginTradingService {
   private static startMarginMonitoring(): void {
     // Monitor margin levels every 30 seconds
     setInterval(() => {
-      this.monitorMarginLevels();
+      void this.monitorMarginLevels();
     }, 30000); // 30 seconds
     
     LoggerService.info('Margin monitoring started');
@@ -908,7 +912,7 @@ export class MarginTradingService {
   private static startLiquidationMonitoring(): void {
     // Check for liquidations every 10 seconds
     setInterval(() => {
-      this.checkLiquidations();
+      void this.checkLiquidations();
     }, 10000); // 10 seconds
     
     LoggerService.info('Liquidation monitoring started');
@@ -916,7 +920,7 @@ export class MarginTradingService {
 
   private static async updateFundingRates(): Promise<void> {
     try {
-      for (const [symbol, rate] of this.fundingRates) {
+      for (const [, rate] of this.fundingRates) {
         rate.rate = Math.random() * 0.01 - 0.005; // -0.5% to +0.5%
         rate.nextFundingTime = new Date(Date.now() + 8 * 60 * 60 * 1000);
         rate.updatedAt = new Date();
@@ -930,7 +934,7 @@ export class MarginTradingService {
 
   private static async monitorMarginLevels(): Promise<void> {
     try {
-      for (const [key, account] of this.accounts) {
+      for (const [, account] of this.accounts) {
         await this.updateMarginLevel(account);
         
         // Emit margin call events
@@ -977,7 +981,8 @@ export class MarginTradingService {
   private static async liquidatePosition(position: MarginPosition, account: MarginAccount): Promise<void> {
     try {
       const currentPrice = await this.getCurrentPrice(position.symbol);
-      const liquidationEvent: LiquidationEvent = {
+      // liquidationEvent extracted but not used in this function
+      const _liquidationEvent: LiquidationEvent = {
         id: this.generateLiquidationId(),
         userId: position.userId,
         tenantId: position.tenantId,

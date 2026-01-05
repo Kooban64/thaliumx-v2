@@ -10,7 +10,7 @@
  * 6. Emit update event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
@@ -18,7 +18,7 @@ import { LoggerService } from '../services/logger';
 import crypto from 'crypto';
 
 export async function createConfigurationUpdateWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -56,7 +56,7 @@ export async function createConfigurationUpdateWorkflow(
         LoggerService.info('Current configuration backed up', {
           configType,
           backupId,
-          backupChecksum
+                backupChecksum
         });
         
         return { backupId, backupChecksum };
@@ -66,7 +66,7 @@ export async function createConfigurationUpdateWorkflow(
     {
       name: 'apply_configuration_update',
       execute: async (sagaContext: SagaContext) => {
-        const { configType, configData } = sagaContext.data;
+        const { configType, configData: _configData } = sagaContext.data;
         // Apply configuration update
         LoggerService.info('Applying configuration update', {
           configType
@@ -115,5 +115,5 @@ export async function createConfigurationUpdateWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.CONFIGURATION_UPDATE,
-  createConfigurationUpdateWorkflow
+                createConfigurationUpdateWorkflow
 );

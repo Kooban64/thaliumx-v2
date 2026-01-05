@@ -7,7 +7,7 @@
  * NOTE: This middleware wraps existing service logic - no duplication.
  */
 
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { LoggerService } from '../services/logger';
 import { createError } from '../utils';
 
@@ -58,8 +58,7 @@ export function kycUpgradeMiddleware(options: KYCUpgradeMiddlewareOptions) {
         const errorMessage = options.errorMessage || upgradeCheck.message || 
           `Transaction limit exceeded. Please upgrade to KYC level ${upgradeCheck.requiredLevel}`;
 
-        const { LoggerService: LogService } = await import('../services/logger');
-        await LogService.logAudit(
+        await LoggerService.logAudit(
           `${options.limitType}_blocked_kyc_limit`,
           options.limitType,
           { userId, tenantId },

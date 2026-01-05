@@ -20,7 +20,7 @@
  * - Used for performance monitoring and alerting
  */
 
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { MetricsService } from '../services/metrics';
 
 export const metricsMiddleware = (req: Request, res: Response, next: NextFunction): void => {

@@ -5,7 +5,7 @@
  * and JWT token payloads.
  */
 
-import { Request } from 'express';
+import type { Request } from 'express';
 import { RoleMapperService } from './role-mapper';
 
 export interface ZitadelContext {
@@ -65,7 +65,7 @@ export class ZitadelAttributesService {
       roles: allRoles,
       normalizedRoles,
       metadata,
-      customClaims
+                customClaims
     };
   }
 
@@ -103,7 +103,7 @@ export class ZitadelAttributesService {
       roles: allRoles,
       normalizedRoles,
       metadata: {},
-      customClaims
+                customClaims
     };
   }
 }

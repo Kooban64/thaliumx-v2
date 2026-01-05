@@ -9,7 +9,7 @@
  * 5. Emit burn event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
@@ -17,7 +17,7 @@ import { LoggerService } from '../services/logger';
 import crypto from 'crypto';
 
 export async function createTokenBurnWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -58,7 +58,7 @@ export async function createTokenBurnWorkflow(
         LoggerService.info('Tokens burned on blockchain', {
           tokenAddress,
           amount,
-          transactionHash
+                transactionHash
         });
         
         return { transactionHash };
@@ -107,5 +107,5 @@ export async function createTokenBurnWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.TOKEN_BURN,
-  createTokenBurnWorkflow
+                createTokenBurnWorkflow
 );

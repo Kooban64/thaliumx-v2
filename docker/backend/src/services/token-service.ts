@@ -17,7 +17,7 @@ import * as crypto from 'crypto';
 import { LoggerService } from './logger';
 import { RedisService } from './redis';
 // import { AuditLogService } from './audit-log.service'; // Use LoggerService.logAudit instead
-import { JWTPayload } from '../types';
+import type { JWTPayload } from '../types';
 
 export interface TokenPair {
   accessToken: string;

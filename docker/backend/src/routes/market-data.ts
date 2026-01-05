@@ -5,7 +5,8 @@
  * Provides real-time prices, historical data, and market statistics
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
 import { marketDataService } from '../services/market-data';
 import { LoggerService } from '../services/logger';
 import { createError } from '../utils';

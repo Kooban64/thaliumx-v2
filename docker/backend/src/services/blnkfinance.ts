@@ -17,12 +17,11 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
+// ConfigService, AppError, Op, Transaction imported but not used in this file
 import { EventStreamingService } from './event-streaming';
 import { DatabaseService } from './database';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
-import { Op, Transaction } from 'sequelize';
 import axios from 'axios';
 
 // =============================================================================
@@ -351,7 +350,7 @@ export class BlnkFinanceService {
         type,
         currency,
         brokerId,
-        parentId
+                parentId
       });
 
       // Try external BlnkFinance service first if enabled
@@ -365,7 +364,7 @@ export class BlnkFinanceService {
             broker_id: brokerId,
             parent_id: parentId,
             description,
-            metadata
+                metadata
           });
           
           LoggerService.info(`Account created via external BlnkFinance service: ${response.data.id}`);
@@ -574,7 +573,7 @@ export class BlnkFinanceService {
         totalDebits,
         totalCredits,
         brokerId,
-        currency
+                currency
       });
 
       // Try external BlnkFinance service first if enabled
@@ -596,7 +595,7 @@ export class BlnkFinanceService {
             entries: ledgerEntries,
             description,
             reference,
-            metadata
+                metadata
           });
           
           LoggerService.info(`Transaction recorded via external BlnkFinance service: ${response.data.id}`);
@@ -765,7 +764,7 @@ export class BlnkFinanceService {
       LoggerService.info(`Getting account statement: ${accountId}`, {
         startDate,
         endDate,
-        brokerId
+                brokerId
       });
 
       // Try external BlnkFinance service first if enabled
@@ -980,7 +979,7 @@ export class BlnkFinanceService {
           positionId,
           positionType: positionData.positionType,
           leverage: positionData.leverage,
-          entryPrice
+                entryPrice
         }
       );
 
@@ -989,7 +988,7 @@ export class BlnkFinanceService {
         amount: positionData.amount,
         leverage: positionData.leverage,
         margin,
-        liquidationPrice
+                liquidationPrice
       });
 
       // Emit audit event
@@ -1004,7 +1003,7 @@ export class BlnkFinanceService {
           leverage: positionData.leverage,
           margin,
           entryPrice,
-          liquidationPrice
+                liquidationPrice
         }
       );
 
@@ -1168,7 +1167,7 @@ export class BlnkFinanceService {
       return {
         ...position,
         pnl,
-        closePrice
+                closePrice
       };
 
     } catch (error) {
@@ -1380,7 +1379,7 @@ export class BlnkFinanceService {
 
     return {
       ...position,
-      shouldLiquidate
+                shouldLiquidate
     };
   }
 
@@ -1399,7 +1398,7 @@ export class BlnkFinanceService {
         startDate,
         endDate,
         brokerId,
-        currency
+                currency
       });
 
       let data: any;
@@ -1454,7 +1453,7 @@ export class BlnkFinanceService {
           startDate,
           endDate,
           brokerId,
-          currency
+                currency
         }
       );
 
@@ -1482,7 +1481,7 @@ export class BlnkFinanceService {
         externalSource,
         externalReference,
         internalAmount,
-        externalAmount
+                externalAmount
       });
 
       const difference = internalAmount - externalAmount;
@@ -1657,29 +1656,19 @@ export class BlnkFinanceService {
     }
   }
 
-  private static async loadAccountBalance(accountId: string): Promise<Balance | null> {
-    try {
-      // This would typically load from database
-      return null;
-    } catch (error) {
-      LoggerService.error('Load account balance failed:', error);
-      return null;
-    }
+  private static async loadAccountBalance(_accountId: string): Promise<Balance | null> {
+    // This would typically load from database
+    return null;
   }
 
   private static async loadLedgerEntries(
-    accountId: string,
-    startDate: Date,
-    endDate: Date,
-    brokerId?: string
+    _accountId: string,
+    _startDate: Date,
+    _endDate: Date,
+    _brokerId?: string
   ): Promise<LedgerEntry[]> {
-    try {
-      // This would typically load from database
-      return [];
-    } catch (error) {
-      LoggerService.error('Load ledger entries failed:', error);
-      return [];
-    }
+    // This would typically load from database
+    return [];
   }
 
   private static async generateTransactionNumber(): Promise<string> {
@@ -1706,7 +1695,7 @@ export class BlnkFinanceService {
     startDate: Date,
     endDate: Date,
     brokerId?: string,
-    currency: string = 'USD'
+    _currency: string = 'USD'
   ): Promise<any> {
     try {
       // This would generate actual P&L report
@@ -1726,7 +1715,7 @@ export class BlnkFinanceService {
     startDate: Date,
     endDate: Date,
     brokerId?: string,
-    currency: string = 'USD'
+    _currency: string = 'USD'
   ): Promise<any> {
     try {
       // This would generate actual balance sheet
@@ -1746,7 +1735,7 @@ export class BlnkFinanceService {
     startDate: Date,
     endDate: Date,
     brokerId?: string,
-    currency: string = 'USD'
+    _currency: string = 'USD'
   ): Promise<any> {
     try {
       // This would generate actual cash flow report
@@ -1767,7 +1756,7 @@ export class BlnkFinanceService {
     startDate: Date,
     endDate: Date,
     brokerId?: string,
-    currency: string = 'USD'
+    _currency: string = 'USD'
   ): Promise<any> {
     try {
       // This would generate actual trial balance
@@ -1787,7 +1776,7 @@ export class BlnkFinanceService {
     startDate: Date,
     endDate: Date,
     brokerId?: string,
-    currency: string = 'USD'
+    _currency: string = 'USD'
   ): Promise<any> {
     try {
       // This would generate actual broker summary

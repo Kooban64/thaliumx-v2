@@ -14,17 +14,15 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
 import { KYCService } from './kyc';
-import { SmartContractService } from './smart-contracts';
 import { BlnkFinanceService } from './blnkfinance';
 import { OPAInputBuilder } from './opa-input-builder';
 import { OPAService } from './opa';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
-import axios from 'axios';
-import { Request } from 'express';
+// ConfigService, AppError, SmartContractService, axios imported but not used in this file
+import type { Request } from 'express';
 
 // =============================================================================
 // CORE TYPES & INTERFACES
@@ -259,7 +257,7 @@ export class TokenSaleService {
         name,
         phaseType,
         tokenPrice,
-        totalTokensAllocated
+                totalTokensAllocated
       });
 
       // Validate phase parameters
@@ -319,7 +317,7 @@ export class TokenSaleService {
           phaseType,
           tokenPrice,
           totalTokensAllocated,
-          kycLevelRequired
+                kycLevelRequired
         }
       );
 
@@ -352,7 +350,7 @@ export class TokenSaleService {
         brokerId,
         phaseId,
         investmentAmountUSD,
-        paymentMethod
+                paymentMethod
       });
 
       // Get phase
@@ -374,6 +372,136 @@ export class TokenSaleService {
 
       if (now > phase.endDate) {
         throw createError('Presale phase has ended', 400, 'PHASE_ENDED');
+      }
+
+      // CRITICAL SECURITY: Wallet screening before processing
+      try {
+        const { Web3WalletService } = await import('./web3-wallet').catch(() => ({ Web3WalletService: null }));
+        const { PresaleSecurityResponseService } = await import('./presale-security-response.service').catch(() => ({ PresaleSecurityResponseService: null }));
+        
+        if (!PresaleSecurityResponseService) {
+          LoggerService.warn('PresaleSecurityResponseService not available, skipping wallet screening');
+        } else {
+          // Check if wallet is blocked
+          const isBlocked = await PresaleSecurityResponseService.isWalletBlocked(walletAddress);
+        if (isBlocked) {
+          await LoggerService.logAudit(
+            'token_sale_investment_blocked_wallet',
+            'token_sale_security',
+            { userId, tenantId },
+            {
+              walletAddress,
+              phaseId,
+                investmentAmountUSD
+            }
+          );
+          throw createError(
+            'Wallet address is blocked from making investments',
+            403,
+            'WALLET_BLOCKED'
+          );
+        }
+        }
+
+        if (Web3WalletService) {
+          const web3WalletService = Web3WalletService.getInstance();
+          const riskAssessment = await web3WalletService.getWalletRiskAssessment(walletAddress);
+        
+        // Block if critical or high risk
+        if (riskAssessment.riskLevel === 'CRITICAL' || riskAssessment.riskLevel === 'HIGH') {
+          await LoggerService.logAudit(
+            'token_sale_investment_blocked_wallet_screening',
+            'token_sale_security',
+            { userId, tenantId },
+            {
+              walletAddress,
+              riskLevel: riskAssessment.riskLevel,
+              riskScore: riskAssessment.riskScore,
+              phaseId,
+                investmentAmountUSD
+            }
+          );
+
+          const error = createError(
+            `Wallet address failed security screening: ${riskAssessment.riskLevel} risk`,
+            403,
+            'WALLET_SCREENING_FAILED'
+          );
+          (error as any).details = {
+            riskLevel: riskAssessment.riskLevel,
+            riskScore: riskAssessment.riskScore
+          };
+          throw error;
+        }
+        }
+      } catch (screeningError: any) {
+        if (screeningError.code === 'WALLET_BLOCKED' || screeningError.code === 'WALLET_SCREENING_FAILED') {
+          throw screeningError;
+        }
+        LoggerService.warn('Wallet screening failed, allowing transaction (fail-open)', { error: screeningError.message });
+      }
+
+      // Real-time transaction monitoring
+      try {
+        const { PresaleTransactionMonitorService } = await import('./presale-transaction-monitor.service').catch(() => ({ PresaleTransactionMonitorService: null }));
+        if (PresaleTransactionMonitorService) {
+          const ipAddress = (req as any)?.ip || 'unknown';
+          const userAgent = (req as any)?.headers?.['user-agent'] || 'unknown';
+          
+          const monitoringResult = await PresaleTransactionMonitorService.monitorInvestment(
+          userId,
+          tenantId,
+          investmentAmountUSD,
+          walletAddress,
+          ipAddress,
+                userAgent
+        );
+
+        if (monitoringResult.shouldBlock) {
+          throw createError(
+            `Investment blocked due to suspicious activity: ${monitoringResult.recommendations.join('; ')}`,
+            403,
+            'INVESTMENT_BLOCKED_SUSPICIOUS_ACTIVITY'
+          );
+        }
+        }
+      } catch (monitoringError: any) {
+        if (monitoringError.code === 'INVESTMENT_BLOCKED_SUSPICIOUS_ACTIVITY') {
+          throw monitoringError;
+        }
+        LoggerService.warn('Transaction monitoring failed, allowing investment (fail-open)', { error: monitoringError.message });
+      }
+
+      // Real-time compliance monitoring
+      try {
+        const { PresaleComplianceMonitorService } = await import('./presale-compliance-monitor.service').catch(() => ({ PresaleComplianceMonitorService: null }));
+        if (PresaleComplianceMonitorService) {
+          const ipAddress = (req as any)?.ip || 'unknown';
+        const country = (req as any)?.headers?.['x-country-code'] || undefined;
+        
+        const complianceResult = await PresaleComplianceMonitorService.monitorCompliance(
+          userId,
+          tenantId,
+          investmentAmountUSD,
+          country,
+                ipAddress
+        );
+
+          await PresaleComplianceMonitorService.trackTransaction(userId, tenantId, investmentAmountUSD, country);
+
+          if (complianceResult.requiresSAR && process.env.AUTO_FILE_SAR === 'true') {
+            throw createError(
+              'Investment blocked: SAR required',
+              403,
+              'INVESTMENT_BLOCKED_SAR'
+            );
+          }
+        }
+      } catch (complianceError: any) {
+        if (complianceError.code === 'INVESTMENT_BLOCKED_SAR') {
+          throw complianceError;
+        }
+        LoggerService.warn('Compliance monitoring failed, allowing investment (fail-open)', { error: complianceError.message });
       }
 
       // Check investment eligibility (OPA evaluation done by middleware at route level)
@@ -399,6 +527,44 @@ export class TokenSaleService {
       const totalUserInvestment = userInvestments.reduce((sum, inv) => sum + inv.investmentAmountUSD, 0);
       if (totalUserInvestment + investmentAmountUSD > phase.maxInvestment) {
         throw createError('Investment would exceed phase maximum', 400, 'EXCEEDS_PHASE_MAXIMUM');
+      }
+
+      // Enhanced Transaction Replay Protection
+      if (paymentTxHash) {
+        try {
+          const { RedisService } = await import('./redis').catch(() => ({ RedisService: null }));
+          if (RedisService) {
+            const redis = RedisService.getClient();
+          if (redis) {
+            const replayKey = `tx_replay:${paymentTxHash}`;
+            const existing = await redis.get(replayKey);
+            if (existing) {
+              const existingData = JSON.parse(existing);
+              await LoggerService.logAudit(
+                'token_sale_transaction_replay_detected',
+                'token_sale_security',
+                { userId, tenantId },
+                {
+                  transactionHash: paymentTxHash,
+                  existingInvestmentId: existingData.investmentId,
+                  phaseId,
+                investmentAmountUSD
+                }
+              );
+              throw createError(
+                'Transaction hash already processed. This appears to be a duplicate transaction.',
+                409,
+                'TRANSACTION_REPLAY_DETECTED'
+              );
+            }
+          }
+          }
+        } catch (replayError: any) {
+          if (replayError.code === 'TRANSACTION_REPLAY_DETECTED') {
+            throw replayError;
+          }
+          LoggerService.warn('Transaction replay check failed, continuing (fail-open)', { error: replayError.message });
+        }
       }
 
       const investmentId = uuidv4();
@@ -450,7 +616,7 @@ export class TokenSaleService {
           phaseId,
           investmentAmountUSD,
           tokenAmount,
-          paymentMethod
+                paymentMethod
         }
       );
 
@@ -552,26 +718,27 @@ export class TokenSaleService {
         if (kycStatus.tenantId) {
           tenantId = kycStatus.tenantId;
         }
-      } catch (e) {
+      } catch {
         // Use default tenant
       }
 
       // Import services dynamically to avoid circular dependencies
-      const { TransactionVolumeTrackerService } = await import('./transaction-volume-tracker.service');
-      const { KYCUpgradeTriggerService } = await import('./kyc-upgrade-trigger.service');
-      const { TimePeriod } = await import('./transaction-volume-tracker.service');
+      const { TimePeriod } = await import('./transaction-volume-tracker.service').catch(() => ({ TimePeriod: null }));
+      const { KYCUpgradeTriggerService } = await import('./kyc-upgrade-trigger.service').catch(() => ({ KYCUpgradeTriggerService: null }));
 
       // Check cumulative investment limit
-      const upgradeCheck = await KYCUpgradeTriggerService.checkUpgradeRequired(
-        userId,
-        tenantId,
-        'investment',
-        investmentAmountUSD,
-        TimePeriod.TOTAL
-      );
+      let upgradeCheck: any = null;
+      if (KYCUpgradeTriggerService && TimePeriod) {
+        upgradeCheck = await KYCUpgradeTriggerService.checkUpgradeRequired(
+          userId,
+          tenantId,
+          'investment',
+          investmentAmountUSD,
+          TimePeriod.TOTAL
+        );
 
-      // If upgrade is required and transaction would be blocked
-      if (upgradeCheck.shouldUpgrade && !upgradeCheck.limitStatus.canProceed) {
+        // If upgrade is required and transaction would be blocked
+        if (upgradeCheck.shouldUpgrade && !upgradeCheck.limitStatus.canProceed) {
         return {
           isEligible: false,
           reason: upgradeCheck.message || `Investment limit exceeded. Current usage: ${upgradeCheck.limitStatus.current.toFixed(2)}, Limit: ${upgradeCheck.limitStatus.limit.toFixed(2)}. Please upgrade to KYC level ${upgradeCheck.requiredLevel}`,
@@ -586,13 +753,12 @@ export class TokenSaleService {
           limitStatus: upgradeCheck.limitStatus,
           upgradeRequired: true
         } as any;
+        }
       }
 
       // Evaluate OPA policy for investment authorization (if request object provided)
       if (req) {
         try {
-          const { OPAInputBuilder } = await import('./opa-input-builder');
-          const { OPAService } = await import('./opa');
           const investmentId = uuidv4(); // Generate investment ID for OPA context
           const opaInput = await OPAInputBuilder.buildFromRequest(
             req,
@@ -697,7 +863,7 @@ export class TokenSaleService {
       }
 
       // Check if approaching limit (80% threshold) - return warning but allow
-      if (upgradeCheck.limitStatus.status === 'approaching_limit') {
+      if (upgradeCheck && upgradeCheck.limitStatus?.status === 'approaching_limit') {
         LoggerService.warn('User approaching investment limit', {
           userId,
           tenantId,
@@ -730,14 +896,14 @@ export class TokenSaleService {
         isEligible: true,
         requiredKycLevel: phase.kycLevelRequired,
         currentKycLevel,
-        maxInvestmentAllowed: Math.min(phase.maxInvestment, upgradeCheck.limitStatus.remaining),
+        maxInvestmentAllowed: Math.min(phase.maxInvestment, upgradeCheck?.limitStatus?.remaining || phase.maxInvestment),
         phaseLimits: {
           minInvestment: phase.minInvestment,
           maxInvestment: phase.maxInvestment,
           tokensAvailable
         },
-        limitStatus: upgradeCheck.limitStatus,
-        upgradeRecommended: upgradeCheck.limitStatus.status === 'approaching_limit'
+        limitStatus: upgradeCheck?.limitStatus,
+        upgradeRecommended: upgradeCheck?.limitStatus?.status === 'approaching_limit'
       } as any;
 
     } catch (error) {
@@ -923,7 +1089,7 @@ export class TokenSaleService {
         uniqueInvestors,
         averageInvestment,
         byPhase,
-        byKycLevel
+                byKycLevel
       };
 
     } catch (error) {
@@ -1085,14 +1251,16 @@ export class TokenSaleService {
 
       // Track transaction volume (unified across presale and main platform)
       try {
-        const { TransactionVolumeTrackerService, TransactionType, TimePeriod } = await import('./transaction-volume-tracker.service');
-        await TransactionVolumeTrackerService.trackTransaction(
-          investment.userId,
-          investment.tenantId,
-          TransactionType.INVESTMENT,
-          investment.investmentAmountUSD,
-          TimePeriod.TOTAL
-        );
+        const { TransactionVolumeTrackerService, TransactionType, TimePeriod } = await import('./transaction-volume-tracker.service').catch(() => ({ TransactionVolumeTrackerService: null, TransactionType: null, TimePeriod: null }));
+        if (TransactionVolumeTrackerService && TransactionType && TimePeriod) {
+          await TransactionVolumeTrackerService.trackTransaction(
+            investment.userId,
+            investment.tenantId,
+            TransactionType.INVESTMENT,
+            investment.investmentAmountUSD,
+            TimePeriod.TOTAL
+          );
+        }
       } catch (trackingError) {
         // Non-blocking: log but don't fail the investment
         LoggerService.warn('Failed to track investment volume', {

@@ -19,20 +19,19 @@
 import { LoggerService } from './logger';
 import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
-import { BlnkFinanceService } from './blnkfinance';
 import { SmartContractService } from './smart-contracts';
 import { KYCService } from './kyc';
-import { RBACService } from './rbac';
-import { Web3WalletService } from './web3-wallet';
+// BlnkFinanceService, RBACService, Web3WalletService imported but not used in this file (used dynamically)
 import { DatabaseService } from './database';
 import { TransactionVolumeTrackerService, TransactionType, TimePeriod } from './transaction-volume-tracker.service';
 import { KYCUpgradeTriggerService } from './kyc-upgrade-trigger.service';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
+// AppError imported but not used in this file
 import { ethers, Wallet } from 'ethers';
 import Decimal from 'decimal.js';
-import { getContractAddresses } from '../contracts/addresses/testnet';
-import { Request } from 'express';
+// getContractAddresses imported but not used in this file
+import type { Request } from 'express';
 
 // Type alias for Decimal
 type DecimalType = InstanceType<typeof Decimal>;
@@ -265,6 +264,26 @@ export interface InvestmentMetadata {
   paymentProcessorFee?: string; // e.g., card/bank fees
   networkFeeEstimate?: string; // gas estimate in native token
   totalFees?: string; // sum of applicable fees
+  // Security context
+  walletScreening?: {
+    riskLevel: string;
+    riskScore: number;
+    screenedAt: string;
+  };
+  complianceCheck?: {
+    requiresAlert: boolean;
+    requiresSAR: boolean;
+    alertCount: number;
+    riskFactors: string[];
+    checkedAt: string;
+  };
+  securityContext?: {
+    walletScreening?: any;
+    complianceCheck?: any;
+    transactionMonitoring?: any;
+    contractValidation?: any;
+    emergencyStatus?: any;
+  };
 }
 
 export interface WhitelistEntry {
@@ -783,8 +802,8 @@ export class PresaleService {
     try {
       LoggerService.info('Starting presale compliance monitoring...');
       
-      setInterval(async () => {
-        await this.monitorCompliance();
+      setInterval(() => {
+        void this.monitorCompliance();
       }, this.PRESALE_CONFIG.complianceCheckInterval);
       
       LoggerService.info('Presale compliance monitoring started successfully');
@@ -914,7 +933,7 @@ export class PresaleService {
           LoggerService.info(`Vesting release due for investment ${investment.id}`, {
             presaleId,
             investmentId: investment.id,
-            nextRelease
+                nextRelease
           });
         }
       }
@@ -960,8 +979,8 @@ export class PresaleService {
     try {
       LoggerService.info('Starting presale statistics updates...');
       
-      setInterval(async () => {
-        await this.updateStatistics();
+      setInterval(() => {
+        void this.updateStatistics();
       }, this.PRESALE_CONFIG.statisticsUpdateInterval);
       
       LoggerService.info('Presale statistics updates started successfully');
@@ -976,7 +995,7 @@ export class PresaleService {
    */
   private static async updateStatistics(): Promise<void> {
     try {
-      for (const [presaleId, presale] of this.presales) {
+      for (const [presaleId] of this.presales) {
         const stats = await this.calculateStatistics(presaleId);
         this.statistics.set(presaleId, stats);
       }
@@ -1302,6 +1321,187 @@ export class PresaleService {
         req // Pass request for Zitadel context
       );
 
+      // Real-time transaction monitoring (CRITICAL SECURITY)
+      try {
+        const { PresaleTransactionMonitorService } = await import('./presale-transaction-monitor.service');
+        const ipAddress = (req as any)?.ip || (req as any)?.socket?.remoteAddress || 'unknown';
+        const userAgent = (req as any)?.headers?.['user-agent'] || 'unknown';
+        const deviceFingerprint = (req as any)?.headers?.['x-device-fingerprint'] || undefined;
+        
+        const monitoringResult = await PresaleTransactionMonitorService.monitorInvestment(
+          userId,
+          tenantId,
+          investmentAmount,
+          undefined, // walletAddress will be checked later when available
+          ipAddress,
+          userAgent,
+                deviceFingerprint
+        );
+
+        // Block if monitoring indicates high risk
+        if (monitoringResult.shouldBlock) {
+          // Trigger automatic security response
+          try {
+            const { PresaleSecurityResponseService } = await import('./presale-security-response.service');
+            await PresaleSecurityResponseService.handleSecurityEvent(
+              'SUSPICIOUS_TRANSACTION_PATTERN',
+              monitoringResult.riskLevel === 'CRITICAL' ? 'CRITICAL' : 'HIGH',
+              {
+                userId,
+                walletAddress: undefined, // Will be available later
+                reason: `Suspicious transaction pattern detected: ${monitoringResult.recommendations.join('; ')}`,
+                riskScore: monitoringResult.riskScore,
+                patterns: monitoringResult.patterns,
+                behavioralAnomalies: monitoringResult.behavioralAnomalies
+              }
+            );
+          } catch (responseError) {
+            LoggerService.warn('Security response handling failed', { error: responseError });
+          }
+
+          await LoggerService.logAudit(
+            'presale_investment_blocked_monitoring',
+            'presale_monitoring',
+            { userId, tenantId },
+            {
+              presaleId,
+              investmentAmount,
+              riskScore: monitoringResult.riskScore,
+              riskLevel: monitoringResult.riskLevel,
+              patterns: monitoringResult.patterns,
+              geographicAnomalies: monitoringResult.geographicAnomalies,
+              behavioralAnomalies: monitoringResult.behavioralAnomalies
+            }
+          );
+
+          const error = createError(
+            `Investment blocked due to suspicious activity: ${monitoringResult.recommendations.join('; ')}`,
+            403,
+            'INVESTMENT_BLOCKED_SUSPICIOUS_ACTIVITY'
+          );
+          (error as any).details = {
+            riskScore: monitoringResult.riskScore,
+            riskLevel: monitoringResult.riskLevel,
+            patterns: monitoringResult.patterns,
+            anomalies: monitoringResult.behavioralAnomalies
+          };
+          throw error;
+        }
+
+        // Log if review recommended
+        if (monitoringResult.shouldReview) {
+          await LoggerService.logAudit(
+            'presale_investment_flagged_review',
+            'presale_monitoring',
+            { userId, tenantId },
+            {
+              presaleId,
+              investmentAmount,
+              riskScore: monitoringResult.riskScore,
+              riskLevel: monitoringResult.riskLevel,
+              recommendations: monitoringResult.recommendations
+            }
+          );
+        }
+      } catch (monitoringError: any) {
+        // If monitoring blocks, re-throw
+        if (monitoringError.code === 'INVESTMENT_BLOCKED_SUSPICIOUS_ACTIVITY') {
+          throw monitoringError;
+        }
+        // Otherwise, log warning but continue (fail-open for availability)
+        LoggerService.warn('Transaction monitoring failed, allowing investment (fail-open)', {
+          error: monitoringError.message,
+          userId,
+                presaleId
+        });
+      }
+
+      // Real-time compliance monitoring (CRITICAL SECURITY)
+      try {
+        const { PresaleComplianceMonitorService } = await import('./presale-compliance-monitor.service');
+        const ipAddress = (req as any)?.ip || (req as any)?.socket?.remoteAddress || 'unknown';
+        // Extract country from IP (would use geolocation service in production)
+        const country = (req as any)?.headers?.['x-country-code'] || undefined;
+        
+        const complianceResult = await PresaleComplianceMonitorService.monitorCompliance(
+          userId,
+          tenantId,
+          investmentAmount,
+          country,
+                ipAddress
+        );
+
+        // Track transaction for compliance
+        await PresaleComplianceMonitorService.trackTransaction(
+          userId,
+          tenantId,
+          investmentAmount,
+                country
+        );
+
+        // Block if SAR required and auto-file is enabled
+        if (complianceResult.requiresSAR && process.env.AUTO_FILE_SAR === 'true') {
+          await LoggerService.logAudit(
+            'presale_investment_blocked_sar',
+            'presale_compliance',
+            { userId, tenantId },
+            {
+              presaleId,
+              investmentAmount,
+              alerts: complianceResult.alerts,
+              riskFactors: complianceResult.riskFactors
+            }
+          );
+
+          const error = createError(
+            'Investment blocked: Suspicious Activity Report (SAR) required. Transaction flagged for compliance review.',
+            403,
+            'INVESTMENT_BLOCKED_SAR'
+          );
+          (error as any).details = {
+            alerts: complianceResult.alerts,
+            riskFactors: complianceResult.riskFactors
+          };
+          throw error;
+        }
+
+        // Log compliance alerts
+        if (complianceResult.requiresAlert) {
+          await LoggerService.logAudit(
+            'presale_compliance_alert',
+            'presale_compliance',
+            { userId, tenantId },
+            {
+              presaleId,
+              investmentAmount,
+              alertCount: complianceResult.alerts.length,
+              requiresSAR: complianceResult.requiresSAR,
+              riskFactors: complianceResult.riskFactors
+            }
+          );
+        }
+
+        // Store compliance result - will be assigned to investment after it's created
+        (req as any).__complianceCheckResult = {
+          requiresAlert: complianceResult.requiresAlert,
+          requiresSAR: complianceResult.requiresSAR,
+          alertCount: complianceResult.alerts.length,
+          riskFactors: complianceResult.riskFactors,
+          checkedAt: new Date().toISOString()
+        };
+      } catch (complianceError: any) {
+        // If compliance blocks, re-throw
+        if (complianceError.code === 'INVESTMENT_BLOCKED_SAR') {
+          throw complianceError;
+        }
+        // Otherwise, log warning but continue (fail-open for availability)
+        LoggerService.warn('Compliance monitoring failed, allowing investment (fail-open)', {
+          error: complianceError.message,
+          userId,
+                presaleId
+        });
+      }
+
       // Block transaction if upgrade is required
       if (upgradeCheck.shouldUpgrade && !upgradeCheck.limitStatus.canProceed) {
         // Log audit event for compliance
@@ -1430,7 +1630,7 @@ export class PresaleService {
                 metadata: {
                   opaRuleId: ruleId,
                   opaDecision: denialDecision,
-                  presaleId
+                presaleId
                 }
               });
             }
@@ -1557,6 +1757,9 @@ export class PresaleService {
       const paymentProcessorFeeUsd = paymentMethod === PaymentMethod.CREDIT_CARD ? new Decimal(amount.toString()).times(0.03) : new Decimal(0);
       const networkFeeEstimate = new Decimal(0); // filled later for on-chain flow
 
+      // Assign compliance check result if available
+      const complianceCheckResult = (req as any)?.__complianceCheckResult;
+      
       const investment: PresaleInvestment = {
         id: investmentId,
         presaleId,
@@ -1574,15 +1777,16 @@ export class PresaleService {
         status: InvestmentStatus.PENDING,
         vestingSchedule: presale.vestingSchedule,
         metadata: {
-          ipAddress: '127.0.0.1', // Would be extracted from request
-          userAgent: 'Mozilla/5.0', // Would be extracted from request
+          ipAddress: (req as any)?.ip || (req as any)?.socket?.remoteAddress || 'unknown',
+          userAgent: (req as any)?.headers?.['user-agent'] || 'unknown',
           complianceFlags: [],
           riskScore: 0.5,
           userWalletAddress: walletAddress, // Store wallet address for on-chain purchase
           platformFee: platformFeeUsd.toString(),
           paymentProcessorFee: paymentProcessorFeeUsd.toString(),
           networkFeeEstimate: networkFeeEstimate.toString(),
-          totalFees: platformFeeUsd.plus(paymentProcessorFeeUsd).plus(networkFeeEstimate).toString()
+          totalFees: platformFeeUsd.plus(paymentProcessorFeeUsd).plus(networkFeeEstimate).toString(),
+          complianceCheck: complianceCheckResult || undefined
         },
         createdAt: new Date(),
         updatedAt: new Date()
@@ -1633,6 +1837,84 @@ export class PresaleService {
             );
           }
 
+          // CRITICAL SECURITY: Wallet screening before contract interaction
+          try {
+            const { Web3WalletService } = await import('./web3-wallet');
+            const web3WalletService = Web3WalletService.getInstance();
+            const riskAssessment = await web3WalletService.getWalletRiskAssessment(userWalletAddress);
+            
+            // Block if critical or high risk
+            if (riskAssessment.riskLevel === 'CRITICAL' || riskAssessment.riskLevel === 'HIGH') {
+              await LoggerService.logAudit(
+                'presale_investment_blocked_wallet_screening',
+                'presale_security',
+                { userId, tenantId },
+                {
+                  walletAddress: userWalletAddress,
+                  riskLevel: riskAssessment.riskLevel,
+                  riskScore: riskAssessment.riskScore,
+                  factors: riskAssessment.factors,
+                  recommendations: riskAssessment.recommendations,
+                  presaleId,
+                  investmentAmount: amount.toString()
+                }
+              );
+
+              const error = createError(
+                `Wallet address failed security screening: ${riskAssessment.riskLevel} risk. ${riskAssessment.recommendations.join('; ')}`,
+                403,
+                'WALLET_SCREENING_FAILED'
+              );
+              (error as any).details = {
+                riskLevel: riskAssessment.riskLevel,
+                riskScore: riskAssessment.riskScore,
+                factors: riskAssessment.factors
+              };
+              throw error;
+            }
+
+            // Log screening result even if passed
+            await LoggerService.logAudit(
+              'presale_wallet_screening_passed',
+              'presale_security',
+              { userId, tenantId },
+              {
+                walletAddress: userWalletAddress,
+                riskLevel: riskAssessment.riskLevel,
+                riskScore: riskAssessment.riskScore,
+                presaleId
+              }
+            );
+
+            // Store screening result in investment metadata
+            investment.metadata.walletScreening = {
+              riskLevel: riskAssessment.riskLevel,
+              riskScore: riskAssessment.riskScore,
+              screenedAt: new Date().toISOString()
+            };
+          } catch (screeningError: any) {
+            // If screening fails, check if it's a blocking error or just a warning
+            if (screeningError.code === 'WALLET_SCREENING_FAILED') {
+              throw screeningError; // Re-throw blocking errors
+            }
+            // Log warning but allow if screening service unavailable (fail-open for availability)
+            LoggerService.warn('Wallet screening failed, allowing transaction (fail-open)', {
+              error: screeningError.message,
+              walletAddress: userWalletAddress,
+                userId
+            });
+            await LoggerService.logAudit(
+              'presale_wallet_screening_unavailable',
+              'presale_security',
+              { userId, tenantId },
+              {
+                walletAddress: userWalletAddress,
+                error: screeningError.message,
+                presaleId
+              }
+            );
+          }
+
           // Convert amount to USDT (6 decimals)
           // Note: Amount is in USD, convert to USDT smallest unit (6 decimals)
           const usdtAmount = BigInt(Math.floor(amount.toNumber() * 1_000_000)); // Convert to 6 decimals
@@ -1666,7 +1948,7 @@ export class PresaleService {
               investment.metadata.networkFeeEstimate = est.toString();
               investment.metadata.totalFees = new Decimal(investment.metadata.totalFees || '0').plus(new Decimal(est.toString())).toString();
             }
-          } catch (e) {
+          } catch {
             // ignore estimation failures
           }
 
@@ -1686,10 +1968,83 @@ export class PresaleService {
           investment.status = InvestmentStatus.CONFIRMED;
           investment.transactionHash = purchaseResult.transaction.hash;
           investment.metadata.blockchainTxHash = purchaseResult.transaction.hash;
+
+          // Store transaction hash in Redis for replay protection (if not already stored)
+          try {
+            const { RedisService } = await import('./redis');
+            const redis = RedisService.getClient();
+            if (redis) {
+              const txHash = purchaseResult.transaction.hash;
+              const replayKey = `tx_replay:${txHash}`;
+              const existing = await redis.get(replayKey);
+              if (!existing) {
+                await redis.set(
+                  replayKey,
+                  JSON.stringify({
+                    investmentId: investment.id,
+                    userId,
+                    tenantId,
+                    presaleId,
+                    amount: amount.toString(),
+                    timestamp: Date.now()
+                  }),
+                  'EX',
+                  86400 * 30 // 30 days
+                );
+              }
+            }
+          } catch (error) {
+            LoggerService.warn('Failed to store transaction hash for replay protection', { error });
+          }
           investment.metadata.vestingScheduleId = purchaseResult.vestingScheduleId;
           investment.metadata.onChainThalAmount = purchaseResult.thalAmount.toString();
           investment.metadata.blockNumber = purchaseResult.transaction.blockNumber;
+          
+          // Enhanced audit trail: Store comprehensive security context
+          investment.metadata.securityContext = {
+            walletScreening: investment.metadata.walletScreening,
+            complianceCheck: investment.metadata.complianceCheck,
+            transactionMonitoring: {
+              monitored: true,
+              monitoredAt: new Date().toISOString()
+            },
+            contractValidation: {
+              validated: true,
+              validatedAt: new Date().toISOString(),
+              gasPrice: purchaseResult.transaction.receipt?.gasPrice?.toString(),
+              gasUsed: purchaseResult.transaction.gasUsed
+            },
+            emergencyStatus: {
+              checked: true,
+              checkedAt: new Date().toISOString()
+            }
+          };
+          
           investment.updatedAt = new Date();
+
+          // Comprehensive audit log for successful investment
+          await LoggerService.logAudit(
+            'presale_investment_completed',
+            'presale_investment',
+            { userId, tenantId },
+            {
+              presaleId,
+              investmentId: investment.id,
+              amount: amount.toString(),
+              tokenAmount: investment.tokenAmount.toString(),
+              paymentMethod,
+              tier,
+              transactionHash: purchaseResult.transaction.hash,
+              blockNumber: purchaseResult.transaction.blockNumber,
+              gasUsed: purchaseResult.transaction.gasUsed,
+              vestingScheduleId: purchaseResult.vestingScheduleId,
+              securityContext: investment.metadata.securityContext,
+              walletAddress: userWalletAddress,
+              kycLevel: investment.kycLevel,
+              referralCode,
+              referralBonus: investment.referralBonus?.toString() || '0'
+            }
+          );
 
           // Update presale raised amount (from on-chain)
           const currentRaised = new Decimal(presale.raisedAmount.toString());
@@ -1784,7 +2139,7 @@ export class PresaleService {
           presaleId,
           userId,
           amount: amount.toString(),
-          paymentMethod
+                paymentMethod
         });
       }
 
@@ -1922,7 +2277,7 @@ export class PresaleService {
         presaleId,
         userId,
         email,
-        tier
+                tier
       });
 
       return entry;

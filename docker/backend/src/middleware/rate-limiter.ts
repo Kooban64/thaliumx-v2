@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { RedisService } from '../services/redis';
 import { LoggerService } from '../services/logger';
 
@@ -42,7 +42,7 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
         path: req.path,
         method: req.method,
         current,
-        maxRequests
+                maxRequests
       });
 
       res.status(429).json({
@@ -99,7 +99,7 @@ export const authRateLimiter = async (req: Request, res: Response, next: NextFun
         path: req.path,
         method: req.method,
         current,
-        maxRequests
+                maxRequests
       });
 
       res.status(429).json({
@@ -151,7 +151,7 @@ export const apiRateLimiter = async (req: Request, res: Response, next: NextFunc
         path: req.path,
         method: req.method,
         current,
-        maxRequests
+                maxRequests
       });
 
       res.status(429).json({

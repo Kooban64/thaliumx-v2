@@ -103,7 +103,7 @@ export class ReconciliationJob {
       const exchangeBalances: Record<string, Record<string, number>> = {};
       
       try {
-        const { OmniExchangeService } = await import('./omni-exchange');
+                OmniExchangeService
         // OmniExchangeService expects a Pool, but we can pass null/undefined and it will work
         // The service will use DatabaseService internally if needed
         const omniService = new OmniExchangeService(null as any);
@@ -226,18 +226,18 @@ export class ReconciliationJob {
               expectedBalance: internalBalance,
               actualBalance: exchangeBalance,
               difference,
-              differencePercent
+                differencePercent
             });
           }
         }
       }
 
       // Check for internal balances not on exchanges
-      for (const [asset, internalBalance] of Object.entries(internalBalances)) {
-        let foundOnExchange = false;
-        for (const [exchangeId, balances] of Object.entries(exchangeBalances)) {
+      for (const [asset, _internalBalance] of Object.entries(internalBalances)) {
+        let _foundOnExchange = false;
+        for (const [, balances] of Object.entries(exchangeBalances)) {
           if (balances[asset] !== undefined) {
-            foundOnExchange = true;
+            _foundOnExchange = true;
             break;
           }
         }
@@ -285,7 +285,7 @@ export class ReconciliationJob {
                   exchangeId,
                   asset,
                   balances[asset],
-                  internalBalance
+                internalBalance
                 );
               } catch (error: any) {
                 LoggerService.warn(`Failed to generate proof of reserves for ${asset} on ${exchangeId}`, {
@@ -345,7 +345,7 @@ export class ReconciliationJob {
       LoggerService.error('Reconciliation job failed', {
         error: error.message,
         stack: error.stack,
-        lockToken
+                lockToken
       });
       throw error;
     } finally {
@@ -358,7 +358,7 @@ export class ReconciliationJob {
         } catch (error: any) {
           LoggerService.error('Failed to release reconciliation lock', {
             error: error.message,
-            lockToken
+                lockToken
           });
           // Emit alert for stuck locks
           await LoggerService.logAudit(
@@ -402,9 +402,9 @@ export class ReconciliationJob {
       const luaScript = `
         if redis.call("get", KEYS[1]) == ARGV[1] then
           return redis.call("del", KEYS[1])
-        else
+                else
           return 0
-        end
+                end
       `;
       await redis.eval(luaScript, 1, key, token);
     } catch (error: any) {
@@ -417,7 +417,8 @@ export class ReconciliationJob {
    * Get reconciliation statistics
    */
   async getStats(days: number = 7): Promise<any> {
-    const sequelize = DatabaseService.getSequelize();
+    // sequelize extracted but not used in this function
+    DatabaseService.getSequelize();
     
     // Query reconciliation snapshots for statistics
     const ReconciliationSnapshotModel = DatabaseService.getModel('ReconciliationSnapshot');
@@ -583,7 +584,7 @@ export class ReconciliationJob {
     
     const balances = await BalanceModel.findAll({
       where: {
-        asset
+                asset
       },
       attributes: ['userId', 'tenantId', 'total']
     });

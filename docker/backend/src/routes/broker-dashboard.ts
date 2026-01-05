@@ -27,7 +27,7 @@
 
 import { Router } from 'express';
 import { authenticateToken, requireRole } from '../middleware/error-handler';
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { LoggerService } from '../services/logger';
 import { DashboardService } from '../services/dashboard';
 import { BrokerManagementService } from '../services/broker-management';
@@ -146,7 +146,10 @@ router.get('/users', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKER_SUPPORT
       throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
     }
 
-    const { page = 1, limit = 10, search, status } = req.query;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = req.query.search as string | undefined;
+    const status = req.query.status as string | undefined;
     
     try {
       const UserModel: any = DatabaseService.getModel('User');
@@ -182,8 +185,8 @@ router.get('/users', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKER_SUPPORT
           success: true,
           data: [],
           pagination: {
-            page: Number(page),
-            limit: Number(limit),
+            page,
+            limit,
             total: 0,
             totalPages: 0,
             hasNext: false,
@@ -192,13 +195,14 @@ router.get('/users', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKER_SUPPORT
           brokerId,
           timestamp: new Date().toISOString()
         });
+        return;
       }
       
-      const offset = (Number(page) - 1) * Number(limit);
+      const offset = (page - 1) * limit;
       const { rows, count } = await UserModel.findAndCountAll({
         where,
         offset,
-        limit: Number(limit),
+        limit,
         order: [['createdAt', 'DESC']],
         attributes: { exclude: ['passwordHash'] }
       });
@@ -207,11 +211,11 @@ router.get('/users', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKER_SUPPORT
         success: true,
         data: rows.map((r: any) => r.toJSON()),
         pagination: {
-          page: Number(page),
-          limit: Number(limit),
+          page,
+          limit,
           total: count,
-          totalPages: Math.ceil(count / Number(limit)),
-          hasNext: offset + Number(limit) < count,
+          totalPages: Math.ceil(count / limit),
+          hasNext: offset + limit < count,
           hasPrev: offset > 0
         },
         brokerId,
@@ -238,7 +242,11 @@ router.get('/transactions', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKER_
       throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
     }
 
-    const { page = 1, limit = 10, status, type, userId } = req.query;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const status = req.query.status as string | undefined;
+    const type = req.query.type as string | undefined;
+    const userId = req.query.userId as string | undefined;
     
     try {
       const TransactionModel: any = DatabaseService.getModel('Transaction');
@@ -257,8 +265,8 @@ router.get('/transactions', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKER_
           success: true,
           data: [],
           pagination: {
-            page: Number(page),
-            limit: Number(limit),
+            page,
+            limit,
             total: 0,
             totalPages: 0,
             hasNext: false,
@@ -267,6 +275,7 @@ router.get('/transactions', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKER_
           brokerId,
           timestamp: new Date().toISOString()
         });
+        return;
       }
       
       // Build where clause
@@ -277,11 +286,11 @@ router.get('/transactions', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKER_
       if (type) where.type = type;
       if (userId) where.userId = userId;
       
-      const offset = (Number(page) - 1) * Number(limit);
+      const offset = (page - 1) * limit;
       const { rows, count } = await TransactionModel.findAndCountAll({
         where,
         offset,
-        limit: Number(limit),
+        limit,
         order: [['createdAt', 'DESC']],
         include: [{
           model: DatabaseService.getModel('User'),
@@ -294,11 +303,11 @@ router.get('/transactions', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKER_
         success: true,
         data: rows.map((r: any) => r.toJSON()),
         pagination: {
-          page: Number(page),
-          limit: Number(limit),
+          page,
+          limit,
           total: count,
-          totalPages: Math.ceil(count / Number(limit)),
-          hasNext: offset + Number(limit) < count,
+          totalPages: Math.ceil(count / limit),
+          hasNext: offset + limit < count,
           hasPrev: offset > 0
         },
         brokerId,
@@ -425,7 +434,12 @@ router.get('/audit-logs', requireRole(['broker-admin', 'broker-compliance']), as
       throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
     }
 
-    const { page = 1, limit = 10, action, userId, startDate, endDate } = req.query;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const action = req.query.action as string | undefined;
+    const userId = req.query.userId as string | undefined;
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
     
     try {
       const AuditLogModel: any = DatabaseService.getModel('AuditLog');
@@ -442,11 +456,11 @@ router.get('/audit-logs', requireRole(['broker-admin', 'broker-compliance']), as
         if (endDate) where.createdAt[Op.lte] = new Date(endDate as string);
       }
       
-      const offset = (Number(page) - 1) * Number(limit);
+      const offset = (page - 1) * limit;
       const { rows, count } = await AuditLogModel.findAndCountAll({
         where,
         offset,
-        limit: Number(limit),
+        limit,
         order: [['createdAt', 'DESC']]
       });
       
@@ -454,11 +468,11 @@ router.get('/audit-logs', requireRole(['broker-admin', 'broker-compliance']), as
         success: true,
         data: rows.map((r: any) => r.toJSON()),
         pagination: {
-          page: Number(page),
-          limit: Number(limit),
+          page,
+          limit,
           total: count,
-          totalPages: Math.ceil(count / Number(limit)),
-          hasNext: offset + Number(limit) < count,
+          totalPages: Math.ceil(count / limit),
+          hasNext: offset + limit < count,
           hasPrev: offset > 0
         },
         brokerId,

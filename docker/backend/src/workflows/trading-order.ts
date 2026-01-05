@@ -13,11 +13,10 @@
  * Compensation: Release reserved funds if order fails
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
-import { ExchangeService } from '../services/exchange';
-import { OmniExchangeService } from '../services/omni-exchange';
+// ExchangeService, OmniExchangeService imported but not used in this file
 import { FinancialRepository } from '../services/financial-repository';
 import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
@@ -38,7 +37,7 @@ interface TradingOrderContext {
  * Trading Order Workflow Implementation
  */
 export async function createTradingOrderWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   const context: TradingOrderContext = {};
 
@@ -129,7 +128,8 @@ export async function createTradingOrderWorkflow(
           : 'USDT';
 
         // Reserve funds via FinancialRepository
-        const financialRepo = new FinancialRepository();
+        // financialRepo extracted but not used in this function
+        new FinancialRepository();
         
         // Get user's account
         const accountId = `${sagaContext.tenantId}_${sagaContext.userId}_${asset}`;
@@ -194,12 +194,13 @@ export async function createTradingOrderWorkflow(
             side,
             type,
             amount: quantity,
-            price
+                price
           }
         );
 
         context.orderId = order.id;
         context.orderStatus = order.status;
+        (context as any).exchangeId = order.exchangeId || 'default';
 
         LoggerService.info('Order submitted', {
           workflowId: sagaContext.workflowId,
@@ -217,10 +218,14 @@ export async function createTradingOrderWorkflow(
           });
           // Cancel order if possible
           try {
+            // OmniExchangeService imported but not used in this function
+            await import('../services/omni-exchange');
             const { getOmniExchangeService } = await import('../routes/omni-exchange');
             const omniExchange = getOmniExchangeService();
             if (context.orderId) {
-              await omniExchange.cancelOrder(context.orderId, sagaContext.tenantId || '');
+              // Get exchangeId from order metadata or use default
+              const exchangeId = (context as any).exchangeId || sagaContext.data.exchangeId || 'default';
+              await omniExchange.cancelOrder(context.orderId, exchangeId);
             }
           } catch (error: any) {
             LoggerService.warn('Failed to cancel order during compensation', {

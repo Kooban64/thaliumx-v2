@@ -13,11 +13,11 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
+// ConfigService, AppError imported but not used in this file
 import { EventStreamingService } from './event-streaming';
 import { BlnkFinanceService } from './blnkfinance';
 import { SmartContractService } from './smart-contracts';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
 import { ethers } from 'ethers';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -338,7 +338,7 @@ export class NFTService {
         tenantId,
         chainId,
         contractAddress,
-        creator
+                creator
       });
 
       // Validate contract using Smart Contract service
@@ -386,7 +386,7 @@ export class NFTService {
           name,
           symbol,
           creator,
-          royaltyBps
+                royaltyBps
         }
       );
 
@@ -424,7 +424,7 @@ export class NFTService {
         maker,
         collectionId,
         price,
-        currency
+                currency
       });
 
       // Validate user and policy checks
@@ -562,7 +562,7 @@ export class NFTService {
         txHash,
         blockNumber,
         amount,
-        price
+                price
       });
 
       const order = this.orders.get(orderId);
@@ -711,7 +711,7 @@ export class NFTService {
   private static async validateOrderCreation(
     tenantId: string,
     maker: string,
-    collectionId: string
+    _collectionId: string
   ): Promise<void> {
     try {
       // This would integrate with Keycloak for user validation
@@ -726,7 +726,7 @@ export class NFTService {
   private static async validateOrderFulfillment(
     tenantId: string,
     taker: string,
-    order: NFTOrder
+    _order: NFTOrder
   ): Promise<void> {
     try {
       // This would integrate with Keycloak for user validation

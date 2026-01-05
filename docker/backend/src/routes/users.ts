@@ -26,7 +26,8 @@
  * - Super admins can see all users across tenants
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import type { Request, Response} from 'express';
+import { Router } from 'express';
 import { authenticateToken, requireRole, asyncHandler, validateRequest } from '../middleware/error-handler';
 import { UserService } from '../services/user';
 import { LoggerService } from '../services/logger';
@@ -43,7 +44,7 @@ const router: Router = Router();
 const updateUserSchema = Joi.object({
   firstName: Joi.string().min(1).max(100),
   lastName: Joi.string().min(1).max(100),
-  phone: Joi.string().pattern(/^\+?[\d\s\-\(\)]+$/).allow(null, ''),
+  phone: Joi.string().pattern(/^\+?[\d\s\-()]+$/).allow(null, ''),
   dateOfBirth: Joi.date().iso().allow(null),
   address: Joi.object({
     street: Joi.string().max(200),
@@ -59,7 +60,7 @@ const updateKycSchema = Joi.object({
   kycLevel: Joi.string().valid(...Object.values(KycLevel)).required()
 });
 
-const listUsersSchema = Joi.object({
+const _listUsersSchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(50),
   role: Joi.string().valid(...Object.values(UserRole)),
@@ -93,12 +94,10 @@ router.use(authenticateToken);
  * - Super admins: Can see all users across tenants
  */
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
-  const { error, value } = listUsersSchema.validate(req.query);
-  if (error) {
-    throw createError(`Validation error: ${error.details.map(d => d.message).join(', ')}`, 400, 'VALIDATION_ERROR');
-  }
-
-  const { page, limit, role, tenantId } = value;
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+  const role = req.query.role as string | undefined;
+  const tenantId = req.query.tenantId as string | undefined;
   const offset = (page - 1) * limit;
   const user = req.user!;
 
@@ -149,7 +148,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     userId: user.userId,
     count: sanitizedUsers.length,
     page,
-    limit
+                limit
   });
 
   res.json({

@@ -246,7 +246,7 @@ export class LoggerService {
     this.error('Application Error', {
       message: error.message,
       stack: error.stack,
-      context
+                context
     });
   }
 
@@ -382,7 +382,7 @@ export class LoggerService {
     this.info('Performance Metric', {
       operation,
       duration: `${duration}ms`,
-      details
+                details
     });
   }
 
@@ -451,7 +451,7 @@ export class LoggerService {
       at: new Date().toISOString()
     };
     try {
-      const { DatabaseService } = await import('./database');
+                DatabaseService
       const Model: any = DatabaseService.getModel && DatabaseService.getModel('AuditLog');
       if (Model) {
         await Model.create({
@@ -464,7 +464,9 @@ export class LoggerService {
           createdAt: new Date()
         });
       }
-    } catch {}
+    } catch {
+      // Ignore errors in audit event processing
+    }
     this.info('Audit Event', entry);
   }
 }

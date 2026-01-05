@@ -11,7 +11,8 @@
  * Production-ready with comprehensive validation
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { DatabaseService } from '../services/database';
 import { ExchangeService } from '../services/exchange';
 import { LoggerService } from '../services/logger';
@@ -41,7 +42,7 @@ router.post('/orders', authenticateToken, validateRequest, async (req: Request, 
     const orderData = {
       ...req.body,
       userId,
-      tenantId
+                tenantId
     };
     
     const order = await ExchangeService.createOrder(orderData);
@@ -107,7 +108,7 @@ router.delete('/orders/:orderId', authenticateToken, async (req: Request, res: R
     
     LoggerService.info('Order cancelled via API', { 
       orderId: order.id, 
-      userId 
+                userId
     });
     
     res.json({
@@ -151,7 +152,10 @@ router.get('/orders', authenticateToken, validateRequest, async (req: Request, r
       throw createError('User authentication required', 401, 'AUTHENTICATION_REQUIRED');
     }
     
-    const { symbol, status, limit, offset } = req.query;
+    const symbol = req.query.symbol as string | undefined;
+    const status = req.query.status as string | undefined;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
     
     const orders = await ExchangeService.getUserOrders(
       userId, 
@@ -162,8 +166,8 @@ router.get('/orders', authenticateToken, validateRequest, async (req: Request, r
     
     // Apply pagination
     const paginatedOrders = orders.slice(
-      Number(offset), 
-      Number(offset) + Number(limit)
+      offset, 
+      offset + limit
     );
     
     res.json({
@@ -171,8 +175,8 @@ router.get('/orders', authenticateToken, validateRequest, async (req: Request, r
       data: {
         orders: paginatedOrders,
         total: orders.length,
-        limit: Number(limit),
-        offset: Number(offset)
+        limit,
+        offset
       }
     });
   } catch (error) {

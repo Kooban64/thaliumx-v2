@@ -16,8 +16,9 @@
  * - Real-time balance tracking per broker/customer
  */
 
-import { Pool } from 'pg';
-import axios, { AxiosInstance } from 'axios';
+import type { Pool } from 'pg';
+import type { AxiosInstance } from 'axios';
+import axios from 'axios';
 import CircuitBreaker from 'opossum';
 import crypto from 'crypto';
 import { LoggerService } from './logger';
@@ -1696,8 +1697,9 @@ export class OmniExchangeService {
    * Start health monitoring for all exchanges
    */
   private startHealthMonitoring(): void {
-    this.healthMonitoringInterval = setInterval(async () => {
-      for (const [exchangeId, config] of this.exchanges) {
+    this.healthMonitoringInterval = setInterval(() => {
+      void (async () => {
+        for (const [exchangeId, config] of this.exchanges) {
         if (!config.enabled) continue;
 
         try {
@@ -1707,14 +1709,10 @@ export class OmniExchangeService {
           const startTime = Date.now();
           
           // Lightweight health check with timeout
-          try {
-            await Promise.race([
-              adapter.getBalance('BTC'),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('Health check timeout')), 2000))
-            ]);
-          } catch (pingError) {
-            throw pingError;
-          }
+          await Promise.race([
+            adapter.getBalance('BTC'),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Health check timeout')), 2000))
+          ]);
           
           const responseTime = Date.now() - startTime;
           
@@ -1763,6 +1761,7 @@ export class OmniExchangeService {
           }
         }
       }
+      })();
     }, 30000); // Check every 30 seconds
   }
 
@@ -1788,8 +1787,10 @@ export class OmniExchangeService {
     };
 
     // Run immediately and then every 10 minutes
-    run();
-    this.reconciliationInterval = setInterval(run, 10 * 60 * 1000);
+    void run();
+    this.reconciliationInterval = setInterval(() => {
+      void run();
+    }, 10 * 60 * 1000);
   }
 
   private startOpenOrderReconciliation(): void {
@@ -1821,14 +1822,14 @@ export class OmniExchangeService {
         LoggerService.error('Open-order reconciliation loop error', { err: (err as Error).message });
       }
     };
-    run();
-    setInterval(run, 15000);
+    void run();
+    setInterval(() => { void run(); }, 15000);
   }
 
   /**
    * Determine the best exchange for an order
    */
-  async determineBestExchange(symbol: string, side: 'buy' | 'sell', amount: string): Promise<ExchangeRoutingDecision> {
+  async determineBestExchange(_symbol: string, _side: 'buy' | 'sell', _amount: string): Promise<ExchangeRoutingDecision> {
     const availableExchanges = Array.from(this.exchanges.values())
       .filter(e => e.enabled && e.health.status === 'healthy')
       .sort((a, b) => a.priority - b.priority);
@@ -1886,7 +1887,9 @@ export class OmniExchangeService {
             return e as InternalOrder;
           }
         }
-      } catch {}
+      } catch {
+        // Ignore errors in exchange selection
+      }
 
       // Determine best exchange
       const routingDecision = await this.determineBestExchange(params.symbol, params.side, params.amount);
@@ -2705,7 +2708,7 @@ export class OmniExchangeService {
           actualBalance,
           allocatedAmount,
           difference: difference.toString(),
-          status
+                status
         });
       }
     }
@@ -2759,7 +2762,7 @@ export class OmniExchangeService {
       assets.push({
         asset,
         totalAmount,
-        exchanges
+                exchanges
       });
     }
 
@@ -2930,7 +2933,7 @@ export class OmniExchangeService {
     testResults.complianceMetrics.carfCoverage = this.carfReports.size > 0 ? 100 : 0;
     testResults.complianceMetrics.riskAssessmentCoverage = testResults.tests.filter(t => t.name === 'Risk Assessment' && t.status === 'passed').length > 0 ? 100 : 0;
     
-    const riskScores = Array.from(this.travelRuleMessages.values()).map(tr => 0); // Default to 0 since TravelRuleData doesn't have riskScore
+    const riskScores = Array.from(this.travelRuleMessages.values()).map(_tr => 0); // Default to 0 since TravelRuleData doesn't have riskScore
     testResults.complianceMetrics.averageRiskScore = riskScores.length > 0 ? riskScores.reduce((a, b) => a + b, 0) / riskScores.length : 0;
 
     LoggerService.info('Omni Exchange compliance test suite completed.', {
@@ -2987,7 +2990,7 @@ export class OmniExchangeService {
       nationalId: `TESTID${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
       country,
       taxId: `TESTTAX${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
-      riskLevel
+                riskLevel
     };
   }
 
@@ -3003,15 +3006,15 @@ export class OmniExchangeService {
     const pendingCARFReports = Array.from(this.carfReports.values()).filter(r => r.status === 'pending').length;
     const submittedCARFReports = Array.from(this.carfReports.values()).filter(r => r.status === 'submitted').length;
 
-    const riskScores = Array.from(this.travelRuleMessages.values()).map(tr => 0); // Default to 0 since TravelRuleData doesn't have riskScore
+    const riskScores = Array.from(this.travelRuleMessages.values()).map(_tr => 0); // Default to 0 since TravelRuleData doesn't have riskScore
     const averageRiskScore = riskScores.length > 0 ? riskScores.reduce((a, b) => a + b, 0) / riskScores.length : 0;
 
-    const highRiskTransactions = Array.from(this.travelRuleMessages.values()).filter(tr => 0 > 70).length; // Default to 0
-    const mediumRiskTransactions = Array.from(this.travelRuleMessages.values()).filter(tr => {
+    const highRiskTransactions = Array.from(this.travelRuleMessages.values()).filter(_tr => 0 > 70).length; // Default to 0
+    const mediumRiskTransactions = Array.from(this.travelRuleMessages.values()).filter(_tr => {
       const score = 0; // Default to 0
       return score >= 30 && score <= 70;
     }).length;
-    const lowRiskTransactions = Array.from(this.travelRuleMessages.values()).filter(tr => 0 < 30).length; // Default to 0
+    const lowRiskTransactions = Array.from(this.travelRuleMessages.values()).filter(_tr => 0 < 30).length; // Default to 0
 
     return {
       travelRule: {

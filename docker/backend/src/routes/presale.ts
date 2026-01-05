@@ -17,16 +17,13 @@ import { WalletSystemService } from '../services/wallet-system';
 import { DatabaseService } from '../services/database';
 import { IdempotencyService } from '../services/idempotency';
 import { SmartContractService } from '../services/smart-contracts';
-import { Web3WalletService } from '../services/web3-wallet';
-import { authenticateToken, requireRole } from '../middleware/error-handler';
-import { validateRequest } from '../middleware/error-handler';
+import { authenticateToken, requireRole, validateRequest } from '../middleware/error-handler';
 import { investmentAuth } from '../middleware/investment-auth.middleware';
 import Joi from 'joi';
 import { Decimal } from 'decimal.js';
 import { LoggerService } from '../services/logger';
 import { ethers, Wallet } from 'ethers';
-import { ConfigService } from '../services/config-enhanced';
-import { getContractAddresses } from '../contracts/addresses/testnet';
+import { ConfigService } from '../services/config';
 
 const router: Router = Router();
 
@@ -718,7 +715,8 @@ router.get('/health', authenticateToken, async (req, res) => {
 router.get('/vesting/:scheduleId', authenticateToken, async (req, res): Promise<void> => {
   try {
     const { scheduleId } = req.params;
-    const userId = (req as any).user?.id;
+    // userId extracted but not used in this function
+    (req as any).user?.id;
     
     if (!scheduleId) {
       res.status(400).json({
@@ -997,7 +995,7 @@ router.get('/vesting/user/:userId', authenticateToken, async (req, res): Promise
     const requestingUserId = (req as any).user?.id;
     
     // Verify user can access this data (using normalized roles)
-    const { RoleMapperService } = require('../services/role-mapper');
+    const { RoleMapperService } = await import('../services/role-mapper');
     const userRoles = Array.from(
       new Set([
         (req as any).user?.role,

@@ -26,20 +26,20 @@
  */
 
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
-import { authenticator } from 'otplib';
-import { AuthRequest, AuthResponse, User, JWTPayload, UserRole } from '../types';
+// jwt imported but not used in this file
+import type { AuthResponse, User, JWTPayload} from '../types';
+import { UserRole } from '../types';
 import { DatabaseService } from '../services/database';
 import { RedisService } from '../services/redis';
 import { LoggerService } from '../services/logger';
-import { ConfigService } from './config';
+// authenticator, AuthRequest, ConfigService imported but not used in this file
 import { EmailService } from './email';
 import { createError } from '../utils';
 import { UserService } from './user';
 import { MFAService } from './mfa';
 import { generateAccessToken, generateRefreshToken, verifyToken } from '../utils';
-import { Response } from 'express';
+import type { Response } from 'express';
 import type { Model, ModelCtor } from 'sequelize';
 
 type TenantModelInstance = Model & {

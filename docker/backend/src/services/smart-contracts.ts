@@ -20,10 +20,12 @@
 import { LoggerService } from './logger';
 import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
-import { AppError, createError } from '../utils';
-import { ethers, Contract, Wallet, JsonRpcProvider, TransactionResponse, TransactionReceipt } from 'ethers';
-import { v4 as uuidv4 } from 'uuid';
-import { getABI, PRESALE_ABI, TOKEN_ABI, VESTING_ABI } from '../contracts/abis';
+import { createError } from '../utils';
+// AppError imported but not used in this file
+import type { Contract, TransactionReceipt } from 'ethers';
+import { ethers, Wallet, JsonRpcProvider } from 'ethers';
+// TransactionResponse, uuidv4 imported but not used in this file
+import { getABI, PRESALE_ABI, TOKEN_ABI, VESTING_ABI, SECURITY_ABI, EMERGENCY_CONTROLS_ABI } from '../contracts/abis';
 import { getContractAddresses } from '../contracts/addresses/testnet';
 
 // =============================================================================
@@ -608,7 +610,7 @@ export class SmartContractService {
           contractName,
           address,
           transactionHash: deploymentTx.hash,
-          constructorArgs
+                constructorArgs
         }
       );
 
@@ -623,7 +625,7 @@ export class SmartContractService {
   /**
    * Get contract instance
    */
-  public static getContract(contractName: string, address?: string): Contract | null {
+  public static getContract(contractName: string, _address?: string): Contract | null {
     const key = contractName.toLowerCase();
     return this.contracts.get(key) || null;
   }
@@ -678,7 +680,7 @@ export class SmartContractService {
       const [
         tokenAddress, tokenPrice, tokensForSale, tokensSold,
         startTime, endTime, minPurchase, maxPurchase,
-        paused, finalized, raised, beneficiary
+                paused, finalized, raised, beneficiary
       ] = await Promise.all([
         contract.token ? contract.token() : Promise.resolve(''),
         contract.tokenPrice ? contract.tokenPrice() : Promise.resolve(0n),
@@ -706,7 +708,7 @@ export class SmartContractService {
         paused,
         finalized,
         raised: raised.toString(),
-        beneficiary
+                beneficiary
       };
 
     } catch (error) {
@@ -724,7 +726,7 @@ export class SmartContractService {
       
       const [
         tokenAddress, stakingToken, rewardToken, totalStaked, totalRewards,
-        rewardRate, periodFinish, lastUpdateTime, rewardPerTokenStored
+                rewardRate, periodFinish, lastUpdateTime, rewardPerTokenStored
       ] = await Promise.all([
         contract.token ? contract.token() : Promise.resolve(''),
         contract.stakingToken ? contract.stakingToken() : Promise.resolve(''),
@@ -796,7 +798,7 @@ export class SmartContractService {
         contractAddress,
         args,
         value,
-        gasLimit
+                gasLimit
       });
 
       const contract = new ethers.Contract(contractAddress, abi, this.wallet);
@@ -1012,6 +1014,708 @@ export class SmartContractService {
   }
 
   /**
+   * Check emergency status from security contracts
+   */
+  public static async checkEmergencyStatus(
+    contractAddress?: string
+  ): Promise<{
+    isEmergencyActive: boolean;
+    isCircuitBreakerActive: boolean;
+    isContractPaused: boolean;
+    emergencyDetails?: {
+      activatedAt?: number;
+      duration?: number;
+      reason?: string;
+    };
+  }> {
+    try {
+      const addresses = getContractAddresses();
+      const presaleAddress = contractAddress || addresses.THALIUM_PRESALE;
+      const config = ConfigService.getConfig();
+      const provider = new ethers.JsonRpcProvider(config.blockchain.rpcUrl);
+
+      let isEmergencyActive = false;
+      let isCircuitBreakerActive = false;
+      let isContractPaused = false;
+      let emergencyDetails: any = {};
+
+      // Check ThaliumSecurity contract if available
+      if (addresses.THALIUM_SECURITY) {
+        try {
+          const securityAbi = SECURITY_ABI || getABI('ThaliumSecurity');
+          if (securityAbi) {
+            const securityContract = new ethers.Contract(addresses.THALIUM_SECURITY, securityAbi, provider);
+            if (securityContract.isEmergencyActive) {
+              isEmergencyActive = await securityContract.isEmergencyActive();
+              if (isEmergencyActive && securityContract.getEmergencyStatus) {
+                const status = await securityContract.getEmergencyStatus();
+                emergencyDetails = {
+                  activatedAt: Number(status.activatedAt),
+                  duration: Number(status.duration)
+                };
+              }
+            }
+          }
+        } catch (error) {
+          LoggerService.warn('Failed to check ThaliumSecurity contract', { error });
+        }
+      }
+
+      // Check EmergencyControls contract if available
+      if (addresses.EMERGENCY_CONTROLS) {
+        try {
+          const emergencyAbi = EMERGENCY_CONTROLS_ABI || getABI('EmergencyControls');
+          if (emergencyAbi) {
+            const emergencyContract = new ethers.Contract(addresses.EMERGENCY_CONTROLS, emergencyAbi, provider);
+            if (emergencyContract.isContractAccessible) {
+              isCircuitBreakerActive = !(await emergencyContract.isContractAccessible(presaleAddress));
+            }
+          }
+        } catch (error) {
+          LoggerService.warn('Failed to check EmergencyControls contract', { error });
+        }
+      }
+
+      // Check if presale contract is paused
+      try {
+        const presaleAbi = PRESALE_ABI || getABI('ThaliumPresale');
+        if (presaleAbi) {
+          const presaleContract = new ethers.Contract(presaleAddress, presaleAbi, provider);
+          if (presaleContract.paused) {
+            isContractPaused = await presaleContract.paused();
+          }
+        }
+      } catch (error) {
+        LoggerService.warn('Failed to check presale contract pause status', { error });
+      }
+
+      return {
+        isEmergencyActive,
+        isCircuitBreakerActive,
+        isContractPaused,
+        emergencyDetails: Object.keys(emergencyDetails).length > 0 ? emergencyDetails : undefined
+      };
+    } catch (error) {
+      LoggerService.error('Failed to check emergency status', error);
+      // Fail-secure: assume emergency if check fails
+      return {
+        isEmergencyActive: true,
+        isCircuitBreakerActive: true,
+        isContractPaused: true
+      };
+    }
+  }
+
+  /**
+   * Validate contract state before purchase
+   */
+  public static async validateContractState(
+    presaleAddress: string,
+    userAddress: string,
+    usdtAmount: bigint
+  ): Promise<{
+    isValid: boolean;
+    reason?: string;
+    details: {
+      isActive: boolean;
+      isPaused: boolean;
+      hasSufficientBalance: boolean;
+      userWithinLimits: boolean;
+      presaleStartTime: number;
+      presaleEndTime: number;
+      currentTime: number;
+      tokenBalance: string;
+      userPurchaseTotal: string;
+    };
+  }> {
+    try {
+      const config = ConfigService.getConfig();
+      const provider = new ethers.JsonRpcProvider(config.blockchain.rpcUrl);
+      const presaleAbi = PRESALE_ABI || getABI('ThaliumPresale');
+      const tokenAbi = TOKEN_ABI || getABI('ThaliumToken');
+      // addresses extracted but not used in this function
+      getContractAddresses();
+
+      if (!presaleAbi) {
+        throw new Error('Presale ABI not found');
+      }
+
+      const presaleContract = new ethers.Contract(presaleAddress, presaleAbi, provider);
+      const currentTime = Math.floor(Date.now() / 1000);
+
+      // Get presale state (with safe method calls)
+      let presaleStartTime = 0;
+      let presaleEndTime = 0;
+      let isPaused = false;
+      let userPurchases = 0n;
+      // totalTokensSold extracted but not used in this function
+      let _totalTokensSold = 0n;
+      let thalTokenAddress = '';
+
+      try {
+        // Try calling methods - they may not exist on all contract versions
+        try {
+          presaleStartTime = Number(await (presaleContract as any).presaleStartTime());
+        } catch {
+          // Method may not exist
+        }
+        try {
+          presaleEndTime = Number(await (presaleContract as any).presaleEndTime());
+        } catch {
+          // Method may not exist
+        }
+        try {
+          isPaused = await (presaleContract as any).paused();
+        } catch {
+          // Method may not exist
+        }
+        try {
+          userPurchases = await (presaleContract as any).userPurchases(userAddress);
+        } catch {
+          // Method may not exist
+        }
+        try {
+          // totalTokensSold extracted but not used in this function
+          await (presaleContract as any).totalTokensSold();
+        } catch {
+          // Method may not exist
+        }
+        try {
+          thalTokenAddress = await (presaleContract as any).thalToken();
+        } catch {
+          // Method may not exist
+        }
+      } catch (error) {
+        LoggerService.warn('Failed to read some presale contract state', { error });
+      }
+
+      // Check if presale is active
+      const isActive = presaleStartTime > 0 && 
+                       currentTime >= presaleStartTime && 
+                       currentTime <= presaleEndTime;
+
+      // Check token balance in contract
+      let hasSufficientBalance = false;
+      let tokenBalance = '0';
+      if (tokenAbi && thalTokenAddress) {
+        try {
+          const tokenContract = new ethers.Contract(thalTokenAddress, tokenAbi, provider);
+          const balanceOfFn = (tokenContract as any).balanceOf;
+          if (balanceOfFn && typeof balanceOfFn === 'function') {
+            tokenBalance = (await balanceOfFn(presaleAddress)).toString();
+            // Calculate required THAL amount (1 USDT = 100 THAL, with decimal conversion)
+            const requiredThal = (usdtAmount * 100n * 10n**12n) / 10n**6n;
+            hasSufficientBalance = BigInt(tokenBalance) >= requiredThal;
+          }
+        } catch (error) {
+          LoggerService.warn('Failed to check token balance', { error });
+        }
+      }
+
+      // Check user limits (MAX_PURCHASE = 10000 USDT)
+      const MAX_PURCHASE = 10000n * 10n**6n; // 10,000 USDT in 6 decimals
+      const userPurchaseTotal = BigInt(userPurchases.toString());
+      const userWithinLimits = (userPurchaseTotal + usdtAmount) <= MAX_PURCHASE;
+
+      const details = {
+        isActive,
+        isPaused,
+        hasSufficientBalance,
+        userWithinLimits,
+        presaleStartTime,
+        presaleEndTime,
+        currentTime,
+        tokenBalance,
+        userPurchaseTotal: userPurchaseTotal.toString()
+      };
+
+      // Determine if valid
+      let isValid = true;
+      let reason: string | undefined;
+
+      if (!isActive) {
+        isValid = false;
+        reason = presaleStartTime === 0 
+          ? 'Presale has not started'
+          : currentTime < presaleStartTime
+          ? 'Presale has not started yet'
+          : 'Presale has ended';
+      } else if (isPaused) {
+        isValid = false;
+        reason = 'Presale contract is paused';
+      } else if (!hasSufficientBalance) {
+        isValid = false;
+        reason = 'Insufficient THAL tokens in presale contract';
+      } else if (!userWithinLimits) {
+        isValid = false;
+        reason = 'Purchase would exceed user limit';
+      }
+
+      return { isValid, reason, details };
+    } catch (error) {
+      LoggerService.error('Failed to validate contract state', error);
+      throw createError(
+        `Contract state validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        500,
+        'CONTRACT_VALIDATION_FAILED'
+      );
+    }
+  }
+
+  /**
+   * Validate admin action before execution
+   * For admin operations (pause, emergency controls, withdrawals, etc.)
+   */
+  public static async validateAdminAction(
+    action: 'pause' | 'unpause' | 'emergency_pause' | 'withdraw' | 'emergency_control',
+    contractAddress: string,
+    adminWallet: Wallet,
+    options?: {
+      requireMultiSig?: boolean;
+      requireTimeLock?: boolean;
+      timeLockDuration?: number; // seconds
+      reason?: string;
+    }
+  ): Promise<{
+    isValid: boolean;
+    reason?: string;
+    requiresApproval: boolean;
+    approvalWorkflowId?: string;
+    details: {
+      action: 'pause' | 'unpause' | 'emergency_pause' | 'withdraw' | 'emergency_control';
+      contractAddress: string;
+      adminAddress: string;
+      multiSigRequired: boolean;
+      timeLockRequired: boolean;
+      timeLockDuration?: number;
+    };
+  }> {
+    try {
+      const adminAddress = adminWallet.address;
+      const details: any = {
+        action,
+        contractAddress,
+        adminAddress,
+        multiSigRequired: options?.requireMultiSig || false,
+        timeLockRequired: options?.requireTimeLock || false
+      };
+
+      // 1. Validate admin wallet has required role (would check on-chain)
+      // This is a placeholder - in production would verify on-chain roles
+      const addresses = getContractAddresses();
+      const config = ConfigService.getConfig();
+      // provider extracted but not used in this function
+      new ethers.JsonRpcProvider(config.blockchain.rpcUrl);
+
+      // Check if admin address is authorized (simplified - would check contract roles)
+      const isAuthorized = adminAddress.toLowerCase() === addresses.ADMIN_WALLET?.toLowerCase();
+      if (!isAuthorized) {
+        return {
+          isValid: false,
+          reason: 'Admin wallet not authorized for this action',
+          requiresApproval: false,
+                details
+        };
+      }
+
+      // 2. Check if multi-sig is required
+      if (options?.requireMultiSig) {
+        details.multiSigRequired = true;
+        // In production, would check multi-sig contract for required approvals
+        // For now, return that approval is required
+        return {
+          isValid: true,
+          requiresApproval: true,
+                details
+        };
+      }
+
+      // 3. Check if time-lock is required
+      if (options?.requireTimeLock) {
+        details.timeLockRequired = true;
+        details.timeLockDuration = options.timeLockDuration || 86400; // Default 24 hours
+        // Store time-lock request
+        const { RedisService } = await import('./redis');
+        const redis = RedisService.getClient();
+        if (redis) {
+          const timeLockKey = `admin_action_timelock:${contractAddress}:${action}:${Date.now()}`;
+          await redis.set(
+            timeLockKey,
+            JSON.stringify({
+              action,
+              contractAddress,
+              adminAddress,
+              scheduledAt: Date.now(),
+              executeAt: Date.now() + (options.timeLockDuration || 86400) * 1000,
+              reason: options.reason
+            }),
+            'EX',
+            (options.timeLockDuration || 86400) + 3600 // TTL = timeLock + 1 hour buffer
+          );
+        }
+      }
+
+      // 4. Comprehensive audit logging
+      await LoggerService.logAudit(
+        'admin_action_validated',
+        'admin_operations',
+        { userId: adminAddress },
+        {
+          action,
+          contractAddress,
+          adminAddress,
+          requiresMultiSig: options?.requireMultiSig || false,
+          requiresTimeLock: options?.requireTimeLock || false,
+          timeLockDuration: options?.timeLockDuration,
+          reason: options?.reason
+        }
+      );
+
+      return {
+        isValid: true,
+        requiresApproval: options?.requireMultiSig || false,
+                details
+      };
+    } catch (error) {
+      LoggerService.error('Admin action validation failed', error);
+      return {
+        isValid: false,
+        reason: `Validation error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        requiresApproval: false,
+        details: {
+          action,
+          contractAddress,
+          adminAddress: adminWallet.address,
+          multiSigRequired: false,
+          timeLockRequired: false
+        }
+      };
+    }
+  }
+
+  /**
+   * Execute admin action with validation
+   */
+  public static async executeAdminAction(
+    action: 'pause' | 'unpause' | 'emergency_pause' | 'withdraw' | 'emergency_control',
+    contractAddress: string,
+    adminWallet: Wallet,
+    parameters?: any,
+    validationOptions?: {
+      requireMultiSig?: boolean;
+      requireTimeLock?: boolean;
+      timeLockDuration?: number;
+      reason?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    transactionHash?: string;
+    error?: string;
+  }> {
+    try {
+      // Validate admin action first
+      const validation = await this.validateAdminAction(
+        action,
+        contractAddress,
+        adminWallet,
+                validationOptions
+      );
+
+      if (!validation.isValid) {
+        const error = createError(
+          validation.reason || 'Admin action validation failed',
+          403,
+          'ADMIN_ACTION_VALIDATION_FAILED'
+        );
+        (error as any).details = validation.details;
+        throw error;
+      }
+
+      if (validation.requiresApproval) {
+        const error = createError(
+          'Multi-signature approval required for this action',
+          403,
+          'MULTISIG_APPROVAL_REQUIRED'
+        );
+        (error as any).details = validation.details;
+        throw error;
+      }
+
+      // Execute action based on type
+      let result: any;
+      const config = ConfigService.getConfig();
+      // provider extracted but not used in this function
+      new ethers.JsonRpcProvider(config.blockchain.rpcUrl);
+
+      switch (action) {
+        case 'pause':
+        case 'unpause':
+        case 'emergency_pause': {
+          const presaleAbi = PRESALE_ABI || getABI('ThaliumPresale');
+          if (!presaleAbi) {
+            throw new Error('Presale ABI not found');
+          }
+          const contract = new ethers.Contract(contractAddress, presaleAbi, adminWallet);
+          const method = action === 'unpause' ? 'unpause' : 'pause';
+          const methodFn = (contract as any)[method];
+          if (methodFn) {
+            const tx = await methodFn();
+            const receipt = await tx.wait();
+            result = { transactionHash: tx.hash, receipt };
+          } else {
+            throw new Error(`Method ${method} not found on contract`);
+          }
+          break;
+        }
+
+        case 'withdraw': {
+          const presaleAbi = PRESALE_ABI || getABI('ThaliumPresale');
+          if (!presaleAbi) {
+            throw new Error('Presale ABI not found');
+          }
+          const contract = new ethers.Contract(contractAddress, presaleAbi, adminWallet);
+          const withdrawFn = (contract as any).withdrawUsdt;
+          if (withdrawFn) {
+            const tx = await withdrawFn(parameters.amount, parameters.recipient);
+            const receipt = await tx.wait();
+            result = { transactionHash: tx.hash, receipt };
+          } else {
+            throw new Error('withdrawUsdt method not found on contract');
+          }
+          break;
+        }
+
+        case 'emergency_control': {
+          // Would interact with EmergencyControls contract
+          const emergencyAbi = EMERGENCY_CONTROLS_ABI || getABI('EmergencyControls');
+          if (!emergencyAbi) {
+            throw new Error('EmergencyControls ABI not found');
+          }
+          const contract = new ethers.Contract(contractAddress, emergencyAbi, adminWallet);
+          const triggerFn = (contract as any).triggerCircuitBreaker;
+          if (triggerFn && typeof triggerFn === 'function') {
+            const tx = await triggerFn(parameters.targetContract, parameters.reason || 'Admin action');
+            const receipt = await tx.wait();
+            result = { transactionHash: tx.hash, receipt };
+          } else {
+            throw new Error('triggerCircuitBreaker method not found on contract');
+          }
+          break;
+        }
+
+        default:
+          throw new Error(`Unknown admin action: ${action}`);
+      }
+
+      // Log successful execution
+      await LoggerService.logAudit(
+        'admin_action_executed',
+        'admin_operations',
+        { userId: adminWallet.address },
+        {
+          action,
+          contractAddress,
+          transactionHash: result.transactionHash,
+          gasUsed: result.receipt?.gasUsed?.toString(),
+          blockNumber: result.receipt?.blockNumber
+        }
+      );
+
+      return {
+        success: true,
+        transactionHash: result.transactionHash
+      };
+    } catch (error) {
+      LoggerService.error('Admin action execution failed', error);
+      await LoggerService.logAudit(
+        'admin_action_failed',
+        'admin_operations',
+        { userId: adminWallet.address },
+        {
+          action,
+          contractAddress,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      );
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Validate before contract call - comprehensive security checks
+   */
+  public static async validateBeforeContractCall(
+    userWallet: Wallet,
+    usdtAmount: bigint,
+    presaleAddress?: string,
+    options?: {
+      skipWalletScreening?: boolean;
+      maxGasPrice?: bigint;
+    }
+  ): Promise<{
+    isValid: boolean;
+    reason?: string;
+    checks: {
+      emergencyStatus: boolean;
+      contractState: boolean;
+      walletScreening?: boolean;
+      gasPrice?: boolean;
+      transactionVelocity?: boolean;
+    };
+    details: any;
+  }> {
+    const addresses = getContractAddresses();
+    const contractAddress = presaleAddress || addresses.THALIUM_PRESALE;
+    const checks: any = {};
+    const details: any = {};
+
+    try {
+      // 1. Check emergency status
+      const emergencyStatus = await this.checkEmergencyStatus(contractAddress);
+      checks.emergencyStatus = !emergencyStatus.isEmergencyActive && 
+                               !emergencyStatus.isCircuitBreakerActive && 
+                               !emergencyStatus.isContractPaused;
+      details.emergencyStatus = emergencyStatus;
+
+      if (!checks.emergencyStatus) {
+        return {
+          isValid: false,
+          reason: emergencyStatus.isEmergencyActive 
+            ? 'Emergency mode is active'
+            : emergencyStatus.isCircuitBreakerActive
+            ? 'Circuit breaker is active'
+            : 'Contract is paused',
+          checks,
+                details
+        };
+      }
+
+      // 2. Validate contract state
+      const contractState = await this.validateContractState(contractAddress, userWallet.address, usdtAmount);
+      checks.contractState = contractState.isValid;
+      details.contractState = contractState.details;
+
+      if (!checks.contractState) {
+        return {
+          isValid: false,
+          reason: contractState.reason || 'Contract state validation failed',
+          checks,
+                details
+        };
+      }
+
+      // 3. Wallet screening (if not skipped)
+      if (!options?.skipWalletScreening) {
+        try {
+          const { Web3WalletService } = await import('./web3-wallet');
+          const web3WalletService = Web3WalletService.getInstance();
+          const riskAssessment = await web3WalletService.getWalletRiskAssessment(userWallet.address);
+          checks.walletScreening = riskAssessment.riskLevel !== 'CRITICAL' && 
+                                   riskAssessment.riskLevel !== 'HIGH';
+          details.walletScreening = {
+            riskScore: riskAssessment.riskScore,
+            riskLevel: riskAssessment.riskLevel,
+            factors: riskAssessment.factors
+          };
+
+          if (!checks.walletScreening) {
+            return {
+              isValid: false,
+              reason: `Wallet failed risk screening: ${riskAssessment.riskLevel} risk`,
+              checks,
+                details
+            };
+          }
+        } catch (error) {
+          LoggerService.warn('Wallet screening failed, allowing transaction (fail-open)', { error });
+          checks.walletScreening = true; // Fail-open for screening
+        }
+      } else {
+        checks.walletScreening = true;
+      }
+
+      // 4. Gas price validation
+      if (options?.maxGasPrice) {
+        try {
+          const config = ConfigService.getConfig();
+          const provider = new ethers.JsonRpcProvider(config.blockchain.rpcUrl);
+          const feeData = await provider.getFeeData();
+          const currentGasPrice = feeData.gasPrice || 0n;
+          checks.gasPrice = currentGasPrice <= options.maxGasPrice;
+          details.gasPrice = {
+            current: currentGasPrice.toString(),
+            max: options.maxGasPrice.toString()
+          };
+
+          if (!checks.gasPrice) {
+            return {
+              isValid: false,
+              reason: `Gas price ${currentGasPrice.toString()} exceeds maximum ${options.maxGasPrice.toString()}`,
+              checks,
+                details
+            };
+          }
+        } catch (error) {
+          LoggerService.warn('Gas price check failed, allowing transaction', { error });
+          checks.gasPrice = true; // Fail-open
+        }
+      } else {
+        checks.gasPrice = true;
+      }
+
+      // 5. Transaction velocity check (check Redis for recent transactions)
+      try {
+        const { RedisService } = await import('./redis');
+        const redis = RedisService.getClient();
+        if (redis) {
+          const velocityKey = `tx_velocity:${userWallet.address}:${Math.floor(Date.now() / 60000)}`; // Per minute
+          const recentTxCount = await redis.get(velocityKey);
+          const txCount = recentTxCount ? parseInt(recentTxCount, 10) : 0;
+          const maxTxPerMinute = parseInt(process.env.MAX_TX_PER_MINUTE || '5', 10);
+          checks.transactionVelocity = txCount < maxTxPerMinute;
+          details.transactionVelocity = {
+            count: txCount,
+            max: maxTxPerMinute
+          };
+
+          if (!checks.transactionVelocity) {
+            return {
+              isValid: false,
+              reason: `Transaction velocity exceeded: ${txCount} transactions in the last minute`,
+              checks,
+                details
+            };
+          }
+        } else {
+          checks.transactionVelocity = true; // Skip if Redis unavailable
+        }
+      } catch (error) {
+        LoggerService.warn('Transaction velocity check failed, allowing transaction', { error });
+        checks.transactionVelocity = true; // Fail-open
+      }
+
+      return {
+        isValid: true,
+        checks,
+                details
+      };
+    } catch (error) {
+      LoggerService.error('Pre-contract validation failed', error);
+      // Fail-secure: deny if validation fails
+      return {
+        isValid: false,
+        reason: `Validation error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        checks,
+                details
+      };
+    }
+  }
+
+  /**
    * Purchase presale tokens on-chain
    */
   public static async purchasePresaleTokens(
@@ -1032,6 +1736,56 @@ export class SmartContractService {
         usdtAmount: usdtAmount.toString(),
         presaleAddress: contractAddress
       });
+
+      // Pre-contract call validation (CRITICAL SECURITY LAYER)
+      // config extracted but not used in this function
+      ConfigService.getConfig();
+      const maxGasPrice = process.env.MAX_GAS_PRICE 
+        ? BigInt(process.env.MAX_GAS_PRICE) 
+        : undefined;
+      
+      const validation = await this.validateBeforeContractCall(
+        userWallet,
+        usdtAmount,
+        contractAddress,
+        {
+          maxGasPrice: maxGasPrice || 1000n * 10n**9n // Default: 1000 gwei max
+        }
+      );
+
+      if (!validation.isValid) {
+        // Log security event
+        await LoggerService.logAudit(
+          'presale_purchase_blocked_security',
+          'presale_security',
+          { userId: userWallet.address },
+          {
+            reason: validation.reason,
+            checks: validation.checks,
+            details: validation.details,
+            usdtAmount: usdtAmount.toString()
+          }
+        );
+
+        const error = createError(
+          validation.reason || 'Purchase blocked by security validation',
+          403,
+          'PURCHASE_BLOCKED_SECURITY'
+        );
+        (error as any).details = validation.details;
+        throw error;
+      }
+
+      // Log successful validation
+      await LoggerService.logAudit(
+        'presale_purchase_validated',
+        'presale_security',
+        { userId: userWallet.address },
+        {
+          checks: validation.checks,
+          usdtAmount: usdtAmount.toString()
+        }
+      );
 
       // Load full presale ABI
       const presaleAbi = PRESALE_ABI || getABI('ThaliumPresale');
@@ -1081,7 +1835,7 @@ export class SmartContractService {
                 thalAmount = thalAmt ? BigInt(thalAmt.toString()) : 0n;
                 break;
               }
-            } catch (e) {
+            } catch {
               // Ignore parsing errors for non-matching logs
             }
           }
@@ -1128,7 +1882,7 @@ export class SmartContractService {
       return {
         transaction: result,
         vestingScheduleId,
-        thalAmount
+                thalAmount
       };
 
     } catch (error: any) {
@@ -1279,7 +2033,7 @@ export class SmartContractService {
               releasedAmount = BigInt(parsedLog.args.amount?.toString() || '0');
               break;
             }
-          } catch (e) {
+          } catch {
             // Ignore parsing errors
           }
         }
@@ -1410,7 +2164,8 @@ export class SmartContractService {
       const presaleContract = new ethers.Contract(presaleAddress, presaleAbi, this.provider!);
 
       // Listen to TokensPurchased event
-      presaleContract.on('TokensPurchased', async (buyer, usdtAmount, thalAmount, vestingScheduleId) => {
+      void presaleContract.on('TokensPurchased', (buyer, usdtAmount, thalAmount, vestingScheduleId) => {
+        void (async () => {
         try {
           LoggerService.info('TokensPurchased event received', {
             buyer,
@@ -1438,6 +2193,7 @@ export class SmartContractService {
         } catch (error) {
           LoggerService.error('Error processing TokensPurchased event:', error);
         }
+        })();
       });
 
       this.eventListeners.set('presale', presaleContract);
@@ -1462,7 +2218,8 @@ export class SmartContractService {
       const vestingContract = new ethers.Contract(vestingAddress, vestingAbi, this.provider!);
 
       // Listen to TokensReleased event
-      vestingContract.on('TokensReleased', async (scheduleId, beneficiary, amount) => {
+      void vestingContract.on('TokensReleased', (scheduleId, beneficiary, amount) => {
+        void (async () => {
         try {
           LoggerService.info('TokensReleased event received', {
             scheduleId,
@@ -1484,6 +2241,7 @@ export class SmartContractService {
         } catch (error) {
           LoggerService.error('Error processing TokensReleased event:', error);
         }
+        })();
       });
 
       this.eventListeners.set('vesting', vestingContract);
@@ -1500,7 +2258,7 @@ export class SmartContractService {
   public static stopEventListeners(): void {
     try {
       for (const [name, contract] of this.eventListeners.entries()) {
-        contract.removeAllListeners();
+        void contract.removeAllListeners();
         LoggerService.info(`Stopped ${name} event listener`);
       }
       this.eventListeners.clear();

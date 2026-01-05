@@ -5,7 +5,7 @@
  * Supports compensation (rollback) logic and retry mechanisms.
  */
 
-import { SagaStep, SagaContext, SagaResult } from '../types/workflow';
+import type { SagaStep, SagaContext, SagaResult } from '../types/workflow';
 import { LoggerService } from '../services/logger';
 
 export class SagaExecutor {
@@ -47,7 +47,7 @@ export class SagaExecutor {
 
         const stepContext = {
           ...context,
-          stepResults
+                stepResults
         };
 
         LoggerService.info('Executing saga step', {
@@ -146,7 +146,7 @@ export class SagaExecutor {
       if (enableCompensation && executedSteps.length > 0) {
         const stepContext = {
           ...context,
-          stepResults
+                stepResults
         };
         await this.compensate(executedSteps, steps, stepContext, compensatedSteps);
       }
@@ -188,7 +188,7 @@ export class SagaExecutor {
       if (!step || !step.compensate) {
         LoggerService.warn('Step has no compensation function', {
           workflowId: context.workflowId,
-          stepName
+                stepName
         });
         continue;
       }
@@ -196,7 +196,7 @@ export class SagaExecutor {
       try {
         LoggerService.info('Compensating step', {
           workflowId: context.workflowId,
-          stepName
+                stepName
         });
 
         await step.compensate(context);
@@ -204,7 +204,7 @@ export class SagaExecutor {
 
         LoggerService.info('Step compensated successfully', {
           workflowId: context.workflowId,
-          stepName
+                stepName
         });
       } catch (error: any) {
         LoggerService.error('Compensation failed', {

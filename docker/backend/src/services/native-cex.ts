@@ -19,11 +19,11 @@
  * - Cross-engine arbitrage opportunities
  */
 
-import { Sequelize } from 'sequelize';
-import axios, { AxiosInstance } from 'axios';
-import crypto from 'crypto';
+import type { Sequelize } from 'sequelize';
+import type { AxiosInstance } from 'axios';
+import axios from 'axios';
+// crypto, ConfigService imported but not used in this file
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
 import { QuantLibService } from './quantlib';
 import { BlnkFinanceService } from './blnkfinance';
@@ -854,7 +854,7 @@ export class NativeCEXService {
       LoggerService.info('Risk assessment completed', {
         userId,
         riskScore,
-        riskMetrics
+                riskMetrics
       });
 
       return riskScore;
@@ -871,14 +871,16 @@ export class NativeCEXService {
    * Start health monitoring for trading engines
    */
   private async startHealthMonitoring(): Promise<void> {
-    setInterval(async () => {
-      for (const [engineId, engine] of this.tradingEngines) {
-        try {
-          await this.checkEngineHealth(engine);
-        } catch (error) {
-          LoggerService.error('Engine health check failed', { error, engineId });
+    setInterval(() => {
+      void (async () => {
+        for (const [engineId, engine] of this.tradingEngines) {
+          try {
+            await this.checkEngineHealth(engine);
+          } catch (error) {
+            LoggerService.error('Engine health check failed', { error, engineId });
+          }
         }
-      }
+      })();
     }, 30000); // Every 30 seconds
   }
 

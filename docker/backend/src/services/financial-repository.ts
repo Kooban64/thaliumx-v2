@@ -43,7 +43,7 @@
 
 import { DatabaseService } from './database';
 import { LoggerService } from './logger';
-import { Transaction } from 'sequelize';
+import type { Transaction } from 'sequelize';
 import { Op } from 'sequelize';
 import Decimal from 'decimal.js';
 import { createError } from '../utils';
@@ -129,7 +129,7 @@ export class FinancialRepository {
             sourceAccount.accountId,
             targetAccount.accountId,
             amount,
-            t
+                t
           );
 
           if (!segregationCheck.allowed) {
@@ -175,7 +175,7 @@ export class FinancialRepository {
           tenantId,
           line.currency || 'USD',
           context?.clientId,
-          t
+                t
         );
 
         // Update account balance
@@ -205,7 +205,7 @@ export class FinancialRepository {
           totalAmount: totalDebits.abs().toNumber()
         },
         context,
-        t
+                t
       );
 
       // Emit audit event via LoggerService
@@ -287,7 +287,7 @@ export class FinancialRepository {
     const JournalEntryLineModel = DatabaseService.getModel('JournalEntryLine');
     const lines = await JournalEntryLineModel.findAll({
       where: { journalEntryId },
-      transaction
+                transaction
     });
     return lines.map(l => l.toJSON());
   }
@@ -320,7 +320,7 @@ export class FinancialRepository {
     
     const existing = await FinancialAccountModel.findOne({
       where,
-      transaction
+                transaction
     });
 
     if (!existing) {
@@ -457,7 +457,7 @@ export class FinancialRepository {
         'create',
         { accountId, amount, currency },
         undefined,
-        t
+                t
       );
 
       // Emit audit event
@@ -529,7 +529,7 @@ export class FinancialRepository {
         'release',
         { accountId: holdData.accountId, amount: holdData.amount },
         undefined,
-        t
+                t
       );
 
       // Emit audit event
@@ -759,7 +759,7 @@ export class FinancialRepository {
     const FundSegregationRuleModel = DatabaseService.getModel('FundSegregationRule');
     const rules = await FundSegregationRuleModel.findAll({
       where: { tenantId, isActive: true },
-      transaction
+                transaction
     });
 
     for (const rule of rules) {

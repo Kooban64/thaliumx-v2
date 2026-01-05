@@ -9,14 +9,14 @@
  * 5. Notify user
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { UserService } from '../services/user';
 import { LoggerService } from '../services/logger';
 
 export async function createUserReactivationWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -91,5 +91,5 @@ export async function createUserReactivationWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.USER_REACTIVATION,
-  createUserReactivationWorkflow
+                createUserReactivationWorkflow
 );

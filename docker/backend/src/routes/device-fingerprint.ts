@@ -1,7 +1,9 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { authenticateToken, requireRole } from '../middleware/error-handler';
+import type { Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
+import { authenticateToken } from '../middleware/error-handler';
 import { LoggerService } from '../services/logger';
-import { DeviceFingerprintService, DeviceFingerprintData } from '../services/device-fingerprint';
+import type { DeviceFingerprintData } from '../services/device-fingerprint';
+import { DeviceFingerprintService } from '../services/device-fingerprint';
 import { createError } from '../utils';
 
 const router: Router = Router();
@@ -37,7 +39,7 @@ router.post('/fingerprint',
         userId,
         tenantId,
         brokerId,
-        ipAddress
+                ipAddress
       );
 
       res.json({

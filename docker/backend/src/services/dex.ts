@@ -15,14 +15,12 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
+// ConfigService, SmartContractService, AppError imported but not used in this file
 import { EventStreamingService } from './event-streaming';
-import { SmartContractService } from './smart-contracts';
 import { BlnkFinanceService } from './blnkfinance';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
-import axios from 'axios';
-import Decimal from 'decimal.js';
+// axios, Decimal imported but not used in this file
 import { ethers, JsonRpcProvider } from 'ethers';
 
 // =============================================================================
@@ -476,7 +474,7 @@ export class DEXService {
       const tokenContract = new ethers.Contract(
         tokenAddress,
         ['function symbol() view returns (string)', 'function decimals() view returns (uint8)', 'function name() view returns (string)'],
-        provider
+                provider
       );
 
       if (!tokenContract || !tokenContract.symbol || !tokenContract.decimals || !tokenContract.name) {
@@ -498,7 +496,7 @@ export class DEXService {
         symbol,
         decimals,
         name,
-        chainId
+                chainId
       };
 
       this.tokenCache.set(cacheKey, tokenInfo);
@@ -539,7 +537,7 @@ export class DEXService {
         tokenIn,
         tokenOut,
         amountIn,
-        slippage
+                slippage
       });
 
       const startTime = Date.now();
@@ -550,17 +548,18 @@ export class DEXService {
 
       // Get quotes from selected DEXs with simple retry
       for (const dex of dexesToQuery) {
-        let lastError: any = null;
+        // lastError extracted but not used in this function
+        let _lastError: any = null;
         for (let attempt = 1; attempt <= 2; attempt++) {
           try {
             const quote = await this.getQuoteFromDEX(dex, tokenIn, tokenOut, amountIn, slippage);
             if (quote) {
               quotes.push(quote);
             }
-            lastError = null;
+            _lastError = null;
             break;
           } catch (error) {
-            lastError = error;
+            _lastError = error;
             if (attempt === 2) {
               LoggerService.warn(`Failed to get quote from ${dex} after retries`, { error });
             }
@@ -582,7 +581,7 @@ export class DEXService {
       LoggerService.info('Best quote found', {
         dex: bestQuote.dex,
         amountOut: bestQuote.amountOut,
-        executionTime
+                executionTime
       });
 
       return {
@@ -611,7 +610,7 @@ export class DEXService {
     amountIn: string,
     slippage: number,
     deadline: number,
-    route: SwapRoute[]
+    _route: SwapRoute[]
   ): Promise<SwapTransaction> {
     try {
       LoggerService.info('Executing swap', {
@@ -621,7 +620,7 @@ export class DEXService {
         tokenIn,
         tokenOut,
         amountIn,
-        slippage
+                slippage
       });
 
       // Get best quote
@@ -694,7 +693,7 @@ export class DEXService {
           amountIn,
           amountOut: swap.amountOut,
           dex: swap.dex,
-          slippage
+                slippage
         }
       );
 
@@ -722,7 +721,7 @@ export class DEXService {
         poolId,
         token0Amount,
         token1Amount,
-        slippage
+                slippage
       });
 
       const pool = this.pools.get(poolId);
@@ -798,7 +797,7 @@ export class DEXService {
         userId,
         positionId,
         lpTokenAmount,
-        slippage
+                slippage
       });
 
       const position = this.liquidityPositions.get(positionId);
@@ -820,7 +819,7 @@ export class DEXService {
       LoggerService.info('Liquidity removed successfully', {
         positionId: position.id,
         userId: position.userId,
-        lpTokenAmount
+                lpTokenAmount
       });
 
       // Emit audit event
@@ -991,7 +990,8 @@ export class DEXService {
     try {
       const swaps = Array.from(this.swaps.values());
       const pools = Array.from(this.pools.values());
-      const positions = Array.from(this.liquidityPositions.values());
+      // positions extracted but not used in this function
+      Array.from(this.liquidityPositions.values());
 
       const totalSwaps = swaps.length;
       const totalVolume = swaps.reduce((sum, swap) => sum + parseFloat(swap.amountIn), 0).toString();
@@ -1012,7 +1012,7 @@ export class DEXService {
           volume: dexVolume,
           fees: dexFees,
           averageSlippage: dexAverageSlippage,
-          marketShare
+                marketShare
         };
       });
 
@@ -1027,7 +1027,7 @@ export class DEXService {
           swaps: tokenSwaps.length,
           volume: tokenVolume,
           averagePrice,
-          priceChange24h
+                priceChange24h
         };
       });
 
@@ -1048,7 +1048,7 @@ export class DEXService {
         byToken,
         recentSwaps,
         activePools,
-        totalLiquidity
+                totalLiquidity
       };
 
     } catch (error) {
@@ -1209,12 +1209,14 @@ export class DEXService {
 
   private static async startPriceFeedUpdater(): Promise<void> {
     try {
-      setInterval(async () => {
-        try {
-          await this.updatePriceFeeds();
-        } catch (error) {
-          LoggerService.error('Price feed updater error:', error);
-        }
+      setInterval(() => {
+        void (async () => {
+          try {
+            await this.updatePriceFeeds();
+          } catch (error) {
+            LoggerService.error('Price feed updater error:', error);
+          }
+        })();
       }, this.DEX_CONFIG.priceUpdateInterval);
 
       LoggerService.info('Price feed updater started');
@@ -1226,12 +1228,14 @@ export class DEXService {
 
   private static async startLiquidityUpdater(): Promise<void> {
     try {
-      setInterval(async () => {
-        try {
-          await this.updateLiquidityPools();
-        } catch (error) {
-          LoggerService.error('Liquidity updater error:', error);
-        }
+      setInterval(() => {
+        void (async () => {
+          try {
+            await this.updateLiquidityPools();
+          } catch (error) {
+            LoggerService.error('Liquidity updater error:', error);
+          }
+        })();
       }, this.DEX_CONFIG.liquidityUpdateInterval);
 
       LoggerService.info('Liquidity updater started');

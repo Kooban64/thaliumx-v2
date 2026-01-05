@@ -9,7 +9,8 @@
  * - Role Matrix Management
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { RBACService } from '../services/rbac';
 import { LoggerService } from '../services/logger';
 import { AppError } from '../utils';
@@ -30,7 +31,7 @@ router.get('/roles',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantType } = req.query;
+      const tenantType = req.query.tenantType as string | undefined;
 
       LoggerService.info('Fetching roles', {
         tenantType
@@ -129,9 +130,8 @@ router.post('/users/:userId/roles',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { userId } = req.params;
-      const { tenantId, userId: assignedBy } = req.user as any;
-      const { roleId, reason, expiresAt } = req.body;
+      const { userId, tenantId, roleId, reason, expiresAt } = req.body;
+      const assignedBy = req.user?.userId || req.user?.id || 'system';
 
       LoggerService.info('Assigning role to user', {
         userId,
@@ -191,8 +191,8 @@ router.get('/users/:userId/roles',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { userId } = req.params;
-      const { tenantId } = req.user as any;
+      const userId = req.query.userId as string | undefined;
+      const tenantId = req.query.tenantId as string | undefined;
 
       LoggerService.info('Fetching user roles', {
         userId,
@@ -243,7 +243,7 @@ router.delete('/users/:userId/roles/:roleId',
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { userId, roleId } = req.params;
-      const { tenantId } = req.user as any;
+      const tenantId = req.query.tenantId as string | undefined;
 
       LoggerService.info('Removing role from user', {
         userId,
@@ -295,7 +295,7 @@ router.post('/permissions/check',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
       const { userId, permission, resource, context } = req.body;
 
       LoggerService.info('Checking user permission', {
@@ -393,8 +393,7 @@ router.post('/roles/request/:requestId/reject',
   validateRequest(Joi.object({ reason: Joi.string().optional() })),
   async (req: Request, res: Response): Promise<void> => {
     const approverId = (req.user as any)?.userId || (req.user as any)?.id;
-    const { requestId } = req.params;
-    const { reason } = req.body;
+    const { requestId, reason } = req.body;
     
     if (!requestId) {
       res.status(400).json({
@@ -414,7 +413,8 @@ router.get('/roles/requests',
   authenticateToken,
   requireRole(['platform-admin', 'broker-admin']),
   async (req: Request, res: Response): Promise<void> => {
-    const { tenantId, status } = req.query as any;
+    const tenantId = req.query.tenantId as string | undefined;
+    const status = req.query.status as string | undefined;
     const list = await RBACService.listRoleRequests({ tenantId, status });
     res.json({ success: true, data: list });
   }
@@ -428,8 +428,8 @@ router.get('/users/:userId/permissions',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { userId } = req.params;
-      const { tenantId } = req.user as any;
+      const userId = req.query.userId as string | undefined;
+      const tenantId = req.query.tenantId as string | undefined;
 
       LoggerService.info('Fetching user permissions', {
         userId,
@@ -564,7 +564,7 @@ router.get('/permissions',
   requireRole(['platform-admin', 'broker-admin']),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantType } = req.query;
+      const tenantType = req.query.tenantType as string | undefined;
 
       LoggerService.info('Fetching permission matrix', {
         tenantType

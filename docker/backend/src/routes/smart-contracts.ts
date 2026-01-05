@@ -16,12 +16,13 @@
  * - Factory operations
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { SmartContractService } from '../services/smart-contracts';
 import { authenticateToken, validateRequest } from '../middleware/error-handler';
 import { LoggerService } from '../services/logger';
-import { EventStreamingService } from '../services/event-streaming';
-import { AppError, createError } from '../utils';
+// EventStreamingService imported but not used in this file
+// AppError, createError imported but not used in this file
 
 const router: Router = Router();
 
@@ -447,7 +448,7 @@ router.post('/presale/:contractAddress/buy', authenticateToken, validateRequest,
 router.get('/staking/:contractAddress/info', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const { contractAddress } = req.params;
-    const { userAddress } = req.query;
+    const userAddress = req.query.userAddress as string | undefined;
 
     if (!contractAddress) {
       res.status(400).json({

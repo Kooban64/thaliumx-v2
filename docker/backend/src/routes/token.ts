@@ -11,7 +11,8 @@
  * Production-ready with comprehensive validation
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { TokenService } from '../services/token';
 import { LoggerService } from '../services/logger';
 import { authenticateToken } from '../middleware/error-handler';
@@ -43,7 +44,7 @@ router.post('/wallets', authenticateToken, validateRequest, async (req: Request,
     LoggerService.info('Token wallet created via API', { 
       walletId: wallet.id, 
       userId, 
-      tokenSymbol 
+      tokenSymbol
     });
     
     res.status(201).json({
@@ -191,7 +192,7 @@ router.post('/transfers', authenticateToken, validateRequest, async (req: Reques
       fromUserId, 
       toUserId, 
       amount, 
-      tokenSymbol 
+                tokenSymbol
     });
     
     res.status(201).json({
@@ -486,7 +487,9 @@ router.get('/transactions', authenticateToken, validateRequest, async (req: Requ
   try {
     const userId = req.user?.userId;
     const tenantId = req.user?.tenantId;
-    const { tokenSymbol, limit, offset } = req.query;
+    const tokenSymbol = req.query.tokenSymbol as string | undefined;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
     
     if (!userId || !tenantId) {
       throw createError('User authentication required', 401, 'AUTHENTICATION_REQUIRED');
@@ -496,16 +499,16 @@ router.get('/transactions', authenticateToken, validateRequest, async (req: Requ
       userId, 
       tenantId, 
       tokenSymbol as string, 
-      Number(limit) || 50, 
-      Number(offset) || 0
+      limit, 
+      offset
     );
     
     res.json({
       success: true,
       data: {
         transactions,
-        limit: Number(limit) || 50,
-        offset: Number(offset) || 0
+        limit,
+        offset
       }
     });
   } catch (error) {

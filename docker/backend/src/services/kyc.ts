@@ -14,15 +14,14 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
+// ConfigService, BrokerManagementService, crypto, KYCLevelConfig, KYCLevelLimits imported but not used in this file
 import { EventStreamingService } from './event-streaming';
 // import { KeycloakService } from './keycloak'; // Removed - using Zitadel now
-import { BrokerManagementService } from './broker-management';
 import { getBallerineService } from './ballerine';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
+// AppError imported but not used in this file
 import { v4 as uuidv4 } from 'uuid';
-import * as crypto from 'crypto';
-import { kycLimitsConfig, KYCLevelConfig, KYCLevelLimits, getCurrencySymbol, formatCurrency } from '../config/kyc-limits.config';
+import { kycLimitsConfig, getCurrencySymbol, formatCurrency } from '../config/kyc-limits.config';
 
 // =============================================================================
 // CORE TYPES & INTERFACES
@@ -610,7 +609,7 @@ export class KYCService {
         userId,
         brokerId,
         email,
-        requestedLevel
+                requestedLevel
       });
 
       // Check if user already exists
@@ -679,7 +678,7 @@ export class KYCService {
           userId,
           brokerId,
           email,
-          requestedLevel
+                requestedLevel
         }
       );
 
@@ -705,7 +704,7 @@ export class KYCService {
       LoggerService.info('Uploading document for verification', {
         userId,
         documentType,
-        country
+                country
       });
 
       const user = this.users.get(userId);
@@ -745,7 +744,7 @@ export class KYCService {
           warnings: []
         },
         uploadedAt: new Date(),
-        metadata
+                metadata
       };
 
       // Store document
@@ -806,10 +805,10 @@ export class KYCService {
       const { eventType, caseId, workflowId, data, decision, status: workflowStatus } = payload;
 
       // Get workflow details from Ballerine if needed
-      let workflowData = null;
+      // workflowData extracted but not used in this function
       if (workflowId) {
         try {
-          workflowData = await getBallerineService().getWorkflowStatus(workflowId);
+          await getBallerineService().getWorkflowStatus(workflowId);
         } catch (error: any) {
           LoggerService.warn('Failed to get workflow status from Ballerine', { workflowId, error: error.message });
         }
@@ -917,7 +916,7 @@ export class KYCService {
       LoggerService.info('Updating KYC level', {
         userId,
         newLevel,
-        reason
+                reason
       });
 
       const user = this.users.get(userId);
@@ -953,7 +952,7 @@ export class KYCService {
         {
           oldLevel,
           newLevel,
-          reason
+                reason
         }
       );
 
@@ -1315,7 +1314,7 @@ export class KYCService {
         // Don't fail KYC processing if workflow continuation fails
         LoggerService.warn('Failed to continue workflow after KYC completion', {
           error: workflowError.message,
-          caseId
+                caseId
         });
       }
 
@@ -1345,7 +1344,7 @@ export class KYCService {
     }
   }
 
-  private static async handleDocumentVerified(caseId: string, workflowId: string, data: any): Promise<void> {
+  private static async handleDocumentVerified(caseId: string, workflowId: string, _data: any): Promise<void> {
     try {
       LoggerService.info('Handling document verified', { caseId, workflowId });
       // Implementation for document verification handling
@@ -1355,7 +1354,7 @@ export class KYCService {
     }
   }
 
-  private static async handleSanctionsCheckCompleted(caseId: string, workflowId: string, data: any): Promise<void> {
+  private static async handleSanctionsCheckCompleted(caseId: string, workflowId: string, _data: any): Promise<void> {
     try {
       LoggerService.info('Handling sanctions check completed', { caseId, workflowId });
       // Implementation for sanctions check handling
@@ -1365,7 +1364,7 @@ export class KYCService {
     }
   }
 
-  private static async handlePEPCheckCompleted(caseId: string, workflowId: string, data: any): Promise<void> {
+  private static async handlePEPCheckCompleted(caseId: string, workflowId: string, _data: any): Promise<void> {
     try {
       LoggerService.info('Handling PEP check completed', { caseId, workflowId });
       // Implementation for PEP check handling

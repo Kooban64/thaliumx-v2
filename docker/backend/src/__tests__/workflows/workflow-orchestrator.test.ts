@@ -9,7 +9,7 @@
  */
 
 import { WorkflowOrchestratorService } from '../../services/workflow-orchestrator';
-import { WorkflowType, WorkflowStatus } from '../../types/workflow';
+import { _WorkflowType, WorkflowStatus } from '../../types/workflow';
 import { DatabaseService } from '../../services/database';
 
 // Mock dependencies
@@ -34,7 +34,7 @@ describe('WorkflowOrchestratorService', () => {
 
       WorkflowOrchestratorService.registerWorkflow(
         WorkflowType.USER_ONBOARDING,
-        mockWorkflow
+                mockWorkflow
       );
 
       const input = {

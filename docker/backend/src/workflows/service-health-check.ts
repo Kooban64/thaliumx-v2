@@ -10,14 +10,14 @@
  * 6. Emit health event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 
 export async function createServiceHealthCheckWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -84,13 +84,14 @@ export async function createServiceHealthCheckWorkflow(
     {
       name: 'update_health_status',
       execute: async (sagaContext: SagaContext) => {
-        const { serviceName, metrics } = sagaContext.data;
+        const { serviceName } = sagaContext.data;
+        const { metrics } = (sagaContext as any).stepResults?.get('collect_metrics') || {};
         // Update service health status
         const healthStatus = metrics?.errorRate < 0.05 ? 'healthy' : 'degraded';
         
         LoggerService.info('Health status updated', {
           serviceName,
-          healthStatus
+                healthStatus
         });
         
         return { healthStatus };
@@ -119,5 +120,5 @@ export async function createServiceHealthCheckWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.SERVICE_HEALTH_CHECK,
-  createServiceHealthCheckWorkflow
+                createServiceHealthCheckWorkflow
 );

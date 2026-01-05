@@ -4,7 +4,7 @@
  * Safe parameter extraction and type guards for Express routes
  */
 
-import { Request } from 'express';
+import type { Request } from 'express';
 
 /**
  * Safely extract a required string parameter from request

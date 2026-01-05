@@ -10,7 +10,7 @@
  * - Frontend should include RECAPTCHA_SITE_KEY and call grecaptcha.execute()
  */
 
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import axios from 'axios';
 import { LoggerService } from '../services/logger';
 import { createError } from '../utils';

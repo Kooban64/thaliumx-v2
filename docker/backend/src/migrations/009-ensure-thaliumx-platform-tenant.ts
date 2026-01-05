@@ -1,4 +1,4 @@
-import { QueryInterface } from 'sequelize';
+import type { QueryInterface } from 'sequelize';
 
 /**
  * Migration: Ensure ThaliumX Platform Tenant Exists

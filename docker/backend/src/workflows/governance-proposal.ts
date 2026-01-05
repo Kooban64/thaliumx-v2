@@ -10,7 +10,7 @@
  * 6. Emit proposal event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
@@ -18,7 +18,7 @@ import { LoggerService } from '../services/logger';
 import crypto from 'crypto';
 
 export async function createGovernanceProposalWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -48,7 +48,7 @@ export async function createGovernanceProposalWorkflow(
     {
       name: 'create_proposal_on_blockchain',
       execute: async (sagaContext: SagaContext) => {
-        const { title, description, actions } = sagaContext.data;
+        const { title: _title, description: _description, actions: _actions } = sagaContext.data;
         // Create proposal on governance contract (simplified - would use SmartContractService)
         const proposalId = `proposal_${Date.now()}`;
         const transactionHash = `0x${crypto.randomBytes(32).toString('hex')}`;
@@ -59,7 +59,7 @@ export async function createGovernanceProposalWorkflow(
           proposalId,
           transactionHash,
           votingStart,
-          votingEnd
+                votingEnd
         });
         
         return { proposalId, transactionHash, votingStart: votingStart.toISOString(), votingEnd: votingEnd.toISOString() };
@@ -75,7 +75,7 @@ export async function createGovernanceProposalWorkflow(
     {
       name: 'start_voting_period',
       execute: async (sagaContext: SagaContext) => {
-        const { proposalId, votingStart } = sagaContext.data;
+        const { proposalId, votingStart } = (sagaContext as any).stepData || sagaContext.data;
         // Start voting period tracking
         LoggerService.info('Voting period started', {
           proposalId,
@@ -122,5 +122,5 @@ export async function createGovernanceProposalWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.GOVERNANCE_PROPOSAL,
-  createGovernanceProposalWorkflow
+                createGovernanceProposalWorkflow
 );

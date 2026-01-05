@@ -5,8 +5,10 @@
  * Provides CRUD operations for policy parameters and policy testing
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import axios, { AxiosInstance } from 'axios';
+import type { Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
+import type { AxiosInstance } from 'axios';
+import axios from 'axios';
 import { LoggerService } from '../services/logger';
 
 const router: Router = Router();
@@ -385,7 +387,7 @@ router.get('/status', requireAdmin, async (req: Request, res: Response): Promise
       status: {
         healthy: healthResponse.status === 200,
         version: healthResponse.headers['x-opa-version'] || 'unknown',
-        decisionLogsEnabled
+                decisionLogsEnabled
       },
       policies: policies.map((p: any) => ({
         id: p.id,
@@ -438,7 +440,9 @@ router.get('/health', async (req: Request, res: Response): Promise<void> => {
  */
 router.get('/audit', requireAdmin, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { limit = 100, offset = 0, category } = req.query;
+    const limit = parseInt(req.query.limit as string) || 100;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const category = req.query.category as string | undefined;
     
     // In production, this would query from a database
     // For now, return from in-memory store
@@ -448,7 +452,7 @@ router.get('/audit', requireAdmin, async (req: Request, res: Response): Promise<
       logs = logs.filter(l => l.category === category);
     }
     
-    const paginatedLogs = logs.slice(Number(offset), Number(offset) + Number(limit));
+    const paginatedLogs = logs.slice(offset, offset + limit);
     
     res.json({
       success: true,
@@ -558,7 +562,7 @@ async function logPolicyChange(category: string, action: string, userId: string,
     category,
     action,
     userId,
-    changes
+                changes
   });
   
   // Keep only last 1000 entries

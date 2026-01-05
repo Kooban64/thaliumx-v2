@@ -11,7 +11,8 @@
  * - funding_rates: Perpetual contract funding rates
  */
 
-import { QueryInterface, DataTypes } from 'sequelize';
+import type { QueryInterface} from 'sequelize';
+import { DataTypes } from 'sequelize';
 
 export default {
   up: async (queryInterface: QueryInterface): Promise<void> => {

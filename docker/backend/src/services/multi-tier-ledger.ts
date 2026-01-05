@@ -14,11 +14,11 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
 import { BlnkFinanceService, TransactionType as BlnkTransactionType } from './blnkfinance';
 import { DatabaseService } from './database';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
+// ConfigService, AppError imported but not used in this file
 import { v4 as uuidv4 } from 'uuid';
 
 // =============================================================================
@@ -379,7 +379,7 @@ export class MultiTierLedgerService {
       LoggerService.info('Creating platform master account', {
         tenantId,
         name,
-        currency
+                currency
       });
 
       const accountId = uuidv4();
@@ -467,7 +467,7 @@ export class MultiTierLedgerService {
         brokerId,
         name,
         currency,
-        parentAccountId
+                parentAccountId
       });
 
       // Validate parent account
@@ -538,7 +538,7 @@ export class MultiTierLedgerService {
           brokerId,
           name,
           currency,
-          parentAccountId
+                parentAccountId
         }
       );
 
@@ -567,7 +567,7 @@ export class MultiTierLedgerService {
         userId,
         name,
         currency,
-        parentAccountId
+                parentAccountId
       });
 
       // Validate parent account
@@ -635,7 +635,7 @@ export class MultiTierLedgerService {
           userId,
           name,
           currency,
-          parentAccountId
+                parentAccountId
         }
       );
 
@@ -966,7 +966,7 @@ export class MultiTierLedgerService {
 
       return {
         transactions: paginatedTransactions,
-        total
+                total
       };
     } catch (error) {
       LoggerService.error('Get account transfers failed:', error);
@@ -992,7 +992,7 @@ export class MultiTierLedgerService {
         toAccountId,
         amount,
         currency,
-        description
+                description
       });
 
       // Validate accounts
@@ -1070,7 +1070,7 @@ export class MultiTierLedgerService {
           amount,
           currency,
           description,
-          requiresApproval
+                requiresApproval
         }
       );
 
@@ -1190,7 +1190,7 @@ export class MultiTierLedgerService {
         byStatus,
         recentTransactions,
         pendingTransactions,
-        failedTransactions
+                failedTransactions
       };
 
     } catch (error) {
@@ -1275,12 +1275,14 @@ export class MultiTierLedgerService {
   private static async startReconciliationScheduler(): Promise<void> {
     try {
       // Start reconciliation scheduler
-      setInterval(async () => {
-        try {
-          await this.performReconciliation();
-        } catch (error) {
-          LoggerService.error('Reconciliation scheduler error:', error);
-        }
+      setInterval(() => {
+        void (async () => {
+          try {
+            await this.performReconciliation();
+          } catch (error) {
+            LoggerService.error('Reconciliation scheduler error:', error);
+          }
+        })();
       }, this.LEDGER_CONFIG.reconciliationInterval);
 
       LoggerService.info('Reconciliation scheduler started');
@@ -1400,7 +1402,7 @@ export class MultiTierLedgerService {
 
       LoggerService.info('Fund segregation status updated', {
         segregationId,
-        status
+                status
       });
 
       // Emit audit event
@@ -1490,7 +1492,8 @@ export class MultiTierLedgerService {
       if (!primaryAccountId) {
         throw new Error('No accounts found for reconciliation');
       }
-      const account = this.accounts.get(primaryAccountId);
+      // account extracted but not used in this function
+      this.accounts.get(primaryAccountId);
       
       // Calculate aggregate balances
       let totalExpected = 0;
@@ -1628,7 +1631,7 @@ export class MultiTierLedgerService {
 
       return {
         reports: paginatedReports,
-        total
+                total
       };
     } catch (error) {
       LoggerService.error('Get reconciliation reports failed:', error);
@@ -1689,7 +1692,7 @@ export class MultiTierLedgerService {
         accountId,
         amount,
         currency,
-        reference
+                reference
       });
 
       // Emit audit event
@@ -1702,7 +1705,7 @@ export class MultiTierLedgerService {
           accountId,
           amount,
           currency,
-          reference
+                reference
         }
       );
 
@@ -1777,7 +1780,7 @@ export class MultiTierLedgerService {
         amount,
         currency,
         bankAccountId,
-        requiresApproval
+                requiresApproval
       });
 
       // Emit audit event
@@ -1791,7 +1794,7 @@ export class MultiTierLedgerService {
           amount,
           currency,
           bankAccountId,
-          requiresApproval
+                requiresApproval
         }
       );
 
@@ -1871,7 +1874,7 @@ export class MultiTierLedgerService {
 
       return {
         transactions: paginatedTransactions,
-        total
+                total
       };
     } catch (error) {
       LoggerService.error('Get fiat transactions failed:', error);
@@ -2020,7 +2023,7 @@ export class MultiTierLedgerService {
       LoggerService.info('Fund allocated successfully', {
         fundId,
         targetAccountId,
-        tenantId
+                tenantId
       });
 
       // Emit audit event
@@ -2033,7 +2036,7 @@ export class MultiTierLedgerService {
           targetAccountId,
           amount: transaction.amount,
           currency: transaction.currency,
-          allocationReason
+                allocationReason
         }
       );
 
@@ -2079,7 +2082,7 @@ export class MultiTierLedgerService {
       LoggerService.info('Unallocated fund refunded', {
         fundId,
         tenantId,
-        refundReason
+                refundReason
       });
 
       // Emit audit event
@@ -2091,7 +2094,7 @@ export class MultiTierLedgerService {
           tenantId,
           amount: transaction.amount,
           currency: transaction.currency,
-          refundReason
+                refundReason
         }
       );
 
@@ -2227,7 +2230,7 @@ export class MultiTierLedgerService {
       LoggerService.info('Withdrawal limit created/updated', {
         accountId,
         tenantId,
-        limits
+                limits
       });
 
       // Emit audit event
@@ -2237,7 +2240,7 @@ export class MultiTierLedgerService {
         accountId,
         {
           tenantId,
-          limits
+                limits
         }
       );
 
@@ -2283,7 +2286,7 @@ export class MultiTierLedgerService {
       LoggerService.info('Withdrawal limit updated', {
         accountId,
         tenantId,
-        updates
+                updates
       });
 
       // Emit audit event
@@ -2293,7 +2296,7 @@ export class MultiTierLedgerService {
         accountId,
         {
           tenantId,
-          updates
+                updates
         }
       );
 
@@ -2454,7 +2457,7 @@ export class MultiTierLedgerService {
       accountId,
       operation,
       timestamp: new Date(),
-      context
+                context
     };
 
     try {
@@ -2467,7 +2470,7 @@ export class MultiTierLedgerService {
           reason: 'Account access denied',
           accountId,
           operation,
-          context
+                context
         });
 
         return {
@@ -2487,7 +2490,7 @@ export class MultiTierLedgerService {
             accountId,
             status: account.status,
             operation,
-            context
+                context
           });
 
           return {
@@ -2509,7 +2512,7 @@ export class MultiTierLedgerService {
           accountId,
           operation,
           riskAssessment,
-          context
+                context
         });
 
         return {
@@ -2527,7 +2530,7 @@ export class MultiTierLedgerService {
         accountId,
         operation,
         riskLevel: riskAssessment.riskLevel,
-        context
+                context
       });
 
       return {
@@ -2538,7 +2541,7 @@ export class MultiTierLedgerService {
     } catch (error) {
       LoggerService.error('CRITICAL: Fund access validation error', {
         error: error instanceof Error ? error.message : String(error),
-        accessCheck
+                accessCheck
       });
 
       // Fail-safe: deny access on validation errors
@@ -2594,7 +2597,7 @@ export class MultiTierLedgerService {
           sourceTenant: sourceAccount?.tenantId,
           destTenant: destAccount?.tenantId,
           expectedTenant: tenantId,
-          context
+                context
         });
 
         return {
@@ -2632,7 +2635,7 @@ export class MultiTierLedgerService {
         destinationAccountId,
         amount,
         currency,
-        context
+                context
       );
 
       if (!segregationValidation.allowed) {
@@ -2645,7 +2648,7 @@ export class MultiTierLedgerService {
           amount,
           currency,
           segregationValidation,
-          context
+                context
         });
 
         return {
@@ -2662,7 +2665,7 @@ export class MultiTierLedgerService {
         destinationAccountId,
         amount,
         currency,
-        context
+                context
       );
 
       if (transferResult.success) {
@@ -2676,7 +2679,7 @@ export class MultiTierLedgerService {
           amount,
           currency,
           riskLevel: preValidation.riskLevel,
-          context
+                context
         });
 
         LoggerService.info('FUND TRANSFER COMPLETED: Segregation maintained', {
@@ -2705,7 +2708,7 @@ export class MultiTierLedgerService {
     } catch (error) {
       LoggerService.error('CRITICAL: Fund segregation error', {
         error: error instanceof Error ? error.message : String(error),
-        transferRequest
+                transferRequest
       });
 
       return {
@@ -2780,8 +2783,8 @@ export class MultiTierLedgerService {
     sourceAccountId: string,
     destinationAccountId: string,
     amount: number,
-    currency: string,
-    context: any
+    _currency: string,
+    _context: any
   ): Promise<SegregationValidation> {
     try {
       const violations: string[] = [];
@@ -2905,7 +2908,7 @@ export class MultiTierLedgerService {
 
       return {
         success: true,
-        transactionId
+                transactionId
       };
 
     } catch (error) {
@@ -2997,7 +3000,7 @@ export class MultiTierLedgerService {
         reportId,
         tenantId,
         startDate,
-        endDate
+                endDate
       });
 
       // Get all accounts for tenant
@@ -3155,7 +3158,7 @@ export class MultiTierLedgerService {
           totalClientFunds,
           totalOperationalFunds,
           totalReserveFunds,
-          segregationCompliance
+                segregationCompliance
         },
         accountBreakdown,
         segregationDetails: segregations.map(s => ({
@@ -3169,7 +3172,7 @@ export class MultiTierLedgerService {
           createdAt: s.createdAt
         })),
         complianceIssues,
-        transactions
+                transactions
       };
 
       LoggerService.info('Fund segregation report generated', {
@@ -3335,14 +3338,15 @@ export class MultiTierLedgerService {
         tenantId,
         reportType,
         startDate,
-        endDate
+                endDate
       });
 
       // Get all accounts
       const allAccounts = Array.from(this.accounts.values())
         .filter(a => options?.includeAllBrokers ? true : a.tenantId === tenantId);
 
-      const platformAccounts = allAccounts.filter(a => a.accountLevel === AccountLevel.LEVEL_1);
+      // platformAccounts extracted but not used in this function
+      allAccounts.filter(a => a.accountLevel === AccountLevel.LEVEL_1);
       const brokerAccounts = allAccounts.filter(a => a.accountLevel === AccountLevel.LEVEL_2);
       const endUserAccounts = allAccounts.filter(a => a.accountLevel === AccountLevel.LEVEL_3);
 
@@ -3352,7 +3356,7 @@ export class MultiTierLedgerService {
         try {
           const balance = await BlnkFinanceService.getAccountBalance(account.id);
           totalPlatformBalance += balance ? balance.netBalance : 0;
-        } catch (error) {
+        } catch {
           LoggerService.warn('Failed to fetch balance', { accountId: account.id });
         }
       }
@@ -3370,7 +3374,7 @@ export class MultiTierLedgerService {
         try {
           const balance = await BlnkFinanceService.getAccountBalance(broker.id);
           brokerBalance = balance ? balance.netBalance : 0;
-        } catch (error) {
+        } catch {
           LoggerService.warn('Failed to fetch broker balance', { brokerId: broker.id });
         }
 
@@ -3518,23 +3522,23 @@ export class MultiTierLedgerService {
           totalBrokerAccounts: brokerAccounts.length,
           totalEndUserAccounts: endUserAccounts.length,
           totalTransactionsVolume,
-          totalTransactionsCount
+                totalTransactionsCount
         },
         brokerSummary,
         riskMetrics: {
           highRiskAccounts,
           pendingApprovals,
           failedTransactions,
-          reconciliationDiscrepancies
+                reconciliationDiscrepancies
         },
         complianceStatus: {
           fundSegregationCompliant,
           reconciliationUpToDate,
           kycCompliant,
           amlCompliant,
-          overallScore
+                overallScore
         },
-        alerts
+                alerts
       };
 
       LoggerService.info('Oversight report generated', {

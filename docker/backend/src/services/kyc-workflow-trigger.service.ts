@@ -100,7 +100,8 @@ export class KYCWorkflowTriggerService {
       }
 
       // Get workflow definition ID
-      const workflowDefinitionId = this.getWorkflowDefinitionId(fromLevel, toLevel);
+      // workflowDefinitionId extracted but not used in this function
+      this.getWorkflowDefinitionId(fromLevel, toLevel);
       const workflowType = this.getWorkflowType(toLevel);
 
       // Create case ID
@@ -171,7 +172,7 @@ export class KYCWorkflowTriggerService {
         tenantId,
         workflowId: workflowResponse.id,
         fromLevel,
-        toLevel
+                toLevel
       });
 
       return {
@@ -204,7 +205,7 @@ export class KYCWorkflowTriggerService {
       LoggerService.info('Handling workflow callback', {
         workflowId,
         status,
-        decision
+                decision
       });
 
       // Extract user information from metadata
@@ -267,7 +268,7 @@ export class KYCWorkflowTriggerService {
             tenantId,
             previousLevel: kycStatus.kycLevel,
             newLevel: targetLevel,
-            workflowId
+                workflowId
           });
         } catch (error) {
           LoggerService.error('Failed to update KYC level after workflow approval:', error);

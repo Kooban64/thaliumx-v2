@@ -34,10 +34,10 @@
  * - Stack traces in development only
  */
 
-import { Request, Response, NextFunction } from 'express';
-import { AppError, createError, verifyToken } from '../utils';
+import type { Request, Response, NextFunction } from 'express';
+import { createError, AppError } from '../utils';
 import { LoggerService } from '../services/logger';
-import { JWTPayload } from '../types';
+import type { JWTPayload } from '../types';
 
 // Extend Express Request type to include user
 declare global {
@@ -101,7 +101,7 @@ export const globalErrorHandler = (
     method: req.method,
     ip: req.ip,
     userAgent: req.get('User-Agent'),
-    statusCode
+                statusCode
   });
 
   // Send error response
@@ -169,7 +169,6 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
 // =============================================================================
 
 import rateLimit from 'express-rate-limit';
-import { RedisService } from '../services/redis';
 
 // Create Redis store for distributed rate limiting
 // const redisClient = RedisService.getClient(); // Used in rate limiter configuration
@@ -259,7 +258,7 @@ export const rateLimiter = rateLimit({
 // Additional rate limiter for sensitive financial operations
 export const financialRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: (req: Request) => {
+  max: (_req: Request) => {
     // Skip rate limiting in test environment
     if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
       return Number.MAX_SAFE_INTEGER; // Effectively disable rate limiting
@@ -275,7 +274,7 @@ export const financialRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req: Request) => {
+  skip: (_req: Request) => {
     // Skip rate limiting in test environment
     if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
       return true;
@@ -307,7 +306,8 @@ export const financialRateLimiter = rateLimit({
 // =============================================================================
 
 import * as jwt from 'jsonwebtoken';
-import jwksRsa, { JwksClient } from 'jwks-rsa';
+import jwksRsa from 'jwks-rsa';
+import type { JwksClient } from 'jwks-rsa';
 // User type imported but not directly used - used in type annotations via req.user
 
 // Cache JWKS clients per JWKS URI (enterprise-grade: avoids per-request discovery)
@@ -451,7 +451,7 @@ export const authenticateToken = async (
       const { RoleMapperService } = await import('../services/role-mapper');
       const normalizedRoles = RoleMapperService.normalizeRoles(allRoles);
       const rolePriority = ['master_system_admin', 'platform_admin', 'broker_admin', 'platform_compliance', 'broker_compliance', 'platform_finance', 'broker_finance', 'platform_support', 'broker_support', 'user_trader', 'user_viewer'];
-      const selectedRole = normalizedRoles.find(r => rolePriority.includes(r)) || normalizedRoles[0] || 'user_viewer';
+      const selectedRole = normalizedRoles.find((r: string) => rolePriority.includes(r)) || normalizedRoles[0] || 'user_viewer';
 
       const headerTenantId = (req.headers['x-tenant-id'] as string | undefined) || undefined;
       const tokenTenantId = (decoded?.tenant_id as string | undefined) || (decoded?.tenantId as string | undefined) || undefined;
@@ -506,7 +506,7 @@ export const authenticateToken = async (
         userAgent: req.headers['user-agent'],
         method: 'zitadel_oidc',
       });
-    } catch (logError) {
+    } catch {
       // Ignore audit log errors
     }
 
@@ -604,7 +604,7 @@ export const requireTenant = (req: Request, _res: Response, next: NextFunction):
 // VALIDATION MIDDLEWARE
 // =============================================================================
 
-import * as Joi from 'joi';
+import type * as Joi from 'joi';
 
 export const validateRequest = (schema: Joi.ObjectSchema) => {
   return (req: Request, _res: Response, next: NextFunction): void => {
@@ -716,8 +716,8 @@ export const sanitizeInput = (req: Request, res: Response, next: NextFunction): 
 export const sqlInjectionProtection = (req: Request, res: Response, next: NextFunction): void => {
   const suspiciousPatterns = [
     /(\bUNION\b|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bCREATE\b|\bALTER\b)/i,
-    /('|(\\x27)|(\\x2D\\x2D)|(\#)|(\%27)|(\%22)|(\%3B)|(\%3C)|(\%3E)|(\%00)|(\%2D\\x2D))/i,
-    /('|(\\x27)|(\\x2D\\x2D)|(\#)|(\%27)|(\%22)|(\%3B)|(\%3C)|(\%3E)|(\%00)|(\%2D\\x2D)|(\;)|(\-\-)|(\#)|(\*))/i
+    /('|(\\x27)|(\\x2D\\x2D)|#|%27|%22|%3B|%3C|%3E|%00|(\\x2D\\x2D))/i,
+    /('|(\\x27)|(\\x2D\\x2D)|#|%27|%22|%3B|%3C|%3E|%00|(\\x2D\\x2D)|;|--|#|\*)/i
   ];
 
   const checkValue = (value: any): boolean => {
@@ -834,7 +834,7 @@ export const requestSizeLimit = (req: Request, _res: Response, next: NextFunctio
       ip: req.ip,
       url: req.url,
       contentLength,
-      maxSize
+                maxSize
     });
 
     return next(createError('Request too large', 413, 'REQUEST_TOO_LARGE'));

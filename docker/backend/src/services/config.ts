@@ -23,7 +23,7 @@
  */
 
 import * as dotenv from 'dotenv';
-import { AppConfig, DatabaseConfig, RedisConfig, JWTConfig } from '../types';
+import type { AppConfig, DatabaseConfig, RedisConfig, JWTConfig } from '../types';
 import { LoggerService } from './logger';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -45,7 +45,8 @@ interface VaultConfig {
   mountPath: string;
 }
 
-interface VaultSecret {
+// VaultSecret interface defined but not used in this file
+interface _VaultSecret {
   data: Record<string, string>;
   metadata?: {
     created_time: string;
@@ -410,7 +411,7 @@ export class ConfigService {
     if (fs.existsSync(secretsFilePath)) {
       try {
         return fs.readFileSync(secretsFilePath, 'utf8').trim();
-      } catch (error) {
+      } catch {
         LoggerService.warn(`Failed to read secret file: ${secretsFilePath}`);
       }
     }
@@ -469,7 +470,7 @@ export class ConfigService {
         }
       }
       return Array.from(domains);
-    } catch (err) {
+    } catch {
       LoggerService.warn('Failed to load DNS origins from .secrets/dns-details');
       return [];
     }
@@ -501,7 +502,7 @@ export class ConfigService {
             }
           };
         }
-      } catch (err) {
+      } catch {
         LoggerService.warn('Failed to parse DATABASE_URL/TEST_DATABASE_URL; falling back to DB_* variables');
       }
     }
@@ -539,7 +540,7 @@ export class ConfigService {
             maxRetriesPerRequest: parseInt(process.env.REDIS_MAX_RETRIES || '3', 10)
           };
         }
-      } catch (err) {
+      } catch {
         LoggerService.warn('Failed to parse REDIS_URL/TEST_REDIS_URL; falling back to REDIS_* variables');
       }
     }
@@ -670,7 +671,7 @@ export class ConfigService {
       if (!raw) return {};
       const parsed = JSON.parse(raw);
       return parsed;
-    } catch (err) {
+    } catch {
       LoggerService.warn('Failed to parse EXCHANGE_CREDENTIALS_JSON');
       return {};
     }

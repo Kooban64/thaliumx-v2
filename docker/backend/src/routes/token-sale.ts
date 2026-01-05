@@ -9,12 +9,13 @@
  * - Eligibility Checking
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { TokenSaleService } from '../services/token-sale';
 import { LoggerService } from '../services/logger';
 import { AppError } from '../utils';
 import { authenticateToken, requireRole, validateRequest } from '../middleware/error-handler';
-import { investmentAuth } from '../middleware/investment-auth.middleware';
+// investmentAuth imported but not used in this file
 import Joi from 'joi';
 
 const router: Router = Router();
@@ -56,14 +57,14 @@ router.post('/phases',
         maxInvestment,
         totalTokensAllocated,
         kycLevelRequired,
-        vestingScheduleId
+                vestingScheduleId
       } = req.body;
 
       LoggerService.info('Creating presale phase', {
         name,
         phaseType,
         tokenPrice,
-        totalTokensAllocated
+                totalTokensAllocated
       });
 
       const phase = await TokenSaleService.createPresalePhase(
@@ -77,7 +78,7 @@ router.post('/phases',
         maxInvestment,
         totalTokensAllocated,
         kycLevelRequired,
-        vestingScheduleId
+                vestingScheduleId
       );
 
       res.status(201).json({
@@ -115,7 +116,7 @@ router.get('/phases',
     try {
       LoggerService.info('Fetching presale phases');
 
-      const { activeOnly } = req.query;
+      const activeOnly = req.query.activeOnly as string | undefined;
       const phases = await TokenSaleService.getPresalePhases(activeOnly === 'true');
 
       res.json({
@@ -219,7 +220,9 @@ router.post('/investments',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId, brokerId, userId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
+      const brokerId = (req.user as any)?.brokerId;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
       const {
         phaseId,
         walletAddress,
@@ -286,13 +289,13 @@ router.post('/eligibility',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { userId } = req.user as any;
+      const userId = (req.user as any)?.id;
       const { phaseId, investmentAmountUSD } = req.body;
 
       LoggerService.info('Checking investment eligibility', {
         userId,
         phaseId,
-        investmentAmountUSD
+                investmentAmountUSD
       });
 
       const eligibility = await TokenSaleService.checkInvestmentEligibility(
@@ -334,8 +337,9 @@ router.get('/investments',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { userId } = req.user as any;
-      const { phaseId, status } = req.query;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
+      const phaseId = req.query.phaseId as string | undefined;
+      const status = req.query.status as string | undefined;
 
       LoggerService.info('Fetching user investments', {
         userId,
@@ -383,7 +387,7 @@ router.get('/investments/:investmentId',
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { investmentId } = req.params;
-      const { userId } = req.user as any;
+      const userId = (req.user as any)?.id;
 
       LoggerService.info('Fetching investment details', {
         investmentId,
@@ -527,7 +531,7 @@ router.get('/phases/:phaseId/stats',
         success: true,
         data: {
           ...stats,
-          averageInvestment
+                averageInvestment
         }
       });
 
@@ -564,7 +568,7 @@ router.get('/vesting/schedules',
     try {
       LoggerService.info('Fetching vesting schedules');
 
-      const { activeOnly } = req.query;
+      const activeOnly = req.query.activeOnly as string | undefined;
       const schedules = await TokenSaleService.getVestingSchedules(activeOnly === 'true');
 
       res.json({
@@ -600,7 +604,7 @@ router.get('/vesting/entries',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { userId } = req.user as any;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
 
       LoggerService.info('Fetching user vesting entries', {
         userId

@@ -22,13 +22,12 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
+// ConfigService, SecurityOversightService, AppError, crypto imported but not used in this file
 import { EventStreamingService } from './event-streaming';
-import { SecurityOversightService } from './security-oversight';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
-import axios, { AxiosInstance } from 'axios';
-import * as crypto from 'crypto';
+import type { AxiosInstance } from 'axios';
+import axios from 'axios';
 
 // =============================================================================
 // EXTERNAL EXCHANGE TYPES & INTERFACES
@@ -436,7 +435,7 @@ export class ExternalExchangeService {
       LoggerService.info('Initializing exchange API clients...');
       
       // Initialize clients for each exchange type
-      for (const [exchangeId, config] of this.exchanges) {
+      for (const [, config] of this.exchanges) {
         const baseURL = config.credentials.sandbox && config.sandboxUrl ? config.sandboxUrl : config.baseUrl;
         const client = axios.create({
           baseURL,
@@ -466,18 +465,18 @@ export class ExternalExchangeService {
       LoggerService.info('Starting exchange monitoring services...');
       
       // Start ticker monitoring
-      setInterval(async () => {
-        await this.updateTickers();
+      setInterval(() => {
+        void this.updateTickers();
       }, 60000); // Every minute
       
       // Start order book monitoring
-      setInterval(async () => {
-        await this.updateOrderBooks();
+      setInterval(() => {
+        void this.updateOrderBooks();
       }, 30000); // Every 30 seconds
       
       // Start balance monitoring
-      setInterval(async () => {
-        await this.updateBalances();
+      setInterval(() => {
+        void this.updateBalances();
       }, 120000); // Every 2 minutes
       
       LoggerService.info('Exchange monitoring services started successfully');
@@ -561,7 +560,7 @@ export class ExternalExchangeService {
       LoggerService.info(`Exchange account created`, {
         accountId,
         brokerId,
-        exchangeType
+                exchangeType
       });
       
       return account;

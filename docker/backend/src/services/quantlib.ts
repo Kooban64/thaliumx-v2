@@ -17,9 +17,9 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
+// ConfigService, AppError imported but not used in this file
 import { EventStreamingService } from './event-streaming';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 
@@ -447,7 +447,7 @@ export class QuantLibService {
             returns,
             benchmarkReturns,
             riskFreeRate,
-            confidenceLevels
+                confidenceLevels
           });
           LoggerService.info(`Risk metrics calculated via external QuantLib service: ${portfolioId}`);
           return response.data;
@@ -463,7 +463,7 @@ export class QuantLibService {
         returnsCount: returns.length,
         benchmarkReturnsCount: benchmarkReturns?.length || 0,
         riskFreeRate,
-        confidenceLevels
+                confidenceLevels
       });
 
       const id = uuidv4();
@@ -544,7 +544,7 @@ export class QuantLibService {
           returnsCount: returns.length,
           benchmarkReturnsCount: benchmarkReturns?.length || 0,
           riskFreeRate,
-          confidenceLevels
+                confidenceLevels
         },
         createdAt: new Date()
       };
@@ -596,7 +596,7 @@ export class QuantLibService {
       LoggerService.info(`Optimizing portfolio: ${portfolioId}`, {
         method,
         assetsCount: expectedReturns.length,
-        riskFreeRate
+                riskFreeRate
       });
 
       const id = uuidv4();
@@ -608,21 +608,23 @@ export class QuantLibService {
       let sharpeRatio: number;
 
       switch (method) {
-        case OptimizationMethod.MAXIMUM_SHARPE:
+        case OptimizationMethod.MAXIMUM_SHARPE: {
           const result = this.maximizeSharpeRatio(expectedReturns, covarianceMatrix, riskFreeRate, constraints);
           weights = result.weights;
           expectedReturn = result.expectedReturn;
           volatility = result.volatility;
           sharpeRatio = result.sharpeRatio;
           break;
+        }
 
-        case OptimizationMethod.MINIMUM_VARIANCE:
+        case OptimizationMethod.MINIMUM_VARIANCE: {
           const minVarResult = this.minimizeVariance(expectedReturns, covarianceMatrix, constraints);
           weights = minVarResult.weights;
           expectedReturn = minVarResult.expectedReturn;
           volatility = minVarResult.volatility;
           sharpeRatio = this.calculateSharpeRatio(expectedReturn, volatility, riskFreeRate);
           break;
+        }
 
         case OptimizationMethod.EQUAL_WEIGHT:
           weights = this.equalWeight(expectedReturns.length);
@@ -718,7 +720,7 @@ export class QuantLibService {
         riskFreeRate,
         volatility,
         dividendYield,
-        model
+                model
       });
 
       const id = uuidv4();
@@ -731,7 +733,7 @@ export class QuantLibService {
       let rho: number;
 
       switch (model) {
-        case PricingModel.BLACK_SCHOLES:
+        case PricingModel.BLACK_SCHOLES: {
           const bsResult = this.blackScholes(
             optionType,
             underlyingPrice,
@@ -739,7 +741,7 @@ export class QuantLibService {
             timeToExpiry,
             riskFreeRate,
             volatility,
-            dividendYield
+                dividendYield
           );
           price = bsResult.price;
           delta = bsResult.delta;
@@ -748,8 +750,9 @@ export class QuantLibService {
           vega = bsResult.vega;
           rho = bsResult.rho;
           break;
+        }
 
-        case PricingModel.BINOMIAL:
+        case PricingModel.BINOMIAL: {
           const binomialResult = this.binomialTree(
             optionType,
             underlyingPrice,
@@ -757,7 +760,7 @@ export class QuantLibService {
             timeToExpiry,
             riskFreeRate,
             volatility,
-            dividendYield
+                dividendYield
           );
           price = binomialResult.price;
           delta = binomialResult.delta;
@@ -766,8 +769,9 @@ export class QuantLibService {
           vega = binomialResult.vega;
           rho = binomialResult.rho;
           break;
+        }
 
-        case PricingModel.MONTE_CARLO:
+        case PricingModel.MONTE_CARLO: {
           const mcResult = this.monteCarlo(
             optionType,
             underlyingPrice,
@@ -775,7 +779,7 @@ export class QuantLibService {
             timeToExpiry,
             riskFreeRate,
             volatility,
-            dividendYield
+                dividendYield
           );
           price = mcResult.price;
           delta = mcResult.delta;
@@ -784,6 +788,7 @@ export class QuantLibService {
           vega = mcResult.vega;
           rho = mcResult.rho;
           break;
+        }
 
         default:
           throw createError('Unsupported pricing model', 400, 'UNSUPPORTED_PRICING_MODEL');
@@ -870,7 +875,7 @@ export class QuantLibService {
         portfolioId,
         scenarioType,
         marketShocksCount: marketShocks.length,
-        portfolioValue
+                portfolioValue
       });
 
       const id = uuidv4();
@@ -899,7 +904,7 @@ export class QuantLibService {
         metadata: {
           scenarioType,
           marketShocksCount: marketShocks.length,
-          portfolioValue
+                portfolioValue
         },
         createdAt: new Date()
       };
@@ -1162,7 +1167,7 @@ export class QuantLibService {
     expectedReturns: number[],
     covarianceMatrix: number[][],
     riskFreeRate: number,
-    constraints?: OptimizationConstraints
+    _constraints?: OptimizationConstraints
   ): { weights: number[]; expectedReturn: number; volatility: number; sharpeRatio: number } {
     // Simplified implementation - in production, use proper optimization library
     const n = expectedReturns.length;
@@ -1178,7 +1183,7 @@ export class QuantLibService {
   private static minimizeVariance(
     expectedReturns: number[],
     covarianceMatrix: number[][],
-    constraints?: OptimizationConstraints
+    _constraints?: OptimizationConstraints
   ): { weights: number[]; expectedReturn: number; volatility: number } {
     // Simplified implementation - in production, use proper optimization library
     const n = expectedReturns.length;
@@ -1299,13 +1304,13 @@ export class QuantLibService {
   }
 
   private static calculateImpliedVolatility(
-    optionType: OptionType,
-    underlyingPrice: number,
-    strikePrice: number,
-    timeToExpiry: number,
-    riskFreeRate: number,
-    marketPrice: number,
-    dividendYield: number
+    _optionType: OptionType,
+    _underlyingPrice: number,
+    _strikePrice: number,
+    _timeToExpiry: number,
+    _riskFreeRate: number,
+    _marketPrice: number,
+    _dividendYield: number
   ): number {
     // Simplified implementation - in production, use proper implied volatility calculation
     return 0.2; // Default volatility
@@ -1353,12 +1358,12 @@ export class QuantLibService {
     return totalImpact;
   }
 
-  private static calculateVaRImpact(riskMetrics: RiskMetrics, marketShocks: MarketShock[]): number {
+  private static calculateVaRImpact(riskMetrics: RiskMetrics, _marketShocks: MarketShock[]): number {
     // Simplified implementation - in production, use proper VaR impact calculation
     return riskMetrics.var95 * 0.1; // 10% of VaR as impact
   }
 
-  private static calculateExpectedShortfallImpact(riskMetrics: RiskMetrics, marketShocks: MarketShock[]): number {
+  private static calculateExpectedShortfallImpact(riskMetrics: RiskMetrics, _marketShocks: MarketShock[]): number {
     // Simplified implementation - in production, use proper Expected Shortfall impact calculation
     return riskMetrics.expectedShortfall * 0.1; // 10% of Expected Shortfall as impact
   }

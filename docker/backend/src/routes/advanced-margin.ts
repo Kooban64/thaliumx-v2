@@ -9,13 +9,13 @@
  * - Real-time risk monitoring
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import Joi from 'joi';
+import type { Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
 import { authenticateToken, requireRole } from '../middleware/error-handler';
 import { validateRequest } from '../middleware/validation';
 import { LoggerService } from '../services/logger';
 import { AdvancedMarginTradingService } from '../services/advanced-margin';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
 
 const router: Router = Router();
 
@@ -48,7 +48,7 @@ router.post('/accounts',
         brokerId,
         accountType,
         symbol,
-        initialDeposit
+                initialDeposit
       );
 
       res.json({
@@ -161,7 +161,7 @@ router.post('/positions',
         size,
         leverage,
         orderType,
-        price
+                price
       );
 
       res.json({
@@ -187,8 +187,7 @@ router.post('/positions/:positionId/close',
   validateRequest,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { positionId } = req.params;
-      const { closeSize } = req.body;
+      const { positionId, closeSize } = req.body;
       const userId = (req.user as any)?.id;
       const tenantId = (req.user as any)?.tenantId;
       const brokerId = (req.user as any)?.brokerId;
@@ -210,7 +209,7 @@ router.post('/positions/:positionId/close',
         tenantId,
         brokerId,
         positionId,
-        closeSize
+                closeSize
       );
 
       res.json({

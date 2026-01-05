@@ -25,7 +25,6 @@
  */
 
 import { Sequelize, QueryTypes } from 'sequelize';
-import { DatabaseService } from '../services/database';
 import { LoggerService } from '../services/logger';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -151,7 +150,7 @@ export class MigrationRunner {
         migrations.push({
           name,
           up,
-          down
+                down
         });
         LoggerService.info(`Loaded migration: ${name}`);
       }
@@ -237,7 +236,7 @@ export class MigrationRunner {
 if (require.main === module) {
   const command = process.argv[2] || 'up';
   
-  (async () => {
+  void (async () => {
     try {
       if (command === 'up') {
         await MigrationRunner.runMigrations();

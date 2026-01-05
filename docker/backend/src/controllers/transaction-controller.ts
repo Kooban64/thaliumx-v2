@@ -4,7 +4,7 @@
  * Complete implementation matching original financial-svc
  */
 
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { TransactionProcessingService } from '../services/transaction-processing';
 import { LoggerService } from '../services/logger';
 
@@ -20,7 +20,7 @@ export class TransactionController {
    */
   async processTransaction(req: Request, res: Response): Promise<void> {
     try {
-      const { tenantId } = req.params;
+      const tenantId = (req.user as any)?.tenantId || req.body.tenantId;
       const transactionRequest = {
         ...req.body,
         tenantId,

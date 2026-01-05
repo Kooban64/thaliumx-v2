@@ -10,7 +10,7 @@
  * 6. Emit swap event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
@@ -18,7 +18,7 @@ import { LoggerService } from '../services/logger';
 import crypto from 'crypto';
 
 export async function createDexSwapWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -61,7 +61,7 @@ export async function createDexSwapWorkflow(
           tokenIn,
           tokenOut,
           swapRate,
-          expectedAmountOut
+                expectedAmountOut
         });
         
         return { swapRate, expectedAmountOut: expectedAmountOut.toString() };
@@ -81,7 +81,7 @@ export async function createDexSwapWorkflow(
           tokenOut,
           amountIn,
           amountOut,
-          transactionHash
+                transactionHash
         });
         
         return { transactionHash, amountOut: amountOut.toString() };
@@ -97,7 +97,7 @@ export async function createDexSwapWorkflow(
     {
       name: 'verify_swap_completion',
       execute: async (sagaContext: SagaContext) => {
-        const { transactionHash } = sagaContext.data;
+        const transactionHash = (sagaContext as any).transactionHash || sagaContext.data.transactionHash;
         // Verify swap was completed successfully
         LoggerService.info('Verifying swap completion', {
           transactionHash
@@ -136,5 +136,5 @@ export async function createDexSwapWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.DEX_SWAP,
-  createDexSwapWorkflow
+                createDexSwapWorkflow
 );

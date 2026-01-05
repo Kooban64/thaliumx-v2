@@ -9,7 +9,7 @@
  * 5. Emit modification event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 // OmniExchangeService imported dynamically
@@ -17,7 +17,7 @@ import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 
 export async function createOrderModificationWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -47,8 +47,10 @@ export async function createOrderModificationWorkflow(
       name: 'cancel_original_order',
       execute: async (sagaContext: SagaContext) => {
         const { orderId } = sagaContext.data;
-        const { getOmniExchangeService } = await import('../routes/omni-exchange');
-        const omniExchange = getOmniExchangeService();
+        const { DatabaseService } = await import('../services/database');
+        const db = DatabaseService.getSequelize();
+        const { OmniExchangeService } = await import('../services/omni-exchange');
+        const omniExchange = new OmniExchangeService(db as any);
         await omniExchange.cancelOrder(orderId, sagaContext.tenantId || '');
         return { originalOrderCancelled: true };
       },
@@ -63,9 +65,11 @@ export async function createOrderModificationWorkflow(
     {
       name: 'create_new_order',
       execute: async (sagaContext: SagaContext) => {
-        const { orderId, newPrice, newQuantity, symbol, side, type } = sagaContext.data;
-        const { getOmniExchangeService } = await import('../routes/omni-exchange');
-        const omniExchange = getOmniExchangeService();
+        const { orderId: _orderId, newPrice, newQuantity, symbol, side, type } = sagaContext.data;
+        const { DatabaseService } = await import('../services/database');
+        const db = DatabaseService.getSequelize();
+        const { OmniExchangeService } = await import('../services/omni-exchange');
+        const omniExchange = new OmniExchangeService(db as any);
         
         const newOrder = await omniExchange.placeOrder(
           sagaContext.tenantId || '',
@@ -117,5 +121,5 @@ export async function createOrderModificationWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.ORDER_MODIFICATION,
-  createOrderModificationWorkflow
+                createOrderModificationWorkflow
 );

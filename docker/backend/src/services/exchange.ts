@@ -12,13 +12,12 @@
  * Production-ready for financial operations
  */
 
-import { Request, Response } from 'express';
 import { LoggerService } from '../services/logger';
 import { DatabaseService } from '../services/database';
-import { RedisService } from '../services/redis';
 import { ConfigService } from '../services/config-enhanced';
 import { KafkaService } from '../services/kafka';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
+// Request, Response, RedisService, AppError imported but not used in this file
 import axios from 'axios';
 import crypto from 'crypto';
 
@@ -269,28 +268,35 @@ export class ExchangeService {
   private static generateSignature(exchange: string, timestamp: string, method: string, path: string, body: string, creds: { apiKey: string; apiSecret: string; passphrase?: string; }): string {
     const secret = creds.apiSecret;
     switch (exchange.toLowerCase()) {
-      case 'bybit':
+      case 'bybit': {
         const bybitMsg = timestamp + creds.apiKey + '5000' + path + body;
         return crypto.createHmac('sha256', secret).update(bybitMsg).digest('hex');
-      case 'kucoin':
+      }
+      case 'kucoin': {
         const kucoinMsg = timestamp + method + path + body;
         return crypto.createHmac('sha256', secret).update(kucoinMsg).digest('base64');
-      case 'okx':
+      }
+      case 'okx': {
         const okxMsg = timestamp + method + path + body;
         return crypto.createHmac('sha256', secret).update(okxMsg).digest('base64');
-      case 'kraken':
+      }
+      case 'kraken': {
         const nonce = timestamp;
         const krakenMsg = path + crypto.createHash('sha256').update(nonce + body).digest('binary');
         return crypto.createHmac('sha512', Buffer.from(secret, 'base64')).update(krakenMsg).digest('base64');
-      case 'valr':
+      }
+      case 'valr': {
         const valrMsg = timestamp + method + path + body;
         return crypto.createHmac('sha512', secret).update(valrMsg).digest('hex');
-      case 'bitstamp':
+      }
+      case 'bitstamp': {
         const bitstampMsg = timestamp + method + path + body;
         return crypto.createHmac('sha256', secret).update(bitstampMsg).digest('hex');
-      case 'crypto-com':
+      }
+      case 'crypto-com': {
         const cryptoComMsg = timestamp + method + path + body;
         return crypto.createHmac('sha256', secret).update(cryptoComMsg).digest('hex');
+      }
       default:
         throw new Error(`Unsupported exchange: ${exchange}`);
     }
@@ -336,7 +342,7 @@ export class ExchangeService {
       await this.lockFunds(order.userId, order.tenantId, order.symbol, order.side, order.quantity, order.price);
       
       // Add to order book
-      this.addToOrderBook(order);
+      void this.addToOrderBook(order);
       
       // Save to database
       await this.saveOrder(order);
@@ -431,7 +437,8 @@ export class ExchangeService {
     const bestExchange = await this.selectBestExchange(order.symbol, order.side, order.quantity);
     
     if (bestExchange) {
-      const creds = this.exchangeCredentials[bestExchange];
+      // creds extracted but not used in this function
+      this.exchangeCredentials[bestExchange];
       // Implement API call to place order on external exchange
       // Update order status accordingly
       LoggerService.info(`Order routed to ${bestExchange}`, { orderId: order.id });
@@ -441,7 +448,7 @@ export class ExchangeService {
   /**
    * Select best external exchange for order
    */
-  private static async selectBestExchange(symbol: string, side: string, quantity: number): Promise<string | null> {
+  private static async selectBestExchange(_symbol: string, _side: string, _quantity: number): Promise<string | null> {
     // Query market data from multiple exchanges and select best
     // For now, return first available
     return Object.keys(this.exchangeCredentials)[0] || null;
@@ -627,8 +634,8 @@ export class ExchangeService {
    * Start market data updater
    */
   private static startMarketDataUpdater(): void {
-    setInterval(async () => {
-      await this.initializeMarketDataFromExchanges();
+    setInterval(() => {
+      void this.initializeMarketDataFromExchanges();
     }, 60000); // Update every minute
   }
 
@@ -646,14 +653,15 @@ export class ExchangeService {
 
   private static startOrderMatchingEngine(): void {
     // Implement order matching logic, perhaps using a queue or interval
-    setInterval(async () => {
-      await this.matchOrders();
+    setInterval(() => {
+      void this.matchOrders();
     }, 1000); // Match every second
   }
 
   private static async matchOrders(): Promise<void> {
     const OrderModel = DatabaseService.getModel('Order');
-    const activeOrders = await OrderModel.findAll({ where: { status: 'pending' } });
+    // activeOrders extracted but not used in this function
+    await OrderModel.findAll({ where: { status: 'pending' } });
     // Implement matching logic here
     // For each pair, match buy and sell orders
     // Create trades, update balances, etc.

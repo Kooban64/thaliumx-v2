@@ -24,7 +24,8 @@
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
-import { JWTPayload, User, UserRole } from '../types';
+import type { JWTPayload, User} from '../types';
+import { UserRole } from '../types';
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 
@@ -49,7 +50,7 @@ const getJwtSecret = (kind: 'access' | 'refresh'): string => {
 
   // Non-production fallback: keep the app/test environment functional.
   // This is intentionally noisy so it cannot be missed.
-  // eslint-disable-next-line no-console
+   
   console.warn(`[WARN] JWT_SECRET is not set; using an insecure development default (${kind}). Do not use this in production.`);
   return 'dev-insecure-jwt-secret-change-me';
 };
@@ -141,7 +142,7 @@ export const isValidEmail = (email: string): boolean => {
 };
 
 export const isValidPhone = (phone: string): boolean => {
-  const phoneRegex = /^\+?[\d\s\-\(\)]+$/;
+  const phoneRegex = /^\+?[\d\s\-()]+$/;
   return phoneRegex.test(phone) && phone.replace(/\D/g, '').length >= 10;
 };
 

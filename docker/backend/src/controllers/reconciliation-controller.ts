@@ -11,7 +11,7 @@
  * - Discrepancy detection and reporting
  */
 
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { ReconciliationJob } from '../services/reconciliation-job';
 import { LoggerService } from '../services/logger';
 import { FinancialRepository } from '../services/financial-repository';
@@ -215,6 +215,8 @@ export class ReconciliationController {
 
       // Check for external transactions not in internal
       for (const [ref, external] of externalByRef) {
+        // ref is used implicitly in the loop iteration
+        void ref; // Mark as intentionally used
         discrepancies.push({
           id: `disc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           type: 'missing_internal',
@@ -314,7 +316,7 @@ export class ReconciliationController {
         res.status(400).json({ message: 'tenantId is required', code: 'INVALID_REQUEST' });
         return;
       }
-      const { startDate, endDate, sourceIds } = req.body;
+      const { startDate, endDate } = req.body;
 
       if (!startDate || !endDate) {
         res.status(400).json({
@@ -400,7 +402,7 @@ export class ReconciliationController {
 
       res.status(201).json({
         message: 'Reconciliation completed',
-        report
+                report
       });
     } catch (error: any) {
       LoggerService.error('Failed to run reconciliation', { error: error.message });
@@ -524,7 +526,7 @@ export class ReconciliationController {
 
       res.json({
         message: 'External transactions fetched',
-        results
+                results
       });
     } catch (error: any) {
       LoggerService.error('Failed to fetch external transactions', { error: error.message });
@@ -900,7 +902,11 @@ export class ReconciliationController {
         return;
       }
 
-      const { startDate, endDate, status, limit = 50, offset = 0 } = req.query;
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+      const status = req.query.status as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
 
       let reports = Array.from(reconciliationReports.values())
         .filter(r => r.tenantId === tenantId);

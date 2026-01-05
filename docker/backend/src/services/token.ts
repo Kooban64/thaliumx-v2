@@ -13,9 +13,9 @@
  */
 
 import { LoggerService } from '../services/logger';
-import { DatabaseService } from '../services/database';
-import { RedisService } from '../services/redis';
-import { AppError, createError } from '../utils';
+// DatabaseService, RedisService imported but not used in this file
+import { createError } from '../utils';
+// AppError imported but not used in this file
 
 // =============================================================================
 // TYPES & INTERFACES
@@ -194,7 +194,7 @@ export class TokenService {
         walletId: wallet.id, 
         userId, 
         tenantId, 
-        tokenSymbol 
+                tokenSymbol
       });
       
       return wallet;
@@ -288,7 +288,7 @@ export class TokenService {
         fromUserId, 
         toUserId, 
         amount, 
-        tokenSymbol 
+                tokenSymbol
       });
       
       return transaction;
@@ -380,7 +380,7 @@ export class TokenService {
         userId, 
         amount, 
         tokenSymbol,
-        poolId
+                poolId
       });
       
       return transaction;
@@ -442,7 +442,7 @@ export class TokenService {
       LoggerService.info(`Token unstaking initiated: ${transaction.id}`, { 
         transactionId: transaction.id, 
         userId, 
-        positionId
+                positionId
       });
       
       return transaction;
@@ -516,7 +516,7 @@ export class TokenService {
         userId, 
         saleId,
         amount,
-        cost
+                cost
       });
       
       return transaction;
@@ -714,7 +714,7 @@ export class TokenService {
     }
   }
 
-  private static async processTokenPurchase(transaction: TokenTransaction, wallet: TokenWallet, sale: TokenSale, cost: number, paymentMethod: string): Promise<void> {
+  private static async processTokenPurchase(transaction: TokenTransaction, wallet: TokenWallet, sale: TokenSale, cost: number, _paymentMethod: string): Promise<void> {
     try {
       // Update transaction status
       transaction.status = 'processing';
@@ -724,10 +724,11 @@ export class TokenService {
       // For now, simulate processing
       
       // Simulate payment processing delay
-      setTimeout(async () => {
-        try {
-          // Update wallet
-          wallet.available += transaction.amount;
+      setTimeout(() => {
+        void (async () => {
+          try {
+            // Update wallet
+            wallet.available += transaction.amount;
           wallet.total = wallet.available + wallet.locked + wallet.staked;
           wallet.updatedAt = new Date();
           
@@ -750,7 +751,7 @@ export class TokenService {
           LoggerService.info(`Token purchase completed: ${transaction.id}`, { 
             transactionId: transaction.id, 
             amount: transaction.amount,
-            cost
+                cost
           });
         } catch (error) {
           LoggerService.error('Token purchase completion failed:', error);
@@ -758,6 +759,7 @@ export class TokenService {
           transaction.updatedAt = new Date();
           await this.saveTransaction(transaction);
         }
+        })();
       }, 5000); // 5 second delay
       
       await this.saveTransaction(transaction);
@@ -887,7 +889,7 @@ export class TokenService {
   private static startStakingRewardsCalculation(): void {
     // Calculate staking rewards every hour
     setInterval(() => {
-      this.calculateStakingRewards();
+      void this.calculateStakingRewards();
     }, 3600000); // 1 hour
     
     LoggerService.info('Staking rewards calculation started');
@@ -896,7 +898,7 @@ export class TokenService {
   private static startTokenSaleMonitoring(): void {
     // Monitor token sales every minute
     setInterval(() => {
-      this.monitorTokenSales();
+      void this.monitorTokenSales();
     }, 60000); // 1 minute
     
     LoggerService.info('Token sale monitoring started');
@@ -977,7 +979,7 @@ export class TokenService {
     // This would emit to Kafka
     LoggerService.info(`Token event: ${eventType}`, { 
       transactionId: transaction.id, 
-      eventType 
+                eventType
     });
   }
 

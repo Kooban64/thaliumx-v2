@@ -10,7 +10,7 @@
  * 6. Emit creation event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 // web3WalletService used for wallet operations
@@ -18,7 +18,7 @@ import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 
 export async function createWeb3WalletCreationWorkflow(
-  input: WorkflowInput
+  __input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -35,7 +35,8 @@ export async function createWeb3WalletCreationWorkflow(
     {
       name: 'generate_wallet',
       execute: async (sagaContext: SagaContext) => {
-        const { network, userId, tenantId, brokerId } = sagaContext.data;
+        const { network } = sagaContext.data;
+        // userId, tenantId, brokerId extracted but not used in this step
         // Generate wallet address (simplified - in production would use ethers.js)
         const walletAddress = `0x${Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
         const wallet = {
@@ -50,7 +51,8 @@ export async function createWeb3WalletCreationWorkflow(
     {
       name: 'encrypt_private_key',
       execute: async (sagaContext: SagaContext) => {
-        const { wallet, userId } = sagaContext.data;
+        const wallet = (sagaContext as any).wallet || sagaContext.data.wallet;
+        const { userId } = sagaContext.data;
         // Encrypt private key for storage
         LoggerService.info('Encrypting private key', {
           userId,
@@ -63,10 +65,11 @@ export async function createWeb3WalletCreationWorkflow(
     {
       name: 'store_wallet',
       execute: async (sagaContext: SagaContext) => {
-        const { wallet, network } = sagaContext.data;
+        const wallet = (sagaContext as any).wallet || sagaContext.data.wallet;
+        const { network } = sagaContext.data;
         // Store wallet via web3WalletService
         // The service handles database persistence
-        const { web3WalletService } = await import('../services/web3-wallet');
+        const { web3WalletService: _web3WalletService } = await import('../services/web3-wallet');
         const { DatabaseService } = await import('../services/database');
         const Web3WalletModel = DatabaseService.getModel('Web3Wallet');
         await Web3WalletModel.create({
@@ -131,5 +134,5 @@ export async function createWeb3WalletCreationWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.WEB3_WALLET_CREATION,
-  createWeb3WalletCreationWorkflow
+                createWeb3WalletCreationWorkflow
 );

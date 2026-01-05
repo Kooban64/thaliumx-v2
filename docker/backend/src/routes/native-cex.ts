@@ -10,8 +10,9 @@
  * - Risk management integration
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import { NativeCEXService, TradingEngine, TradingPair, CEXOrder, MarketData, LiquidityIncentive, THALBusinessModel } from '../services/native-cex';
+import type { Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
+import { NativeCEXService } from '../services/native-cex';
 import { authenticateToken, requireRole } from '../middleware/error-handler';
 import { LoggerService } from '../services/logger';
 import { DatabaseService } from '../services/database';
@@ -300,7 +301,9 @@ router.get('/orders/:orderId', authenticateToken, async (req: Request, res: Resp
 router.get('/orders/user/:userId', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { userId } = req.params;
-    const { status, limit = 100, offset = 0 } = req.query;
+    const status = req.query.status as string | undefined;
+    const limit = parseInt(req.query.limit as string) || 100;
+    const offset = parseInt(req.query.offset as string) || 0;
     
     if (!userId) {
       res.status(400).json({
@@ -321,7 +324,7 @@ router.get('/orders/user/:userId', authenticateToken, async (req: Request, res: 
     }
     
     // Apply pagination
-    const paginatedOrders = orders.slice(Number(offset), Number(offset) + Number(limit));
+    const paginatedOrders = orders.slice(offset, offset + limit);
     
     res.json({
       success: true,
@@ -350,9 +353,9 @@ router.get('/orders/user/:userId', authenticateToken, async (req: Request, res: 
         })),
         pagination: {
           total: orders.length,
-          limit: Number(limit),
-          offset: Number(offset),
-          hasMore: Number(offset) + Number(limit) < orders.length
+          limit,
+          offset,
+          hasMore: offset + limit < orders.length
         }
       },
       timestamp: new Date().toISOString()

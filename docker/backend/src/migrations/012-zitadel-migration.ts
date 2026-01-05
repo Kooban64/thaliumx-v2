@@ -8,7 +8,7 @@
  * This migration is idempotent and safe to run on existing databases.
  */
 
-export async function up(queryInterface: any, Sequelize: any): Promise<void> {
+export async function up(queryInterface: any, _Sequelize: any): Promise<void> {
   const tables = await queryInterface.showAllTables();
   if (!tables.includes('users')) {
     console.log('Users table does not exist, skipping migration');
@@ -37,7 +37,7 @@ export async function up(queryInterface: any, Sequelize: any): Promise<void> {
   }
 }
 
-export async function down(queryInterface: any, Sequelize: any): Promise<void> {
+export async function down(queryInterface: any, _Sequelize: any): Promise<void> {
   const tables = await queryInterface.showAllTables();
   if (!tables.includes('users')) {
     console.log('Users table does not exist, skipping rollback');

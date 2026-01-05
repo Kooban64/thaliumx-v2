@@ -17,7 +17,8 @@ import { LoggerService } from './logger';
 import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
 import { SecurityOversightService } from './security-oversight';
-import { AppError, createError } from '../utils';
+// AppError imported but not used in this file
+import { createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
 import { ethers } from 'ethers';
 import * as crypto from 'crypto';
@@ -424,7 +425,7 @@ export class GraphSenseService {
           LoggerService.info('Connected to self-hosted GraphSense service');
           this.config.apiEndpoint = graphsenseUrl;
         }
-      } catch (error) {
+      } catch {
         LoggerService.warn('Self-hosted GraphSense service not available, will use blockchain RPC directly');
       }
       
@@ -444,27 +445,27 @@ export class GraphSenseService {
       
       // Start real-time analysis
       if (this.GRAPHSENSE_CONFIG.enableRealTimeAnalysis) {
-        setInterval(async () => {
-          await this.performRealTimeAnalysis();
+        setInterval(() => {
+          void this.performRealTimeAnalysis();
         }, this.GRAPHSENSE_CONFIG.analysisInterval);
       }
       
       // Start alert monitoring
-      setInterval(async () => {
-        await this.checkAlerts();
+      setInterval(() => {
+        void this.checkAlerts();
       }, this.GRAPHSENSE_CONFIG.alertCheckInterval);
       
       // Start cluster analysis
       if (this.GRAPHSENSE_CONFIG.enableClusterAnalysis) {
-        setInterval(async () => {
-          await this.updateClusters();
+        setInterval(() => {
+          void this.updateClusters();
         }, this.GRAPHSENSE_CONFIG.clusterUpdateInterval);
       }
       
       // Start flow analysis
       if (this.GRAPHSENSE_CONFIG.enableFlowAnalysis) {
-        setInterval(async () => {
-          await this.updateFlows();
+        setInterval(() => {
+          void this.updateFlows();
         }, this.GRAPHSENSE_CONFIG.flowUpdateInterval);
       }
       
@@ -486,10 +487,12 @@ export class GraphSenseService {
       // For now, we'll simulate analysis
       
       // Simulate new transaction analysis
-      const newTransaction = await this.analyzeTransaction('0x' + crypto.randomBytes(32).toString('hex'));
+      // newTransaction extracted but not used in this function
+      await this.analyzeTransaction('0x' + crypto.randomBytes(32).toString('hex'));
       
       // Simulate entity analysis
-      const newEntity = await this.analyzeEntity('0x' + crypto.randomBytes(20).toString('hex'));
+      // newEntity extracted but not used in this function
+      await this.analyzeEntity('0x' + crypto.randomBytes(20).toString('hex'));
       
       LoggerService.info('Real-time analysis completed');
     } catch (error) {
@@ -687,7 +690,7 @@ export class GraphSenseService {
           entityId: transactionHash,
           metadata: {
             riskScore,
-            riskFactors
+                riskFactors
           },
           createdAt: new Date(),
           updatedAt: new Date()
@@ -703,7 +706,7 @@ export class GraphSenseService {
         hash: transactionHash,
         riskScore,
         riskLevel,
-        riskFactors
+                riskFactors
       });
       
       return transaction;
@@ -737,7 +740,8 @@ export class GraphSenseService {
       let balance: bigint = 0n;
       let txCount = 0;
       let code = '';
-      let firstTx: ethers.TransactionResponse | null = null;
+      // firstTx extracted but not used in this function
+      let _firstTx: ethers.TransactionResponse | null = null;
       
       try {
         balance = await provider.getBalance(address);

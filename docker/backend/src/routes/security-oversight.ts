@@ -578,7 +578,7 @@ router.get('/analytics', authenticateToken, requireRole(['admin', 'security_offi
     
     const events = await SecurityOversightService.getSecurityEvents({
       startDate,
-      endDate
+                endDate
     });
     
     const analytics = {

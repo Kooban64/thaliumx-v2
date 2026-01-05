@@ -10,22 +10,22 @@
  * 6. Emit KYC event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { BallerineService } from '../services/ballerine';
 import { UserService } from '../services/user';
 import { EventStreamingService } from '../services/event-streaming';
-import { LoggerService } from '../services/logger';
+// LoggerService imported but not used in this file
 
 export async function createKycVerificationWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
       name: 'validate_kyc_request',
       execute: async (sagaContext: SagaContext) => {
-        const { userId, kycLevel } = sagaContext.data;
+        const { userId, kycLevel: _kycLevel } = sagaContext.data;
         if (!userId) {
           throw new Error('User ID required for KYC verification');
         }
@@ -36,7 +36,7 @@ export async function createKycVerificationWorkflow(
     {
       name: 'trigger_ballerine_workflow',
       execute: async (sagaContext: SagaContext) => {
-        const { userId, kycLevel } = sagaContext.data;
+        const { userId, kycLevel: _kycLevel } = sagaContext.data;
         const ballerineService = new BallerineService();
         
         const user = await UserService.getUserById(userId);
@@ -66,7 +66,7 @@ export async function createKycVerificationWorkflow(
     {
       name: 'wait_for_kyc_completion',
       execute: async (sagaContext: SagaContext) => {
-        const { ballerineWorkflowId } = sagaContext.data;
+        const { ballerineWorkflowId } = sagaContext.stepResults?.get('trigger_ballerine_workflow') || sagaContext.data;
         
         // Check if KYC already completed (webhook may have arrived)
         if (sagaContext.data.kycCompleted === true) {
@@ -74,7 +74,7 @@ export async function createKycVerificationWorkflow(
           if (kycResult?.status === 'approved' || kycResult?.status === 'rejected') {
             return {
               kycStatus: kycResult.status,
-              kycResult
+                kycResult
             };
           }
         }
@@ -107,7 +107,8 @@ export async function createKycVerificationWorkflow(
     {
       name: 'process_kyc_result',
       execute: async (sagaContext: SagaContext) => {
-        const { userId, kycResult } = sagaContext.data;
+        const { userId } = sagaContext.data;
+        const { kycResult } = sagaContext.stepResults?.get('wait_for_kyc_completion') || sagaContext.data;
         const kycStatus = kycResult?.status === 'approved' ? 'approved' : 'rejected';
         
         // Update user KYC status
@@ -123,7 +124,8 @@ export async function createKycVerificationWorkflow(
     {
       name: 'update_user_status',
       execute: async (sagaContext: SagaContext) => {
-        const { userId, kycStatus } = sagaContext.data;
+        const { userId } = sagaContext.data;
+        const { kycStatus } = sagaContext.stepResults?.get('process_kyc_result') || sagaContext.data;
         
         // If KYC approved, mark user as verified
         if (kycStatus === 'approved') {
@@ -159,5 +161,5 @@ export async function createKycVerificationWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.KYC_REVERIFICATION,
-  createKycVerificationWorkflow
+                createKycVerificationWorkflow
 );

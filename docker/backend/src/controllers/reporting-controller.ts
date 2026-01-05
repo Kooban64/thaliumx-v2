@@ -4,7 +4,7 @@
  * Complete implementation matching original financial-svc
  */
 
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { FinancialReportingService } from '../services/financial-reporting';
 import { LoggerService } from '../services/logger';
 
@@ -25,7 +25,7 @@ export class ReportingController {
         res.status(400).json({ message: 'tenantId is required', code: 'INVALID_REQUEST' });
         return;
       }
-      const { asOfDate } = req.body;
+      const asOfDate = req.query.asOfDate as string;
 
       if (!asOfDate) {
         res.status(400).json({
@@ -66,7 +66,8 @@ export class ReportingController {
         res.status(400).json({ message: 'tenantId is required', code: 'INVALID_REQUEST' });
         return;
       }
-      const { startDate, endDate } = req.body;
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
 
       if (!startDate || !endDate) {
         res.status(400).json({
@@ -108,7 +109,7 @@ export class ReportingController {
         res.status(400).json({ message: 'tenantId is required', code: 'INVALID_REQUEST' });
         return;
       }
-      const { asOfDate } = req.body;
+      const asOfDate = req.query.asOfDate as string;
 
       if (!asOfDate) {
         res.status(400).json({
@@ -180,20 +181,22 @@ export class ReportingController {
         res.status(400).json({ message: 'tenantId is required', code: 'INVALID_REQUEST' });
         return;
       }
-      const { reportType, limit = '50', offset = '0' } = req.query;
+      const reportType = req.query.reportType as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
 
       const reports = await this.reportingService.listReports(
         tenantId,
-        reportType as string | undefined,
-        parseInt(limit as string),
-        parseInt(offset as string)
+        reportType,
+        limit,
+        offset
       );
 
       res.json({
         reports,
         total: reports.length,
-        limit: parseInt(limit as string),
-        offset: parseInt(offset as string)
+        limit,
+        offset
       });
     } catch (error: any) {
       LoggerService.error('Failed to list reports', { error: error.message });

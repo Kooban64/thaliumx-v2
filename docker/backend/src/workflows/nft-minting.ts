@@ -10,14 +10,14 @@
  * 6. Emit minting event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 
 export async function createNftMintingWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -57,7 +57,7 @@ export async function createNftMintingWorkflow(
     {
       name: 'mint_nft_on_blockchain',
       execute: async (sagaContext: SagaContext) => {
-        const { collectionId, recipientAddress, metadataUri } = sagaContext.data;
+        const { collectionId: _collectionId, recipientAddress, metadataUri: _metadataUri } = sagaContext.data;
         // Mint NFT on blockchain (simplified - would use SmartContractService)
         const tokenId = `nft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const contractAddress = `0x${Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
@@ -65,7 +65,7 @@ export async function createNftMintingWorkflow(
         LoggerService.info('NFT minted on blockchain', {
           tokenId,
           contractAddress,
-          recipientAddress
+                recipientAddress
         });
         
         return { tokenId, contractAddress, transactionHash: `0x${crypto.randomBytes(32).toString('hex')}` };
@@ -134,5 +134,5 @@ import crypto from 'crypto';
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.NFT_MINTING,
-  createNftMintingWorkflow
+                createNftMintingWorkflow
 );

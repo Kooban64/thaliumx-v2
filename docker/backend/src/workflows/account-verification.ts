@@ -9,7 +9,7 @@
  * 5. Emit verification event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { UserService } from '../services/user';
@@ -17,7 +17,7 @@ import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 
 export async function createAccountVerificationWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -91,5 +91,5 @@ export async function createAccountVerificationWorkflow(
 // Note: Using USER_PROFILE_UPDATE as closest match for account verification
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.USER_PROFILE_UPDATE,
-  createAccountVerificationWorkflow
+                createAccountVerificationWorkflow
 );

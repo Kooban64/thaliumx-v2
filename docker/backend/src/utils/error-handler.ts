@@ -243,7 +243,7 @@ export class ErrorHandler {
     LoggerService.error('Unhandled error:', {
       error: error.message,
       stack: error.stack,
-      context
+                context
     });
 
     // Return generic internal error for unknown errors
@@ -296,7 +296,7 @@ export class ErrorHandler {
       message: error.message,
       code: error instanceof AppError ? error.code : 'UNKNOWN_ERROR',
       stack: error.stack,
-      context
+                context
     };
 
     if (this.isOperationalError(error)) {

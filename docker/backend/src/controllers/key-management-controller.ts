@@ -14,7 +14,7 @@
  * - Key health monitoring and expiration alerts
  */
 
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { LoggerService } from '../services/logger';
 import { DatabaseService } from '../services/database';
 import * as crypto from 'crypto';
@@ -115,7 +115,7 @@ export class KeyManagementController {
       performedBy,
       timestamp: new Date(),
       details,
-      ipAddress
+                ipAddress
     };
     auditLogs.push(log);
     
@@ -127,8 +127,8 @@ export class KeyManagementController {
         subject: keyId,
         userId: performedBy !== 'system' ? performedBy : null,
         details: { ...details, keyAction: action }
-      }).catch(err => LoggerService.warn('Failed to persist key audit log', { error: err.message }));
-    } catch (err) {
+      }).catch(() => LoggerService.warn('Failed to persist key audit log'));
+    } catch {
       // Database may not be initialized yet
     }
   }
@@ -789,7 +789,8 @@ export class KeyManagementController {
         });
         return;
       }
-      const { limit = 100, offset = 0 } = req.query;
+      const limit = parseInt(req.query.limit as string) || 100;
+      const offset = parseInt(req.query.offset as string) || 0;
 
       // Filter logs for this key
       const keyLogs = auditLogs
@@ -842,7 +843,7 @@ export class KeyManagementController {
         return;
       }
 
-      const { daysThreshold = 30 } = req.query;
+      const daysThreshold = parseInt(req.query.daysThreshold as string) || 30;
       const thresholdDate = new Date(Date.now() + Number(daysThreshold) * 24 * 60 * 60 * 1000);
       const now = new Date();
 

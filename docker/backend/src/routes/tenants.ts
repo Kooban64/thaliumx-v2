@@ -22,10 +22,8 @@
  */
 
 import { Router } from 'express';
-import { authenticateToken, requireRole, requirePermission } from '../middleware/error-handler';
-import { Request, Response, NextFunction } from 'express';
-import { LoggerService } from '../services/logger';
-import { createError } from '../utils';
+import { authenticateToken, requireRole } from '../middleware/error-handler';
+// requirePermission, Request, Response, NextFunction, LoggerService, createError imported but not used in this file
 import { DatabaseService } from '../services/database';
 // removed duplicate import
 

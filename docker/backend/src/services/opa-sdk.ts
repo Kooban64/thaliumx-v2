@@ -41,7 +41,7 @@ export class OPASDkService {
     this.enabled = process.env.OPA_WASM_ENABLED !== 'false'; // Enabled by default
 
     if (this.enabled) {
-      this.loadPolicies();
+      void this.loadPolicies();
     }
   }
 

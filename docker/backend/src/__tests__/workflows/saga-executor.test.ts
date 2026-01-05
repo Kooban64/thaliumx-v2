@@ -9,7 +9,7 @@
  */
 
 import { SagaExecutor } from '../../utils/saga-executor';
-import { SagaStep, SagaContext } from '../../types/workflow';
+import { _SagaStep, SagaContext } from '../../types/workflow';
 
 describe('SagaExecutor', () => {
   describe('execute', () => {

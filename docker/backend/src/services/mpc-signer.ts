@@ -14,12 +14,11 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
+// ConfigService, AppError, ethers imported but not used in this file
 import { EventStreamingService } from './event-streaming';
 import { SecurityOversightService } from './security-oversight';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
-import { ethers } from 'ethers';
 import * as crypto from 'crypto';
 
 // =============================================================================
@@ -263,12 +262,16 @@ export class MPCSignerService {
 
         // Next run (clamp to avoid Node timer overflow).
         const delay = Math.min(intervalMs, MAX_TIMER_DELAY_MS);
-        setTimeout(tick, delay);
+        setTimeout(() => {
+          void tick();
+        }, delay);
       }
     };
 
     // First run after a short delay to allow the service to finish startup.
-    setTimeout(tick, 5_000);
+    setTimeout(() => {
+      void tick();
+    }, 5_000);
   }
 
   // MPC Configuration
@@ -553,7 +556,7 @@ export class MPCSignerService {
         keyType,
         purpose,
         threshold,
-        totalParties
+                totalParties
       });
       
       LoggerService.info(`MPC key generated`, {
@@ -561,7 +564,7 @@ export class MPCSignerService {
         keyType,
         purpose,
         threshold,
-        totalParties
+                totalParties
       });
       
       return key;
@@ -755,12 +758,12 @@ export class MPCSignerService {
       // Log audit event
       await this.logAuditEvent(request.keyId, MPCOperationType.SIGNATURE, 'system', 'Signature completed', {
         requestId,
-        finalSignature
+                finalSignature
       });
       
       LoggerService.info(`MPC signature completed`, {
         requestId,
-        finalSignature
+                finalSignature
       });
       
     } catch (error) {
@@ -903,7 +906,7 @@ export class MPCSignerService {
           operationType,
           actor,
           action,
-          details
+                details
         }
       });
       

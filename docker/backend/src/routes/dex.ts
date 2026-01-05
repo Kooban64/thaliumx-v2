@@ -9,7 +9,8 @@
  * - Statistics and Reporting
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { DEXService } from '../services/dex';
 import { LoggerService } from '../services/logger';
 import { AppError } from '../utils';
@@ -103,7 +104,9 @@ router.post('/swaps',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId, brokerId, userId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId || req.body.tenantId;
+      const brokerId = (req.user as any)?.brokerId || req.body.brokerId;
+      const userId = (req.user as any)?.id || req.body.userId;
       const { tokenIn, tokenOut, amountIn, slippage, deadline, route } = req.body;
 
       LoggerService.info('Executing swap', {
@@ -161,18 +164,18 @@ router.get('/swaps',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { userId } = req.user as any;
+      const userId = (req.user as any)?.id;
       const { status, limit = 50, offset = 0 } = req.query;
 
       LoggerService.info('Fetching user swaps', {
         userId,
         status,
         limit,
-        offset
+                offset
       });
 
       // Fetch from DEXService
-      const { DEXService } = await import('../services/dex');
+                DEXService
       const swaps = await DEXService.getUserSwaps(userId, {
         status: status as any,
         limit: parseInt(limit as string),
@@ -217,7 +220,7 @@ router.get('/swaps/:swapId',
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { swapId } = req.params;
-      const { userId } = req.user as any;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
 
       LoggerService.info('Fetching swap details', {
         swapId,
@@ -234,7 +237,7 @@ router.get('/swaps/:swapId',
       }
 
       // Fetch from DEXService
-      const { DEXService } = await import('../services/dex');
+                DEXService
       const swap = await DEXService.getSwapById(swapId);
 
       if (!swap) {
@@ -298,7 +301,7 @@ router.post('/liquidity/add',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { userId } = req.user as any;
+      const userId = (req.user as any)?.id;
       const { poolId, token0Amount, token1Amount, slippage } = req.body;
 
       LoggerService.info('Adding liquidity', {
@@ -355,7 +358,7 @@ router.post('/liquidity/remove',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { userId } = req.user as any;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
       const { positionId, lpTokenAmount, slippage } = req.body;
 
       LoggerService.info('Removing liquidity', {
@@ -405,8 +408,9 @@ router.get('/liquidity/positions',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { userId } = req.user as any;
-      const { poolId, isActive } = req.query;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
+      const poolId = req.query.poolId as string | undefined;
+      const isActive = req.query.isActive as string | undefined;
 
       LoggerService.info('Fetching user liquidity positions', {
         userId,
@@ -415,7 +419,6 @@ router.get('/liquidity/positions',
       });
 
       // Fetch from DEXService
-      const { DEXService } = await import('../services/dex');
       const positions = await DEXService.getUserLiquidityPositions(userId);
 
       res.json({
@@ -454,7 +457,10 @@ router.get('/pools',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { dex, token0, token1, isActive } = req.query;
+      const dex = req.query.dex as string | undefined;
+      const token0 = req.query.token0 as string | undefined;
+      const token1 = req.query.token1 as string | undefined;
+      const isActive = req.query.isActive as string | undefined;
 
       LoggerService.info('Fetching liquidity pools', {
         dex,
@@ -464,7 +470,6 @@ router.get('/pools',
       });
 
       // Fetch from DEXService
-      const { DEXService } = await import('../services/dex');
       const pools = await DEXService.getLiquidityPools({
         dex: dex as string,
         token0: token0 as string,
@@ -605,14 +610,13 @@ router.get('/prices',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tokens } = req.query;
+      const tokens = req.query.tokens as string | string[] | undefined;
 
       LoggerService.info('Fetching price feeds', {
         tokens
       });
 
       // Fetch from DEXService
-      const { DEXService } = await import('../services/dex');
       const tokenList: string[] | undefined = tokens
         ? (typeof tokens === 'string'
             ? (tokens as string).split(',')

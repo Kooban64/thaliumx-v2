@@ -537,7 +537,7 @@ export class Web3WalletService {
               provider,
               address,
               contractAddress,
-              symbol
+                symbol
             );
             if (tokenBalance) {
               tokenBalances.push(tokenBalance);
@@ -741,47 +741,39 @@ export class Web3WalletService {
    * Fetch price from CoinGecko API
    */
   private async fetchCoinGeckoPrice(coinId: string): Promise<number> {
-    try {
-      const response = await axios.get(
-        `https://api.coingecko.com/api/v3/simple/price`,
-        {
-          params: {
-            ids: coinId,
-            vs_currencies: 'usd'
-          },
-          timeout: 5000
-        }
-      );
+    const response = await axios.get(
+      `https://api.coingecko.com/api/v3/simple/price`,
+      {
+        params: {
+          ids: coinId,
+          vs_currencies: 'usd'
+        },
+        timeout: 5000
+      }
+    );
 
-      return response.data?.[coinId]?.usd || 0;
-    } catch (error) {
-      throw error;
-    }
+    return response.data?.[coinId]?.usd || 0;
   }
 
   /**
    * Fetch price from CoinMarketCap API
    */
   private async fetchCoinMarketCapPrice(symbol: string, apiKey: string): Promise<number> {
-    try {
-      const response = await axios.get(
-        'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest',
-        {
-          params: {
-            symbol: symbol.toUpperCase()
-          },
-          headers: {
-            'X-CMC_PRO_API_KEY': apiKey
-          },
-          timeout: 5000
-        }
-      );
+    const response = await axios.get(
+      'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest',
+      {
+        params: {
+          symbol: symbol.toUpperCase()
+        },
+        headers: {
+          'X-CMC_PRO_API_KEY': apiKey
+        },
+        timeout: 5000
+      }
+    );
 
-      const data = response.data?.data?.[symbol.toUpperCase()];
-      return data?.quote?.USD?.price || 0;
-    } catch (error) {
-      throw error;
-    }
+    const data = response.data?.data?.[symbol.toUpperCase()];
+    return data?.quote?.USD?.price || 0;
   }
 
   /**
@@ -1011,7 +1003,7 @@ export class Web3WalletService {
         if (ensName) {
           riskFactors.push({ factor: 'has_ens', score: -20, weight: 0.1 });
         }
-      } catch (error) {
+      } catch {
         // ENS lookup failed - not a risk factor
       }
 
@@ -1141,7 +1133,7 @@ export class Web3WalletService {
   /**
    * Get comprehensive wallet risk assessment
    */
-  public async getWalletRiskAssessment(address: string, chainId: number = 1): Promise<{
+  public async getWalletRiskAssessment(address: string, _chainId: number = 1): Promise<{
     riskScore: number;
     riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
     factors: Array<{ name: string; impact: string; description: string }>;

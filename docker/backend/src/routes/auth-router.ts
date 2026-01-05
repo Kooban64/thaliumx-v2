@@ -29,7 +29,7 @@ import {
   validateRegister,
   validateChangePassword,
   validateResetPassword,
-  validateConfirmResetPassword
+                validateConfirmResetPassword
 } from './auth';
 import { authenticateToken } from '../middleware/error-handler';
 

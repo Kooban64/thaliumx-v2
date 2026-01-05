@@ -27,12 +27,12 @@
 
 import { Router } from 'express';
 import { Op } from 'sequelize';
-import { authenticateToken, requireRole, requirePermission } from '../middleware/error-handler';
-import { Request, Response, NextFunction } from 'express';
+import { authenticateToken, requireRole } from '../middleware/error-handler';
+import type { Request, Response, NextFunction } from 'express';
 import { LoggerService } from '../services/logger';
 import { DashboardService } from '../services/dashboard';
 import { MetricsService } from '../services/metrics';
-import { createError } from '../utils';
+// createError imported but not used in this file
 import { DatabaseService } from '../services/database';
 
 const router: Router = Router();
@@ -158,15 +158,19 @@ router.get('/dashboard', requireRole(['admin', 'super_admin']), async (req: Requ
 // User management routes
 router.get('/users', requireRole(['admin', 'super_admin']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { page = 1, limit = 10, search, role, status } = req.query as any;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = req.query.search as string | undefined;
+    const role = req.query.role as string | undefined;
+    const status = req.query.status as string | undefined;
     const UserModel: any = DatabaseService.getModel('User');
     const where: any = {};
     if (role) where.role = role;
     if (status) where.isActive = status === 'active';
     if (search) where.username = { [Op.like]: `%${search}%` } as any;
-    const offset = (Number(page) - 1) * Number(limit);
-    const { rows, count } = await UserModel.findAndCountAll({ where, offset, limit: Number(limit), order: [['createdAt','DESC']] });
-    res.json({ success: true, data: rows.map((r: any) => r.toJSON()), pagination: { page: Number(page), limit: Number(limit), total: count, totalPages: Math.ceil(count / Number(limit)), hasNext: offset + Number(limit) < count, hasPrev: offset > 0 }, timestamp: new Date(), requestId: req.headers['x-request-id'] || 'unknown' });
+    const offset = (page - 1) * limit;
+    const { rows, count } = await UserModel.findAndCountAll({ where, offset, limit, order: [['createdAt', 'DESC']] });
+    res.json({ success: true, data: rows.map((r: any) => r.toJSON()), pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit), hasNext: offset + limit < count, hasPrev: offset > 0 }, timestamp: new Date(), requestId: req.headers['x-request-id'] || 'unknown' });
   } catch (error) { next(error); }
 });
 
@@ -199,7 +203,7 @@ router.put('/users/:id', requireRole(['admin', 'super_admin']), async (req: Requ
 });
 
 router.delete('/users/:id', requireRole(['super_admin']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
+    try {
     const { id } = req.params;
     if (!id) {
       res.status(400).json({ success: false, error: 'User ID is required' });
@@ -219,15 +223,19 @@ router.delete('/users/:id', requireRole(['super_admin']), async (req: Request, r
 // Transaction management routes
 router.get('/transactions', requireRole(['admin', 'super_admin', 'finance']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { page = 1, limit = 10, status, type, userId } = req.query as any;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const status = req.query.status as string | undefined;
+    const type = req.query.type as string | undefined;
+    const userId = req.query.userId as string | undefined;
     const TxModel: any = DatabaseService.getModel('Transaction');
     const where: any = {};
     if (status) where.status = status;
     if (type) where.type = type;
     if (userId) where.userId = userId;
-    const offset = (Number(page) - 1) * Number(limit);
-    const { rows, count } = await TxModel.findAndCountAll({ where, offset, limit: Number(limit), order: [['createdAt','DESC']] });
-    res.json({ success: true, data: rows.map((r: any) => r.toJSON()), pagination: { page: Number(page), limit: Number(limit), total: count, totalPages: Math.ceil(count / Number(limit)), hasNext: offset + Number(limit) < count, hasPrev: offset > 0 }, timestamp: new Date(), requestId: req.headers['x-request-id'] || 'unknown' });
+    const offset = (page - 1) * limit;
+    const { rows, count } = await TxModel.findAndCountAll({ where, limit, offset, order: [['createdAt', 'DESC']] });
+    res.json({ success: true, data: rows.map((r: any) => r.toJSON()), pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit), hasNext: offset + limit < count, hasPrev: offset > 0 }, timestamp: new Date(), requestId: req.headers['x-request-id'] || 'unknown' });
   } catch (error) { next(error); }
 });
 
@@ -288,7 +296,11 @@ router.put('/transactions/:id', requireRole(['admin', 'super_admin']), async (re
 // KYC management routes
 router.get('/kyc', requireRole(['admin', 'super_admin', 'compliance']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { page = 1, limit = 10, status, level, brokerId } = req.query;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const status = req.query.status as string | undefined;
+    const level = req.query.level as string | undefined;
+    const brokerId = req.query.brokerId as string | undefined;
     
     // Get all KYC users from the service
     const { KYCService } = await import('../services/kyc');
@@ -343,7 +355,7 @@ router.get('/kyc', requireRole(['admin', 'super_admin', 'compliance']), async (r
 });
 
 router.put('/kyc/:id', requireRole(['admin', 'super_admin', 'compliance']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
+    try {
     const { id } = req.params;
     const { status, notes, level } = req.body;
     
@@ -407,7 +419,7 @@ router.put('/kyc/:id', requireRole(['admin', 'super_admin', 'compliance']), asyn
 router.get('/settings', requireRole(['super_admin']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     // Get system settings from ConfigService
-    const { ConfigService } = await import('../services/config-enhanced');
+    const { ConfigService } = await import('../services/config');
     const config = ConfigService.getConfig();
     
     // Return sanitized config (remove sensitive data like private keys)
@@ -472,7 +484,7 @@ router.put('/settings', requireRole(['super_admin']), async (req: Request, res: 
     
     // Reload config if ConfigService supports it
     try {
-      const { ConfigService } = await import('../services/config-enhanced');
+      const { ConfigService } = await import('../services/config');
       if ((ConfigService as any).reloadConfig) {
         await (ConfigService as any).reloadConfig();
       }
@@ -495,7 +507,12 @@ router.put('/settings', requireRole(['super_admin']), async (req: Request, res: 
 // Audit logs routes
 router.get('/audit-logs', requireRole(['admin', 'super_admin']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { page = 1, limit = 10, action, userId, startDate, endDate } = req.query;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const action = req.query.action as string | undefined;
+    const userId = req.query.userId as string | undefined;
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
     
     // Get audit logs from database (EventStreamingService stores events in Kafka)
     // For now, we'll query the database for audit-related events
@@ -541,7 +558,7 @@ router.get('/audit-logs', requireRole(['admin', 'super_admin']), async (req: Req
       where,
       order: [['createdAt', 'DESC']],
       limit: limitNum,
-      offset
+                offset
     });
     
     const totalPages = Math.ceil(total / limitNum);
@@ -591,7 +608,7 @@ router.get('/health', requireRole(['admin', 'super_admin']), async (req: Request
     try {
       const dbHealthy = await DatabaseService.healthCheck();
       healthChecks.database = dbHealthy ? 'healthy' : 'unhealthy';
-    } catch (error) {
+    } catch {
       healthChecks.database = 'unhealthy';
     }
     
@@ -599,7 +616,7 @@ router.get('/health', requireRole(['admin', 'super_admin']), async (req: Request
     try {
       const redisHealthy = (RedisService as any).isHealthy ? (RedisService as any).isHealthy() : true;
       healthChecks.redis = redisHealthy ? 'healthy' : 'unhealthy';
-    } catch (error) {
+    } catch {
       healthChecks.redis = 'unhealthy';
     }
     
@@ -608,7 +625,7 @@ router.get('/health', requireRole(['admin', 'super_admin']), async (req: Request
       const { EventStreamingService } = await import('../services/event-streaming');
       const kafkaHealthy = (EventStreamingService as any).isConnected || false;
       healthChecks.kafka = kafkaHealthy ? 'healthy' : 'degraded';
-    } catch (error) {
+    } catch {
       healthChecks.kafka = 'unknown';
     }
     

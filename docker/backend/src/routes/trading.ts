@@ -5,7 +5,8 @@
  * This serves as a compatibility layer for frontend trading components
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
 import { authenticateToken } from '../middleware/error-handler';
 import { LoggerService } from '../services/logger';
 

@@ -127,7 +127,7 @@ export class TelemetryService {
 
   public static shutdown(): void {
     if (this.sdk) {
-      this.sdk.shutdown();
+      void this.sdk.shutdown();
       LoggerService.info('OpenTelemetry SDK shutdown');
     }
   }

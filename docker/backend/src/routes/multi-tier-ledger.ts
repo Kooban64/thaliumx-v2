@@ -9,7 +9,8 @@
  * - Statistics and Reporting
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { MultiTierLedgerService, AccountType, AccountStatus } from '../services/multi-tier-ledger';
 import { LoggerService } from '../services/logger';
 import { AppError, createError } from '../utils';
@@ -300,9 +301,14 @@ router.get('/transfers',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { accountId, status, limit = 50, offset = 0 } = req.query;
+      const accountId = req.query.accountId as string | undefined;
+      const status = req.query.status as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
 
-      const { tenantId, userId, brokerId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
+      const userId = (req.user as any)?.userId;
+      const brokerId = (req.user as any)?.brokerId;
       if (!tenantId) {
         throw createError('Tenant context required', 400, 'TENANT_REQUIRED');
       }
@@ -342,7 +348,7 @@ router.get('/transfers',
           return true;
         })
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(parseInt(offset as string), parseInt(offset as string) + parseInt(limit as string))
+        .slice(offset, offset + limit)
         .map(t => {
           const fromAccount = MultiTierLedgerService['accounts'].get(t.fromAccountId);
           const toAccount = MultiTierLedgerService['accounts'].get(t.toAccountId);
@@ -386,11 +392,11 @@ router.get('/transfers',
         success: true,
         data: transactions,
         pagination: {
-          limit: parseInt(limit as string),
-          offset: parseInt(offset as string),
+          limit,
+          offset,
           total,
-          hasNext: parseInt(offset as string) + parseInt(limit as string) < total,
-          hasPrev: parseInt(offset as string) > 0
+          hasNext: offset + limit < total,
+          hasPrev: offset > 0
         }
       });
 
@@ -423,7 +429,8 @@ router.get('/transfers/:transferId',
     try {
       const { transferId } = req.params;
 
-      const { tenantId, userId, brokerId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
+      // userId, brokerId extracted but not used in this endpoint
       if (!tenantId) {
         throw createError('Tenant context required', 400, 'TENANT_REQUIRED');
       }
@@ -570,8 +577,10 @@ router.get('/hierarchy',
   requireRole(['platform-admin', 'broker-admin']),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId: queryTenantId } = req.query;
-      const { tenantId: userTenantId, userId, brokerId } = req.user as any;
+      const queryTenantId = req.query.tenantId as string | undefined;
+      const userTenantId = (req.user as any)?.tenantId;
+      const userId = (req.user as any)?.userId;
+      const brokerId = (req.user as any)?.brokerId;
       
       // Use query tenantId if provided and user has platform-admin role, otherwise use user's tenantId
       const tenantId = (req.user as any)?.roles?.includes('platform-admin') && queryTenantId 

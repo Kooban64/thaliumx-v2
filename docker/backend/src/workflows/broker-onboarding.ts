@@ -10,7 +10,7 @@
  * 6. Notify broker
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { BrokerManagementService } from '../services/broker-management';
@@ -19,7 +19,7 @@ import { FinancialRepository } from '../services/financial-repository';
 import { LoggerService } from '../services/logger';
 
 export async function createBrokerOnboardingWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -38,7 +38,8 @@ export async function createBrokerOnboardingWorkflow(
       execute: async (sagaContext: SagaContext) => {
         // Trigger KYC for broker entity
         const ballerineService = new BallerineService();
-        const kycWorkflow = await ballerineService.startWorkflow({
+        // kycWorkflow extracted but not used in this function
+        await ballerineService.startWorkflow({
           id: sagaContext.workflowId,
           type: 'kyb', // Know Your Business
           entity_id: sagaContext.data.companyName,
@@ -160,5 +161,5 @@ export async function createBrokerOnboardingWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.BROKER_ONBOARDING,
-  createBrokerOnboardingWorkflow
+                createBrokerOnboardingWorkflow
 );

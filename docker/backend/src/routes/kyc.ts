@@ -9,14 +9,15 @@
  * - Webhook Processing
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { KYCService } from '../services/kyc';
 import { LoggerService } from '../services/logger';
 import { AppError } from '../utils';
 import { authenticateToken, requireRole, validateRequest } from '../middleware/error-handler';
 import * as JoiModule from 'joi';
 import * as multerModule from 'multer';
-import * as path from 'path';
+// path imported but not used in this file
 
 // Handle namespace imports for CommonJS modules
 const Joi = (JoiModule as any).default || JoiModule;
@@ -70,7 +71,7 @@ router.post('/verify',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
       const {
         zitadelUserId: userId,
         brokerId,
@@ -131,7 +132,7 @@ router.get('/status/:userId',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
       const { userId } = req.params;
 
       LoggerService.info('Fetching KYC status', {
@@ -196,7 +197,7 @@ router.put('/level/:userId',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
       const { userId } = req.params;
       const { newLevel, reason } = req.body;
 
@@ -280,7 +281,7 @@ router.post('/documents/upload',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
       const files = req.files as Express.Multer.File[];
       const {
         zitadelUserId: userId,
@@ -338,7 +339,7 @@ router.post('/documents/upload',
           documentType,
           file.buffer,
           metadata,
-          country
+                country
         );
 
         results.push(document);
@@ -377,7 +378,7 @@ router.get('/documents/:userId',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
       const { userId } = req.params;
 
       LoggerService.info('Fetching user documents', {
@@ -447,7 +448,7 @@ router.get('/risk/:userId',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
       const { userId } = req.params;
 
       LoggerService.info('Fetching risk assessment', {
@@ -514,8 +515,8 @@ router.get('/compliance/:userId',
   requireRole(['admin', 'broker']),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
-      const { userId } = req.params;
+      const tenantId = (req.user as any)?.tenantId;
+      const userId = req.query.userId as string | undefined;
 
       LoggerService.info('Fetching compliance flags', {
         tenantId,
@@ -621,8 +622,10 @@ router.get('/stats',
   requireRole(['admin', 'broker']),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
-      const { period = '30d', kycLevel, status } = req.query;
+      const tenantId = (req.user as any)?.tenantId;
+      const period = (req.query.period as string) || '30d';
+      const kycLevel = req.query.kycLevel as string | undefined;
+      const status = req.query.status as string | undefined;
 
       LoggerService.info('Fetching KYC statistics', {
         tenantId,
@@ -684,8 +687,12 @@ router.get('/reports/export',
   requireRole(['admin']),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
-      const { format = 'csv', startDate, endDate, kycLevel, status } = req.query;
+      const tenantId = (req.user as any)?.tenantId;
+      const format = (req.query.format as string) || 'csv';
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+      const kycLevel = req.query.kycLevel as string | undefined;
+      const status = req.query.status as string | undefined;
 
       LoggerService.info('Exporting KYC report', {
         tenantId,
@@ -744,7 +751,7 @@ router.post('/collection-flow/create',
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { zitadelUserId: userId, workflowId, redirectUrl } = req.body;
-      const { tenantId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
 
       LoggerService.info('Creating collection flow URL', {
         userId,
@@ -803,14 +810,16 @@ router.post('/collection-flow/callback',
       });
 
       // Handle Ballerine collection flow callback
-      const { workflowId, state, documents } = req.body;
+      const { workflowId, state } = req.body;
 
       if (workflowId) {
         // Update workflow state if needed
-        const { getBallerineService } = await import('../services/ballerine');
-        const ballerineService = getBallerineService();
-        if (state) {
-          await ballerineService.updateCollectionFlowState(workflowId, state);
+        const { getBallerineService } = await import('../services/ballerine').catch(() => ({ getBallerineService: null }));
+        if (getBallerineService) {
+          const ballerineService = getBallerineService();
+          if (state) {
+            await ballerineService.updateCollectionFlowState(workflowId, state);
+          }
         }
       }
 
@@ -924,7 +933,8 @@ router.get('/workflows/:workflowId/logs',
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { workflowId } = req.params;
-      const { type, limit } = req.query;
+      const type = req.query.type as string | undefined;
+      const limit = req.query.limit as string | undefined;
 
       if (!workflowId) {
         res.status(400).json({
@@ -934,7 +944,14 @@ router.get('/workflows/:workflowId/logs',
         return;
       }
 
-      const { getBallerineService } = await import('../services/ballerine');
+      const { getBallerineService } = await import('../services/ballerine').catch(() => ({ getBallerineService: null }));
+      if (!getBallerineService) {
+        res.status(503).json({
+          success: false,
+          error: 'Ballerine service not available'
+        });
+        return;
+      }
       const ballerineService = getBallerineService();
       const logs = await ballerineService.getWorkflowLogs(workflowId, {
         type: type as string,
@@ -1021,8 +1038,16 @@ router.get('/status/unified',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { userId } = req.user as any;
-      const { tenantId } = req.user as any;
+      const userId = req.query.userId as string | undefined;
+      const tenantId = (req.user as any)?.tenantId as string | undefined;
+
+      if (!userId || !tenantId) {
+        res.status(400).json({
+          success: false,
+          error: 'User ID and tenant ID are required'
+        });
+        return;
+      }
 
       LoggerService.info('Fetching unified KYC status', { userId, tenantId });
 

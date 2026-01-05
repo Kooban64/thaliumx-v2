@@ -9,11 +9,13 @@
  * - Listing user workflows
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { LoggerService } from '../services/logger';
 import { authenticateToken, requireRole, validateRequest } from '../middleware/error-handler';
-import { WorkflowType, WorkflowInput, WorkflowExecutionOptions } from '../types/workflow';
+import type { WorkflowInput, WorkflowExecutionOptions } from '../types/workflow';
+import { WorkflowType } from '../types/workflow';
 import * as JoiModule from 'joi';
 
 // Handle namespace imports for CommonJS modules
@@ -45,7 +47,8 @@ router.post('/start',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId, userId: authUserId } = req.user as any;
+      const { tenantId } = req.body;
+      const authUserId = req.user?.userId || req.user?.id;
       const {
         workflowType,
         userId,
@@ -56,7 +59,7 @@ router.post('/start',
         maxRetries,
         timeout,
         retryDelay,
-        enableCompensation
+                enableCompensation
       } = req.body;
 
       // Use authenticated user's tenant if not provided
@@ -125,7 +128,8 @@ router.get('/:workflowId/status',
         return;
       }
 
-      const { tenantId, userId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
 
       LoggerService.info('Getting workflow status', {
         workflowId,
@@ -189,7 +193,7 @@ router.post('/:workflowId/retry',
       }
 
       const { stepIndex } = req.body;
-      const { userId } = req.user as any;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
 
       LoggerService.info('Retrying workflow step', {
         workflowId,
@@ -247,7 +251,7 @@ router.post('/:workflowId/cancel',
     try {
       const { workflowId } = req.params;
       const { reason } = req.body;
-      const { userId } = req.user as any;
+      const userId = (req.user as any)?.id;
 
       if (!workflowId) {
         res.status(400).json({
@@ -311,8 +315,12 @@ router.get('/user/:userId',
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { userId } = req.params;
-      const { status, workflowType, limit, offset } = req.query;
-      const { userId: authUserId, role } = req.user as any;
+      const status = req.query.status as string | undefined;
+      const workflowType = req.query.workflowType as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const authUserId = (req.user as any)?.userId || (req.user as any)?.id;
+      const role = (req.user as any)?.role;
 
       // Verify user has access (own workflows or admin)
       if (userId !== authUserId && !role?.includes('admin')) {
@@ -350,8 +358,8 @@ router.get('/user/:userId',
         {
           status: status as any,
           workflowType: workflowType as any,
-          limit: limit ? parseInt(limit as string) : undefined,
-          offset: offset ? parseInt(offset as string) : undefined
+          limit,
+          offset
         }
       );
 
@@ -404,7 +412,7 @@ router.post('/:workflowId/continue',
       await WorkflowOrchestratorService.continueWorkflow(
         workflowId,
         stepResult,
-        nextStep
+                nextStep
       );
 
       res.json({

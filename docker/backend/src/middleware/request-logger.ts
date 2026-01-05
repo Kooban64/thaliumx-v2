@@ -23,7 +23,7 @@
  * - Supports distributed tracing
  */
 
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { LoggerService } from '../services/logger';
 
 export const requestLogger = (req: Request, res: Response, next: NextFunction): void => {

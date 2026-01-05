@@ -10,14 +10,14 @@
  * 6. Emit migration event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 
 export async function createDataMigrationWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -41,7 +41,7 @@ export async function createDataMigrationWorkflow(
         LoggerService.info('Source data backed up', {
           backupId,
           sourceSystem,
-          dataScope
+                dataScope
         });
         
         return { backupId };
@@ -120,5 +120,5 @@ export async function createDataMigrationWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.DATA_MIGRATION,
-  createDataMigrationWorkflow
+                createDataMigrationWorkflow
 );

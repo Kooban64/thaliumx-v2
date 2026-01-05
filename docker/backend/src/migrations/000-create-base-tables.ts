@@ -10,7 +10,8 @@
  * both fresh installations and existing databases.
  */
 
-import { QueryInterface, DataTypes } from 'sequelize';
+import type { QueryInterface} from 'sequelize';
+import { DataTypes } from 'sequelize';
 
 export async function up(queryInterface: QueryInterface): Promise<void> {
   // Create tenants table if it doesn't exist

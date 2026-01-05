@@ -12,16 +12,13 @@
  * - Production-ready with enterprise security
  */
 
-import { Sequelize, ModelCtor, Model } from 'sequelize';
+import type { Sequelize, ModelCtor, Model } from 'sequelize';
 import { LoggerService } from './logger';
 import { DatabaseService } from './database';
-import { RedisService } from './redis';
 import { EventStreamingService } from './event-streaming';
 import { BlnkFinanceService, TransactionType } from './blnkfinance';
-import { QuantLibService } from './quantlib';
-import { WalletSystemService } from './wallet-system';
-import { OmniExchangeService } from './omni-exchange';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
+// RedisService, QuantLibService, WalletSystemService, OmniExchangeService, AppError imported but not used in this file
 
 // Database models - accessed lazily to avoid initialization order issues
 function getMarginAccountModel(): ModelCtor<Model> {
@@ -544,7 +541,7 @@ export class AdvancedMarginTradingService {
         tenantId,
         brokerId,
         accountType,
-        symbol
+                symbol
       });
 
       // Emit audit event
@@ -830,7 +827,7 @@ export class AdvancedMarginTradingService {
         positionId: position.id,
         userId,
         realizedPnl,
-        isFullClose
+                isFullClose
       });
       
       // Emit transaction event
@@ -862,13 +859,13 @@ export class AdvancedMarginTradingService {
     try {
       // Find position
       let position: MarginPosition | null = null;
-      let accountKey = '';
+      // accountKey extracted but not used in this function
       
-      for (const [key, positions] of this.positions) {
+      for (const [, positions] of this.positions) {
         const found = positions.find(p => p.id === positionId);
         if (found) {
           position = found;
-          accountKey = key;
+          // accountKey = key;
           break;
         }
       }
@@ -930,7 +927,7 @@ export class AdvancedMarginTradingService {
         positionId,
         liquidationValue,
         penaltyFee,
-        reason
+                reason
       });
       
       // Emit critical event
@@ -944,7 +941,7 @@ export class AdvancedMarginTradingService {
           userId: position.userId,
           liquidationValue,
           penaltyFee,
-          reason
+                reason
         }
       );
       
@@ -1075,7 +1072,7 @@ export class AdvancedMarginTradingService {
     try {
       const allSegregations: any[] = [];
       
-      for (const [key, account] of this.accounts) {
+      for (const [, account] of this.accounts) {
         const segregation = await this.getUserFundSegregation(account.userId, account.tenantId, account.brokerId);
         allSegregations.push(segregation);
       }
@@ -1272,7 +1269,7 @@ export class AdvancedMarginTradingService {
 
   private static startRiskMonitoring(): void {
     setInterval(() => {
-      this.monitorRiskLevels();
+      void this.monitorRiskLevels();
     }, this.config.riskCheckInterval * 1000);
     
     LoggerService.info('Risk monitoring started');
@@ -1280,7 +1277,7 @@ export class AdvancedMarginTradingService {
 
   private static startLiquidationMonitoring(): void {
     setInterval(() => {
-      this.checkLiquidations();
+      void this.checkLiquidations();
     }, this.config.liquidationCheckInterval * 1000);
     
     LoggerService.info('Liquidation monitoring started');
@@ -1288,7 +1285,7 @@ export class AdvancedMarginTradingService {
 
   private static startFundingRateUpdates(): void {
     setInterval(() => {
-      this.updateFundingRates();
+      void this.updateFundingRates();
     }, this.config.fundingRateInterval * 60 * 60 * 1000);
     
     LoggerService.info('Funding rate updates started');
@@ -1296,7 +1293,7 @@ export class AdvancedMarginTradingService {
 
   private static async monitorRiskLevels(): Promise<void> {
     try {
-      for (const [key, account] of this.accounts) {
+      for (const [, account] of this.accounts) {
         await this.updateMarginLevel(account);
         
         // Check for margin calls
@@ -1338,7 +1335,7 @@ export class AdvancedMarginTradingService {
 
   private static async updateFundingRates(): Promise<void> {
     try {
-      for (const [symbol, rate] of this.fundingRates) {
+      for (const [, rate] of this.fundingRates) {
         rate.rate = Math.random() * 0.01 - 0.005;
         rate.nextFundingTime = new Date(Date.now() + 8 * 60 * 60 * 1000);
         rate.updatedAt = new Date();
@@ -1738,7 +1735,7 @@ export class AdvancedMarginTradingService {
     }
   }
 
-  private static async processPositionThroughBlnkFinance(position: MarginPosition, account: MarginAccount): Promise<void> {
+  private static async processPositionThroughBlnkFinance(position: MarginPosition, _account: MarginAccount): Promise<void> {
     try {
       await this.processMarginPositionStub({
         tenantId: position.tenantId,
@@ -1761,7 +1758,7 @@ export class AdvancedMarginTradingService {
     }
   }
 
-  private static async processPositionThroughOmniExchange(position: MarginPosition, account: MarginAccount): Promise<void> {
+  private static async processPositionThroughOmniExchange(position: MarginPosition, _account: MarginAccount): Promise<void> {
     try {
       // Place order through Omni Exchange
       const order = await this.processOmniExchangeOrder({

@@ -9,8 +9,10 @@
  * - Trading integration
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import { web3WalletService, WalletConnectionRequest, TokenPurchaseRequest } from '../services/web3-wallet';
+import type { Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
+import type { WalletConnectionRequest, TokenPurchaseRequest } from '../services/web3-wallet';
+import { web3WalletService } from '../services/web3-wallet';
 import { authenticateToken, requireRole } from '../middleware/error-handler';
 import { validateRequest } from '../middleware/validation';
 import Joi from 'joi';
@@ -18,6 +20,9 @@ import { LoggerService } from '../services/logger';
 import { ethers } from 'ethers';
 import { createError } from '../utils';
 import { Op } from 'sequelize';
+import { DEXService } from '../services/dex';
+import { DatabaseService } from '../services/database';
+import { KYCService } from '../services/kyc';
 
 const router: Router = Router();
 
@@ -25,7 +30,7 @@ const router: Router = Router();
 // VALIDATION SCHEMAS
 // =============================================================================
 
-const connectWalletSchema = Joi.object({
+const _connectWalletSchema = Joi.object({
   walletType: Joi.string().valid('metamask', 'walletconnect', 'coinbase', 'phantom', 'rainbow', 'trust', 'ledger', 'trezor').required(),
   chainId: Joi.number().integer().positive().required(),
   address: Joi.string().pattern(/^0x[a-fA-F0-9]{40}$/).required(),
@@ -35,7 +40,7 @@ const connectWalletSchema = Joi.object({
   nonce: Joi.string().required()
 });
 
-const tokenPurchaseSchema = Joi.object({
+const _tokenPurchaseSchema = Joi.object({
   tokenAddress: Joi.string().pattern(/^0x[a-fA-F0-9]{40}$/).required(),
   tokenSymbol: Joi.string().required(),
   amount: Joi.string().pattern(/^\d+(\.\d+)?$/).required(),
@@ -75,7 +80,7 @@ router.post('/connect',
         userId,
         tenantId,
         brokerId,
-        connectionRequest
+                connectionRequest
       );
 
       res.json({
@@ -338,7 +343,7 @@ router.post('/purchase-tokens',
       }
 
       // Import DEX service for token swap
-      const { DEXService } = await import('../services/dex');
+                DEXService
 
       // Get best quote
       const quoteResult = await DEXService.getBestQuote(
@@ -500,7 +505,7 @@ router.post('/trading/order',
       const tokenOut = orderRequest.side === 'buy' ? baseToken : quoteToken;
       
       // Import DEX service
-      const { DEXService } = await import('../services/dex');
+                DEXService
 
       // Calculate amount based on side
       const amountIn = orderRequest.side === 'buy' 
@@ -599,7 +604,7 @@ router.get('/:walletId/security',
       }
 
       // Get client-level compliance status from KYC and risk systems
-      const { KYCService } = await import('../services/kyc');
+                KYCService
       let kycStatus;
       try {
         kycStatus = await KYCService.getKYCStatus(userId);
@@ -621,7 +626,7 @@ router.get('/:walletId/security',
       }
 
       // Check transaction history for this client
-      const { DatabaseService } = await import('../services/database');
+                DatabaseService
       const TransactionModel: any = DatabaseService.getModel('Transaction');
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -650,7 +655,7 @@ router.get('/:walletId/security',
         complianceFlags.push(...wallet.metadata.complianceFlags);
       }
       if (kycStatus?.complianceFlags) {
-        complianceFlags.push(...kycStatus.complianceFlags.map(f => typeof f === 'string' ? f : f.type || 'UNKNOWN'));
+        complianceFlags.push(...kycStatus.complianceFlags.map((f: string | { type: string }) => typeof f === 'string' ? f : f.type || 'UNKNOWN'));
       }
       if (recentTransactions >= limits.daily * 0.9) {
         complianceFlags.push('HIGH_TRANSACTION_VOLUME');

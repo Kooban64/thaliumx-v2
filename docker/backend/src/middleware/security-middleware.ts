@@ -30,11 +30,11 @@
  * - Integration with threat detection
  */
 
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import xss, { type IFilterXSSOptions, type IWhiteList } from 'xss';
 import crypto from 'crypto';
 import { LoggerService } from '../services/logger';
-import { AppError, ErrorCode } from '../utils/error-handler';
+import { AppError } from '../utils/error-handler';
 
 // Server-side sanitization
 // NOTE: `jsdom` + `dompurify` previously used here, but backend builds as CJS (see tsconfig)
@@ -51,9 +51,9 @@ export class SecurityMiddleware {
   // SQL injection patterns to detect
   private static readonly SQL_INJECTION_PATTERNS = [
     /(\b(union|select|insert|update|delete|drop|create|alter|exec|execute)\b)/i,
-    /('|(\\x27)|(\\x2D\\x2D)|(\\#)|(\%27)|(\%23))/i,
-    /(((\%3D)|(=))[^\\n]*((\%27)|(\\x27)|(')|(\-\-)|(\#)))/i,
-    /(\w+)((\%20)|(\+))(and|or)(\%20)(\w+)=/i,
+    /('|(\\x27)|(\\x2D\\x2D)|(#)|(%27)|(%23))/i,
+    /(((%3D)|(=))[^\\n]*((%27)|(\\x27)|(')|(--)|(#)))/i,
+    /(\w+)((%20)|(\+))(and|or)(%20)(\w+)=/i,
     /script/i,
     /javascript:/i,
     /on\w+\s*=/i,
@@ -104,7 +104,7 @@ export class SecurityMiddleware {
           userAgent: req.get('User-Agent'),
           url: req.originalUrl,
           method: req.method,
-          suspiciousInputs
+                suspiciousInputs
         });
 
         return next(AppError.unprocessableEntity('Invalid input detected'));
@@ -128,7 +128,7 @@ export class SecurityMiddleware {
           userAgent: req.get('User-Agent'),
           url: req.originalUrl,
           method: req.method,
-          suspiciousInputs
+                suspiciousInputs
         });
 
         return next(AppError.unprocessableEntity('Invalid input detected'));
@@ -324,7 +324,7 @@ export class SecurityMiddleware {
           LoggerService.logSecurity('Invalid file type', {
             filename: file.originalname,
             mimetype: file.mimetype,
-            allowedTypes
+                allowedTypes
           });
           return next(AppError.unprocessableEntity('Invalid file type'));
         }
@@ -336,7 +336,7 @@ export class SecurityMiddleware {
         if (dangerousExtensions.includes(extension)) {
           LoggerService.logSecurity('Dangerous file extension detected', {
             filename: file.originalname,
-            extension
+                extension
           });
           return next(AppError.unprocessableEntity('File type not allowed'));
         }

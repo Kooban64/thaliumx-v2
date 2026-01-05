@@ -12,7 +12,7 @@
  * across both presale and main trading platforms.
  */
 
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { LoggerService } from '../services/logger';
 import { createError } from '../utils';
 import { ZitadelAttributesService } from '../services/zitadel-attributes.service';
@@ -71,6 +71,31 @@ export function investmentAuth(options: InvestmentAuthOptions) {
 
       // Extract Zitadel context for OPA
       const zitadelContext = ZitadelAttributesService.extractFromRequest(req);
+
+      // Step 0: Check if wallet is blocked (if wallet address provided)
+      const walletAddress = req.body?.walletAddress || req.body?.address;
+      if (walletAddress) {
+        try {
+          const { PresaleSecurityResponseService } = await import('../services/presale-security-response.service');
+          const isBlocked = await PresaleSecurityResponseService.isWalletBlocked(walletAddress);
+          if (isBlocked) {
+            await LoggerService.logAudit('investment_blocked_wallet', 'investment_auth', { userId }, {
+              walletAddress,
+              resourceType: options.resourceType,
+              action: options.action,
+                amount
+            });
+            next(createError(
+              'Wallet address is blocked from making investments',
+              403,
+              'WALLET_BLOCKED'
+            ));
+            return;
+          }
+        } catch (blockCheckError) {
+          LoggerService.warn('Wallet block check failed, continuing (fail-open)', { error: blockCheckError });
+        }
+      }
 
       // Step 1: Check KYC upgrade requirements (unified limit checks)
       const { KYCUpgradeTriggerService } = await import('../services/kyc-upgrade-trigger.service');
@@ -163,7 +188,8 @@ export function investmentAuth(options: InvestmentAuthOptions) {
           );
 
           if (upgradeAction && upgradeAction.parameters?.required_level) {
-            await KYCUpgradeTriggerService.triggerUpgradeWorkflow({
+            const { KYCUpgradeTriggerService: KYCUpgradeTriggerService2 } = await import('../services/kyc-upgrade-trigger.service');
+            await KYCUpgradeTriggerService2.triggerUpgradeWorkflow({
               userId,
               tenantId,
               fromLevel: upgradeCheck.currentLevel,

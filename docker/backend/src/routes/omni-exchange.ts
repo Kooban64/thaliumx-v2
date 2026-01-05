@@ -22,9 +22,9 @@
  * - Rate limiting on sensitive endpoints
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import { authenticateToken, requireRole, validateRequest as validate } from '../middleware/error-handler';
-import { requirePermission } from '../middleware/error-handler';
+import type { Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
+import { authenticateToken, requireRole, requirePermission } from '../middleware/error-handler';
 import rateLimit from 'express-rate-limit';
 import { OmniExchangeService } from '../services/omni-exchange';
 import { LoggerService } from '../services/logger';
@@ -177,7 +177,7 @@ router.post('/orders', authenticateToken, requirePermission('orders','create'), 
 router.get('/orders/:orderId', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { orderId } = req.params;
-    const { exchangeId } = req.query;
+    const exchangeId = req.query.exchangeId as string | undefined;
     
     if (!exchangeId) {
       res.status(400).json({
@@ -195,7 +195,7 @@ router.get('/orders/:orderId', authenticateToken, async (req: Request, res: Resp
       return;
     }
     
-    const order = await omniExchangeService.getOrderStatus(orderId, exchangeId as string);
+    const order = await omniExchangeService.getOrderStatus(orderId, exchangeId);
     
     res.json({
       success: true,
@@ -211,7 +211,7 @@ router.get('/orders/:orderId', authenticateToken, async (req: Request, res: Resp
 router.post('/orders/:orderId/cancel', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { orderId } = req.params;
-    const { exchangeId } = req.query;
+    const exchangeId = req.body.exchangeId as string | undefined;
     
     if (!exchangeId) {
       res.status(400).json({
@@ -473,7 +473,7 @@ router.get('/balance/:exchangeId/:asset/:brokerId/:customerId', authenticateToke
 router.get('/orders/internal/:brokerId', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { brokerId } = req.params;
-    const { customerId } = req.query;
+    const customerId = req.query.customerId as string | undefined;
     
     if (!brokerId) {
       res.status(400).json({
@@ -500,7 +500,12 @@ router.get('/orders/internal/:brokerId', authenticateToken, async (req: Request,
 // Get Travel Rule messages
 router.get('/compliance/travel-rule', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { status, page = '1', limit = '20', sortBy = 'createdAt', sortOrder = 'desc', format = 'json' } = req.query as any;
+    const status = req.query.status as string | undefined;
+    const page = (req.query.page as string) || '1';
+    const limit = (req.query.limit as string) || '20';
+    const sortBy = (req.query.sortBy as string) || 'createdAt';
+    const sortOrder = (req.query.sortOrder as string) || 'desc';
+    const format = (req.query.format as string) || 'json';
     const messages = omniExchangeService.getTravelRuleMessages();
     let filtered = status ? messages.filter(m => m.status === status) : messages;
     
@@ -591,7 +596,12 @@ router.get('/compliance/travel-rule/:messageId', authenticateToken, async (req: 
 // Get CARF reports
 router.get('/compliance/carf', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { status, page = '1', limit = '20', sortBy = 'createdAt', sortOrder = 'desc', format = 'json' } = req.query as any;
+    const status = req.query.status as string | undefined;
+    const page = (req.query.page as string) || '1';
+    const limit = (req.query.limit as string) || '20';
+    const sortBy = (req.query.sortBy as string) || 'createdAt';
+    const sortOrder = (req.query.sortOrder as string) || 'desc';
+    const format = (req.query.format as string) || 'json';
     const reports = omniExchangeService.getCARFReports();
     let filtered = status ? reports.filter(r => r.status === status) : reports;
     
@@ -721,7 +731,7 @@ router.get('/compliance/dashboard', authenticateToken, async (req: Request, res:
 // Run internal compliance self-test (no external dependencies)
 router.post('/compliance/self-test', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { userId, brokerId } = (req as any).user || {};
+    const { userId, brokerId } = req.body;
     const payload = req.body || {};
     const effectiveUserId = payload.userId || userId || 'test-user';
     const effectiveBrokerId = payload.brokerId || brokerId || 'test-broker';

@@ -9,7 +9,7 @@
  * 5. Emit staking event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
@@ -17,7 +17,7 @@ import { LoggerService } from '../services/logger';
 import crypto from 'crypto';
 
 export async function createStakingWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -113,5 +113,5 @@ export async function createStakingWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.STAKING,
-  createStakingWorkflow
+                createStakingWorkflow
 );

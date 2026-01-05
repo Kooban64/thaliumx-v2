@@ -105,7 +105,7 @@ export function sanitizeUsername(username: string): string {
 
   return username
     .trim()
-    .replace(/[<>'"&\\\/\s]/g, '') // Remove dangerous chars and spaces
+    .replace(/[<>'"&\\/\s]/g, '') // Remove dangerous chars and spaces
     .substring(0, 50); // Reasonable username length
 }
 
@@ -129,7 +129,7 @@ export function sanitizeFileName(filename: string): string {
 
   return filename
     .trim()
-    .replace(/[<>'"&\\\/:*?"<>|\r\n]/g, '') // Remove dangerous chars and path separators
+    .replace(/[<>'"&\\/:*?"<>|\r\n]/g, '') // Remove dangerous chars and path separators
     .replace(/\.\./g, '') // Prevent directory traversal
     .substring(0, 255); // Reasonable filename length
 }
@@ -246,7 +246,7 @@ export function sanitizeRequestBody(body: any, schema: Record<string, 'text' | '
   const sanitized = sanitizeObject(body, schema);
 
   // Validate required fields
-  for (const [field, type] of Object.entries(schema)) {
+  for (const [field, _type] of Object.entries(schema)) {
     if (!sanitized[field] || sanitized[field] === '') {
       throw new Error(`Missing required field: ${field}`);
     }

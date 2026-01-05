@@ -13,11 +13,11 @@
  */
 
 import { LoggerService } from './logger';
-import { TransactionVolumeTrackerService, LimitStatus, TransactionType, TimePeriod } from './transaction-volume-tracker.service';
+import type { LimitStatus} from './transaction-volume-tracker.service';
+import { TransactionVolumeTrackerService, TimePeriod } from './transaction-volume-tracker.service';
+// TransactionType, EventStreamingService, ZitadelAttributesService imported but not used in this file
 import { KYCService } from './kyc';
-import { EventStreamingService } from './event-streaming';
-import { ZitadelAttributesService } from './zitadel-attributes.service';
-import { Request } from 'express';
+import type { Request } from 'express';
 
 // =============================================================================
 // TYPES & INTERFACES
@@ -66,7 +66,7 @@ export class KYCUpgradeTriggerService {
       try {
         const kycStatus = await KYCService.getKYCStatus(userId);
         currentLevel = kycStatus.kycLevel;
-      } catch (error) {
+      } catch {
         LoggerService.warn('KYC status not found, defaulting to L0', { userId });
         currentLevel = 'L0';
       }
@@ -77,7 +77,7 @@ export class KYCUpgradeTriggerService {
         tenantId,
         limitType,
         amount,
-        period
+                period
       );
 
       // Determine if upgrade is needed
@@ -108,7 +108,7 @@ export class KYCUpgradeTriggerService {
         requiredLevel,
         reason,
         limitStatus,
-        message
+                message
       };
     } catch (error) {
       LoggerService.error('Failed to check upgrade requirement:', error);
@@ -147,7 +147,7 @@ export class KYCUpgradeTriggerService {
       try {
         const kycStatus = await KYCService.getKYCStatus(userId);
         currentLevel = kycStatus.kycLevel;
-      } catch (error) {
+      } catch {
         LoggerService.warn('KYC status not found', { userId });
         return null;
       }
@@ -178,7 +178,7 @@ export class KYCUpgradeTriggerService {
         recommendedLevel,
         reason: `You've used ${limitStatus.percentage.toFixed(1)}% of your ${limitType} limit`,
         benefits,
-        limitStatus
+                limitStatus
       };
     } catch (error) {
       LoggerService.error('Failed to get upgrade recommendation:', error);
@@ -200,9 +200,9 @@ export class KYCUpgradeTriggerService {
       metadata?: Record<string, any>;
       brokerId?: string;
     },
-    req?: Request
+    _req?: Request
   ): Promise<{ workflowTriggered: boolean; workflowId?: string; message: string }> {
-    const { userId, tenantId, fromLevel, toLevel, reason, triggerType = 'blocking', metadata = {}, brokerId } = request;
+    const { userId, tenantId, fromLevel, toLevel, reason, triggerType = 'blocking', metadata: _metadata = {}, brokerId: _brokerId } = request;
     try {
       // Import KYCWorkflowTriggerService dynamically to avoid circular dependencies
       const { KYCWorkflowTriggerService } = await import('./kyc-workflow-trigger.service');
@@ -216,7 +216,7 @@ export class KYCUpgradeTriggerService {
         triggerType,
         metadata: {
           triggeredAt: new Date().toISOString(),
-          reason
+                reason
         }
       });
 

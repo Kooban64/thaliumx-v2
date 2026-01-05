@@ -11,7 +11,7 @@
  * 4. Default: DEFAULT_TENANT_SLUG (fallback: thaliumx-platform)
  */
 
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import type { Model, ModelCtor } from 'sequelize';
 import { DatabaseService } from '../services/database';
 import { LoggerService } from '../services/logger';

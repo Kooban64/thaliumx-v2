@@ -10,7 +10,7 @@
  * 6. Emit deployment event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
@@ -18,13 +18,13 @@ import { LoggerService } from '../services/logger';
 import crypto from 'crypto';
 
 export async function createSmartContractDeploymentWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
       name: 'validate_deployment_request',
       execute: async (sagaContext: SagaContext) => {
-        const { contractName, bytecode, abi, constructorArgs } = sagaContext.data;
+        const { contractName, bytecode, abi, constructorArgs: _constructorArgs } = sagaContext.data;
         if (!contractName || !bytecode || !abi) {
           throw new Error('Contract name, bytecode, and ABI required for deployment');
         }
@@ -49,7 +49,7 @@ export async function createSmartContractDeploymentWorkflow(
     {
       name: 'deploy_contract_to_blockchain',
       execute: async (sagaContext: SagaContext) => {
-        const { contractName, bytecode, constructorArgs } = sagaContext.data;
+        const { contractName, bytecode: _bytecode, constructorArgs: _constructorArgs } = sagaContext.data;
         // Deploy contract to blockchain (simplified - would use SmartContractService)
         const contractAddress = `0x${Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
         const transactionHash = `0x${crypto.randomBytes(32).toString('hex')}`;

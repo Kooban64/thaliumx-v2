@@ -13,9 +13,8 @@
  */
 
 import { LoggerService } from '../services/logger';
-import { DatabaseService } from '../services/database';
-import { RedisService } from '../services/redis';
-import { AppError, createError } from '../utils';
+// DatabaseService, RedisService, AppError imported but not used in this file
+import { createError } from '../utils';
 
 // =============================================================================
 // TYPES & INTERFACES
@@ -164,7 +163,7 @@ export class FiatService {
         walletId: wallet.id, 
         userId, 
         tenantId, 
-        currency 
+                currency
       });
       
       return wallet;
@@ -240,7 +239,7 @@ export class FiatService {
         transactionId: transaction.id, 
         userId, 
         amount, 
-        currency 
+                currency
       });
       
       return transaction;
@@ -310,7 +309,7 @@ export class FiatService {
         transactionId: transaction.id, 
         userId, 
         amount, 
-        currency 
+                currency
       });
       
       return transaction;
@@ -376,7 +375,7 @@ export class FiatService {
         fromUserId, 
         toUserId, 
         amount, 
-        currency 
+                currency
       });
       
       return transaction;
@@ -446,16 +445,18 @@ export class FiatService {
       transaction.updatedAt = new Date();
       
       // Simulate bank processing delay
-      setTimeout(async () => {
-        try {
-          // Complete deposit
-          await this.completeDeposit(transaction);
-        } catch (error) {
-          LoggerService.error('Deposit completion failed:', error);
-          transaction.status = 'failed';
-          transaction.updatedAt = new Date();
-          await this.saveTransaction(transaction);
-        }
+      setTimeout(() => {
+        void (async () => {
+          try {
+            // Complete deposit
+            await this.completeDeposit(transaction);
+          } catch (error) {
+            LoggerService.error('Deposit completion failed:', error);
+            transaction.status = 'failed';
+            transaction.updatedAt = new Date();
+            await this.saveTransaction(transaction);
+          }
+        })();
       }, 5000); // 5 second delay
       
       await this.saveTransaction(transaction);
@@ -510,19 +511,21 @@ export class FiatService {
       // For now, simulate processing
       
       // Simulate bank processing delay
-      setTimeout(async () => {
-        try {
-          // Complete withdrawal
-          await this.completeWithdrawal(transaction, bankAccount);
-        } catch (error) {
-          LoggerService.error('Withdrawal completion failed:', error);
-          transaction.status = 'failed';
-          transaction.updatedAt = new Date();
-          await this.saveTransaction(transaction);
-          
-          // Unlock funds
-          await this.unlockFunds(transaction.walletId, transaction.amount);
-        }
+      setTimeout(() => {
+        void (async () => {
+          try {
+            // Complete withdrawal
+            await this.completeWithdrawal(transaction, bankAccount);
+          } catch (error) {
+            LoggerService.error('Withdrawal completion failed:', error);
+            transaction.status = 'failed';
+            transaction.updatedAt = new Date();
+            await this.saveTransaction(transaction);
+            
+            // Unlock funds
+            await this.unlockFunds(transaction.walletId, transaction.amount);
+          }
+        })();
       }, 10000); // 10 second delay
       
       await this.saveTransaction(transaction);
@@ -532,7 +535,7 @@ export class FiatService {
     }
   }
 
-  private static async completeWithdrawal(transaction: FiatTransaction, bankAccount: BankAccount): Promise<void> {
+  private static async completeWithdrawal(transaction: FiatTransaction, _bankAccount: BankAccount): Promise<void> {
     try {
       // Get wallet
       const wallets = this.wallets.get(`${transaction.userId}:${transaction.tenantId}`) || [];
@@ -645,7 +648,7 @@ export class FiatService {
     return Math.max(baseFee, percentageFee);
   }
 
-  private static async calculateTransferFee(amount: number, currency: string): Promise<number> {
+  private static async calculateTransferFee(amount: number, _currency: string): Promise<number> {
     // Simple fee calculation
     return amount * 0.0005; // 0.05%
   }
@@ -687,7 +690,7 @@ export class FiatService {
   private static startReconciliationProcess(): void {
     // Start reconciliation process
     setInterval(() => {
-      this.performReconciliation();
+      void this.performReconciliation();
     }, 300000); // Every 5 minutes
     
     LoggerService.info('FIAT reconciliation process started');
@@ -696,7 +699,7 @@ export class FiatService {
   private static startBankingApiMonitoring(): void {
     // Start banking API monitoring
     setInterval(() => {
-      this.monitorBankingApis();
+      void this.monitorBankingApis();
     }, 60000); // Every minute
     
     LoggerService.info('Banking API monitoring started');
@@ -754,7 +757,7 @@ export class FiatService {
     // This would emit to Kafka
     LoggerService.info(`FIAT event: ${eventType}`, { 
       transactionId: transaction.id, 
-      eventType 
+                eventType
     });
   }
 

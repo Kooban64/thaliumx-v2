@@ -12,7 +12,7 @@
  * - Performance optimized with caching
  */
 
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { OPAService } from '../services/opa';
 import { OPAInputBuilder } from '../services/opa-input-builder';
 import { LoggerService } from '../services/logger';

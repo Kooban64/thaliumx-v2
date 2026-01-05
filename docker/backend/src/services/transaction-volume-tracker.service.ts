@@ -15,7 +15,9 @@
 
 import { LoggerService } from './logger';
 import { RedisService } from './redis';
-import { kycLimitsConfig, KYCLevelLimits, KYCLevelConfig } from '../config/kyc-limits.config';
+import type { KYCLevelConfig } from '../config/kyc-limits.config';
+import { kycLimitsConfig } from '../config/kyc-limits.config';
+// KYCLevelLimits imported but not used in this file
 import { KYCService } from './kyc';
 
 // =============================================================================
@@ -115,7 +117,7 @@ export class TransactionVolumeTrackerService {
         tenantId,
         transactionType,
         amount,
-        period
+                period
       });
     } catch (error) {
       LoggerService.error('Failed to track transaction volume:', error);
@@ -231,7 +233,7 @@ export class TransactionVolumeTrackerService {
       try {
         const kycStatus = await KYCService.getKYCStatus(userId);
         kycLevel = kycStatus.kycLevel;
-      } catch (error) {
+      } catch {
         LoggerService.warn('KYC status not found, defaulting to L0', { userId });
         kycLevel = 'L0';
       }
@@ -305,7 +307,7 @@ export class TransactionVolumeTrackerService {
         breakdown,
         canProceed,
         upgradeRequired,
-        upgradeRecommended
+                upgradeRecommended
       };
     } catch (error) {
       LoggerService.error('Failed to check limit:', error);

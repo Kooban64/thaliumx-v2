@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { LoggerService } from '../services/logger';
-import { createError } from '../utils';
+// createError imported but not used in this file - used in route handlers
 import xss, { type IFilterXSSOptions, type IWhiteList } from 'xss';
 
 /**

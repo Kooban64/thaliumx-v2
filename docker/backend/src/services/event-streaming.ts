@@ -11,7 +11,9 @@
  * Enterprise-grade with comprehensive error handling
  */
 
-import { Kafka, Producer, Consumer, EachMessagePayload, KafkaMessage } from 'kafkajs';
+import type { Producer, Consumer, EachMessagePayload} from 'kafkajs';
+import { Kafka } from 'kafkajs';
+// KafkaMessage imported but not used in this file
 import { LoggerService } from './logger';
 import { ConfigService } from './config';
 
@@ -232,7 +234,7 @@ export class EventStreamingService {
           resourceId,
           ...metadata
         },
-        payload
+                payload
       };
 
       await this.publishEvent(event, this.TOPICS.AUDIT);
@@ -241,7 +243,7 @@ export class EventStreamingService {
         eventId: event.metadata.eventId,
         action,
         resource,
-        resourceId
+                resourceId
       });
     } catch (error) {
       LoggerService.error('Failed to emit audit event:', error);
@@ -289,7 +291,7 @@ export class EventStreamingService {
         transactionId,
         amount,
         currency,
-        status
+                status
       });
     } catch (error) {
       LoggerService.error('Failed to emit transaction event:', error);
@@ -319,7 +321,7 @@ export class EventStreamingService {
           level,
           ...metadata
         },
-        payload
+                payload
       };
 
       await this.publishEvent(event, this.TOPICS.SYSTEM);
@@ -335,7 +337,7 @@ export class EventStreamingService {
         LoggerService.info(`System event emitted: ${eventType}`, {
           eventId: event.metadata.eventId,
           component,
-          level
+                level
         });
       }
     } catch (error) {
@@ -370,7 +372,7 @@ export class EventStreamingService {
         payload: {
           data,
           status,
-          notes
+                notes
         }
       };
 
@@ -380,7 +382,7 @@ export class EventStreamingService {
         eventId: event.metadata.eventId,
         regulation,
         requirement,
-        status
+                status
       });
     } catch (error) {
       LoggerService.error('Failed to emit compliance event:', error);
@@ -403,7 +405,7 @@ export class EventStreamingService {
       await consumer.subscribe({ topic, fromBeginning: false });
       
       await consumer.run({
-        eachMessage: async ({ topic, partition, message }: EachMessagePayload) => {
+        eachMessage: async ({ topic: _topic, partition: _partition, message }: EachMessagePayload) => {
           try {
             const event = JSON.parse(message.value?.toString() || '{}') as ThaliumXEvent;
             await handler(event);
@@ -485,7 +487,7 @@ export class EventStreamingService {
           eventId: event.metadata.eventId,
           messageSize,
           maxSize: MAX_MESSAGE_SIZE,
-          topic
+                topic
         });
         throw error;
       }
@@ -495,7 +497,7 @@ export class EventStreamingService {
         LoggerService.warn('Large Kafka message detected', {
           eventType: event.metadata.eventType,
           messageSize,
-          topic
+                topic
         });
       }
 
@@ -554,33 +556,37 @@ export class EventStreamingService {
 
   private static startSystemMonitoring(): void {
     // Emit health check events every 30 seconds
-    setInterval(async () => {
-      try {
-        await this.emitSystemEvent('system.health.check', 'EventStreamingService', 'info', {
-          message: 'Health check',
-          metrics: {
-            isConnected: this.isConnected,
-            consumersCount: this.consumers.size,
-            topics: Object.values(this.TOPICS)
-          }
-        });
-      } catch (error) {
-        LoggerService.error('Health check event emission failed:', error);
-      }
+    setInterval(() => {
+      void (async () => {
+        try {
+          await this.emitSystemEvent('system.health.check', 'EventStreamingService', 'info', {
+            message: 'Health check',
+            metrics: {
+              isConnected: this.isConnected,
+              consumersCount: this.consumers.size,
+              topics: Object.values(this.TOPICS)
+            }
+          });
+        } catch (error) {
+          LoggerService.error('Health check event emission failed:', error);
+        }
+      })();
     }, 30000);
 
     // Monitor producer connection
-    setInterval(async () => {
-      try {
-        if (!this.isConnected) {
-          await this.emitSystemEvent('system.error', 'EventStreamingService', 'error', {
-            message: 'Kafka producer disconnected',
-            context: { timestamp: new Date().toISOString() }
-          });
+    setInterval(() => {
+      void (async () => {
+        try {
+          if (!this.isConnected) {
+            await this.emitSystemEvent('system.error', 'EventStreamingService', 'error', {
+              message: 'Kafka producer disconnected',
+              context: { timestamp: new Date().toISOString() }
+            });
+          }
+        } catch (error) {
+          LoggerService.error('Connection monitoring failed:', error);
         }
-      } catch (error) {
-        LoggerService.error('Connection monitoring failed:', error);
-      }
+      })();
     }, 60000);
 
     LoggerService.info('System monitoring started for Event Streaming Service');

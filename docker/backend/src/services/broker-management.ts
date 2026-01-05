@@ -17,12 +17,11 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
+// ConfigService, AppError, uuidv4 imported but not used in this file
 import { EventStreamingService } from './event-streaming';
 // import { KeycloakService } from './keycloak'; // Removed - using Zitadel now
 import { DatabaseService } from './database';
-import { AppError, createError } from '../utils';
-import { v4 as uuidv4 } from 'uuid';
+import { createError } from '../utils';
 
 // =============================================================================
 // TYPES & INTERFACES
@@ -1003,13 +1002,14 @@ export class BrokerManagementService {
       const UserModel: any = DatabaseService.getModel('User');
       const TransactionModel: any = DatabaseService.getModel('Transaction');
       const WalletModel: any = DatabaseService.getModel('Wallet');
-      const KYCService = (await import('./kyc')).KYCService;
+      // KYCService extracted but not used in this function
+      await import('./kyc');
       
       // Users analytics
       const allUsers = await UserModel.findAll({
         attributes: ['id', 'createdAt', 'isActive', 'kycStatus']
       });
-      const brokerUsers = allUsers.filter((u: any) => {
+      const brokerUsers = allUsers.filter((_u: any) => {
         // Filter by broker association (would need proper relationship)
         return true; // Placeholder - implement proper broker filtering
       });

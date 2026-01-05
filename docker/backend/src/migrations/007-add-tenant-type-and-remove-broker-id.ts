@@ -8,7 +8,8 @@
  * - FinancialAccounts use tenantId only (brokerId removed)
  */
 
-import { QueryInterface, DataTypes } from 'sequelize';
+import type { QueryInterface} from 'sequelize';
+import { DataTypes } from 'sequelize';
 
 export async function up(queryInterface: QueryInterface): Promise<void> {
   // Step 1: Add tenantType field to tenants table
@@ -18,11 +19,11 @@ export async function up(queryInterface: QueryInterface): Promise<void> {
     // Use raw SQL to avoid Sequelize ENUM issues
     await queryInterface.sequelize.query(`
       DO $$
-      BEGIN
+                BEGIN
         CREATE TYPE "enum_tenants_tenantType" AS ENUM('regular', 'broker', 'platform');
-      EXCEPTION
+                EXCEPTION
         WHEN duplicate_object THEN null;
-      END
+                END
       $$;
     `);
 
@@ -126,13 +127,13 @@ export async function up(queryInterface: QueryInterface): Promise<void> {
   // Step 7: Remove indexes that included brokerId
   try {
     await queryInterface.removeIndex('clients', 'clients_tenantId_brokerId');
-  } catch (e) {
+  } catch {
     // Index might not exist, ignore
   }
 
   try {
     await queryInterface.removeIndex('accounts', 'accounts_tenantId_brokerId_clientId');
-  } catch (e) {
+  } catch {
     // Index might not exist, ignore
   }
 }
@@ -178,7 +179,7 @@ export async function down(queryInterface: QueryInterface): Promise<void> {
   try {
     await queryInterface.removeIndex('tenants', 'idx_tenants_tenant_type');
     await queryInterface.removeIndex('tenants', 'idx_tenants_type_active');
-  } catch (e) {
+  } catch {
     // Indexes might not exist, ignore
   }
 }

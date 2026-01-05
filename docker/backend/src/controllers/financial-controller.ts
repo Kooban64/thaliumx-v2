@@ -5,8 +5,8 @@
  * Handles all HTTP request/response for financial operations
  */
 
-import { Request, Response } from 'express';
-import { FinancialRepository } from '../services/financial-repository';
+import type { Request, Response } from 'express';
+import type { FinancialRepository } from '../services/financial-repository';
 import { LoggerService } from '../services/logger';
 // Removed unused import: createError
 
@@ -83,7 +83,7 @@ export class FinancialController {
         entries,
         total: entries.length,
         limit,
-        offset
+                offset
       });
     } catch (error: any) {
       LoggerService.error('Failed to get journal entries', { error: error.message });
@@ -227,7 +227,7 @@ export class FinancialController {
         currency || 'USD',
         description,
         expiresAt ? new Date(expiresAt) : undefined,
-        metadata
+                metadata
       );
 
       LoggerService.info('Hold created', { holdId: hold.id, tenantId, accountId });
@@ -282,7 +282,7 @@ export class FinancialController {
       LoggerService.info('Hold released', { holdId });
       res.json({
         message: 'Hold released successfully',
-        holdId
+                holdId
       });
     } catch (error: any) {
       LoggerService.error('Failed to release hold', { error: error.message });

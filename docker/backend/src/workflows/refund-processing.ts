@@ -9,16 +9,16 @@
  * 5. Emit refund event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { TransactionProcessingService } from '../services/transaction-processing';
-import { FinancialRepository } from '../services/financial-repository';
+// FinancialRepository imported but not used in this file
 import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 
 export async function createRefundProcessingWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -110,5 +110,5 @@ export async function createRefundProcessingWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.REFUND_PROCESSING,
-  createRefundProcessingWorkflow
+                createRefundProcessingWorkflow
 );

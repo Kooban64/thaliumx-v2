@@ -9,7 +9,8 @@
  * - POST /api/ballerine/webhook/workflow/:workflowId - Specific workflow callback
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { LoggerService } from '../services/logger';
 import { KYCWorkflowTriggerService } from '../services/kyc-workflow-trigger.service';
 import { AppError } from '../utils';
@@ -108,7 +109,6 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
 
     // Also update KYC service webhook handler for backward compatibility
     try {
-      const { KYCService } = await import('../services/kyc');
       // KYC service webhook handler is called via KYCWorkflowTriggerService above
       // This ensures unified KYC level updates across both presale and main platform
     } catch (error) {
@@ -157,10 +157,11 @@ router.post('/webhook/workflow/:workflowId', async (req: Request, res: Response)
       return;
     }
 
+    const { workflowId: workflowIdParam } = req.params;
     const { state, status, decision, documents, metadata } = req.body;
 
     LoggerService.info('Received Ballerine workflow webhook', {
-      workflowId,
+      workflowId: workflowIdParam,
       state,
       status,
       decision: decision?.status

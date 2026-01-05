@@ -10,16 +10,16 @@
  * 6. Emit upgrade event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
-import { SmartContractService } from '../services/smart-contracts';
+// SmartContractService imported but not used in this file
 import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 import crypto from 'crypto';
 
 export async function createSmartContractUpgradeWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -36,7 +36,7 @@ export async function createSmartContractUpgradeWorkflow(
     {
       name: 'review_upgrade_proposal',
       execute: async (sagaContext: SagaContext) => {
-        const { contractAddress, newContractCode, upgradeReason } = sagaContext.data;
+        const { contractAddress, newContractCode: _newContractCode, upgradeReason } = sagaContext.data;
         // Review upgrade proposal (security audit, governance vote, etc.)
         LoggerService.info('Reviewing upgrade proposal', {
           contractAddress,
@@ -49,7 +49,7 @@ export async function createSmartContractUpgradeWorkflow(
     {
       name: 'deploy_new_contract',
       execute: async (sagaContext: SagaContext) => {
-        const { newContractCode } = sagaContext.data;
+        const { newContractCode: _newContractCode } = sagaContext.data;
         // Deploy new contract version
         const newContractAddress = `0x${crypto.randomBytes(20).toString('hex')}`;
         const deploymentHash = `0x${crypto.randomBytes(32).toString('hex')}`;
@@ -131,5 +131,5 @@ export async function createSmartContractUpgradeWorkflow(
 
 WorkflowOrchestratorService.registerWorkflow(
   WorkflowType.SMART_CONTRACT_UPGRADE,
-  createSmartContractUpgradeWorkflow
+                createSmartContractUpgradeWorkflow
 );

@@ -20,10 +20,11 @@
  * - Allows startup with schema issues for development flexibility
  */
 
-import { Sequelize, DataTypes, Model, ModelCtor, InferAttributes, InferCreationAttributes, CreationOptional } from 'sequelize';
-import { ConfigService } from './config';
+import type { Model, ModelCtor} from 'sequelize';
+import { Sequelize, DataTypes } from 'sequelize';
 import { LoggerService } from './logger';
-import { User, Transaction, Wallet, Tenant, Order, Trade, TradingPair, MarketData, Balance } from '../types';
+import { ConfigService } from './config';
+// InferAttributes, InferCreationAttributes, CreationOptional, User, Transaction, Wallet, Tenant, Order, Trade, TradingPair, MarketData, Balance imported but not used in this file
 
 export class DatabaseService {
   private static sequelize: Sequelize;
@@ -1536,7 +1537,7 @@ export class DatabaseService {
 
     // Add exchange associations
     const OrderModel = this.models.get('Order')!;
-    const TradeModel = this.models.get('Trade')!;
+    // TradeModel extracted but not used in this function
     const BalanceModel = this.models.get('Balance')!;
 
     // User has many Orders

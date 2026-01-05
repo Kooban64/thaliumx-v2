@@ -12,7 +12,7 @@
  * - additive (no destructive column/type changes)
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 
 export async function up(queryInterface: any, Sequelize: any): Promise<void> {
   const tables = await queryInterface.showAllTables();
@@ -73,21 +73,21 @@ export async function up(queryInterface: any, Sequelize: any): Promise<void> {
   try {
     await queryInterface.sequelize.query(
       `DO $$
-       BEGIN
+                BEGIN
          IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_users_kycStatus') THEN
-           BEGIN
+                BEGIN
              ALTER TYPE "enum_users_kycStatus" ADD VALUE IF NOT EXISTS 'not_started';
            EXCEPTION WHEN duplicate_object THEN NULL;
            END;
-           BEGIN
+                BEGIN
              ALTER TYPE "enum_users_kycStatus" ADD VALUE IF NOT EXISTS 'in_progress';
            EXCEPTION WHEN duplicate_object THEN NULL;
            END;
-           BEGIN
+                BEGIN
              ALTER TYPE "enum_users_kycStatus" ADD VALUE IF NOT EXISTS 'pending_review';
            EXCEPTION WHEN duplicate_object THEN NULL;
            END;
-           BEGIN
+                BEGIN
              ALTER TYPE "enum_users_kycStatus" ADD VALUE IF NOT EXISTS 'approved';
            EXCEPTION WHEN duplicate_object THEN NULL;
            END;

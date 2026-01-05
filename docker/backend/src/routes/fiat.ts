@@ -11,7 +11,8 @@
  * Production-ready with comprehensive validation
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { FiatService } from '../services/fiat';
 import { LoggerService } from '../services/logger';
 import { authenticateToken } from '../middleware/error-handler';
@@ -43,7 +44,7 @@ router.post('/wallets', authenticateToken, validateRequest, async (req: Request,
     LoggerService.info('FIAT wallet created via API', { 
       walletId: wallet.id, 
       userId, 
-      currency 
+      currency
     });
     
     res.status(201).json({
@@ -185,7 +186,7 @@ router.post('/deposits', authenticateToken, validateRequest, async (req: Request
       transactionId: transaction.id, 
       userId, 
       amount, 
-      currency 
+      currency
     });
     
     res.status(201).json({
@@ -240,7 +241,7 @@ router.post('/withdrawals', authenticateToken, validateRequest, async (req: Requ
       transactionId: transaction.id, 
       userId, 
       amount, 
-      currency 
+      currency
     });
     
     res.status(201).json({
@@ -301,7 +302,7 @@ router.post('/transfers', authenticateToken, validateRequest, async (req: Reques
       fromUserId, 
       toUserId, 
       amount, 
-      currency 
+      currency
     });
     
     res.status(201).json({

@@ -10,14 +10,14 @@
  * 6. Emit review event
  */
 
-import { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
+import type { SagaStep, SagaContext, WorkflowInput } from '../types/workflow';
 import { WorkflowType } from '../types/workflow';
 import { WorkflowOrchestratorService } from '../services/workflow-orchestrator';
 import { EventStreamingService } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 
 export async function createComplianceCaseReviewWorkflow(
-  input: WorkflowInput
+  _input: WorkflowInput
 ): Promise<SagaStep[]> {
   return [
     {
@@ -70,7 +70,7 @@ export async function createComplianceCaseReviewWorkflow(
         LoggerService.info('Compliance case decision made', {
           caseId,
           decision,
-          notes
+                notes
         });
         
         return { decisionMade: true, decision };

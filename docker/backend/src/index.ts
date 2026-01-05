@@ -243,6 +243,21 @@ class ThaliumXBackend {
         // Initialize workflow consumer
         const { WorkflowConsumer } = await import('./consumers/workflow-consumer');
         await WorkflowConsumer.initialize();
+      }},
+      { name: 'ContractEventMonitorService', init: async () => {
+        const { ContractEventMonitorService } = await import('./services/contract-event-monitor.service');
+        const { getContractAddresses } = await import('./contracts/addresses/testnet');
+        const addresses = getContractAddresses();
+        const config: any = {
+          enabled: process.env.CONTRACT_EVENT_MONITORING !== 'false',
+          pollInterval: parseInt(process.env.CONTRACT_EVENT_POLL_INTERVAL || '5000', 10),
+          contracts: {
+            security: (addresses as any).THALIUM_SECURITY,
+            emergencyControls: (addresses as any).EMERGENCY_CONTROLS,
+            presale: addresses.THALIUM_PRESALE
+          }
+        };
+        await ContractEventMonitorService.startMonitoring(config);
       }}
     ];
 
@@ -601,7 +616,7 @@ class ThaliumXBackend {
       }
     }
 
-    const { MetricsService } = await import('./services/metrics');
+                MetricsService
     const metrics = await MetricsService.getMetrics();
     res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
     res.send(metrics);
@@ -725,7 +740,7 @@ class ThaliumXBackend {
     });
 
     // Socket.IO connection handling
-    this.io.on('connection', (socket) => {
+    this.io.on('connection', (socket: any) => {
       LoggerService.info(`Client connected: ${socket.id}`);
       
       socket.on('disconnect', () => {
@@ -761,6 +776,19 @@ class ThaliumXBackend {
         }).catch((error) => {
           LoggerService.error('Error closing Redis connections', error);
         });
+
+        // Stop contract event monitoring
+        (async () => {
+          try {
+            const contractEventMonitorModule = await import('./services/contract-event-monitor.service').catch(() => null);
+            if (contractEventMonitorModule?.ContractEventMonitorService) {
+              contractEventMonitorModule.ContractEventMonitorService.stopMonitoring();
+              LoggerService.info('Contract event monitoring stopped');
+            }
+          } catch (error) {
+            LoggerService.warn('Error stopping contract event monitoring', { error });
+          }
+        })();
 
         LoggerService.info('Graceful shutdown complete');
         process.exit(0);

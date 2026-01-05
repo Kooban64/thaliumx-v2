@@ -13,11 +13,14 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
+// ConfigService imported but not used in this file
 import { EventStreamingService } from './event-streaming';
-import { AppError, createError } from '../utils';
+import { createError } from '../utils';
+// AppError imported but not used in this file
 import { v4 as uuidv4 } from 'uuid';
-import { kycLimitsConfig, RoleTransactionLimits as ConfigRoleTransactionLimits, getCurrencySymbol, formatCurrency } from '../config/kyc-limits.config';
+import { kycLimitsConfig, getCurrencySymbol, formatCurrency } from '../config/kyc-limits.config';
+// RoleTransactionLimits imported but not used in this file
+// ConfigRoleTransactionLimits alias imported but not used in this file
 
 // =============================================================================
 // ENHANCED RBAC TYPES FROM UNIFIED PROJECT
@@ -812,7 +815,7 @@ export class RBACService {
           currencies: configLimits.currencies
         };
       }
-    } catch (error) {
+    } catch {
       // Use defaults on error
     }
     return defaults;
@@ -891,7 +894,7 @@ export class RBACService {
         roleId,
         tenantId,
         assignedBy,
-        reason
+                reason
       });
 
       const role = this.roles.get(roleId);
@@ -952,7 +955,7 @@ export class RBACService {
           tenantId,
           assignedBy,
           reason,
-          expiresAt
+                expiresAt
         }
       );
 
@@ -1014,7 +1017,7 @@ export class RBACService {
     return { status: req.status };
   }
 
-  public static async rejectRoleRequest(requestId: string, approverId: string, reason?: string): Promise<{ status: string }> {
+  public static async rejectRoleRequest(requestId: string, approverId: string, _reason?: string): Promise<{ status: string }> {
     const req = this.roleRequests.get(requestId);
     if (!req) throw createError('Request not found', 404, 'REQUEST_NOT_FOUND');
     if (!req.approvers.includes(approverId)) throw createError('Not authorized approver', 403, 'NOT_AUTHORIZED');

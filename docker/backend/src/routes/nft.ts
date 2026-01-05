@@ -9,7 +9,8 @@
  * - Metadata Management
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { NFTService } from '../services/nft';
 import { LoggerService } from '../services/logger';
 import { AppError } from '../utils';
@@ -62,7 +63,7 @@ router.post('/collections',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
       const {
         chainId,
         contractAddress,
@@ -80,7 +81,7 @@ router.post('/collections',
         contractAddress,
         name,
         symbol,
-        creator
+                creator
       });
 
       const collection = await NFTService.createCollection(
@@ -92,7 +93,7 @@ router.post('/collections',
         creator,
         royaltyBps,
         metadata,
-        policyFlags
+                policyFlags
       );
 
       res.status(201).json({
@@ -128,8 +129,13 @@ router.get('/collections',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
-      const { page = 1, limit = 20, chainId, verified, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+      const tenantId = (req.user as any)?.tenantId;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const chainId = req.query.chainId as string | undefined;
+      const verified = req.query.verified as string | undefined;
+      const sortBy = (req.query.sortBy as string) || 'createdAt';
+      const sortOrder = (req.query.sortOrder as string) || 'desc';
 
       LoggerService.info('Fetching NFT collections', {
         tenantId,
@@ -149,10 +155,10 @@ router.get('/collections',
         data: {
           collections,
           pagination: {
-            page: parseInt(page as string),
-            limit: parseInt(limit as string),
+            page,
+            limit,
             total: collections.length,
-            pages: Math.ceil(collections.length / parseInt(limit as string))
+            pages: Math.ceil(collections.length / limit)
           }
         }
       });
@@ -176,7 +182,7 @@ router.get('/collections/:id',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
       const { id } = req.params;
 
       LoggerService.info('Fetching NFT collection details', { tenantId, id });
@@ -221,13 +227,13 @@ router.get('/tokens',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
-      const { 
-        page = 1, 
-        limit = 20, 
-        collectionId, 
-        owner, 
-        traits, 
+      const tenantId = (req.user as any)?.tenantId;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const collectionId = req.query.collectionId as string | undefined;
+      const owner = req.query.owner as string | undefined;
+      const traits = req.query.traits as string | undefined; 
+      const {
         minPrice, 
         maxPrice,
         sortBy = 'createdAt', 
@@ -244,7 +250,7 @@ router.get('/tokens',
         minPrice,
         maxPrice,
         sortBy,
-        sortOrder
+                sortOrder
       });
 
       // This would typically query the database with filters
@@ -255,10 +261,10 @@ router.get('/tokens',
         data: {
           tokens,
           pagination: {
-            page: parseInt(page as string),
-            limit: parseInt(limit as string),
+            page,
+            limit,
             total: tokens.length,
-            pages: Math.ceil(tokens.length / parseInt(limit as string))
+            pages: Math.ceil(tokens.length / limit)
           }
         }
       });
@@ -282,7 +288,7 @@ router.get('/tokens/:collectionId/:tokenId',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
       const { collectionId, tokenId } = req.params;
 
       LoggerService.info('Fetching NFT token details', {
@@ -340,8 +346,8 @@ router.post('/orders/sell',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
-      const { walletAddress } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
+      const walletAddress = (req.user as any)?.walletAddress || req.body.walletAddress;
       const {
         tokenId,
         collectionId,
@@ -414,8 +420,8 @@ router.post('/orders/:id/fulfill',
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
-      const { walletAddress } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
+      const walletAddress = (req.user as any)?.walletAddress || req.body.walletAddress;
       const { id } = req.params;
       const { txHash, blockNumber, amount, price } = req.body;
 
@@ -480,14 +486,14 @@ router.get('/orders',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
-      const { 
-        page = 1, 
-        limit = 20, 
-        collectionId, 
-        maker, 
-        status, 
-        kind,
+      const tenantId = (req.user as any)?.tenantId;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const collectionId = req.query.collectionId as string | undefined;
+      const maker = req.query.maker as string | undefined;
+      const status = req.query.status as string | undefined;
+      const kind = req.query.kind as string | undefined;
+      const {
         minPrice, 
         maxPrice,
         sortBy = 'createdAt', 
@@ -505,7 +511,7 @@ router.get('/orders',
         minPrice,
         maxPrice,
         sortBy,
-        sortOrder
+                sortOrder
       });
 
       // This would typically query the database with filters
@@ -516,10 +522,10 @@ router.get('/orders',
         data: {
           orders,
           pagination: {
-            page: parseInt(page as string),
-            limit: parseInt(limit as string),
+            page,
+            limit,
             total: orders.length,
-            pages: Math.ceil(orders.length / parseInt(limit as string))
+            pages: Math.ceil(orders.length / limit)
           }
         }
       });
@@ -547,17 +553,15 @@ router.get('/activity',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
-      const { 
-        page = 1, 
-        limit = 20, 
-        collectionId, 
-        tokenId, 
-        user,
-        type,
-        sortBy = 'timestamp', 
-        sortOrder = 'desc' 
-      } = req.query;
+      const tenantId = (req.user as any)?.tenantId;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const collectionId = req.query.collectionId as string | undefined;
+      const tokenId = req.query.tokenId as string | undefined;
+      const user = req.query.user as string | undefined;
+      const type = req.query.type as string | undefined;
+      const sortBy = (req.query.sortBy as string) || 'timestamp';
+      const sortOrder = (req.query.sortOrder as string) || 'desc';
 
       LoggerService.info('Fetching NFT activity', {
         tenantId,
@@ -579,10 +583,10 @@ router.get('/activity',
         data: {
           activity,
           pagination: {
-            page: parseInt(page as string),
-            limit: parseInt(limit as string),
+            page,
+            limit,
             total: activity.length,
-            pages: Math.ceil(activity.length / parseInt(limit as string))
+            pages: Math.ceil(activity.length / limit)
           }
         }
       });
@@ -616,8 +620,9 @@ router.post('/metadata/refresh',
   }).or('collectionId', 'tokenId', 'contractAddress')),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
-      const { collectionId, tokenId, contractAddress } = req.body;
+      const tenantId = (req.user as any)?.tenantId;
+      const { collectionId, tokenId } = req.params;
+      const { contractAddress } = req.body;
 
       LoggerService.info('Refreshing NFT metadata', {
         tenantId,
@@ -658,9 +663,9 @@ router.get('/analytics/collections/:id',
   authenticateToken,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tenantId } = req.user as any;
+      const tenantId = (req.user as any)?.tenantId;
       const { id } = req.params;
-      const { period = '7d' } = req.query;
+      const period = (req.query.period as string) || '7d';
 
       LoggerService.info('Fetching collection analytics', {
         tenantId,

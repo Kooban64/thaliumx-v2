@@ -18,7 +18,7 @@
  * - Complete audit trails and compliance
  */
 
-import { Sequelize } from 'sequelize';
+import type { Sequelize } from 'sequelize';
 import crypto from 'crypto';
 import { ethers } from 'ethers';
 import { LoggerService } from './logger';
@@ -583,7 +583,7 @@ export class WalletSystemService {
 
       LoggerService.info('THAL wallet created', { 
         walletId: thalWallet.id, 
-        userId 
+                userId
       });
 
       return thalWallet;
@@ -627,7 +627,7 @@ export class WalletSystemService {
 
       LoggerService.info('Trading wallet created', { 
         walletId: tradingWallet.id, 
-        userId 
+                userId
       });
 
       return tradingWallet;
@@ -698,7 +698,7 @@ export class WalletSystemService {
         userId,
         brokerId,
         referenceType,
-        currency
+                currency
       });
 
       return uniqueRef;
@@ -763,7 +763,7 @@ export class WalletSystemService {
   async processFiatDeposit(
     reference: string,
     actualAmount: string,
-    bankTransaction: any
+    _bankTransaction: any
   ): Promise<{
     success: boolean;
     walletId?: string;
@@ -1145,7 +1145,7 @@ export class WalletSystemService {
       LoggerService.info('CEX order processed', {
         orderId: order.id,
         engine: engineUsed,
-        thalReward
+                thalReward
       });
 
     } catch (error) {
@@ -1211,7 +1211,7 @@ export class WalletSystemService {
         userId,
         amount,
         rewardType,
-        sourceId
+                sourceId
       });
 
     } catch (error) {
@@ -1267,7 +1267,7 @@ export class WalletSystemService {
       return {
         success: true,
         wallet: cryptoWallet,
-        recoveryData
+                recoveryData
       };
 
     } catch (error) {
@@ -1280,24 +1280,24 @@ export class WalletSystemService {
 
   private async loadExistingWallets(): Promise<void> {
     // In production, load from database
-    LoggerService.info('Loading existing wallets from database...');
+    void LoggerService.info('Loading existing wallets from database...');
   }
 
   private async loadPoolAccounts(): Promise<void> {
     // In production, load from database
-    LoggerService.info('Loading pool accounts from database...');
+    void LoggerService.info('Loading pool accounts from database...');
   }
 
   private async initializeCEXIntegration(): Promise<void> {
-    LoggerService.info('Initializing CEX integration...');
+    void LoggerService.info('Initializing CEX integration...');
   }
 
-  private async getBrokerCode(brokerId: string): Promise<string> {
+  private async getBrokerCode(_brokerId: string): Promise<string> {
     // In production, get from broker configuration
     return 'THAL'; // Default broker code
   }
 
-  private async getUserInitials(userId: string): Promise<string> {
+  private async getUserInitials(_userId: string): Promise<string> {
     // In production, get from user profile
     return 'JD'; // Default initials
   }
@@ -1425,7 +1425,7 @@ export class WalletSystemService {
     }
   }
 
-  private async getMarketPrice(tradingPair: string): Promise<number> {
+  private async getMarketPrice(_tradingPair: string): Promise<number> {
     // In production, get from market data service
     return 50000; // Mock BTC price
   }

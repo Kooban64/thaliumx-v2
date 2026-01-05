@@ -8,7 +8,8 @@
  * This service should be used for: AML, security, compliance policies
  */
 
-import axios, { AxiosInstance } from 'axios';
+import type { AxiosInstance } from 'axios';
+import axios from 'axios';
 import { LoggerService } from './logger';
 
 export interface OPAInput {
@@ -101,7 +102,8 @@ export class OPAService {
         return [];
       }
 
-      const startTime = Date.now();
+      // startTime extracted but not used in this function
+      Date.now();
       const response = await this.client.post<OPAResponse>(
         '/v1/data/thaliumx/aml/allow',
         { input }
@@ -152,7 +154,8 @@ export class OPAService {
         return [];
       }
 
-      const startTime = Date.now();
+      // startTime extracted but not used in this function
+      Date.now();
       const response = await this.client.post<OPAResponse>(
         '/v1/data/thaliumx/security/allow',
         { input }

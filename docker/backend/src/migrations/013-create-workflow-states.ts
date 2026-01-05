@@ -5,7 +5,8 @@
  * This table stores the state of all running and completed workflows.
  */
 
-import { QueryInterface, DataTypes } from 'sequelize';
+import type { QueryInterface} from 'sequelize';
+import { DataTypes } from 'sequelize';
 
 export const up = async (queryInterface: QueryInterface): Promise<void> => {
   await queryInterface.createTable('workflow_states', {

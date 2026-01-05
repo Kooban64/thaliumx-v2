@@ -22,13 +22,10 @@
  * - Includes request ID for tracing
  */
 
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth';
 import { UserService } from '../services/user';
-import { MFAService } from '../services/mfa';
-import { LoggerService } from '../services/logger';
 import { createError } from '../utils';
-import { AuthRequest, RefreshTokenRequest } from '../types';
 
 // Validation middleware
 export const validateLogin = (req: Request, res: Response, next: NextFunction): void => {
@@ -192,7 +189,7 @@ export const validateConfirmResetPassword = (req: Request, res: Response, next: 
 // Route handlers
 export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { email, password, mfaCode, rememberMe } = req.body as AuthRequest;
+    const { email, password, mfaCode, rememberMe } = req.body;
 
     const result = await AuthService.login(email, password, mfaCode, rememberMe, res);
 
@@ -229,7 +226,7 @@ export const register = async (req: Request, res: Response, next: NextFunction):
 
 export const refreshToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { refreshToken } = req.body as RefreshTokenRequest;
+    const { refreshToken } = req.body;
     
     const result = await AuthService.refreshToken(refreshToken);
     
@@ -422,10 +419,9 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
 export const updateProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const userId = (req as any).user?.userId;
-    const updateData = req.body;
     
     // Remove sensitive fields that shouldn't be updated via this endpoint
-    const { passwordHash, mfaSecret, mfaEnabled, ...allowedUpdates } = updateData;
+    const { passwordHash: _passwordHash, mfaSecret: _mfaSecret, mfaEnabled: _mfaEnabled, ...allowedUpdates } = req.body;
     
     const user = await UserService.updateUser(userId, allowedUpdates);
     

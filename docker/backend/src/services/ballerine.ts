@@ -12,7 +12,8 @@
  * Connects to external Ballerine workflow service (ballerine-workflow:4000)
  */
 
-import axios, { AxiosInstance } from 'axios';
+import type { AxiosInstance } from 'axios';
+import axios from 'axios';
 import { LoggerService } from './logger';
 import * as crypto from 'crypto';
 
@@ -836,7 +837,7 @@ export class BallerineService {
       LoggerService.info('Listed workflows', {
         count: response.data?.results?.length || 0,
         total: response.data?.total || 0,
-        filters
+                filters
       });
 
       return response.data;

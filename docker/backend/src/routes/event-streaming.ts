@@ -10,13 +10,14 @@
  * Production-ready with comprehensive validation
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { EventStreamingService, EventHandlers } from '../services/event-streaming';
 import { LoggerService } from '../services/logger';
 import { authenticateToken } from '../middleware/error-handler';
 import { validateRequest } from '../middleware/validation';
 import { AppError, createError } from '../utils';
-import { UserRole } from '../types';
+// UserRole imported but not used in this file
 
 const router: Router = Router();
 

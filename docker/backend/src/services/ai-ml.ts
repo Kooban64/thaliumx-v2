@@ -29,13 +29,11 @@
  */
 
 import { LoggerService } from './logger';
-import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
-import { AppError, createError } from '../utils';
-import { v4 as uuidv4 } from 'uuid';
+import { createError } from '../utils';
 import * as tf from '@tensorflow/tfjs';
-import * as natural from 'natural';
-import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
+// ConfigService, AppError, natural, axios imported but not used in this file
 
 // =============================================================================
 // AI/ML TYPES & INTERFACES
@@ -878,8 +876,8 @@ export class AIMLService {
     try {
       LoggerService.info('Starting AI/ML model monitoring...');
       
-      setInterval(async () => {
-        await this.monitorModelPerformance();
+      setInterval(() => {
+        void this.monitorModelPerformance();
       }, this.AI_ML_CONFIG.monitoringInterval);
       
       LoggerService.info('Model monitoring started successfully');
@@ -917,7 +915,7 @@ export class AIMLService {
   /**
    * Check if model performance has dropped
    */
-  private static async checkPerformanceDrop(model: AIModel): Promise<number> {
+  private static async checkPerformanceDrop(_model: AIModel): Promise<number> {
     // In production, this would compare current performance with baseline
     return Math.random() * 0.1; // Simulate performance check
   }
@@ -960,8 +958,8 @@ export class AIMLService {
     try {
       LoggerService.info('Starting batch prediction processor...');
       
-      setInterval(async () => {
-        await this.processBatchPredictions();
+      setInterval(() => {
+        void this.processBatchPredictions();
       }, 60000); // Process every minute
       
       LoggerService.info('Batch prediction processor started successfully');
@@ -1064,7 +1062,7 @@ export class AIMLService {
    * - Integration testing
    * - Demo purposes
    */
-  private static async executeModelPrediction(model: AIModel, inputData: any): Promise<any> {
+  private static async executeModelPrediction(model: AIModel, _inputData: any): Promise<any> {
     const startTime = Date.now();
     
     LoggerService.debug('AI/ML prediction requested (EXPERIMENTAL)', {
@@ -1286,7 +1284,7 @@ export class AIMLService {
         assessmentId,
         userId,
         riskScore,
-        riskLevel
+                riskLevel
       });
 
       return assessment;
@@ -1380,7 +1378,7 @@ export class AIMLService {
         detectionId,
         transactionId,
         fraudProbability,
-        riskLevel
+                riskLevel
       });
 
       return detection;
@@ -1477,7 +1475,7 @@ export class AIMLService {
       }
 
       // Optimize portfolio
-      const prediction = await this.makePrediction({
+      await this.makePrediction({
         modelId: model.id,
         inputData: { userId, currentAllocation, timestamp: new Date() },
         predictionType: PredictionType.PORTFOLIO_ALLOCATION,
@@ -1540,7 +1538,7 @@ export class AIMLService {
         userId,
         expectedReturn,
         expectedRisk,
-        sharpeRatio
+                sharpeRatio
       });
 
       return optimization;
