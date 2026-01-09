@@ -219,13 +219,18 @@ export class ConfigService {
       },
 
       kafka: {
-        brokers: process.env.KAFKA_BROKERS?.split(',') || ['localhost:9092'],
+        brokers: process.env.KAFKA_BROKERS?.split(',') || ['kafka-1:9094', 'kafka-2:9094', 'kafka-3:9094'],
         ssl: (process.env.KAFKA_SSL || 'false').toLowerCase() === 'true',
+        sslCaPath: process.env.KAFKA_SSL_CA_PATH || '/etc/kafka/secrets/ca.crt',
+        sslKeyPath: process.env.KAFKA_SSL_KEY_PATH || '/etc/kafka/secrets/client.key',
+        sslCertPath: process.env.KAFKA_SSL_CERT_PATH || '/etc/kafka/secrets/client.crt',
         sasl: process.env.KAFKA_SASL_USERNAME ? {
           mechanism: process.env.KAFKA_SASL_MECHANISM || 'plain',
           username: process.env.KAFKA_SASL_USERNAME,
           password: process.env.KAFKA_SASL_PASSWORD || ''
-        } : undefined
+        } : undefined,
+        replicationFactor: parseInt(process.env.KAFKA_REPLICATION_FACTOR || '3'),
+        minInSyncReplicas: parseInt(process.env.KAFKA_MIN_INSYNC_REPLICAS || '2')
       },
       zitadel: {
         issuer: process.env.ZITADEL_ISSUER || 'https://auth.thaliumx.com',

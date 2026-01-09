@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { RedisService } from '../services/redis';
 import { LoggerService } from '../services/logger';
+import { MetricsService } from '../services/metrics';
 
 /**
  * Redis-backed rate limiting middleware following thaliumx patterns
@@ -102,6 +103,9 @@ export const authRateLimiter = async (req: Request, res: Response, next: NextFun
                 maxRequests
       });
 
+      // Record security metric
+      MetricsService.recordRateLimitExceeded(req.path || req.originalUrl, 'auth');
+
       res.status(429).json({
         success: false,
         error: 'Too many authentication attempts',
@@ -153,6 +157,9 @@ export const apiRateLimiter = async (req: Request, res: Response, next: NextFunc
         current,
                 maxRequests
       });
+
+      // Record security metric
+      MetricsService.recordRateLimitExceeded(req.path || req.originalUrl, 'api');
 
       res.status(429).json({
         success: false,

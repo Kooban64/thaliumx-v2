@@ -1,5 +1,6 @@
 /**
- * Logger Utility for Compliance Coordinator
+ * Enterprise Logger for Compliance Coordinator
+ * Structured logging with Winston - Standardized format
  */
 
 import winston from 'winston';
@@ -13,7 +14,7 @@ function createBaseLogger(): winston.Logger {
   const config = getConfig();
 
   const formats = [
-    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
+    winston.format.timestamp({ format: 'YYYY-MM-DDTHH:mm:ss.SSSZ' }), // ISO 8601 with milliseconds
     winston.format.errors({ stack: true }),
   ];
 
@@ -37,8 +38,26 @@ function createBaseLogger(): winston.Logger {
       environment: config.environment,
     },
     transports: [
-      new winston.transports.Console(),
+      new winston.transports.Console({
+        handleExceptions: true,
+        handleRejections: true,
+      }),
+      // File transport for production (standardized)
+      ...(config.environment === 'production' ? [
+        new winston.transports.File({
+          filename: 'logs/error.log',
+          level: 'error',
+          maxsize: 10 * 1024 * 1024, // 10MB (standardized)
+          maxFiles: 5, // Standardized
+        }),
+        new winston.transports.File({
+          filename: 'logs/combined.log',
+          maxsize: 10 * 1024 * 1024, // 10MB (standardized)
+          maxFiles: 5, // Standardized
+        }),
+      ] : []),
     ],
+    exitOnError: false,
   });
 }
 

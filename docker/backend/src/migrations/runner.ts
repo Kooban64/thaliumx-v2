@@ -237,18 +237,29 @@ if (require.main === module) {
   const command = process.argv[2] || 'up';
   
   void (async () => {
+    // Initialize LoggerService for CLI usage
+    LoggerService.initialize();
+    
     try {
       if (command === 'up') {
         await MigrationRunner.runMigrations();
       } else if (command === 'down') {
         await MigrationRunner.rollbackLast();
       } else {
-        console.error('Usage: ts-node migrations/runner.ts [up|down]');
+        LoggerService.error('Invalid command', {
+          command,
+          usage: 'Usage: ts-node migrations/runner.ts [up|down]',
+        });
         process.exit(1);
       }
       process.exit(0);
     } catch (error) {
-      console.error('Migration failed:', error);
+      LoggerService.error('Migration failed', {
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+        } : String(error),
+      });
       process.exit(1);
     }
   })();

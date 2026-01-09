@@ -10,7 +10,11 @@
 
 import type { AxiosInstance } from 'axios';
 import axios from 'axios';
+import http from 'http';
+import https from 'https';
 import { LoggerService } from './logger';
+import { opaCacheService } from './opa-cache';
+import { MetricsService } from './metrics';
 
 export interface OPAInput {
   action: string;
@@ -48,12 +52,31 @@ export class OPAService {
     this.baseURL = process.env.OPA_URL || 'http://opa:8181';
     this.enabled = process.env.OPA_ENABLED !== 'false'; // Enabled by default
 
+    // Configure HTTP connection pooling for better performance
+    const httpAgent = new http.Agent({
+      keepAlive: true,
+      keepAliveMsecs: 1000,
+      maxSockets: 50,
+      maxFreeSockets: 10,
+      timeout: 5000
+    });
+
+    const httpsAgent = new https.Agent({
+      keepAlive: true,
+      keepAliveMsecs: 1000,
+      maxSockets: 50,
+      maxFreeSockets: 10,
+      timeout: 5000
+    });
+
     this.client = axios.create({
       baseURL: this.baseURL,
       timeout: 5000, // 5 second timeout
       headers: {
         'Content-Type': 'application/json'
-      }
+      },
+      httpAgent: this.baseURL.startsWith('https') ? httpsAgent : httpAgent,
+      httpsAgent: httpsAgent
     });
 
     // Request interceptor
@@ -102,8 +125,24 @@ export class OPAService {
         return [];
       }
 
-      // startTime extracted but not used in this function
-      Date.now();
+      // Check cache first
+      const cacheKey = opaCacheService.generateCacheKey(input, 'aml');
+      const cached = await opaCacheService.get(cacheKey);
+      const startTime = Date.now();
+      
+      if (cached) {
+        const duration = Date.now() - startTime;
+        const result = cached.some((d: OPADecision) => d.allowed === true) ? 'allowed' : 
+                      cached.some((d: OPADecision) => d.allowed === false) ? 'denied' : 'error';
+        MetricsService.recordOPAEvaluation('aml', 'http', true, duration, result);
+        
+        LoggerService.debug('OPA AML policy evaluation (cached)', {
+          action: input.action,
+          decisionCount: cached.length
+        });
+        return cached;
+      }
+
       const response = await this.client.post<OPAResponse>(
         '/v1/data/thaliumx/aml/allow',
         { input }
@@ -113,15 +152,24 @@ export class OPAService {
         ? response.data.result
         : [response.data.result];
 
+      const duration = Date.now() - startTime;
+      const result = decisions.some((d: OPADecision) => d.allowed === true) ? 'allowed' : 
+                    decisions.some((d: OPADecision) => d.allowed === false) ? 'denied' : 'error';
+      MetricsService.recordOPAEvaluation('aml', 'http', false, duration, result);
+
       LoggerService.info('OPA AML Policy Evaluation', {
         action: input.action,
         decisionCount: decisions.length,
+        duration: `${duration}ms`,
         decisions: decisions.map(d => ({
           rule_id: d.rule_id,
           allowed: d.allowed,
           severity: d.severity
         }))
       });
+
+      // Cache the result
+      await opaCacheService.set(cacheKey, decisions, 'aml');
 
       return decisions;
     } catch (error: any) {
@@ -154,8 +202,24 @@ export class OPAService {
         return [];
       }
 
-      // startTime extracted but not used in this function
-      Date.now();
+      // Check cache first
+      const cacheKey = opaCacheService.generateCacheKey(input, 'security');
+      const cached = await opaCacheService.get(cacheKey);
+      const startTime = Date.now();
+      
+      if (cached) {
+        const duration = Date.now() - startTime;
+        const result = cached.some((d: OPADecision) => d.allowed === true) ? 'allowed' : 
+                      cached.some((d: OPADecision) => d.allowed === false) ? 'denied' : 'error';
+        MetricsService.recordOPAEvaluation('security', 'http', true, duration, result);
+        
+        LoggerService.debug('OPA security policy evaluation (cached)', {
+          action: input.action,
+          decisionCount: cached.length
+        });
+        return cached;
+      }
+
       const response = await this.client.post<OPAResponse>(
         '/v1/data/thaliumx/security/allow',
         { input }
@@ -165,10 +229,19 @@ export class OPAService {
         ? response.data.result
         : [response.data.result];
 
+      const duration = Date.now() - startTime;
+      const result = decisions.some((d: OPADecision) => d.allowed === true) ? 'allowed' : 
+                    decisions.some((d: OPADecision) => d.allowed === false) ? 'denied' : 'error';
+      MetricsService.recordOPAEvaluation('security', 'http', false, duration, result);
+
       LoggerService.info('OPA Security Policy Evaluation', {
         action: input.action,
-        decisionCount: decisions.length
+        decisionCount: decisions.length,
+        duration: `${duration}ms`
       });
+
+      // Cache the result
+      await opaCacheService.set(cacheKey, decisions, 'security');
 
       return decisions;
     } catch (error: any) {

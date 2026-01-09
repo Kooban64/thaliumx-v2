@@ -51,7 +51,28 @@ export class DatabaseService {
         password: config.database.password,
         dialect: 'postgres',
         logging: (sql: string, timing?: number) => {
-          LoggerService.logDatabase(sql, timing || 0);
+          const duration = timing || 0;
+          LoggerService.logDatabase(sql, duration);
+          
+          // Record database query metrics
+          try {
+            const metricsModule = require('./metrics');
+            const MetricsService = metricsModule?.MetricsService;
+            if (MetricsService && typeof MetricsService.recordDatabaseQuery === 'function') {
+              // Extract operation type from SQL (SELECT, INSERT, UPDATE, DELETE)
+              const operationMatch = sql.trim().match(/^(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER)/i);
+              const operation = operationMatch && operationMatch[1] ? operationMatch[1].toLowerCase() : 'unknown';
+              
+              // Extract table name from SQL (simplified - may not work for all queries)
+              const tableMatch = sql.match(/(?:FROM|INTO|UPDATE|JOIN)\s+["`]?(\w+)["`]?/i);
+              const table = tableMatch && tableMatch[1] ? tableMatch[1] : 'unknown';
+              
+              MetricsService.recordDatabaseQuery(operation, table, duration);
+            }
+          } catch {
+            // Don't fail on metrics errors - logging is non-blocking
+            // Metrics recording errors are silently ignored to avoid impacting query performance
+          }
         },
         pool: config.database.pool,
         dialectOptions: {

@@ -27,6 +27,7 @@ import { EventStreamingService } from './event-streaming';
 import { QuantLibService } from './quantlib';
 import { BlnkFinanceService } from './blnkfinance';
 import { DatabaseService } from './database';
+import { trace, SpanStatusCode } from '@opentelemetry/api';
 
 // ==================== Types & Interfaces ====================
 
@@ -1970,16 +1971,47 @@ export class OmniExchangeService {
         throw new Error(`Adapter not found for exchange: ${routingDecision.exchangeId}`);
       }
 
-      // Place order on exchange (this uses platform account)
-      const exchangeOrder = await adapter.placeOrder(params);
-      
-      // Update internal order with exchange order details
-      internalOrder.externalOrderId = exchangeOrder.externalOrderId;
-      internalOrder.status = 'submitted';
-      internalOrder.filledAmount = exchangeOrder.filledAmount;
-      internalOrder.averagePrice = exchangeOrder.averagePrice;
-      internalOrder.fees = exchangeOrder.fees;
-      internalOrder.metadata.updatedAt = new Date();
+      // Create OpenTelemetry span for order placement
+      const tracer = trace.getTracer('thaliumx-backend', '1.0.0');
+      const span = tracer.startSpan('omni_exchange.place_order', {
+        attributes: {
+          'order.symbol': params.symbol,
+          'order.side': params.side,
+          'order.type': params.type,
+          'order.amount': params.amount,
+          'exchange.id': routingDecision.exchangeId || 'unknown',
+          'user.id': userId,
+          'broker.id': brokerId
+        }
+      });
+
+      let exchangeOrder: any;
+      try {
+        // Place order on exchange (this uses platform account)
+        exchangeOrder = await adapter.placeOrder(params);
+        
+        // Update internal order with exchange order details
+        internalOrder.externalOrderId = exchangeOrder.externalOrderId;
+        internalOrder.status = 'submitted';
+        internalOrder.filledAmount = exchangeOrder.filledAmount;
+        internalOrder.averagePrice = exchangeOrder.averagePrice;
+        internalOrder.fees = exchangeOrder.fees;
+        internalOrder.metadata.updatedAt = new Date();
+
+        span.setAttributes({
+          'order.external_id': exchangeOrder.externalOrderId,
+          'order.status': internalOrder.status,
+          'order.filled_amount': exchangeOrder.filledAmount || 0,
+          'order.average_price': exchangeOrder.averagePrice || 0
+        });
+        span.setStatus({ code: SpanStatusCode.OK });
+      } catch (error) {
+        span.recordException(error instanceof Error ? error : new Error(String(error)));
+        span.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : String(error) });
+        span.end();
+        throw error;
+      }
+      span.end();
 
       // Update internal order persistence
       try {
@@ -2038,6 +2070,21 @@ export class OmniExchangeService {
           allocatedAmount: params.amount
         }
       });
+
+      // Record trade metric
+      try {
+        const { MetricsService } = await import('./metrics');
+        const volume = parseFloat(params.amount) * (parseFloat(params.price || '0') || 1);
+        MetricsService.recordTrade(
+          routingDecision.exchangeId || 'unknown',
+          params.symbol,
+          params.side,
+          volume
+        );
+      } catch (metricsError) {
+        // Don't fail on metrics errors
+        LoggerService.debug('Failed to record trade metric', { error: metricsError });
+      }
 
       return internalOrder;
     } catch (error) {

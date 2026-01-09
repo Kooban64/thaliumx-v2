@@ -90,6 +90,7 @@ export class WorkflowOrchestratorService {
     options: WorkflowExecutionOptions = {}
   ): Promise<WorkflowResult> {
     const workflowId = uuidv4();
+    const startTime = Date.now();
     const {
       maxRetries = 3,
       timeout: _timeout,
@@ -211,6 +212,20 @@ export class WorkflowOrchestratorService {
           compensated: sagaResult.compensated
         });
 
+        // Record workflow metrics
+        try {
+          const { MetricsService } = await import('./metrics');
+          const duration = Date.now() - startTime;
+          MetricsService.recordWorkflowExecution(
+            input.workflowType,
+            sagaResult.compensated ? 'compensated' : 'failed',
+            duration
+          );
+        } catch (metricsError) {
+          // Don't fail on metrics errors
+          LoggerService.debug('Failed to record workflow metric', { error: metricsError });
+        }
+
         // Create support ticket for workflow failure (if user ID is available)
         // Use input.userId or get from saved state
         const workflowUserId = input.userId || (await this.getWorkflowStatus(workflowId))?.userId;
@@ -274,6 +289,16 @@ export class WorkflowOrchestratorService {
         workflowType: input.workflowType,
         error: error.message
       });
+
+      // Record workflow metrics for error case
+      try {
+        const { MetricsService } = await import('./metrics');
+        const duration = Date.now() - startTime;
+        MetricsService.recordWorkflowExecution(input.workflowType, 'error', duration);
+      } catch (metricsError) {
+        // Don't fail on metrics errors
+        LoggerService.debug('Failed to record workflow metric', { error: metricsError });
+      }
 
       return {
         workflowId,
@@ -642,5 +667,46 @@ export class WorkflowOrchestratorService {
       stepIndex: state.stepIndex,
       nextStep: state.stepIndex < steps.length - 1 ? steps[state.stepIndex + 1]?.name : null
     });
+  }
+
+  /**
+   * Compensate workflow (rollback)
+   */
+  public static async compensateWorkflow(
+    workflowId: string,
+    step: string,
+    reason: string
+  ): Promise<void> {
+    try {
+      const state = await this.getWorkflowStatus(workflowId);
+      if (!state) {
+        throw new Error(`Workflow ${workflowId} not found`);
+      }
+
+      // Update state to compensating
+      await this.updateWorkflowState(workflowId, {
+        status: WorkflowStatus.COMPENSATING,
+        errorMessage: reason
+      });
+
+      // Emit compensation event
+      await this.emitWorkflowEvent('workflow.compensation.started', workflowId, {
+        step,
+        reason
+      });
+
+      LoggerService.warn('Workflow compensation started', {
+        workflowId,
+        step,
+        reason
+      });
+    } catch (error) {
+      LoggerService.error('Failed to compensate workflow', {
+        workflowId,
+        step,
+        error
+      });
+      throw error;
+    }
   }
 }

@@ -7,6 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { LoggerService } from '../../services/logger';
 
 export interface ContractABI {
   abi: any[];
@@ -37,7 +38,13 @@ export function loadABI(contractName: string): ContractABI | null {
       sourceName: artifact.sourceName || ''
     };
   } catch (error) {
-    console.error(`Failed to load ABI for ${contractName}:`, error);
+    LoggerService.error('Failed to load ABI', {
+      contractName,
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+      } : String(error),
+    });
     return null;
   }
 }

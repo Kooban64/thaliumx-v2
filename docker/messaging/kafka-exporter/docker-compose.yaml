@@ -1,0 +1,38 @@
+# Kafka Exporter for Prometheus Metrics
+# ======================================
+# Exposes Kafka metrics for monitoring and alerting
+
+services:
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: thaliumx-kafka-exporter
+    hostname: thaliumx-kafka-exporter
+    restart: unless-stopped
+    command:
+      - '--kafka.server=kafka-1:9094,kafka-2:9094,kafka-3:9094'
+      - '--web.listen-address=:9308'
+      - '--log.level=info'
+      - '--tls.enabled=false'  # Set to true when SSL is enabled
+      - '--tls.insecure-skip-tls-verify=false'
+    ports:
+      - "9308:9308"  # Prometheus metrics endpoint
+    networks:
+      - thaliumx-net
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9308/metrics | grep -q kafka || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "com.thaliumx.service=kafka-exporter"
+      - "com.thaliumx.component=monitoring"
+      - "com.thaliumx.description=Kafka Exporter for Prometheus"
+
+networks:
+  thaliumx-net:
+    external: true

@@ -25,6 +25,54 @@ allow if {
     input.user.id == input.resource.owner_id
 }
 
+# Normalize role names (handles both legacy and Zitadel role formats)
+normalize_role(role) := "platform_admin" if {
+    role == "platform-admin"
+} else := "platform_admin" if {
+    role == "PLATFORM_ADMIN"
+} else := "platform_admin" if {
+    role == "platform_admin"
+} else := "broker_admin" if {
+    role == "broker-admin"
+} else := "broker_admin" if {
+    role == "BROKER_ADMIN"
+} else := "broker_admin" if {
+    role == "broker_admin"
+} else := "broker_trading" if {
+    role == "broker-trading"
+} else := "broker_trading" if {
+    role == "BROKER_TRADING"
+} else := "broker_trading" if {
+    role == "broker_trading"
+} else := "platform_compliance" if {
+    role == "platform-compliance"
+} else := "platform_compliance" if {
+    role == "PLATFORM_COMPLIANCE"
+} else := "platform_compliance" if {
+    role == "platform_compliance"
+} else := "broker_compliance" if {
+    role == "broker-compliance"
+} else := "broker_compliance" if {
+    role == "BROKER_COMPLIANCE"
+} else := "broker_compliance" if {
+    role == "broker_compliance"
+} else := "platform_finance" if {
+    role == "platform-finance"
+} else := "platform_finance" if {
+    role == "PLATFORM_FINANCE"
+} else := "platform_finance" if {
+    role == "platform_finance"
+} else := "broker_finance" if {
+    role == "broker-finance"
+} else := "broker_finance" if {
+    role == "BROKER_FINANCE"
+} else := "broker_finance" if {
+    role == "broker_finance"
+} else := role
+
+# Compute normalized user roles from Zitadel roles array
+normalized_user_roles := {normalize_role(role) | some role in input.user.zitadel_roles} | {normalize_role(role) | some role in input.user.roles}
+
 # Role-based access control (with normalization)
 allow if {
     input.user.authenticated == true
@@ -37,7 +85,7 @@ allow if {
 allow if {
     input.user.authenticated == true
     required_roles := role_permissions[input.action][input.resource.type]
-    normalized_role := normalized_user_roles[_]
+    some normalized_role in normalized_user_roles
     normalized_role in required_roles
 }
 

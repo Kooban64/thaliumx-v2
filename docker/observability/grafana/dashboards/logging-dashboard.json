@@ -1,0 +1,141 @@
+{
+  "dashboard": {
+    "title": "ThaliumX Enterprise Logging Dashboard",
+    "tags": ["logging", "observability", "enterprise"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Log Volume by Level",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum by (level) (rate({service=\"thaliumx-backend\"}[5m]))",
+            "legendFormat": "{{level}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Error Rate Trend",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate({service=\"thaliumx-backend\", level=\"error\"}[5m]))",
+            "legendFormat": "Error Rate",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Log Volume by Service",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum by (service) (rate({}[5m]))",
+            "legendFormat": "{{service}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "PII Redaction Events",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "count({service=\"thaliumx-backend\"} |= \"[REDACTED]\")",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Audit Log Completeness",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "count({service=\"thaliumx-backend\"} |= \"Audit Event\")",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "Security Events",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "{service=\"thaliumx-backend\"} |= \"Security Event\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "Compliance Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "count({service=\"thaliumx-backend\"} |= \"SOX\")",
+            "legendFormat": "SOX",
+            "refId": "A"
+          },
+          {
+            "expr": "count({service=\"thaliumx-backend\"} |= \"GDPR\")",
+            "legendFormat": "GDPR",
+            "refId": "B"
+          },
+          {
+            "expr": "count({service=\"thaliumx-backend\"} |= \"PCI-DSS\")",
+            "legendFormat": "PCI-DSS",
+            "refId": "C"
+          },
+          {
+            "expr": "count({service=\"thaliumx-backend\"} |= \"FINRA\")",
+            "legendFormat": "FINRA",
+            "refId": "D"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 24, "x": 0, "y": 24}
+      },
+      {
+        "id": 8,
+        "title": "Log Shipping Health",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "up{job=\"promtail\"}",
+            "legendFormat": "Promtail Health",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 28}
+      },
+      {
+        "id": 9,
+        "title": "Performance Metrics",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "avg({service=\"thaliumx-backend\"} |= \"Performance Metric\" | json | duration)",
+            "legendFormat": "Avg Duration",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 6, "w": 12, "x": 12, "y": 28}
+      }
+    ]
+  }
+}

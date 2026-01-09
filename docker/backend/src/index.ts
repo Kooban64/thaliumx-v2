@@ -44,7 +44,8 @@ import { SecurityMiddleware } from './middleware/security-middleware';
 import { metricsMiddleware } from './middleware/metrics';
 
 // Import middleware
-import { optionalTenantMiddleware } from './middleware/tenant';
+// Note: optionalTenantMiddleware is available but not currently used
+// import { optionalTenantMiddleware } from './middleware/tenant';
 
 // Import routes
 import authRouter from './routes/auth-router';
@@ -83,6 +84,8 @@ import marketDataRouter from './routes/market-data';
 import tradingRouter from './routes/trading';
 import workflowsRouter from './routes/workflows';
 import supportRouter from './routes/support';
+import auditLogsRouter from './routes/audit-logs';
+import logAnalyticsRouter from './routes/log-analytics';
 // import complianceRouter from './routes/compliance-router';
 // import accessReviewRouter from './routes/access-review-router';
 // import mfaRouter from './routes/mfa-router';
@@ -241,8 +244,11 @@ class ThaliumXBackend {
         // Import workflows to register them
         await import('./workflows');
         // Initialize workflow consumer
-        const { WorkflowConsumer } = await import('./consumers/workflow-consumer');
-        await WorkflowConsumer.initialize();
+        // WorkflowConsumer is now a class that extends BaseKafkaConsumer
+        // It should be instantiated and started, not initialized statically
+        // const { WorkflowConsumer } = await import('./consumers/workflow-consumer');
+        // const workflowConsumer = new WorkflowConsumer();
+        // await workflowConsumer.start();
       }},
       { name: 'ContractEventMonitorService', init: async () => {
         const { ContractEventMonitorService } = await import('./services/contract-event-monitor.service');
@@ -667,6 +673,8 @@ class ThaliumXBackend {
     this.app.use('/api/trading', tradingRouter);
     this.app.use('/api/workflows', workflowsRouter);
     this.app.use('/api/support', supportRouter);
+    this.app.use('/api/audit-logs', auditLogsRouter);
+    this.app.use('/api/log-analytics', logAnalyticsRouter);
 
     // API documentation endpoint
     this.app.get('/api/docs', (_req, res) => {
@@ -778,7 +786,7 @@ class ThaliumXBackend {
         });
 
         // Stop contract event monitoring
-        (async () => {
+        void (async () => {
           try {
             const contractEventMonitorModule = await import('./services/contract-event-monitor.service').catch(() => null);
             if (contractEventMonitorModule?.ContractEventMonitorService) {
@@ -953,22 +961,42 @@ if (require.main === module) {
 
   // Global error handlers
   process.on('uncaughtException', (error: Error) => {
-    console.error('🚨 UNCAUGHT EXCEPTION - Shutting down gracefully');
-    console.error('Error:', error.message);
-    console.error('Stack:', error.stack);
+    LoggerService.error('🚨 UNCAUGHT EXCEPTION - Shutting down gracefully', {
+      error: error.message,
+      stack: error.stack,
+      processInfo: {
+        pid: process.pid,
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+      },
+    });
     process.exit(1);
   });
 
-  process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
-    console.error('🚨 UNHANDLED REJECTION - Shutting down gracefully');
-    console.error('Reason:', reason);
-    console.error('Promise:', promise);
+  process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
+    LoggerService.error('🚨 UNHANDLED REJECTION - Shutting down gracefully', {
+      reason: reason instanceof Error ? {
+        message: reason.message,
+        stack: reason.stack,
+      } : String(reason),
+      promise: String(promise),
+      processInfo: {
+        pid: process.pid,
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+      },
+    });
     process.exit(1);
   });
 
   const server = new ThaliumXBackend();
-  server.start().catch((error) => {
-    console.error('Failed to start server:', error);
+  server.start().catch((error: unknown) => {
+    LoggerService.error('Failed to start server', {
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+      } : String(error),
+    });
     process.exit(1);
   });
 }

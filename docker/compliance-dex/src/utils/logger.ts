@@ -19,9 +19,10 @@ const logLevels = {
 
 /**
  * Structured log formatter for JSON output
+ * Standardized to ISO 8601 format with milliseconds for consistency
  */
 const structuredFormat = winston.format.combine(
-  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
+  winston.format.timestamp({ format: 'YYYY-MM-DDTHH:mm:ss.SSSZ' }), // ISO 8601 with milliseconds
   winston.format.errors({ stack: true }),
   winston.format.json({
     space: config.environment === 'development' ? 2 : 0,
@@ -69,13 +70,13 @@ const winstonLogger = winston.createLogger({
       new winston.transports.File({
         filename: 'logs/error.log',
         level: 'error',
-        maxsize: 10 * 1024 * 1024, // 10MB
-        maxFiles: 5,
+        maxsize: 10 * 1024 * 1024, // 10MB (standardized)
+        maxFiles: 5, // Standardized
       }),
       new winston.transports.File({
         filename: 'logs/combined.log',
-        maxsize: 10 * 1024 * 1024, // 10MB
-        maxFiles: 5,
+        maxsize: 10 * 1024 * 1024, // 10MB (standardized)
+        maxFiles: 5, // Standardized
       }),
     ] : []),
   ],

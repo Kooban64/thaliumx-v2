@@ -22,6 +22,7 @@ import { createError } from '../utils';
 // AppError imported but not used in this file
 import { v4 as uuidv4 } from 'uuid';
 import { kycLimitsConfig, getCurrencySymbol, formatCurrency } from '../config/kyc-limits.config';
+import { trace, SpanStatusCode } from '@opentelemetry/api';
 
 // =============================================================================
 // CORE TYPES & INTERFACES
@@ -603,6 +604,18 @@ export class KYCService {
     walletAddress?: string,
     requestedLevel: KYCLevel = KYCLevel.L0
   ): Promise<KYCUser> {
+    // Create OpenTelemetry span for KYC verification
+    const tracer = trace.getTracer('thaliumx-backend', '1.0.0');
+    const span = tracer.startSpan('kyc.start_verification', {
+      attributes: {
+        'kyc.user_id': userId,
+        'kyc.tenant_id': tenantId,
+        'kyc.broker_id': brokerId,
+        'kyc.requested_level': requestedLevel,
+        'kyc.email': email
+      }
+    });
+
     try {
       LoggerService.info('Starting KYC verification process', {
         tenantId,
@@ -682,9 +695,20 @@ export class KYCService {
         }
       );
 
+      span.setAttributes({
+        'kyc.user_id_internal': user.id,
+        'kyc.status': user.status,
+        'kyc.level': user.kycLevel
+      });
+      span.setStatus({ code: SpanStatusCode.OK });
+      span.end();
+
       return user;
 
     } catch (error) {
+      span.recordException(error instanceof Error ? error : new Error(String(error)));
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : String(error) });
+      span.end();
       LoggerService.error('Start KYC verification failed:', error);
       throw error;
     }

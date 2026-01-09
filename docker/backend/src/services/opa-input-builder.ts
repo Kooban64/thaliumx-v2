@@ -11,6 +11,7 @@ import { TransactionVolumeTrackerService, TimePeriod } from './transaction-volum
 import { KYCService } from './kyc';
 import { RoleMapperService } from './role-mapper';
 import { ZitadelAttributesService } from './zitadel-attributes.service';
+import { RedisService } from './redis';
 
 export interface OPAInput {
   action: string;
@@ -97,13 +98,48 @@ export class OPAInputBuilder {
     if (resolvedAction === 'investment' || resolvedAction === 'trading' || resolvedAction === 'withdrawal' || 
         resolvedAction === 'presale_investment' || resolvedAction === 'token_sale_investment') {
       try {
+        // Fetch KYC status with caching
         let kycLevel = 'L0';
-        try {
-          const kycStatus = await KYCService.getKYCStatus(userId);
-          kycLevel = kycStatus.kycLevel;
-          input.user.kyc_level = kycLevel;
-        } catch (error) {
-          LoggerService.warn('Could not fetch KYC status for OPA input', { userId, error });
+        const kycCacheKey = `opa_input:kyc:${userId}`;
+        
+        if (RedisService.isConnected()) {
+          try {
+            const cachedKyc = await RedisService.getString(kycCacheKey);
+            if (cachedKyc) {
+              const kycData = JSON.parse(cachedKyc);
+              kycLevel = kycData.kycLevel;
+              input.user.kyc_level = kycLevel;
+            } else {
+              // Cache miss - fetch from service
+              try {
+                const kycStatus = await KYCService.getKYCStatus(userId);
+                kycLevel = kycStatus.kycLevel;
+                input.user.kyc_level = kycLevel;
+                // Cache for 60 seconds
+                await RedisService.setString(kycCacheKey, JSON.stringify({ kycLevel }), 60);
+              } catch (error) {
+                LoggerService.warn('Could not fetch KYC status for OPA input', { userId, error });
+              }
+            }
+          } catch {
+            // Fallback to direct fetch if cache fails
+            try {
+              const kycStatus = await KYCService.getKYCStatus(userId);
+              kycLevel = kycStatus.kycLevel;
+              input.user.kyc_level = kycLevel;
+            } catch (kycError) {
+              LoggerService.warn('Could not fetch KYC status for OPA input', { userId, error: kycError });
+            }
+          }
+        } else {
+          // Redis not available - fetch directly
+          try {
+            const kycStatus = await KYCService.getKYCStatus(userId);
+            kycLevel = kycStatus.kycLevel;
+            input.user.kyc_level = kycLevel;
+          } catch (error) {
+            LoggerService.warn('Could not fetch KYC status for OPA input', { userId, error });
+          }
         }
 
         const transactionAmount = input.transaction?.amount || 0;
@@ -113,35 +149,107 @@ export class OPAInputBuilder {
           ? 'trading'
           : 'withdrawal';
 
-        try {
-          const limitStatus = await TransactionVolumeTrackerService.checkLimit(
-            userId,
-            tenantId,
-            limitType,
-            transactionAmount,
-            TimePeriod.TOTAL
-          );
+        // Fetch transaction limit status with caching
+        const limitCacheKey = `opa_input:limit:${userId}:${tenantId}:${limitType}`;
+        
+        if (RedisService.isConnected()) {
+          try {
+            const cachedLimit = await RedisService.getString(limitCacheKey);
+            if (cachedLimit) {
+              const limitData = JSON.parse(cachedLimit);
+              input.user.kyc_limit = limitData.limit;
+              input.user.kyc_usage = limitData.current;
+              input.user.kyc_usage_percentage = limitData.percentage;
+            } else {
+              // Cache miss - fetch from service
+              try {
+                const limitStatus = await TransactionVolumeTrackerService.checkLimit(
+                  userId,
+                  tenantId,
+                  limitType,
+                  transactionAmount,
+                  TimePeriod.TOTAL
+                );
 
-          input.user.kyc_limit = limitStatus.limit;
-          input.user.kyc_usage = limitStatus.current;
-          input.user.kyc_usage_percentage = limitStatus.percentage;
-          
-          if (limitStatus.upgradeRequired && limitStatus.status !== 'within_limit') {
-            const { KYCUpgradeTriggerService } = await import('./kyc-upgrade-trigger.service');
-            const upgradeCheck = await KYCUpgradeTriggerService.checkUpgradeRequired(
+                input.user.kyc_limit = limitStatus.limit;
+                input.user.kyc_usage = limitStatus.current;
+                input.user.kyc_usage_percentage = limitStatus.percentage;
+                
+                // Cache for 30 seconds
+                await RedisService.setString(limitCacheKey, JSON.stringify({
+                  limit: limitStatus.limit,
+                  current: limitStatus.current,
+                  percentage: limitStatus.percentage
+                }), 30);
+                
+                if (limitStatus.upgradeRequired && limitStatus.status !== 'within_limit') {
+                  const { KYCUpgradeTriggerService } = await import('./kyc-upgrade-trigger.service');
+                  const upgradeCheck = await KYCUpgradeTriggerService.checkUpgradeRequired(
+                    userId,
+                    tenantId,
+                    limitType,
+                    transactionAmount,
+                    TimePeriod.TOTAL
+                  );
+                  
+                  if (upgradeCheck.requiredLevel) {
+                    input.user.required_kyc_level = upgradeCheck.requiredLevel;
+                  }
+                }
+              } catch (error) {
+                LoggerService.warn('Could not fetch limit status for OPA input', { userId, error });
+              }
+            }
+          } catch {
+            // Fallback to direct fetch if cache fails
+            try {
+              const limitStatus = await TransactionVolumeTrackerService.checkLimit(
+                userId,
+                tenantId,
+                limitType,
+                transactionAmount,
+                TimePeriod.TOTAL
+              );
+
+              input.user.kyc_limit = limitStatus.limit;
+              input.user.kyc_usage = limitStatus.current;
+              input.user.kyc_usage_percentage = limitStatus.percentage;
+            } catch (limitError) {
+              LoggerService.warn('Could not fetch limit status for OPA input', { userId, error: limitError });
+            }
+          }
+        } else {
+          // Redis not available - fetch directly
+          try {
+            const limitStatus = await TransactionVolumeTrackerService.checkLimit(
               userId,
               tenantId,
               limitType,
               transactionAmount,
               TimePeriod.TOTAL
             );
+
+            input.user.kyc_limit = limitStatus.limit;
+            input.user.kyc_usage = limitStatus.current;
+            input.user.kyc_usage_percentage = limitStatus.percentage;
             
-            if (upgradeCheck.requiredLevel) {
-              input.user.required_kyc_level = upgradeCheck.requiredLevel;
+            if (limitStatus.upgradeRequired && limitStatus.status !== 'within_limit') {
+              const { KYCUpgradeTriggerService } = await import('./kyc-upgrade-trigger.service');
+              const upgradeCheck = await KYCUpgradeTriggerService.checkUpgradeRequired(
+                userId,
+                tenantId,
+                limitType,
+                transactionAmount,
+                TimePeriod.TOTAL
+              );
+              
+              if (upgradeCheck.requiredLevel) {
+                input.user.required_kyc_level = upgradeCheck.requiredLevel;
+              }
             }
+          } catch (error) {
+            LoggerService.warn('Could not fetch limit status for OPA input', { userId, error });
           }
-        } catch (error) {
-          LoggerService.warn('Could not fetch limit status for OPA input', { userId, error });
         }
       } catch (error) {
         LoggerService.warn('Failed to enhance OPA input with KYC data', { userId, error });

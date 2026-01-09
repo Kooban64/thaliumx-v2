@@ -16,7 +16,7 @@
 import { LoggerService } from '../logger';
 import { DatabaseService } from '../database';
 import { EventStreamingService } from '../event-streaming';
-import { User, Transaction } from '../../types';
+// import { User, Transaction } from '../../types';
 
 export interface ComplianceReport {
   reportId: string;
@@ -70,8 +70,8 @@ export class ComplianceService {
    */
   static async generateSuspiciousActivityReport(
     userId: string,
-    startDate: Date,
-    endDate: Date,
+    _startDate: Date,
+    _endDate: Date,
   ): Promise<SuspiciousActivityReport> {
     LoggerService.warn('ComplianceService.generateSuspiciousActivityReport is a stub - use compliance microservices');
     

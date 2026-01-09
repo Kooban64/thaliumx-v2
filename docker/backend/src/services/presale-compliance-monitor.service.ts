@@ -229,6 +229,30 @@ export class PresaleComplianceMonitorService {
         if (requiresSAR) {
           await this.generateSARReport(userId, tenantId, amount, alerts);
         }
+
+        // Record compliance metric
+        try {
+          const { MetricsService } = await import('./metrics');
+          MetricsService.recordComplianceEvent(
+            'presale_compliance_alert',
+            result.requiresSAR ? 'sar_required' : 'alert'
+          );
+        } catch (metricsError) {
+          // Don't fail on metrics errors
+          LoggerService.debug('Failed to record compliance metric', { error: metricsError });
+        }
+      } else {
+        // Record successful compliance check
+        try {
+          const { MetricsService } = await import('./metrics');
+          MetricsService.recordComplianceEvent(
+            'presale_compliance_check',
+            'compliant'
+          );
+        } catch (metricsError) {
+          // Don't fail on metrics errors
+          LoggerService.debug('Failed to record compliance metric', { error: metricsError });
+        }
       }
 
       return result;

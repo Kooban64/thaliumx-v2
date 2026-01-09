@@ -140,7 +140,7 @@ export function investmentAuth(options: InvestmentAuthOptions) {
       // Step 2: Evaluate OPA policy (centralized compliance decision)
       try {
         const { OPAInputBuilder } = await import('../services/opa-input-builder');
-        const { OPAService } = await import('../services/opa');
+        const { opaService: opaServiceInstance } = await import('../services/opa');
         const resourceId = req.body?.presaleId || req.body?.phaseId || req.params?.id;
         const opaInput = await OPAInputBuilder.buildFromRequest(
           req,
@@ -161,8 +161,7 @@ export function investmentAuth(options: InvestmentAuthOptions) {
           }
         );
 
-        const opaService = new OPAService();
-        const opaDecisions = await opaService.evaluateAMLPolicy(opaInput);
+        const opaDecisions = await opaServiceInstance.evaluateAMLPolicy(opaInput);
 
         // Check if OPA denies the investment
         const denied = opaDecisions.some((d: any) => d.allowed === false);

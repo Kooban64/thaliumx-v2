@@ -10,6 +10,7 @@
 
 import type { QueryInterface} from 'sequelize';
 import { DataTypes } from 'sequelize';
+import { LoggerService } from '../services/logger';
 
 export async function up(queryInterface: QueryInterface): Promise<void> {
   // Step 1: Add tenantType field to tenants table
@@ -35,7 +36,7 @@ export async function up(queryInterface: QueryInterface): Promise<void> {
       COMMENT ON COLUMN tenants."tenantType" IS 'Type of tenant: regular (users sign up), broker (manages clients), platform (platform oversight)';
     `);
   } else {
-    console.log('tenantType column already exists, skipping addition');
+    LoggerService.info('tenantType column already exists, skipping addition');
   }
 
   // Step 2: Add index on tenantType for fast queries
@@ -47,7 +48,7 @@ export async function up(queryInterface: QueryInterface): Promise<void> {
     if (!error.message?.includes('already exists')) {
       throw error;
     }
-    console.log('idx_tenants_tenant_type index already exists, skipping');
+    LoggerService.info('idx_tenants_tenant_type index already exists, skipping');
   }
 
   // Step 3: Add composite index for common queries
@@ -65,10 +66,10 @@ export async function up(queryInterface: QueryInterface): Promise<void> {
       if (!error.message?.includes('already exists')) {
         throw error;
       }
-      console.log('idx_tenants_type_active index already exists, skipping');
+      LoggerService.info('idx_tenants_type_active index already exists, skipping');
     }
   } else {
-    console.log('No active flag column found on tenants (expected status or isActive); skipping idx_tenants_type_active');
+    LoggerService.info('No active flag column found on tenants (expected status or isActive); skipping idx_tenants_type_active');
   }
 
   // Step 4: For existing data, try to infer tenantType from existing users/accounts
@@ -101,7 +102,7 @@ export async function up(queryInterface: QueryInterface): Promise<void> {
       `);
     }
   } else {
-    console.log('users.tenantId/tenant_id column not found; skipping broker tenant inference');
+    LoggerService.info('users.tenantId/tenant_id column not found; skipping broker tenant inference');
   }
 
   // Step 5: Check if clients table exists and handle brokerId removal
@@ -121,7 +122,7 @@ export async function up(queryInterface: QueryInterface): Promise<void> {
       await queryInterface.removeColumn('accounts', 'brokerId');
     }
   } else {
-    console.log('accounts table not found; skipping brokerId removal');
+    LoggerService.info('accounts table not found; skipping brokerId removal');
   }
 
   // Step 7: Remove indexes that included brokerId

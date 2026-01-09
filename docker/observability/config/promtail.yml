@@ -59,19 +59,34 @@ scrape_configs:
         labels:
           job: thaliumx-backend
           service: backend
+          environment: ${ENVIRONMENT:-production}
           __path__: /var/log/thaliumx/backend/*.log
 
     pipeline_stages:
-      - multiline:
-          firstline: '^\d{4}-\d{2}-\d{2}'
-          max_wait_time: 3s
-      - regex:
-          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d+Z)\s+(?P<level>\w+)\s+(?P<message>.*)$'
+      # Parse JSON logs (Winston outputs JSON)
+      - json:
+          expressions:
+            timestamp: timestamp
+            level: level
+            message: message
+            service: service
+            correlationId: correlationId
+            requestId: requestId
+            traceId: traceId
+            spanId: spanId
+            userId: userId
+            tenantId: tenantId
       - labels:
           level:
+          service:
       - timestamp:
           source: timestamp
-          format: RFC3339Nano
+          format: RFC3339
+          fallback_formats:
+            - RFC3339Nano
+            - '2006-01-02 15:04:05'
+      - output:
+          source: message
 
   # Frontend logs
   - job_name: frontend

@@ -35,7 +35,7 @@ function createLogger(): winston.Logger {
   const config = getConfig();
 
   const formats = [
-    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
+    winston.format.timestamp({ format: 'YYYY-MM-DDTHH:mm:ss.SSSZ' }), // ISO 8601 with milliseconds
     winston.format.errors({ stack: true }),
   ];
 
@@ -61,8 +61,26 @@ function createLogger(): winston.Logger {
     },
     format: winston.format.combine(...formats),
     transports: [
-      new winston.transports.Console(),
+      new winston.transports.Console({
+        handleExceptions: true,
+        handleRejections: true,
+      }),
+      // File transport for production (standardized)
+      ...(config.environment === 'production' ? [
+        new winston.transports.File({
+          filename: 'logs/error.log',
+          level: 'error',
+          maxsize: 10 * 1024 * 1024, // 10MB (standardized)
+          maxFiles: 5, // Standardized
+        }),
+        new winston.transports.File({
+          filename: 'logs/combined.log',
+          maxsize: 10 * 1024 * 1024, // 10MB (standardized)
+          maxFiles: 5, // Standardized
+        }),
+      ] : []),
     ],
+    exitOnError: false,
   });
 }
 

@@ -26,6 +26,7 @@ import * as jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import type { JWTPayload, User} from '../types';
 import { UserRole } from '../types';
+import { LoggerService } from '../services/logger';
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 
@@ -51,7 +52,10 @@ const getJwtSecret = (kind: 'access' | 'refresh'): string => {
   // Non-production fallback: keep the app/test environment functional.
   // This is intentionally noisy so it cannot be missed.
    
-  console.warn(`[WARN] JWT_SECRET is not set; using an insecure development default (${kind}). Do not use this in production.`);
+  LoggerService.warn('JWT_SECRET is not set; using an insecure development default', {
+    kind,
+    warning: 'Do not use this in production',
+  });
   return 'dev-insecure-jwt-secret-change-me';
 };
 

@@ -20,7 +20,6 @@ import { EventStreamingService } from './event-streaming';
 // import { KYCService } from './kyc';
 // import { RBACService } from './rbac';
 import type { OPADecision } from './opa';
-import { OPAService } from './opa';
 // import { createError } from '../utils';
 // AppError imported but not used in this file
 import { v4 as uuidv4 } from 'uuid';
@@ -367,7 +366,7 @@ export class SecurityOversightService {
       await this.loadExistingData();
       
       // Initialize OPA service (replaces hardcoded rules)
-      const opaService = new OPAService();
+      const { opaService } = await import('./opa');
       const opaHealthy = await opaService.healthCheck();
       if (!opaHealthy) {
         LoggerService.warn('OPA service health check failed, compliance checks may fail');
@@ -495,7 +494,7 @@ export class SecurityOversightService {
     }
   ): Promise<OPADecision[]> {
     try {
-      const opaService = new OPAService();
+      const { opaService } = await import('./opa');
       const decisions = await opaService.evaluateAMLPolicy({
         action: 'transaction_review',
         ...transaction
@@ -552,7 +551,7 @@ export class SecurityOversightService {
     }
   ): Promise<OPADecision[]> {
     try {
-      const opaService = new OPAService();
+      const { opaService } = await import('./opa');
       const decisions = await opaService.evaluateSecurityPolicy({
         action: 'login_attempt',
         ...loginData

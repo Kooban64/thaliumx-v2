@@ -35,6 +35,7 @@ import xss, { type IFilterXSSOptions, type IWhiteList } from 'xss';
 import crypto from 'crypto';
 import { LoggerService } from '../services/logger';
 import { AppError } from '../utils/error-handler';
+import { MetricsService } from '../services/metrics';
 
 // Server-side sanitization
 // NOTE: `jsdom` + `dompurify` previously used here, but backend builds as CJS (see tsconfig)
@@ -107,6 +108,9 @@ export class SecurityMiddleware {
                 suspiciousInputs
         });
 
+        // Record security metric
+        MetricsService.recordSQLInjectionBlocked(req.path || req.originalUrl);
+
         return next(AppError.unprocessableEntity('Invalid input detected'));
       }
 
@@ -130,6 +134,9 @@ export class SecurityMiddleware {
           method: req.method,
                 suspiciousInputs
         });
+
+        // Record security metric
+        MetricsService.recordXSSBlocked(req.path || req.originalUrl);
 
         return next(AppError.unprocessableEntity('Invalid input detected'));
       }

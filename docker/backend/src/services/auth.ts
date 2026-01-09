@@ -64,6 +64,8 @@ export class AuthService {
       if (!user) {
         LoggerService.logAuth('login_attempt', 'unknown', false);
         LoggerService.info('Login attempt failed', { email, reason: 'USER_NOT_FOUND' });
+        const { MetricsService } = await import('./metrics');
+        MetricsService.recordAuthLoginFailure('user_not_found');
         throw createError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
       }
 
@@ -71,6 +73,8 @@ export class AuthService {
       if (!user.isActive) {
         LoggerService.logAuth('login_attempt', user.id, false);
         LoggerService.info('Login attempt failed - account inactive', { email, reason: 'ACCOUNT_INACTIVE' });
+        const { MetricsService } = await import('./metrics');
+        MetricsService.recordAuthLoginFailure('account_inactive');
         throw createError('Account is inactive', 403, 'ACCOUNT_INACTIVE');
       }
 
@@ -80,6 +84,8 @@ export class AuthService {
       if (isLockedOut) {
         LoggerService.logAuth('login_attempt', user.id, false);
         LoggerService.info('Login attempt failed - account locked', { email, reason: 'ACCOUNT_LOCKED' });
+        const { MetricsService } = await import('./metrics');
+        MetricsService.recordAuthLoginFailure('account_locked');
         throw createError('Account is temporarily locked due to too many failed login attempts', 423, 'ACCOUNT_LOCKED');
       }
 
@@ -87,6 +93,8 @@ export class AuthService {
       if (!user.passwordHash) {
         LoggerService.logAuth('login_attempt', user.id, false);
         LoggerService.info('Login attempt failed - no password hash', { email, reason: 'NO_PASSWORD_HASH' });
+        const { MetricsService } = await import('./metrics');
+        MetricsService.recordAuthLoginFailure('no_password_hash');
         throw createError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
       }
 
@@ -103,11 +111,15 @@ export class AuthService {
           await RedisService.del(attemptKey);
           LoggerService.logAuth('account_locked', user.id, false);
           LoggerService.info('Account locked due to too many failed attempts', { email, attemptCount });
+          const { MetricsService } = await import('./metrics');
+          MetricsService.recordAuthLoginFailure('too_many_attempts');
           throw createError('Too many failed login attempts. Account locked for 15 minutes', 423, 'ACCOUNT_LOCKED');
         } else {
           await RedisService.setString(attemptKey, attemptCount.toString(), this.LOCKOUT_DURATION);
           LoggerService.logAuth('login_attempt', user.id, false);
           LoggerService.info('Login attempt failed', { email, attemptCount });
+          const { MetricsService } = await import('./metrics');
+          MetricsService.recordAuthLoginFailure('invalid_password');
           throw createError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
         }
       }

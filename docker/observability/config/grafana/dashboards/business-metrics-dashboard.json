@@ -1,0 +1,135 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "ThaliumX Business Metrics",
+    "tags": ["thaliumx", "business", "metrics", "trading", "compliance"],
+    "timezone": "UTC",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Trading Volume Trends",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate(trade_volume_total[5m])) by (exchange, symbol, side)",
+            "legendFormat": "{{exchange}} - {{symbol}} - {{side}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Total Trades",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate(trades_total[5m])) by (exchange, symbol, side)",
+            "legendFormat": "{{exchange}} - {{symbol}} - {{side}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Active Users Over Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "active_users_total",
+            "legendFormat": "{{broker_id}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Compliance Events by Type",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate(compliance_events_total[5m])) by (event_type, status)",
+            "legendFormat": "{{event_type}} - {{status}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Wallet Balances by Currency",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "wallet_balances_total",
+            "legendFormat": "{{broker_id}} - {{currency}} - {{wallet_type}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "Trading Volume by Exchange",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum(rate(trade_volume_total[1h])) by (exchange)",
+            "legendFormat": "{{exchange}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "Total Trades (24h)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(trades_total[24h]))",
+            "legendFormat": "Total Trades"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 24}
+      },
+      {
+        "id": 8,
+        "title": "Total Volume (24h)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(trade_volume_total[24h]))",
+            "legendFormat": "Total Volume"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 24}
+      },
+      {
+        "id": 9,
+        "title": "Compliance Events (24h)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(compliance_events_total[24h]))",
+            "legendFormat": "Total Events"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 24}
+      },
+      {
+        "id": 10,
+        "title": "Active Users",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(active_users_total)",
+            "legendFormat": "Active Users"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 24}
+      }
+    ],
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}

@@ -13,7 +13,7 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { OPAService } from '../services/opa';
+import { opaService } from '../services/opa';
 import { OPAInputBuilder } from '../services/opa-input-builder';
 import { LoggerService } from '../services/logger';
 import { createError } from '../utils';
@@ -88,7 +88,6 @@ export function authorize(options: AuthorizationOptions = {}) {
       }
 
       // Evaluate authorization with OPA
-      const opaService = new OPAService();
       const decisions = await opaService.evaluateSecurityPolicy(opaInput);
 
       // Check if any decision explicitly denies

@@ -25,20 +25,35 @@
 
 import type { Request, Response, NextFunction } from 'express';
 import { LoggerService } from '../services/logger';
+import { LogCorrelation } from '../utils/log-correlation';
 
 export const requestLogger = (req: Request, res: Response, next: NextFunction): void => {
   const start = Date.now();
-  const requestId = req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // Extract and set correlation context
+  const correlationContext = LogCorrelation.extractFromRequest(req);
+  LogCorrelation.setCorrelationContext(correlationContext);
+  
+  // Get updated context with trace IDs from OpenTelemetry
+  const updatedContext = LogCorrelation.getCorrelationContext() || correlationContext;
+  const requestId = updatedContext.requestId || updatedContext.correlationId;
   
   // Add request ID to request object
   (req as any).requestId = requestId;
   
-  // Add request ID to response headers
+  // Add correlation ID to response headers for downstream services
   res.setHeader('X-Request-ID', requestId);
+  res.setHeader('X-Correlation-ID', updatedContext.correlationId);
+  if (updatedContext.traceId) {
+    res.setHeader('X-Trace-ID', updatedContext.traceId);
+  }
+  if (updatedContext.spanId) {
+    res.setHeader('X-Span-ID', updatedContext.spanId);
+  }
   
-  // Log request
+  // Log request with correlation context
   LoggerService.info('Incoming request', {
-    requestId,
+    ...LogCorrelation.getLogMetadata(),
     method: req.method,
     url: req.url,
     ip: req.ip,
@@ -52,7 +67,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
     const duration = Date.now() - start;
     
     LoggerService.info('Request completed', {
-      requestId,
+      ...LogCorrelation.getLogMetadata(),
       method: req.method,
       url: req.url,
       statusCode: res.statusCode,

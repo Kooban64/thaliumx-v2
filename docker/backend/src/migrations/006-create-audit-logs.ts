@@ -2,11 +2,13 @@
  * Migration: Create audit_logs table for structured audit logging
  */
 
+import { LoggerService } from '../services/logger';
+
 export async function up(queryInterface: any, Sequelize: any): Promise<void> {
   // Check if table already exists
   const tables = await queryInterface.showAllTables();
   if (tables.includes('audit_logs')) {
-    console.log('audit_logs table already exists, skipping creation');
+    LoggerService.info('audit_logs table already exists, skipping creation');
     return;
   }
 

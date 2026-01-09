@@ -350,11 +350,16 @@ export interface AppConfig {
   kafka: {
     brokers: string[];
     ssl?: boolean;
+    sslCaPath?: string;
+    sslKeyPath?: string;
+    sslCertPath?: string;
     sasl?: {
       mechanism: string;
       username: string;
       password: string;
     };
+    replicationFactor?: number;
+    minInSyncReplicas?: number;
   };
     zitadel: {
       issuer: string;

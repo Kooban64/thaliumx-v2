@@ -135,6 +135,89 @@ export class MetricsService {
     labelNames: ['event_type', 'status']
   });
 
+  // Security metrics
+  private static readonly authLoginFailures = new Counter({
+    name: 'auth_login_failures_total',
+    help: 'Total number of failed login attempts',
+    labelNames: ['reason']
+  });
+
+  private static readonly jwtValidationFailures = new Counter({
+    name: 'jwt_validation_failures_total',
+    help: 'Total number of JWT validation failures',
+    labelNames: ['reason']
+  });
+
+  private static readonly rateLimitExceeded = new Counter({
+    name: 'rate_limit_exceeded_total',
+    help: 'Total number of rate limit violations',
+    labelNames: ['endpoint', 'type']
+  });
+
+  private static readonly sqlInjectionBlocked = new Counter({
+    name: 'sql_injection_blocked_total',
+    help: 'Total number of SQL injection attempts blocked',
+    labelNames: ['endpoint']
+  });
+
+  private static readonly xssBlocked = new Counter({
+    name: 'xss_blocked_total',
+    help: 'Total number of XSS attempts blocked',
+    labelNames: ['endpoint']
+  });
+
+  // Workflow metrics
+  private static readonly workflowExecutionsTotal = new Counter({
+    name: 'workflow_executions_total',
+    help: 'Total number of workflow executions',
+    labelNames: ['workflow_type', 'status']
+  });
+
+  private static readonly workflowExecutionDuration = new Histogram({
+    name: 'workflow_execution_duration_seconds',
+    help: 'Duration of workflow executions in seconds',
+    labelNames: ['workflow_type', 'status'],
+    buckets: [1, 5, 10, 30, 60, 120, 300, 600]
+  });
+
+  // OPA metrics
+  private static readonly opaEvaluationsTotal = new Counter({
+    name: 'opa_evaluations_total',
+    help: 'Total number of OPA policy evaluations',
+    labelNames: ['policy_type', 'source', 'cache_hit', 'result']
+  });
+
+  private static readonly opaEvaluationDuration = new Histogram({
+    name: 'opa_evaluation_duration_seconds',
+    help: 'Duration of OPA policy evaluations in seconds',
+    labelNames: ['policy_type', 'source', 'cache_hit'],
+    buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5]
+  });
+
+  private static readonly opaCacheHits = new Counter({
+    name: 'opa_cache_hits_total',
+    help: 'Total number of OPA cache hits',
+    labelNames: ['policy_type', 'cache_level']
+  });
+
+  private static readonly opaCacheMisses = new Counter({
+    name: 'opa_cache_misses_total',
+    help: 'Total number of OPA cache misses',
+    labelNames: ['policy_type']
+  });
+
+  private static readonly opaWasmEvaluations = new Counter({
+    name: 'opa_wasm_evaluations_total',
+    help: 'Total number of OPA WASM evaluations',
+    labelNames: ['policy_type']
+  });
+
+  private static readonly opaHttpEvaluations = new Counter({
+    name: 'opa_http_evaluations_total',
+    help: 'Total number of OPA HTTP evaluations',
+    labelNames: ['policy_type']
+  });
+
   public static initialize(): void {
     if (this.initialized) {
       return;
@@ -289,6 +372,65 @@ export class MetricsService {
 
   public static recordComplianceEvent(eventType: string, status: string): void {
     this.complianceEvents.inc({ event_type: eventType, status });
+  }
+
+  // Security metrics
+  public static recordAuthLoginFailure(reason: string = 'invalid_credentials'): void {
+    this.authLoginFailures.inc({ reason });
+  }
+
+  public static recordJWTValidationFailure(reason: string = 'invalid_token'): void {
+    this.jwtValidationFailures.inc({ reason });
+  }
+
+  public static recordRateLimitExceeded(endpoint: string, type: string = 'general'): void {
+    this.rateLimitExceeded.inc({ endpoint, type });
+  }
+
+  public static recordSQLInjectionBlocked(endpoint: string): void {
+    this.sqlInjectionBlocked.inc({ endpoint });
+  }
+
+  public static recordXSSBlocked(endpoint: string): void {
+    this.xssBlocked.inc({ endpoint });
+  }
+
+  // Workflow metrics
+  public static recordWorkflowExecution(workflowType: string, status: string, duration: number): void {
+    this.workflowExecutionsTotal.inc({ workflow_type: workflowType, status });
+    this.workflowExecutionDuration.observe({ workflow_type: workflowType, status }, duration / 1000);
+  }
+
+  // OPA metrics
+  public static recordOPAEvaluation(
+    policyType: string,
+    source: 'wasm' | 'http',
+    cacheHit: boolean,
+    duration: number,
+    result: 'allowed' | 'denied' | 'error'
+  ): void {
+    this.opaEvaluationsTotal.inc({
+      policy_type: policyType,
+      source,
+      cache_hit: cacheHit ? 'true' : 'false',
+      result
+    });
+    this.opaEvaluationDuration.observe(
+      { policy_type: policyType, source, cache_hit: cacheHit ? 'true' : 'false' },
+      duration / 1000
+    );
+
+    if (cacheHit) {
+      this.opaCacheHits.inc({ policy_type: policyType, cache_level: 'memory' });
+    } else {
+      this.opaCacheMisses.inc({ policy_type: policyType });
+    }
+
+    if (source === 'wasm') {
+      this.opaWasmEvaluations.inc({ policy_type: policyType });
+    } else {
+      this.opaHttpEvaluations.inc({ policy_type: policyType });
+    }
   }
 
   public static async getMetrics(): Promise<string> {

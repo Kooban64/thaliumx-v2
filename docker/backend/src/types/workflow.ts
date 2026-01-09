@@ -39,6 +39,7 @@ export enum WorkflowType {
   RECONCILIATION = 'reconciliation',
 
   // Compliance & Risk
+  KYC_VERIFICATION = 'kyc_verification',
   KYC_REVERIFICATION = 'kyc_reverification',
   COMPLIANCE_CASE_REVIEW = 'compliance_case_review',
   SUSPICIOUS_ACTIVITY_INVESTIGATION = 'suspicious_activity_investigation',

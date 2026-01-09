@@ -71,7 +71,7 @@
         "type": "stat",
         "targets": [
           {
-            "expr": "sum(rate(trading_volume_total[5m]))",
+            "expr": "sum(rate(trade_volume_total[5m]))",
             "legendFormat": "Volume (24h)"
           }
         ],
@@ -83,20 +83,20 @@
         "type": "stat",
         "targets": [
           {
-            "expr": "count(user_sessions_active)",
-            "legendFormat": "Active Sessions"
+            "expr": "active_users_total",
+            "legendFormat": "Active Users"
           }
         ],
         "gridPos": {"h": 4, "w": 6, "x": 6, "y": 14}
       },
       {
         "id": 7,
-        "title": "Compliance Alerts",
+        "title": "Compliance Events",
         "type": "stat",
         "targets": [
           {
-            "expr": "compliance_alerts_total",
-            "legendFormat": "Active Alerts"
+            "expr": "sum(compliance_events_total)",
+            "legendFormat": "Total Events"
           }
         ],
         "gridPos": {"h": 4, "w": 6, "x": 12, "y": 14}
@@ -107,8 +107,8 @@
         "type": "stat",
         "targets": [
           {
-            "expr": "uptime",
-            "legendFormat": "Uptime (days)"
+            "expr": "nodejs_uptime_seconds",
+            "legendFormat": "Uptime (seconds)"
           }
         ],
         "gridPos": {"h": 4, "w": 6, "x": 18, "y": 14}

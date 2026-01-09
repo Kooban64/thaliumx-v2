@@ -697,6 +697,21 @@ export class DEXService {
         }
       );
 
+      // Record trade metric
+      try {
+        const { MetricsService } = await import('./metrics');
+        const volume = parseFloat(amountIn);
+        MetricsService.recordTrade(
+          swap.dex || 'unknown',
+          `${tokenIn}/${tokenOut}`,
+          'swap',
+          volume
+        );
+      } catch (metricsError) {
+        // Don't fail on metrics errors
+        LoggerService.debug('Failed to record trade metric', { error: metricsError });
+      }
+
       return swap;
 
     } catch (error) {

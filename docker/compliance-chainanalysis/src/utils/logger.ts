@@ -1,5 +1,6 @@
 /**
- * Logging utilities for ChainAnalysis service
+ * Enterprise Logger for ChainAnalysis Compliance Service
+ * Structured logging with Winston - Standardized format
  */
 
 import winston from 'winston';
@@ -13,7 +14,7 @@ const levels = {
   warn: 1,
   info: 2,
   debug: 3,
-};
+} as const;
 
 // Define colors for different log levels
 const colors = {
@@ -26,9 +27,9 @@ const colors = {
 // Add colors to winston
 winston.addColors(colors);
 
-// Create the logger format
+// Create the logger format - standardized to ISO 8601
 const format = winston.format.combine(
-  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
+  winston.format.timestamp({ format: 'YYYY-MM-DDTHH:mm:ss.SSSZ' }), // ISO 8601 with milliseconds
   winston.format.errors({ stack: true }),
   winston.format.json(),
   winston.format.colorize({ all: true })
@@ -53,8 +54,25 @@ const logger = winston.createLogger({
             winston.format.simple()
           )
         : format,
+      handleExceptions: true,
+      handleRejections: true,
     }),
+    // File transport for production (standardized)
+    ...(config.environment === 'production' ? [
+      new winston.transports.File({
+        filename: 'logs/error.log',
+        level: 'error',
+        maxsize: 10 * 1024 * 1024, // 10MB (standardized)
+        maxFiles: 5, // Standardized
+      }),
+      new winston.transports.File({
+        filename: 'logs/combined.log',
+        maxsize: 10 * 1024 * 1024, // 10MB (standardized)
+        maxFiles: 5, // Standardized
+      }),
+    ] : []),
   ],
+  exitOnError: false,
 });
 
 /**

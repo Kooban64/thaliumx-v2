@@ -510,12 +510,28 @@ export const authenticateToken = async (
       // Ignore audit log errors
     }
 
-    if (error instanceof jwt.JsonWebTokenError) {
-      next(createError('Invalid token', 401, 'INVALID_TOKEN'));
-    } else if (error instanceof jwt.TokenExpiredError) {
-      next(createError('Token expired', 401, 'TOKEN_EXPIRED'));
-    } else {
-      next(error);
+    // Record JWT validation failure metric
+    try {
+      const { MetricsService } = await import('../services/metrics');
+      if (error instanceof jwt.JsonWebTokenError) {
+        MetricsService.recordJWTValidationFailure('invalid_token');
+        next(createError('Invalid token', 401, 'INVALID_TOKEN'));
+      } else if (error instanceof jwt.TokenExpiredError) {
+        MetricsService.recordJWTValidationFailure('token_expired');
+        next(createError('Token expired', 401, 'TOKEN_EXPIRED'));
+      } else {
+        MetricsService.recordJWTValidationFailure('unknown_error');
+        next(error);
+      }
+    } catch (metricsError) {
+      // Don't fail on metrics errors
+      if (error instanceof jwt.JsonWebTokenError) {
+        next(createError('Invalid token', 401, 'INVALID_TOKEN'));
+      } else if (error instanceof jwt.TokenExpiredError) {
+        next(createError('Token expired', 401, 'TOKEN_EXPIRED'));
+      } else {
+        next(error);
+      }
     }
   }
 };

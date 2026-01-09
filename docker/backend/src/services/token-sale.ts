@@ -18,7 +18,6 @@ import { EventStreamingService } from './event-streaming';
 import { KYCService } from './kyc';
 import { BlnkFinanceService } from './blnkfinance';
 import { OPAInputBuilder } from './opa-input-builder';
-import { OPAService } from './opa';
 import { createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
 // ConfigService, AppError, SmartContractService, axios imported but not used in this file
@@ -780,7 +779,7 @@ export class TokenSaleService {
             }
           );
 
-          const opaService = new OPAService();
+          const { opaService } = await import('./opa');
           const opaDecisions = await opaService.evaluateAMLPolicy(opaInput);
 
           // Check if OPA denies the investment

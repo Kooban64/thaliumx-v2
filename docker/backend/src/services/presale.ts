@@ -1564,7 +1564,7 @@ export class PresaleService {
       if (req) {
         try {
           const { OPAInputBuilder } = await import('./opa-input-builder');
-          const { OPAService } = await import('./opa');
+          const { opaService: opaServiceInstance } = await import('./opa');
           const investmentId = uuidv4(); // Generate investment ID for OPA context
           const opaInput = await OPAInputBuilder.buildFromRequest(
             req as any,
@@ -1587,8 +1587,7 @@ export class PresaleService {
             }
           );
 
-          const opaService = new OPAService();
-          const opaDecisions = await opaService.evaluateAMLPolicy(opaInput);
+          const opaDecisions = await opaServiceInstance.evaluateAMLPolicy(opaInput);
 
           // Check if OPA denies the investment
           const denied = opaDecisions.some((d: any) => d.allowed === false);

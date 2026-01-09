@@ -5,9 +5,10 @@
  * Routes complex/compliance policies to HTTP OPA (centralized, auditable)
  */
 
-import { OPAService } from './opa';
+import { opaService } from './opa';
 import { OPASDkService } from './opa-sdk';
 import { LoggerService } from './logger';
+import { MetricsService } from './metrics';
 
 export interface PolicyInput {
   action: string;
@@ -23,7 +24,8 @@ export interface PolicyDecision {
 }
 
 export class PolicyManager {
-  private opaService: OPAService;
+  private static instance: PolicyManager | null = null;
+  private opaService: typeof opaService;
   private opaSdkService: OPASDkService;
 
   // Policies that should use HTTP (compliance, audit trail required)
@@ -45,9 +47,19 @@ export class PolicyManager {
     'resource_access',
   ]);
 
-  constructor() {
-    this.opaService = new OPAService();
+  private constructor() {
+    this.opaService = opaService;
     this.opaSdkService = new OPASDkService();
+  }
+
+  /**
+   * Get singleton instance
+   */
+  public static getInstance(): PolicyManager {
+    if (!PolicyManager.instance) {
+      PolicyManager.instance = new PolicyManager();
+    }
+    return PolicyManager.instance;
   }
 
   /**
@@ -112,13 +124,21 @@ export class PolicyManager {
    * Evaluate using WASM SDK (fast, in-process)
    */
   private async evaluateWasm(policyType: string, input: PolicyInput): Promise<PolicyDecision> {
+    const startTime = Date.now();
     const query = `data.${policyType}.allow`;
     const result = await this.opaSdkService.evaluate(policyType, query, input);
+    const duration = Date.now() - startTime;
 
-    return {
+    const decision: PolicyDecision = {
       allowed: result.allowed === true,
       reason: result.error || 'Policy evaluation completed',
     };
+
+    // Record metrics
+    const resultType = decision.allowed ? 'allowed' : 'denied';
+    MetricsService.recordOPAEvaluation(policyType, 'wasm', false, duration, resultType);
+
+    return decision;
   }
 
   /**
@@ -180,4 +200,7 @@ export class PolicyManager {
     );
   }
 }
+
+// Export singleton instance
+export const policyManager = PolicyManager.getInstance();
 

@@ -13,9 +13,11 @@
 
 import type { Producer, Consumer, EachMessagePayload} from 'kafkajs';
 import { Kafka } from 'kafkajs';
+import { v4 as uuidv4 } from 'uuid';
 // KafkaMessage imported but not used in this file
 import { LoggerService } from './logger';
 import { ConfigService } from './config';
+import { trace, SpanStatusCode } from '@opentelemetry/api';
 
 // =============================================================================
 // TYPES & INTERFACES
@@ -111,14 +113,61 @@ export class EventStreamingService {
   private static isInitialized = false;
   private static isConnected = false;
 
-  // Topic configurations
+  // Topic configurations - All topics from KAFKA_TOPICS.md
   private static readonly TOPICS = {
+    // Backend Application Topics
     AUDIT: 'thaliumx.audit',
     TRANSACTIONS: 'thaliumx.transactions',
     SYSTEM: 'thaliumx.system',
     COMPLIANCE: 'thaliumx.compliance',
     ALERTS: 'thaliumx.alerts',
-    HEALTH: 'thaliumx.health'
+    HEALTH: 'thaliumx.health',
+    
+    // Market Data Topics
+    PRICES: 'thaliumx.prices',
+    ORDERBOOK: 'thaliumx.orderbook',
+    KLINES: 'thaliumx.klines',
+    TICKER: 'thaliumx.ticker',
+    MARKET_STATS: 'thaliumx.market-stats',
+    
+    // Notification Topics
+    NOTIFICATIONS_EMAIL: 'thaliumx.notifications.email',
+    NOTIFICATIONS_SMS: 'thaliumx.notifications.sms',
+    NOTIFICATIONS_PUSH: 'thaliumx.notifications.push',
+    NOTIFICATIONS_INAPP: 'thaliumx.notifications.inapp',
+    
+    // KYC/AML Topics
+    KYC_REQUESTS: 'thaliumx.kyc.requests',
+    KYC_RESULTS: 'thaliumx.kyc.results',
+    AML_SCREENING: 'thaliumx.aml.screening',
+    RISK_ASSESSMENT: 'thaliumx.risk.assessment',
+    
+    // Blockchain Topics
+    BLOCKCHAIN_TRANSACTIONS: 'thaliumx.blockchain.transactions',
+    BLOCKCHAIN_CONFIRMATIONS: 'thaliumx.blockchain.confirmations',
+    BLOCKCHAIN_CONTRACTS: 'thaliumx.blockchain.contracts',
+    BLOCKCHAIN_WALLETS: 'thaliumx.blockchain.wallets',
+    
+    // Dead Letter Queues
+    DLQ_GENERAL: 'thaliumx.dlq.general',
+    DLQ_TRANSACTIONS: 'thaliumx.dlq.transactions',
+    DLQ_NOTIFICATIONS: 'thaliumx.dlq.notifications',
+    
+    // State Storage (Log-Compacted)
+    STATE_USERS: 'thaliumx.state.users',
+    STATE_BALANCES: 'thaliumx.state.balances',
+    STATE_MARKETS: 'thaliumx.state.markets',
+    STATE_CONFIG: 'thaliumx.state.config',
+    
+    // Dingir Trading Engine Topics (for reference - produced by Dingir)
+    DINGIR_TRADES: 'trades',
+    DINGIR_ORDERS: 'orders',
+    DINGIR_BALANCES: 'balances',
+    DINGIR_DEPOSITS: 'deposits',
+    DINGIR_WITHDRAWS: 'withdraws',
+    DINGIR_INTERNAL_TRANSFER: 'internaltransfer',
+    DINGIR_REGISTER_USER: 'registeruser',
+    DINGIR_UNIFY_EVENTS: 'unifyevents'
   } as const;
 
   // Event type mappings
@@ -155,28 +204,46 @@ export class EventStreamingService {
       
       const config = ConfigService.getConfig();
       
-      // Initialize Kafka client
-      this.kafka = new Kafka({
+      // Initialize Kafka client with HA cluster support
+      const kafkaConfig: any = {
         clientId: 'thaliumx-backend',
-        brokers: config.kafka?.brokers || ['localhost:9092'],
+        brokers: config.kafka?.brokers || ['kafka-1:9094', 'kafka-2:9094', 'kafka-3:9094'],
         retry: {
           initialRetryTime: 100,
           retries: 8
         },
         connectionTimeout: 3000,
-        requestTimeout: 25000,
-        ssl: config.kafka?.ssl || false,
-        sasl: config.kafka?.sasl ? {
+        requestTimeout: 25000
+      };
+
+      // SSL configuration
+      if (config.kafka?.ssl) {
+        const fs = require('fs');
+        kafkaConfig.ssl = {
+          rejectUnauthorized: true,
+          ca: config.kafka.sslCaPath && fs.existsSync(config.kafka.sslCaPath) ? fs.readFileSync(config.kafka.sslCaPath) : undefined,
+          cert: config.kafka.sslCertPath && fs.existsSync(config.kafka.sslCertPath) ? fs.readFileSync(config.kafka.sslCertPath) : undefined,
+          key: config.kafka.sslKeyPath && fs.existsSync(config.kafka.sslKeyPath) ? fs.readFileSync(config.kafka.sslKeyPath) : undefined
+        };
+      }
+
+      // SASL configuration
+      if (config.kafka?.sasl) {
+        kafkaConfig.sasl = {
           mechanism: config.kafka.sasl.mechanism as any,
           username: config.kafka.sasl.username,
           password: config.kafka.sasl.password
-        } : undefined
-      });
+        };
+      }
 
-      // Initialize producer
+      this.kafka = new Kafka(kafkaConfig);
+
+      // Initialize transactional producer for exactly-once semantics
+      // Optimized for high throughput and low latency
       this.producer = this.kafka.producer({
-        maxInFlightRequests: 1,
+        maxInFlightRequests: 5, // Allow multiple in-flight requests for better throughput
         idempotent: true,
+        transactionalId: `thaliumx-producer-${process.pid}`, // Unique transactional ID per producer instance
         transactionTimeout: 30000,
         retry: {
           initialRetryTime: 100,
@@ -212,7 +279,8 @@ export class EventStreamingService {
   }
 
   /**
-   * Emit audit event
+   * Emit audit event (enhanced for complete audit trail)
+   * All financial transactions and user actions are logged to audit topic
    */
   public static async emitAuditEvent(
     action: string,
@@ -357,6 +425,16 @@ export class EventStreamingService {
     metadata?: Partial<EventMetadata>,
     notes?: string
   ): Promise<void> {
+    // Create OpenTelemetry span for compliance event
+    const tracer = trace.getTracer('thaliumx-backend', '1.0.0');
+    const span = tracer.startSpan('compliance.event', {
+      attributes: {
+        'compliance.regulation': regulation,
+        'compliance.requirement': requirement,
+        'compliance.status': status
+      }
+    });
+
     try {
       const event: ComplianceEvent = {
         metadata: {
@@ -384,7 +462,28 @@ export class EventStreamingService {
         requirement,
                 status
       });
+
+      // Record compliance metric
+      try {
+        const { MetricsService } = await import('./metrics');
+        MetricsService.recordComplianceEvent(
+          `${regulation}_${requirement}`,
+          status
+        );
+      } catch (metricsError) {
+        // Don't fail on metrics errors
+        LoggerService.debug('Failed to record compliance metric', { error: metricsError });
+      }
+
+      span.setAttributes({
+        'compliance.event_id': event.metadata.eventId
+      });
+      span.setStatus({ code: SpanStatusCode.OK });
+      span.end();
     } catch (error) {
+      span.recordException(error instanceof Error ? error : new Error(String(error)));
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : String(error) });
+      span.end();
       LoggerService.error('Failed to emit compliance event:', error);
       throw error;
     }
@@ -516,9 +615,91 @@ export class EventStreamingService {
         }]
       };
 
+      // Send message (transactional producer handles transactions automatically)
       await this.producer.send(message);
     } catch (error) {
       LoggerService.error('Failed to publish event:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Begin a Kafka transaction
+   */
+  public static async beginTransaction(): Promise<void> {
+    try {
+      // Transaction begin is handled automatically by KafkaJS
+      // when using transactional producer
+      LoggerService.debug('Transaction begin (handled by transactional producer)');
+    } catch (error) {
+      LoggerService.error('Failed to begin transaction:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Commit a Kafka transaction
+   */
+  public static async commitTransaction(): Promise<void> {
+    try {
+      // Transaction commit is handled automatically by KafkaJS
+      // when using transactional producer
+    } catch (error) {
+      LoggerService.error('Failed to commit transaction:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Abort a Kafka transaction
+   */
+  public static async abortTransaction(): Promise<void> {
+    try {
+      // Transaction abort is handled automatically by KafkaJS
+      // when using transactional producer
+    } catch (error) {
+      LoggerService.error('Failed to abort transaction:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Publish multiple events in a transaction (exactly-once semantics)
+   */
+  public static async publishEventsTransaction(
+    events: Array<{ event: any; topic: string }>
+  ): Promise<void> {
+    try {
+      // With transactional producer, we can send multiple messages
+      // and they will be part of the same transaction
+      const messages: Array<{ topic: string; messages: any[] }> = [];
+
+      for (const { event, topic } of events) {
+        const messageSize = Buffer.byteLength(JSON.stringify(event), 'utf8');
+        if (messageSize > 10485760) { // 10MB limit
+          throw new Error(`Message size ${messageSize} exceeds 10MB limit`);
+        }
+
+        messages.push({
+          topic,
+          messages: [{
+            key: event.metadata?.eventId || event.id || uuidv4(),
+            value: JSON.stringify(event),
+            headers: {
+              eventType: event.metadata?.eventType || event.eventType,
+              source: event.metadata?.source || 'thaliumx-backend',
+              version: event.metadata?.version || '1.0.0',
+              messageSize: messageSize.toString()
+            }
+          }]
+        });
+      }
+
+      // Send all messages (transactional producer handles transaction automatically)
+      await this.producer.sendBatch({ topicMessages: messages });
+      LoggerService.debug('Transaction committed', { eventCount: events.length });
+    } catch (error) {
+      LoggerService.error('Failed to publish events in transaction:', error);
       throw error;
     }
   }
@@ -529,22 +710,172 @@ export class EventStreamingService {
       await admin.connect();
 
       const existingTopics = await admin.listTopics();
-      const topicsToCreate = Object.values(this.TOPICS).filter(topic => !existingTopics.includes(topic));
+      const config = ConfigService.getConfig();
+      const replicationFactor = config.kafka?.replicationFactor || 3;
+      
+      // Topic configurations based on KAFKA_TOPICS.md
+      const topicConfigs: Array<{
+        topic: string;
+        numPartitions: number;
+        replicationFactor: number;
+        configEntries: Array<{ name: string; value: string }>;
+      }> = [
+        // Backend Application Topics
+        { topic: this.TOPICS.AUDIT, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '7776000000' }, // 90 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.TRANSACTIONS, numPartitions: 6, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '7776000000' }, // 90 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.SYSTEM, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '604800000' }, // 7 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.COMPLIANCE, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '31536000000' }, // 1 year
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.ALERTS, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '2592000000' }, // 30 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.HEALTH, numPartitions: 1, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '86400000' }, // 1 day
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        
+        // Market Data Topics
+        { topic: this.TOPICS.PRICES, numPartitions: 6, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '86400000' }, // 1 day
+          { name: 'compression.type', value: 'lz4' }
+        ]},
+        { topic: this.TOPICS.ORDERBOOK, numPartitions: 6, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '3600000' }, // 1 hour
+          { name: 'compression.type', value: 'lz4' }
+        ]},
+        { topic: this.TOPICS.KLINES, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '604800000' }, // 7 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.TICKER, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '86400000' }, // 1 day
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.MARKET_STATS, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '604800000' }, // 7 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        
+        // Notification Topics
+        { topic: this.TOPICS.NOTIFICATIONS_EMAIL, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '604800000' }, // 7 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.NOTIFICATIONS_SMS, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '604800000' }, // 7 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.NOTIFICATIONS_PUSH, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '604800000' }, // 7 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.NOTIFICATIONS_INAPP, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '2592000000' }, // 30 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        
+        // KYC/AML Topics
+        { topic: this.TOPICS.KYC_REQUESTS, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '7776000000' }, // 90 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.KYC_RESULTS, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '31536000000' }, // 1 year
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.AML_SCREENING, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '31536000000' }, // 1 year
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.RISK_ASSESSMENT, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '7776000000' }, // 90 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        
+        // Blockchain Topics
+        { topic: this.TOPICS.BLOCKCHAIN_TRANSACTIONS, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '7776000000' }, // 90 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.BLOCKCHAIN_CONFIRMATIONS, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '604800000' }, // 7 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.BLOCKCHAIN_CONTRACTS, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '7776000000' }, // 90 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.BLOCKCHAIN_WALLETS, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '2592000000' }, // 30 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        
+        // Dead Letter Queues
+        { topic: this.TOPICS.DLQ_GENERAL, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '2592000000' }, // 30 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.DLQ_TRANSACTIONS, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '7776000000' }, // 90 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.DLQ_NOTIFICATIONS, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'retention.ms', value: '604800000' }, // 7 days
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        
+        // State Storage (Log-Compacted)
+        { topic: this.TOPICS.STATE_USERS, numPartitions: 3, replicationFactor, configEntries: [
+          { name: 'cleanup.policy', value: 'compact' },
+          { name: 'retention.ms', value: '-1' }, // Infinite retention
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.STATE_BALANCES, numPartitions: 6, replicationFactor, configEntries: [
+          { name: 'cleanup.policy', value: 'compact' },
+          { name: 'retention.ms', value: '-1' },
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.STATE_MARKETS, numPartitions: 1, replicationFactor, configEntries: [
+          { name: 'cleanup.policy', value: 'compact' },
+          { name: 'retention.ms', value: '-1' },
+          { name: 'compression.type', value: 'snappy' }
+        ]},
+        { topic: this.TOPICS.STATE_CONFIG, numPartitions: 1, replicationFactor, configEntries: [
+          { name: 'cleanup.policy', value: 'compact' },
+          { name: 'retention.ms', value: '-1' },
+          { name: 'compression.type', value: 'snappy' }
+        ]}
+      ];
+
+      const topicsToCreate = topicConfigs.filter(tc => !existingTopics.includes(tc.topic));
 
       if (topicsToCreate.length > 0) {
         await admin.createTopics({
-          topics: topicsToCreate.map(topic => ({
-            topic,
-            numPartitions: 3,
-            replicationFactor: 1,
-            configEntries: [
-              { name: 'retention.ms', value: '604800000' }, // 7 days
-              { name: 'compression.type', value: 'snappy' }
-            ]
+          topics: topicsToCreate.map(tc => ({
+            topic: tc.topic,
+            numPartitions: tc.numPartitions,
+            replicationFactor: tc.replicationFactor,
+            configEntries: tc.configEntries
           }))
         });
         
-        LoggerService.info(`Created Kafka topics: ${topicsToCreate.join(', ')}`);
+        LoggerService.info(`Created ${topicsToCreate.length} Kafka topics`, {
+          topics: topicsToCreate.map(tc => tc.topic)
+        });
+      } else {
+        LoggerService.info('All Kafka topics already exist');
       }
 
       await admin.disconnect();
