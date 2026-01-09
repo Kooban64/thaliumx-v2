@@ -27,6 +27,7 @@
     "db:backup": "ts-node scripts/database-backup.ts",
     "db:restore": "ts-node scripts/database-restore.ts",
     "monitoring:setup": "ts-node scripts/monitoring-setup.ts",
+    "verify:persistence": "ts-node scripts/verify-persistence.ts",
     "clean": "rm -rf dist coverage",
     "prepare": "husky install || true"
   },
