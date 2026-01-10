@@ -6,26 +6,35 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { OnboardingProgress } from '@/components/onboarding/OnboardingProgress';
+import { KYCCollectionFlow } from '@/components/kyc/KYCCollectionFlow';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import apiClient from '@/lib/api/client';
-import { getAccessToken } from '@/lib/auth/token-store';
-import { initZitadel } from '@/lib/auth/zitadel';
+import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import Link from 'next/link';
 
-export default function OnboardingPage() {
+function OnboardingPageContent() {
+  const searchParams = useSearchParams();
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [workflowIdFromUrl, setWorkflowIdFromUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    // Check for workflowId in URL (from upgrade trigger)
+    const workflowId = searchParams.get('workflowId');
+    if (workflowId) {
+      setWorkflowIdFromUrl(workflowId);
+    }
+
     const fetchUser = async () => {
       try {
-        await initZitadel();
-        if (!getAccessToken()) {
+        const isAuthenticated = await checkBackendAuth();
+        if (!isAuthenticated) {
           window.location.href = '/login?next=/onboarding';
           return;
         }
@@ -42,7 +51,7 @@ export default function OnboardingPage() {
     };
 
     fetchUser();
-  }, []);
+  }, [searchParams]);
 
   if (loading) {
     return (
@@ -92,6 +101,31 @@ export default function OnboardingPage() {
     );
   }
 
+  // If workflowId provided in URL, show collection flow directly
+  if (workflowIdFromUrl && !loading) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold">KYC Verification</h1>
+            <p className="text-muted-foreground mt-2">
+              Please complete your identity verification to upgrade your account.
+            </p>
+          </div>
+          <KYCCollectionFlow
+            workflowId={workflowIdFromUrl}
+            onComplete={() => {
+              setOnboardingComplete(true);
+            }}
+            onError={(error) => {
+              console.error('KYC collection error:', error);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto">
@@ -107,5 +141,17 @@ export default function OnboardingPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <OnboardingPageContent />
+    </Suspense>
   );
 }

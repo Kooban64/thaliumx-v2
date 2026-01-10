@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Eye, EyeOff, Shield } from 'lucide-react';
 import apiClient from '@/lib/api/client';
 import { loginSchema, validateForm } from '@/lib/utils';
+import { login as backendLogin } from '@/lib/auth/backend-auth';
 
 interface LoginResponse {
   accessToken?: string;
@@ -135,31 +136,23 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
     }
 
     try {
-      const response = await apiClient.post<LoginResponse>('/api/auth/login', {
-        email: formData.email,
-        password: formData.password,
-      });
+      // Use backend login function which handles Zitadel tokens
+      const result = await backendLogin(formData.email, formData.password);
 
-      if (!response.success) {
+      if (!result.success) {
         // Check for MFA requirement
-        if (response.error?.includes('MFA') || response.code === 'MFA_REQUIRED') {
+        if (result.error?.includes('MFA') || result.error?.includes('MFA_REQUIRED')) {
           setShowMFA(true);
           setIsLoading(false);
           return;
         }
-        // Display error message from backend
-        const errorMsg = response.error || response.message || 'Login failed';
-        setError(errorMsg);
+        setError(result.error || 'Login failed');
         setIsLoading(false);
         return;
       }
 
-      if (response.success && response.data) {
-        // Tokens are now stored in httpOnly cookies by the backend
-        onSuccess?.('authenticated');
-      } else {
-        setError('Login failed - invalid response');
-      }
+      // Login successful - token stored in memory or cookie by backend
+      onSuccess?.('authenticated');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

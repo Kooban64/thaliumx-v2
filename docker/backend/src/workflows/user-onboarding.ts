@@ -205,7 +205,7 @@ export async function createUserOnboardingWorkflow(
           phone: sagaContext.data.phoneNumber,
           tenantId: sagaContext.tenantId,
           kycStatus: 'approved' as any,
-          kycLevel: (sagaContext.data.kycLevel || 'basic') as any,
+          kycLevel: (sagaContext.data.kycLevel || 'L0') as any,
           isActive: true,
           isVerified: true
         };

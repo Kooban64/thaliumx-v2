@@ -38,6 +38,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { LoggerService } from '../services/logger';
 import { createError } from '../utils';
+import { wazuhApiService } from '../services/wazuh-api.service';
 
 // Threat patterns and signatures
 const THREAT_PATTERNS = {
@@ -217,21 +218,46 @@ export const threatDetection = (req: Request, res: Response, next: NextFunction)
 
     // Log threat detection results
     if (analysis.isThreat) {
+      const clientIP = req.ip || req.connection.remoteAddress || '';
+      const userAgent = req.get('User-Agent');
+      const userId = (req as any).user?.userId || (req as any).user?.id;
+
       LoggerService.warn('Threat detected', {
-        ip: req.ip,
+        ip: clientIP,
         url: req.url,
         method: req.method,
-        userAgent: req.get('User-Agent'),
+        userAgent,
         threatLevel: analysis.threatLevel,
         score: analysis.score,
         threats: analysis.threats,
         recommendedAction: analysis.recommendedAction,
-        userId: req.user?.userId
+        userId,
+        wazuh_sent: true // Mark to prevent duplication in Filebeat
       });
 
-      // Update threat intelligence
-      const clientIP = req.ip || req.connection.remoteAddress || '';
+      // Send to Wazuh API for high/critical threats (real-time)
       if (analysis.threatLevel === 'high' || analysis.threatLevel === 'critical') {
+        // Fire-and-forget: send to Wazuh asynchronously
+        wazuhApiService.sendThreatAlert({
+          threatType: analysis.threats.join(', '),
+          threatLevel: analysis.threatLevel,
+          score: analysis.score,
+          ip: clientIP,
+          url: req.url,
+          method: req.method,
+          userAgent,
+          userId,
+          attackPatterns: analysis.threats,
+          recommendedAction: analysis.recommendedAction,
+          timestamp: new Date()
+        }).catch((error) => {
+          // Log error but don't block request processing
+          LoggerService.error('Failed to send threat alert to Wazuh', {
+            error: error instanceof Error ? error.message : String(error),
+            threatLevel: analysis.threatLevel
+          });
+        });
+
         THREAT_INTELLIGENCE.suspiciousIPs.add(clientIP);
       }
 
@@ -290,7 +316,27 @@ export const behavioralAnalysis = (req: Request, res: Response, next: NextFuncti
     LoggerService.warn('Potential DoS attack detected', {
       ip: clientIP,
       url: req.url,
-                recentRequests
+      recentRequests,
+      wazuh_sent: true // Mark to prevent duplication in Filebeat
+    });
+
+    // Send DoS threat to Wazuh API (real-time)
+    wazuhApiService.sendThreatAlert({
+      threatType: 'DoS Attack',
+      threatLevel: 'high',
+      score: 10,
+      ip: clientIP,
+      url: req.url,
+      method: req.method,
+      userAgent: req.get('User-Agent'),
+      userId: (req as any).user?.userId || (req as any).user?.id,
+      attackPatterns: ['Rapid Request Pattern', 'DoS Attempt'],
+      recommendedAction: 'block',
+      timestamp: new Date()
+    }).catch((error) => {
+      LoggerService.error('Failed to send DoS threat alert to Wazuh', {
+        error: error instanceof Error ? error.message : String(error)
+      });
     });
 
     // Add to blocked IPs temporarily

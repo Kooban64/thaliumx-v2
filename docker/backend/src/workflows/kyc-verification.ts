@@ -114,7 +114,7 @@ export async function createKycVerificationWorkflow(
         // Update user KYC status
         await UserService.updateUser(userId, {
           kycStatus: kycStatus as any,
-          kycLevel: sagaContext.data.kycLevel || 'basic' as any
+          kycLevel: sagaContext.data.kycLevel || 'L0' as any
         });
 
         return { kycProcessed: true, kycStatus };

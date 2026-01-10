@@ -365,12 +365,14 @@ export const authenticateToken = async (
   try {
     // Zitadel-only auth (prod-v1).
     // Only Zitadel OIDC tokens are supported.
-    // (Legacy internal JWT + cookie auth is intentionally disabled.)
+    // Supports Bearer tokens (primary) and httpOnly cookies (fallback).
     const authHeader = req.headers.authorization;
     const bearer = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
     const headerToken = (req.headers['x-access-token'] as string | undefined) || undefined;
+    const cookieToken = req.cookies?.accessToken as string | undefined;
 
-    const token = bearer || headerToken;
+    // Priority: Bearer token > Header token > Cookie token
+    const token = bearer || headerToken || cookieToken;
 
     if (!token) {
       throw createError('Access token required', 401, 'MISSING_TOKEN');
@@ -523,7 +525,7 @@ export const authenticateToken = async (
         MetricsService.recordJWTValidationFailure('unknown_error');
         next(error);
       }
-    } catch (metricsError) {
+    } catch {
       // Don't fail on metrics errors
       if (error instanceof jwt.JsonWebTokenError) {
         next(createError('Invalid token', 401, 'INVALID_TOKEN'));

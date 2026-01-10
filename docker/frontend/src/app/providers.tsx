@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
-import { initZitadel } from '@/lib/auth/zitadel';
-
+/**
+ * Providers Component
+ * 
+ * Global providers for the application.
+ * Authentication checks are now handled per-page via backend API.
+ */
 export function Providers({ children }: { children: React.ReactNode }) {
-  useEffect(() => {
-    void initZitadel();
-  }, []);
-
   return <>{children}</>;
 }

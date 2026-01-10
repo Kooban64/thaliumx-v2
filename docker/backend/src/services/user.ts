@@ -24,7 +24,7 @@
  * - Error handling with proper error codes
  */
 
-import type { User, DeepPartial, KycStatus, KycLevel } from '../types';
+import type { User, DeepPartial, KycStatus, KYCLevel } from '../types';
 import { DatabaseService } from './database';
 import { LoggerService } from './logger';
 import { createError } from '../utils';
@@ -162,7 +162,7 @@ export class UserService {
     }
   }
 
-  public static async updateKycStatus(id: string, kycStatus: KycStatus, kycLevel: KycLevel): Promise<User> {
+  public static async updateKycStatus(id: string, kycStatus: KycStatus, kycLevel: KYCLevel): Promise<User> {
     try {
       const user = await this.updateUser(id, { kycStatus, kycLevel });
       

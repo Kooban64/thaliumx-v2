@@ -839,6 +839,241 @@ router.post('/collection-flow/callback',
 );
 
 /**
+ * Get Collection Flow for Workflow (for iframe embedding)
+ * GET /api/kyc/collection-flow/:workflowId
+ * 
+ * Returns collection flow URL and configuration for seamless iframe embedding.
+ * This ensures users never see Ballerine directly - all KYC completion happens in our UI.
+ */
+router.get('/collection-flow/:workflowId',
+  authenticateToken,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { workflowId } = req.params;
+      const tenantId = (req.user as any)?.tenantId;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'User ID required',
+          code: 'USER_ID_REQUIRED'
+        });
+        return;
+      }
+
+      LoggerService.info('Getting collection flow for workflow', {
+        workflowId,
+        userId,
+        tenantId
+      });
+
+      // Get Ballerine service
+      const { getBallerineService } = await import('../services/ballerine');
+      const ballerineService = getBallerineService();
+
+      // Get workflow status to verify it exists and user has access
+      const workflowStatus = await ballerineService.getWorkflowStatus(workflowId as string);
+      
+      // Verify workflow belongs to user (if entity_id is set)
+      if (workflowStatus.context?.entity?.id && workflowStatus.context.entity.id !== userId) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied to this workflow',
+          code: 'ACCESS_DENIED'
+        });
+        return;
+      }
+
+      // Get collection flow URL
+      let collectionFlowUrl: string | undefined;
+      let collectionFlowToken: string | undefined;
+      
+      try {
+        // Try to get existing collection flow
+        const collectionFlow = await ballerineService.getCollectionFlow(workflowId as string);
+        collectionFlowUrl = collectionFlow.url;
+        collectionFlowToken = collectionFlow.token;
+      } catch (error) {
+        // If collection flow doesn't exist, create one
+        LoggerService.debug('Collection flow not found, creating new one', { workflowId });
+        
+        const redirectUrl = `${process.env.BACKEND_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/api/kyc/collection-flow/callback`;
+        
+        // Build collection flow request (endUserId is optional)
+        const collectionFlowRequest: {
+          workflowId: string;
+          endUserId?: string;
+          config: {
+            redirectUrl: string;
+            theme: {
+              primaryColor: string;
+              logoUrl?: string;
+            };
+          };
+        } = {
+          workflowId: workflowId as string,
+          config: {
+            redirectUrl: redirectUrl,
+            theme: {
+              // Customize theme to match our branding
+              primaryColor: '#6366f1', // indigo
+              logoUrl: undefined // Use default or our logo
+            }
+          }
+        };
+        
+        // Only include endUserId if it exists (it's optional in the interface)
+        if (userId) {
+          collectionFlowRequest.endUserId = userId as string; // Type assertion needed because TypeScript doesn't narrow after optional chaining
+        }
+
+        const newCollectionFlow = await ballerineService.createCollectionFlowUrl(collectionFlowRequest);
+        
+        collectionFlowUrl = newCollectionFlow.url;
+        collectionFlowToken = newCollectionFlow.token;
+      }
+
+      if (!collectionFlowUrl) {
+        res.status(404).json({
+          success: false,
+          error: 'Collection flow not available for this workflow',
+          code: 'COLLECTION_FLOW_NOT_FOUND'
+        });
+        return;
+      }
+
+      // Return collection flow info for iframe embedding
+      // Note: collectionFlowUrl is for iframe embedding only - frontend should never redirect to it
+      res.json({
+        success: true,
+        data: {
+          workflowId,
+          collectionFlowUrl, // For iframe embedding only
+          collectionFlowToken,
+          workflowStatus: workflowStatus.status,
+          currentState: workflowStatus.currentState,
+          // Include iframe embedding instructions
+          embedConfig: {
+            allow: 'camera; microphone; geolocation', // Permissions for document capture
+            sandbox: 'allow-same-origin allow-scripts allow-forms allow-popups',
+            // Note: Frontend should set these iframe attributes
+          },
+          // Security note: This URL should only be used in iframe, never window.location
+          usage: 'iframe_only'
+        },
+        message: 'Collection flow retrieved successfully'
+      });
+
+    } catch (error) {
+      LoggerService.error('Get collection flow failed:', error);
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to get collection flow',
+          code: 'COLLECTION_FLOW_ERROR'
+        });
+      }
+    }
+  }
+);
+
+/**
+ * Trigger KYC Upgrade Workflow
+ * POST /api/kyc/upgrade/trigger
+ * 
+ * Initiates a KYC upgrade workflow via Ballerine.
+ * Returns workflow ID and collection flow info for seamless iframe embedding.
+ */
+router.post('/upgrade/trigger',
+  authenticateToken,
+  validateRequest(Joi.object({
+    fromLevel: Joi.string().valid('L0', 'L1', 'L2', 'L3', 'INSTITUTIONAL').required(),
+    toLevel: Joi.string().valid('L0', 'L1', 'L2', 'L3', 'INSTITUTIONAL').required(),
+    reason: Joi.string().min(10).max(500).required(),
+    triggerType: Joi.string().valid('proactive', 'blocking', 'manual').default('blocking')
+  })),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const tenantId = (req.user as any)?.tenantId;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
+      const { fromLevel, toLevel, reason, triggerType } = req.body;
+
+      LoggerService.info('Triggering KYC upgrade workflow', {
+        userId,
+        tenantId,
+        fromLevel,
+        toLevel,
+        reason,
+        triggerType
+      });
+
+      // Import services dynamically to avoid circular dependencies
+      const { KYCWorkflowTriggerService } = await import('../services/kyc-workflow-trigger.service');
+      
+      const result = await KYCWorkflowTriggerService.triggerUpgradeWorkflow({
+        userId,
+        tenantId,
+        fromLevel,
+        toLevel,
+        reason,
+        triggerType: triggerType || 'blocking',
+        metadata: {
+          triggeredBy: 'user',
+          triggeredAt: new Date().toISOString(),
+          userAgent: req.headers['user-agent'],
+          ip: req.ip || req.socket.remoteAddress
+        }
+      });
+
+      if (!result.success) {
+        res.status(500).json({
+          success: false,
+          error: result.message || 'Failed to trigger upgrade workflow',
+          code: 'WORKFLOW_TRIGGER_ERROR'
+        });
+        return;
+      }
+
+      // Return workflow info - collectionFlowUrl is for iframe embedding only
+      res.status(201).json({
+        success: true,
+        data: {
+          workflowId: result.workflowId,
+          collectionFlowUrl: result.workflowUrl, // For iframe embedding only - never redirect
+          message: result.message,
+          // Security note: collectionFlowUrl should only be used in iframe
+          usage: 'iframe_only'
+        },
+        message: 'KYC upgrade workflow triggered successfully'
+      });
+
+    } catch (error) {
+      LoggerService.error('Trigger KYC upgrade failed:', error);
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to trigger KYC upgrade workflow',
+          code: 'WORKFLOW_TRIGGER_ERROR'
+        });
+      }
+    }
+  }
+);
+
+/**
  * Get Collection Flow State
  * GET /api/kyc/collection-flow/:workflowId/state
  */

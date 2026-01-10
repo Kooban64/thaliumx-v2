@@ -4,8 +4,7 @@ import { TransactionLimitsDisplay } from '@/components/opa/TransactionLimitsDisp
 import { KYCAccessInfo } from '@/components/opa/KYCAccessInfo';
 
 import { useState, useEffect } from 'react';
-import { getAccessToken } from '@/lib/auth/token-store';
-import { initZitadel, logoutZitadel } from '@/lib/auth/zitadel';
+import { checkAuth as checkBackendAuth, logout as logoutBackend } from '@/lib/auth/backend-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,14 +39,16 @@ export default function Dashboard() {
   useEffect(() => {
 
     // Check authentication and load user data
-    const checkAuth = async () => {
+    const checkAuthAndLoadUser = async () => {
       try {
-        await initZitadel();
+        const isAuthenticated = await checkBackendAuth();
+        if (!isAuthenticated) {
+          window.location.href = '/login?next=/dashboard';
+          return;
+        }
 
-        const token = getAccessToken();
         const response = await fetch('/api/auth/profile', {
           credentials: 'include',
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (!response.ok) {
           window.location.href = '/login?next=/dashboard';
@@ -64,7 +65,7 @@ export default function Dashboard() {
         window.location.href = '/login?next=/dashboard';
       }
     };
-    checkAuth();
+    checkAuthAndLoadUser();
     loadChartData();
   }, []);
 
@@ -103,12 +104,7 @@ export default function Dashboard() {
   };
 
   const handleLogout = async () => {
-    try {
-      await logoutZitadel();
-    } catch (error) {
-      console.error('Zitadel logout error:', error);
-    }
-    window.location.href = '/landing';
+    await logoutBackend();
   };
 
   if (isLoading) {

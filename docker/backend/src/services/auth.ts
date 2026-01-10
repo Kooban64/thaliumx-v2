@@ -29,16 +29,19 @@ import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 // jwt imported but not used in this file
 import type { AuthResponse, User, JWTPayload} from '../types';
-import { UserRole } from '../types';
+import { UserRole, KYCLevel } from '../types';
 import { DatabaseService } from '../services/database';
 import { RedisService } from '../services/redis';
 import { LoggerService } from '../services/logger';
 // authenticator, AuthRequest, ConfigService imported but not used in this file
 import { EmailService } from './email';
+import { zitadelApiService } from './zitadel-api.service';
 import { createError } from '../utils';
 import { UserService } from './user';
 import { MFAService } from './mfa';
-import { generateAccessToken, generateRefreshToken, verifyToken } from '../utils';
+import { wazuhApiService } from './wazuh-api.service';
+// Note: Internal JWT generation removed - using Zitadel tokens only
+// import { generateAccessToken, generateRefreshToken, verifyToken } from '../utils';
 import type { Response } from 'express';
 import type { Model, ModelCtor } from 'sequelize';
 
@@ -63,7 +66,24 @@ export class AuthService {
       const user = await UserService.getUserByEmail(email);
       if (!user) {
         LoggerService.logAuth('login_attempt', 'unknown', false);
-        LoggerService.info('Login attempt failed', { email, reason: 'USER_NOT_FOUND' });
+        LoggerService.info('Login attempt failed', { email, reason: 'USER_NOT_FOUND', wazuh_sent: true });
+        
+        // Send authentication failure to Wazuh API (real-time)
+        wazuhApiService.sendSecurityEvent({
+          id: `auth-fail-${Date.now()}`,
+          type: 'login_failure',
+          severity: 'medium',
+          title: 'Authentication Failure - User Not Found',
+          description: `Login attempt failed for unknown user: ${email}`,
+          source: 'auth_service',
+          timestamp: new Date(),
+          metadata: { email, reason: 'USER_NOT_FOUND' }
+        }).catch((error) => {
+          LoggerService.error('Failed to send auth failure to Wazuh', {
+            error: error instanceof Error ? error.message : String(error)
+          });
+        });
+        
         const { MetricsService } = await import('./metrics');
         MetricsService.recordAuthLoginFailure('user_not_found');
         throw createError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
@@ -89,16 +109,79 @@ export class AuthService {
         throw createError('Account is temporarily locked due to too many failed login attempts', 423, 'ACCOUNT_LOCKED');
       }
 
-      // Verify password
-      if (!user.passwordHash) {
-        LoggerService.logAuth('login_attempt', user.id, false);
-        LoggerService.info('Login attempt failed - no password hash', { email, reason: 'NO_PASSWORD_HASH' });
-        const { MetricsService } = await import('./metrics');
-        MetricsService.recordAuthLoginFailure('no_password_hash');
-        throw createError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
+      // Authenticate user - Zitadel-first if zitadelId exists, otherwise fallback to bcrypt
+      let isPasswordValid = false;
+
+      if (user.zitadelId) {
+        // User has Zitadel ID - authenticate via Zitadel API
+        try {
+          const zitadelAuth = await zitadelApiService.authenticateUser(email, password);
+          isPasswordValid = true; // Zitadel authentication succeeded
+          
+          // Update zitadelId if it changed (shouldn't happen, but sync just in case)
+          if (zitadelAuth.userId !== user.zitadelId) {
+            await UserService.updateUser(user.id, { zitadelId: zitadelAuth.userId });
+            LoggerService.info('Updated zitadelId for user', { userId: user.id, oldZitadelId: user.zitadelId, newZitadelId: zitadelAuth.userId });
+          }
+        } catch (zitadelError: any) {
+          // Zitadel authentication failed
+          if (zitadelError.code === 'INVALID_CREDENTIALS' || zitadelError.code === 'USER_NOT_FOUND') {
+            isPasswordValid = false;
+          } else {
+            // For other Zitadel errors, fallback to bcrypt if password hash exists
+            LoggerService.warn('Zitadel authentication failed, falling back to bcrypt', {
+              error: zitadelError.message,
+              email,
+              userId: user.id
+            });
+            
+            if (user.passwordHash) {
+              isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+            } else {
+              isPasswordValid = false;
+            }
+          }
+        }
+      } else {
+        // No Zitadel ID - use bcrypt password verification (backward compatibility)
+        if (!user.passwordHash) {
+          // Try to find user in Zitadel and link them
+          try {
+            const zitadelUser = await zitadelApiService.getUserByEmail(email);
+            if (zitadelUser) {
+              // User exists in Zitadel but not linked - authenticate and link
+              const zitadelAuth = await zitadelApiService.authenticateUser(email, password);
+              isPasswordValid = true;
+              
+              // Link Zitadel ID to database user
+              await UserService.updateUser(user.id, { zitadelId: zitadelAuth.userId });
+              LoggerService.info('Linked Zitadel account to database user', {
+                userId: user.id,
+                zitadelId: zitadelAuth.userId,
+                email
+              });
+            } else {
+              // User not in Zitadel and no password hash - invalid
+              LoggerService.logAuth('login_attempt', user.id, false);
+              LoggerService.info('Login attempt failed - no password hash and not in Zitadel', { email, reason: 'NO_PASSWORD_HASH' });
+              const { MetricsService } = await import('./metrics');
+              MetricsService.recordAuthLoginFailure('no_password_hash');
+              throw createError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
+            }
+          } catch {
+            // Zitadel lookup/auth failed - use bcrypt if available
+            if (user.passwordHash) {
+              isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+            } else {
+              isPasswordValid = false;
+            }
+          }
+        } else {
+          // Use bcrypt password verification
+          isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+        }
       }
 
-      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
       if (!isPasswordValid) {
         // Track failed attempts
         const attemptKey = `login_attempts:${user.id}`;
@@ -110,14 +193,53 @@ export class AuthService {
           await RedisService.setString(lockoutKey, '1', this.LOCKOUT_DURATION);
           await RedisService.del(attemptKey);
           LoggerService.logAuth('account_locked', user.id, false);
-          LoggerService.info('Account locked due to too many failed attempts', { email, attemptCount });
+          LoggerService.info('Account locked due to too many failed attempts', { email, attemptCount, wazuh_sent: true });
+          
+          // Send account lockout to Wazuh API (real-time, high severity)
+          wazuhApiService.sendSecurityEvent({
+            id: `auth-lockout-${Date.now()}`,
+            type: 'account_locked',
+            severity: 'high',
+            title: 'Account Locked - Too Many Failed Login Attempts',
+            description: `Account locked for user ${email} after ${attemptCount} failed login attempts`,
+            source: 'auth_service',
+            userId: user.id,
+            timestamp: new Date(),
+            metadata: { email, attemptCount, reason: 'too_many_attempts' }
+          }).catch((error) => {
+            LoggerService.error('Failed to send account lockout to Wazuh', {
+              error: error instanceof Error ? error.message : String(error)
+            });
+          });
+          
           const { MetricsService } = await import('./metrics');
           MetricsService.recordAuthLoginFailure('too_many_attempts');
           throw createError('Too many failed login attempts. Account locked for 15 minutes', 423, 'ACCOUNT_LOCKED');
         } else {
           await RedisService.setString(attemptKey, attemptCount.toString(), this.LOCKOUT_DURATION);
           LoggerService.logAuth('login_attempt', user.id, false);
-          LoggerService.info('Login attempt failed', { email, attemptCount });
+          LoggerService.info('Login attempt failed', { email, attemptCount, wazuh_sent: true });
+          
+          // Send authentication failure to Wazuh API (real-time)
+          // Only send if multiple attempts (potential brute force)
+          if (attemptCount >= 3) {
+            wazuhApiService.sendSecurityEvent({
+              id: `auth-fail-${Date.now()}`,
+              type: 'login_failure',
+              severity: attemptCount >= 4 ? 'high' : 'medium',
+              title: `Authentication Failure - Attempt ${attemptCount}`,
+              description: `Failed login attempt ${attemptCount} for user ${email}`,
+              source: 'auth_service',
+              userId: user.id,
+              timestamp: new Date(),
+              metadata: { email, attemptCount, reason: 'invalid_password' }
+            }).catch((error) => {
+              LoggerService.error('Failed to send auth failure to Wazuh', {
+                error: error instanceof Error ? error.message : String(error)
+              });
+            });
+          }
+          
           const { MetricsService } = await import('./metrics');
           MetricsService.recordAuthLoginFailure('invalid_password');
           throw createError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
@@ -144,32 +266,38 @@ export class AuthService {
         }
       }
 
-      // Generate tokens
-      const tokenPayload: Omit<JWTPayload, 'iat' | 'exp'> = {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        tenantId: user.tenantId,
-        permissions: user.permissions || []
-      };
-
-      const accessToken = generateAccessToken(tokenPayload);
-      const refreshToken = generateRefreshToken(tokenPayload);
-
-      // Store refresh token in Redis
-      const refreshTokenKey = `${this.REFRESH_TOKEN_PREFIX}${user.id}:${refreshToken.substring(0, 20)}`;
-      const refreshTokenTTL = rememberMe ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60; // 30 days or 7 days
-      await RedisService.setString(refreshTokenKey, refreshToken, refreshTokenTTL);
+      // Get Zitadel OIDC token for the authenticated user
+      // This replaces internal JWT generation - we use Zitadel tokens only
+      let zitadelToken: { accessToken: string; expiresIn: number; tokenType: string };
+      
+      try {
+        // If user has Zitadel ID, get token using their credentials
+        if (user.zitadelId) {
+          zitadelToken = await zitadelApiService.getUserToken(email, password);
+        } else {
+          // User not in Zitadel yet - this shouldn't happen after registration
+          // but handle gracefully for backward compatibility
+          LoggerService.warn('User does not have Zitadel ID, cannot get Zitadel token', {
+            userId: user.id,
+            email
+          });
+          throw createError('User not configured in Zitadel', 500, 'ZITADEL_NOT_CONFIGURED');
+        }
+      } catch (tokenError: any) {
+        LoggerService.error('Failed to get Zitadel token after authentication', {
+          error: tokenError.message,
+          userId: user.id,
+          email
+        });
+        throw createError('Failed to obtain authentication token', 500, 'TOKEN_ERROR');
+      }
 
       // Update last login
       await UserService.updateLastLogin(user.id);
 
       // Log successful login
       LoggerService.logAuth('login_success', user.id, true);
-      LoggerService.info('Login successful', { email });
-
-      // Get token expiration
-      const expiresIn = parseInt(process.env.JWT_EXPIRES_IN?.replace(/[^0-9]/g, '') || '900', 10);
+      LoggerService.info('Login successful', { email, zitadelId: user.zitadelId });
 
       // Set httpOnly cookies if response object provided
       if (res) {
@@ -178,18 +306,11 @@ export class AuthService {
           httpOnly: true,
           secure: isProduction,
           sameSite: 'strict' as const,
-          maxAge: expiresIn * 1000, // Convert to milliseconds
+          maxAge: zitadelToken.expiresIn * 1000, // Convert to milliseconds
           path: '/'
         };
 
-        res.cookie('accessToken', accessToken, cookieOptions);
-
-        // Refresh token with longer expiration
-        const refreshCookieOptions = {
-          ...cookieOptions,
-          maxAge: (rememberMe ? 30 : 7) * 24 * 60 * 60 * 1000 // 30 days or 7 days
-        };
-        res.cookie('refreshToken', refreshToken, refreshCookieOptions);
+        res.cookie('accessToken', zitadelToken.accessToken, cookieOptions);
       }
 
       return {
@@ -197,10 +318,10 @@ export class AuthService {
           ...user,
           passwordHash: undefined // Remove password hash from response
         } as User,
-        accessToken: res ? undefined : accessToken, // Don't return tokens if using cookies
-        refreshToken: res ? undefined : refreshToken,
-        expiresIn,
-        tokenType: 'Bearer'
+        accessToken: res ? undefined : zitadelToken.accessToken, // Don't return token if using cookies
+        refreshToken: undefined, // Zitadel handles refresh via OIDC
+        expiresIn: zitadelToken.expiresIn,
+        tokenType: 'Bearer' as const
       };
     } catch (error: any) {
       if (error.code && error.code !== 'INVALID_CREDENTIALS') {
@@ -278,25 +399,65 @@ export class AuthService {
         }
       }
 
-      // Create user
+      // Zitadel-first approach: Create user in Zitadel first, then in database
+      let zitadelId: string | null = null;
+
+      try {
+        // Step 1: Create user in Zitadel via Management API
+        const zitadelUser = await zitadelApiService.createUser(
+          userData.email,
+          userData.password,
+          userData.firstName || '',
+          userData.lastName || ''
+        );
+        
+        zitadelId = zitadelUser.userId;
+
+        LoggerService.info('User created in Zitadel', {
+          email: userData.email,
+          zitadelId: zitadelUser.userId
+        });
+      } catch (zitadelError: any) {
+        // If Zitadel creation fails, log but don't fail registration
+        // This allows fallback to database-only registration if Zitadel is unavailable
+        LoggerService.error('Failed to create user in Zitadel, proceeding with database-only registration', {
+          error: zitadelError.message,
+          email: userData.email
+        });
+        
+        // Only fail if it's a user already exists error (409)
+        if (zitadelError.code === 'USER_ALREADY_EXISTS') {
+          throw createError('User already exists', 409, 'USER_ALREADY_EXISTS');
+        }
+        
+        // For other errors, continue with database registration (zitadelId will be null)
+        // User can be linked to Zitadel later if needed
+      }
+
+      // Step 2: Create user in database with zitadel_id link
       const newUser = await UserService.createUser({
         email: userData.email,
         username: userData.username || userData.email.split('@')[0],
         firstName: userData.firstName || '',
         lastName: userData.lastName || '',
-        passwordHash,
+        passwordHash, // Keep password hash for backward compatibility
         role: UserRole.USER,
         tenantId: tenantId,
-        kycStatus: 'pending' as any,
-        kycLevel: 'basic' as any,
+        kycStatus: 'not_started' as any, // Changed from 'pending' to 'not_started' to match KYC service enum
+        kycLevel: KYCLevel.L0,
         isActive: true,
         isVerified: false,
         mfaEnabled: false,
-        permissions: []
-      });
+        permissions: [],
+        zitadelId: zitadelId || undefined // Link to Zitadel user if created successfully
+      } as any); // Type assertion needed for zitadelId field
 
       LoggerService.logAuth('user_registered', newUser.id, true);
-      LoggerService.info('User registered successfully', { email: newUser.email });
+      LoggerService.info('User registered successfully', {
+        email: newUser.email,
+        userId: newUser.id,
+        zitadelId: zitadelId || 'none'
+      });
 
       return newUser;
     } catch (error: any) {
@@ -309,62 +470,17 @@ export class AuthService {
 
   /**
    * Refresh access token using refresh token
+   * @deprecated With Zitadel OIDC, token refresh should be handled via OIDC refresh flow
+   * This method is kept for backward compatibility but should not be used with Zitadel tokens
    */
   static async refreshToken(refreshToken: string): Promise<AuthResponse> {
-    try {
-      // Verify refresh token
-      const payload = verifyToken(refreshToken, true);
-
-      // Check if refresh token exists in Redis
-      const refreshTokenKey = `${this.REFRESH_TOKEN_PREFIX}${payload.userId}:${refreshToken.substring(0, 20)}`;
-      const storedToken = await RedisService.getString(refreshTokenKey);
-
-      if (!storedToken || storedToken !== refreshToken) {
-        throw createError('Invalid refresh token', 401, 'INVALID_REFRESH_TOKEN');
-      }
-
-      // Get user
-      const user = await UserService.getUserById(payload.userId);
-      if (!user || !user.isActive) {
-        throw createError('User not found or inactive', 401, 'USER_INACTIVE');
-      }
-
-      // Generate new tokens
-      const tokenPayload: Omit<JWTPayload, 'iat' | 'exp'> = {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        tenantId: user.tenantId,
-        permissions: user.permissions || []
-      };
-
-      const newAccessToken = generateAccessToken(tokenPayload);
-      const newRefreshToken = generateRefreshToken(tokenPayload);
-
-      // Update refresh token in Redis
-      await RedisService.del(refreshTokenKey);
-      const newRefreshTokenKey = `${this.REFRESH_TOKEN_PREFIX}${user.id}:${newRefreshToken.substring(0, 20)}`;
-      const refreshTokenTTL = 7 * 24 * 60 * 60; // 7 days
-      await RedisService.setString(newRefreshTokenKey, newRefreshToken, refreshTokenTTL);
-
-      LoggerService.logAuth('token_refreshed', user.id, true);
-
-      const expiresIn = parseInt(process.env.JWT_EXPIRES_IN?.replace(/[^0-9]/g, '') || '900', 10);
-
-      return {
-        user: {
-          ...user,
-          passwordHash: undefined
-        } as User,
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
-        expiresIn,
-        tokenType: 'Bearer'
-      };
-    } catch (error: any) {
-      LoggerService.error('Token refresh failed:', error);
-      throw createError('Token refresh failed', 401, 'TOKEN_REFRESH_FAILED');
-    }
+    // Token refresh is now handled by Zitadel OIDC flow
+    // Frontend should use Zitadel SDK's refresh token mechanism
+    throw createError(
+      'Token refresh via this endpoint is deprecated. Use Zitadel OIDC refresh flow instead.',
+      400,
+      'DEPRECATED_REFRESH_METHOD'
+    );
   }
 
   /**

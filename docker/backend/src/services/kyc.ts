@@ -1114,9 +1114,10 @@ export class KYCService {
         const type = def.name?.toLowerCase().includes('kyb') ? 'kyb' : 'kyc';
         this.workflowDefinitionsCache.set(type, def);
         
-        // Also cache by name patterns
+        // Also cache by name patterns (support both old and new formats for compatibility)
         if (def.name?.toLowerCase().includes('basic')) {
           this.workflowDefinitionsCache.set('basic', def);
+          this.workflowDefinitionsCache.set('L0', def); // Also cache with new format
         }
         if (def.name?.toLowerCase().includes('enhanced') || def.name?.toLowerCase().includes('premium')) {
           this.workflowDefinitionsCache.set('enhanced', def);

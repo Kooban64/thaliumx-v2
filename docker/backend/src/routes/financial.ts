@@ -64,8 +64,8 @@ const validateTenantAccess = (req: Request, res: Response, next: NextFunction): 
 
 const requireKycLevel = (level: string) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const userKycLevel = (req.user as any)?.kycLevel || 'basic';
-    const levels = ['basic', 'intermediate', 'advanced', 'enterprise'];
+    const userKycLevel = (req.user as any)?.kycLevel || 'L0';
+    const levels = ['L0', 'L1', 'L2', 'L3', 'INSTITUTIONAL'];
     const userLevel = levels.indexOf(userKycLevel);
     const requiredLevel = levels.indexOf(level);
     
@@ -117,7 +117,7 @@ router.use(extractTenantContext);
 router.post(
   '/tenants/:tenantId/journal-entries',
   validateTenantAccess,
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   financialController.createJournalEntry.bind(financialController)
 );
 
@@ -159,7 +159,7 @@ router.get(
 router.post(
   '/tenants/:tenantId/holds',
   validateTenantAccess,
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   financialController.createHold.bind(financialController)
 );
 
@@ -171,7 +171,7 @@ router.get(
 
 router.post(
   '/holds/:holdId/release',
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   financialController.releaseHold.bind(financialController)
 );
 
@@ -233,7 +233,7 @@ router.post(
 router.post(
   '/tenants/:tenantId/transactions',
   validateTenantAccess,
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   transactionController.processTransaction.bind(transactionController)
 );
 
@@ -480,28 +480,28 @@ router.post(
 router.post(
   '/tenants/:tenantId/encrypt',
   validateTenantAccess,
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   keyManagementController.encryptData.bind(keyManagementController)
 );
 
 router.post(
   '/tenants/:tenantId/decrypt',
   validateTenantAccess,
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   keyManagementController.decryptData.bind(keyManagementController)
 );
 
 router.post(
   '/tenants/:tenantId/sign',
   validateTenantAccess,
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   keyManagementController.signData.bind(keyManagementController)
 );
 
 router.post(
   '/tenants/:tenantId/verify',
   validateTenantAccess,
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   keyManagementController.verifySignature.bind(keyManagementController)
 );
 
@@ -953,7 +953,7 @@ router.put(
 // Fund Transfers between Accounts
 router.post(
   '/ledger-accounts/transfer',
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { fromAccountId, toAccountId, amount, currency, description, reference, metadata } = req.body;
@@ -1375,7 +1375,7 @@ router.post(
 router.post(
   '/tenants/:tenantId/fiat/deposits',
   validateTenantAccess,
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { tenantId } = req.params;
@@ -1426,7 +1426,7 @@ router.post(
 router.post(
   '/tenants/:tenantId/fiat/withdrawals',
   validateTenantAccess,
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { tenantId } = req.params;
@@ -1863,7 +1863,7 @@ router.get(
 
 router.post(
   '/wallets/:walletId/transactions',
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   walletInfrastructureController.createWalletTransaction.bind(walletInfrastructureController)
 );
 
@@ -1875,7 +1875,7 @@ router.get(
 router.post(
   '/tenants/:tenantId/brokers/:brokerId/users/:userId/external-wallets',
   validateTenantAccess,
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   walletInfrastructureController.connectExternalWallet.bind(walletInfrastructureController)
 );
 
@@ -1886,7 +1886,7 @@ router.get(
 
 router.put(
   '/wallets/:walletId/security',
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   walletInfrastructureController.updateWalletSecuritySettings.bind(walletInfrastructureController)
 );
 
@@ -1897,7 +1897,7 @@ router.get(
 
 router.post(
   '/wallets/:walletId/backup',
-  requireKycLevel('basic'),
+  requireKycLevel('L0'),
   walletInfrastructureController.createWalletBackup.bind(walletInfrastructureController)
 );
 

@@ -3,22 +3,19 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { initZitadel } from '@/lib/auth/zitadel';
-import { getAccessToken } from '@/lib/auth/token-store';
+import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import apiClient from '@/lib/api/client';
 import { PolicyViolationAlertContainer } from '@/components/opa/PolicyViolationAlertContainer';
 
 export default function PlatformAdmin() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
-  const authMode = 'zitadel';
 
   useEffect(() => {
     (async () => {
       try {
-        await initZitadel();
-
-        if (!getAccessToken()) {
+        const isAuthenticated = await checkBackendAuth();
+        if (!isAuthenticated) {
           window.location.href = '/login?next=/admin';
           return;
         }
@@ -29,7 +26,7 @@ export default function PlatformAdmin() {
         setLoading(false);
       }
     })();
-  }, [authMode]);
+  }, []);
 
 
   return (

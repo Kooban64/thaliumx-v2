@@ -264,6 +264,10 @@ class ThaliumXBackend {
           }
         };
         await ContractEventMonitorService.startMonitoring(config);
+      }},
+      { name: 'WazuhApiService', init: async () => {
+        const { WazuhApiService } = await import('./services/wazuh-api.service');
+        await WazuhApiService.initialize();
       }}
     ];
 

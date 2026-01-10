@@ -1,0 +1,148 @@
+<!--
+  ThaliumX Custom Security Rules for Wazuh
+  =========================================
+  Application-specific security event detection rules
+-->
+
+<group name="thaliumx,">
+  <!-- Financial Transaction Anomaly Detection -->
+  <rule id="100001" level="10">
+    <if_sid>5710</if_sid>
+    <match>financial_anomaly|suspicious_transaction|aml_violation</match>
+    <description>Financial transaction anomaly detected in ThaliumX application</description>
+    <group>financial_security,</group>
+  </rule>
+
+  <rule id="100002" level="12">
+    <if_sid>100001</if_sid>
+    <match>CRITICAL|high.*risk</match>
+    <description>High-risk financial transaction anomaly detected</description>
+    <group>financial_security,</group>
+  </rule>
+
+  <!-- Authentication Security Events -->
+  <rule id="100010" level="8">
+    <if_sid>5710</if_sid>
+    <match>login_failure|authentication.*failure</match>
+    <description>Authentication failure detected in ThaliumX application</description>
+    <group>authentication,</group>
+  </rule>
+
+  <rule id="100011" level="10">
+    <if_sid>100010</if_sid>
+    <match>too_many_attempts|brute.*force|account.*locked</match>
+    <description>Potential brute force attack or account lockout detected</description>
+    <group>authentication,</group>
+  </rule>
+
+  <rule id="100012" level="12">
+    <if_sid>100010</if_sid>
+    <match>high.*privilege|admin.*login</match>
+    <description>High-privilege account authentication event</description>
+    <group>authentication,</group>
+  </rule>
+
+  <!-- Threat Detection Events -->
+  <rule id="100020" level="10">
+    <if_sid>5710</if_sid>
+    <match>threat.*detected|SQL.*injection|XSS|command.*injection</match>
+    <description>Security threat detected in application request</description>
+    <group>threat_detection,</group>
+  </rule>
+
+  <rule id="100021" level="12">
+    <if_sid>100020</if_sid>
+    <match>critical|high.*threat|DoS.*attack</match>
+    <description>Critical security threat detected - immediate action required</description>
+    <group>threat_detection,</group>
+  </rule>
+
+  <rule id="100022" level="11">
+    <if_sid>100020</if_sid>
+    <match>path.*traversal|command.*injection</match>
+    <description>High-severity attack pattern detected</description>
+    <group>threat_detection,</group>
+  </rule>
+
+  <!-- Compliance and Regulatory Events -->
+  <rule id="100030" level="10">
+    <if_sid>5710</if_sid>
+    <match>compliance.*violation|regulatory.*breach|KYC.*failure</match>
+    <description>Compliance violation detected in ThaliumX application</description>
+    <group>compliance,</group>
+  </rule>
+
+  <rule id="100031" level="12">
+    <if_sid>100030</if_sid>
+    <match>CRITICAL|AML.*violation|sanctions.*match</match>
+    <description>Critical compliance violation - regulatory breach detected</description>
+    <group>compliance,</group>
+  </rule>
+
+  <!-- Security Oversight Events -->
+  <rule id="100040" level="11">
+    <if_sid>5710</if_sid>
+    <match>insider.*threat|system.*compromise|unauthorized.*access</match>
+    <description>High-severity security event from Security Oversight Service</description>
+    <group>security_oversight,</group>
+  </rule>
+
+  <rule id="100041" level="12">
+    <if_sid>100040</if_sid>
+    <match>CRITICAL|data.*breach|system.*compromise</match>
+    <description>Critical security incident - potential system compromise</description>
+    <group>security_oversight,</group>
+  </rule>
+
+  <!-- KYC/KYB Workflow Monitoring -->
+  <rule id="100050" level="8">
+    <if_sid>5710</if_sid>
+    <match>kyc.*workflow|kyb.*workflow|verification.*failed</match>
+    <description>KYC/KYB workflow event detected</description>
+    <group>kyc_kyb,</group>
+  </rule>
+
+  <rule id="100051" level="10">
+    <if_sid>100050</if_sid>
+    <match>verification.*failed|document.*rejected|identity.*mismatch</match>
+    <description>KYC/KYB verification failure - potential fraud</description>
+    <group>kyc_kyb,</group>
+  </rule>
+
+  <!-- API Abuse Detection -->
+  <rule id="100060" level="9">
+    <if_sid>5710</if_sid>
+    <match>rate.*limit|api.*abuse|excessive.*requests</match>
+    <description>Potential API abuse detected</description>
+    <group>api_security,</group>
+  </rule>
+
+  <rule id="100061" level="11">
+    <if_sid>100060</if_sid>
+    <match>DoS|DDoS|flooding</match>
+    <description>Denial of Service attack pattern detected</description>
+    <group>api_security,</group>
+  </rule>
+
+  <!-- Correlation Rules -->
+  <rule id="100100" level="12" frequency="5" timeframe="300">
+    <if_matched_sid>100010</if_matched_sid>
+    <same_source_ip />
+    <description>Multiple authentication failures from same IP - potential brute force attack</description>
+    <group>authentication,correlation,</group>
+  </rule>
+
+  <rule id="100101" level="12" frequency="3" timeframe="60">
+    <if_matched_sid>100020</if_matched_sid>
+    <same_source_ip />
+    <description>Multiple threat detections from same IP - active attack in progress</description>
+    <group>threat_detection,correlation,</group>
+  </rule>
+
+  <rule id="100102" level="13" frequency="2" timeframe="3600">
+    <if_matched_sid>100002</if_matched_sid>
+    <same_user_id />
+    <description>Multiple high-risk financial anomalies from same user - potential fraud</description>
+    <group>financial_security,correlation,</group>
+  </rule>
+</group>

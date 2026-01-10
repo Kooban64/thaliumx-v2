@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getAccessToken } from '@/lib/auth/token-store';
-import { initZitadel } from '@/lib/auth/zitadel';
+import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 
 export default function VestingPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -12,11 +11,14 @@ export default function VestingPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        await initZitadel();
+        const isAuthenticated = await checkBackendAuth();
+        if (!isAuthenticated) {
+          window.location.href = '/login?next=/vesting';
+          return;
+        }
 
-        const token = getAccessToken() || '';
         const res = await fetch('/api/presale/vesting/user/me', {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
+          credentials: 'include'
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data?.error?.message || 'Failed to load');

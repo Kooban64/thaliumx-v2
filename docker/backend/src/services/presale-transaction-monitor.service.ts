@@ -197,9 +197,40 @@ export class PresaleTransactionMonitorService {
               geographicAnomalies: JSON.stringify(geographicAnomalies),
               behavioralAnomalies: JSON.stringify(behavioralAnomalies),
               amount,
-                walletAddress
+              walletAddress
             },
             status: 'OPEN' as any
+          });
+        }
+
+        // Send financial anomaly to Wazuh API (real-time) for high/critical risk
+        if (riskLevel === 'HIGH' || riskLevel === 'CRITICAL') {
+          const { wazuhApiService } = await import('./wazuh-api.service');
+          wazuhApiService.sendSecurityEvent({
+            id: `financial-anomaly-${Date.now()}`,
+            type: 'financial_anomaly',
+            severity: riskLevel === 'CRITICAL' ? 'critical' : 'high',
+            title: `${riskLevel} Risk Transaction Pattern Detected`,
+            description: `Suspicious transaction pattern detected: ${patterns.join(', ')}`,
+            source: 'presale_monitor',
+            userId,
+            tenantId,
+            timestamp: new Date(),
+            metadata: {
+              riskScore,
+              riskLevel,
+              patterns,
+              amount,
+              walletAddress,
+              geographicAnomalies: geographicAnomalies.length,
+              behavioralAnomalies: behavioralAnomalies.length
+            }
+          }).catch((error) => {
+            LoggerService.error('Failed to send financial anomaly to Wazuh', {
+              error: error instanceof Error ? error.message : String(error),
+              userId,
+              riskLevel
+            });
           });
         }
       }

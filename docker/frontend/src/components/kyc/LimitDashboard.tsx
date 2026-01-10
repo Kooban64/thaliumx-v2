@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, Shield, TrendingUp, AlertTriangle, ArrowRight } from 'lucide-react';
-import { getAccessToken } from '@/lib/auth/token-store';
+import { getZitadelToken } from '@/lib/auth/backend-auth';
 import { UpgradePrompt } from './UpgradePrompt';
 
 interface LimitStatus {
@@ -28,12 +28,13 @@ export function LimitDashboard({ className }: { className?: string }) {
 
   useEffect(() => {
     const fetchStatus = async () => {
-      if (!getAccessToken()) { setError('Not authenticated'); setLoading(false); return; }
+      const token = getZitadelToken();
+      if (!token) { setError('Not authenticated'); setLoading(false); return; }
       setLoading(true); setError(null);
       try {
         const res = await fetch('/api/kyc/status/unified', {
           credentials: 'include',
-          headers: { 'Authorization': `Bearer ${getAccessToken()}` }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
           const data = await res.json();
@@ -51,7 +52,7 @@ export function LimitDashboard({ className }: { className?: string }) {
   if (loading) return <Card className={className}><CardContent className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></CardContent></Card>;
   if (error || !status) return <Card className={className}><CardContent className="py-8"><div className="text-center text-muted-foreground">{error || 'Failed to load limit information'}</div></CardContent></Card>;
 
-  const renderLimitCard = (title: string, limitStatus: LimitStatus, type: 'investment' | 'trading' | 'withdrawal') => (
+  const renderLimitCard = (title: string, limitStatus: LimitStatus, _type: 'investment' | 'trading' | 'withdrawal') => (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-lg">
@@ -85,9 +86,52 @@ export function LimitDashboard({ className }: { className?: string }) {
           <div className="flex justify-between font-medium pt-1 border-t"><span>Total:</span><span>${limitStatus.breakdown.total.toLocaleString()}</span></div>
         </div>
         {(limitStatus.status === 'approaching_limit' || limitStatus.status === 'at_limit') && (
-          <Button variant={limitStatus.status === 'at_limit' ? 'default' : 'outline'} size="sm" className="w-full" onClick={() => window.location.href = '/onboarding'}>
-            Upgrade KYC Level <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+            <Button 
+              variant={limitStatus.status === 'at_limit' ? 'default' : 'outline'} 
+              size="sm" 
+              className="w-full" 
+              onClick={async () => {
+                // Trigger upgrade workflow via API (same as UpgradePrompt)
+                try {
+                  const token = getZitadelToken();
+                  if (!token) {
+                    window.location.href = '/login?next=/dashboard';
+                    return;
+                  }
+
+                  const response = await fetch('/api/kyc/upgrade/trigger', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                      fromLevel: status?.kycLevel || 'L0',
+                      toLevel: 'L1', // Default to next level
+                      reason: 'Upgrade required for limit increase',
+                      triggerType: 'blocking'
+                    })
+                  });
+
+                  if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.data?.workflowId) {
+                      // Redirect to onboarding page which will show collection flow
+                      window.location.href = `/onboarding?workflowId=${data.data.workflowId}`;
+                    } else {
+                      window.location.href = '/onboarding';
+                    }
+                  } else {
+                    window.location.href = '/onboarding';
+                  }
+                } catch {
+                  window.location.href = '/onboarding';
+                }
+              }}
+            >
+              Upgrade KYC Level <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
         )}
       </CardContent>
     </Card>

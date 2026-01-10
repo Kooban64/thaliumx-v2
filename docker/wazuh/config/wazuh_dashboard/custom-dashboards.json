@@ -1,0 +1,421 @@
+{
+  "dashboards": [
+    {
+      "id": "thaliumx-security-overview",
+      "title": "ThaliumX Security Overview",
+      "description": "Comprehensive security events overview for ThaliumX platform",
+      "panels": [
+        {
+          "id": "security-events-timeline",
+          "type": "visualizations",
+          "title": "Security Events Timeline",
+          "visState": {
+            "title": "Security Events Over Time",
+            "type": "histogram",
+            "params": {
+              "addLegend": true,
+              "addTimeMarker": true,
+              "addTooltip": true,
+              "categoryAxes": [
+                {
+                  "id": "CategoryAxis-1",
+                  "type": "category",
+                  "position": "bottom",
+                  "show": true,
+                  "style": {},
+                  "scale": {
+                    "type": "linear"
+                  },
+                  "labels": {
+                    "show": true,
+                    "truncate": 100
+                  },
+                  "title": {}
+                }
+              ],
+              "grid": {
+                "categoryLines": false,
+                "style": {
+                  "color": "#eee"
+                }
+              },
+              "legendPosition": "right",
+              "seriesParams": [
+                {
+                  "show": true,
+                  "type": "histogram",
+                  "mode": "stacked",
+                  "data": {
+                    "label": "Security Events",
+                    "id": "1"
+                  },
+                  "valueAxis": "ValueAxis-1",
+                  "drawLinesBetweenPoints": true,
+                  "showCircles": true
+                }
+              ],
+              "times": [],
+              "valueAxes": [
+                {
+                  "id": "ValueAxis-1",
+                  "name": "LeftAxis-1",
+                  "type": "value",
+                  "position": "left",
+                  "show": true,
+                  "style": {},
+                  "scale": {
+                    "type": "linear",
+                    "mode": "normal"
+                  },
+                  "labels": {
+                    "show": true,
+                    "rotate": 0,
+                    "filter": false,
+                    "truncate": 100
+                  },
+                  "title": {
+                    "text": "Event Count"
+                  }
+                }
+              ]
+            },
+            "aggs": [
+              {
+                "id": "1",
+                "enabled": true,
+                "type": "count",
+                "schema": "metric",
+                "params": {}
+              },
+              {
+                "id": "2",
+                "enabled": true,
+                "type": "date_histogram",
+                "schema": "segment",
+                "params": {
+                  "field": "@timestamp",
+                  "interval": "auto",
+                  "customInterval": "2h",
+                  "min_doc_count": 1,
+                  "extended_bounds": {}
+                }
+              },
+              {
+                "id": "3",
+                "enabled": true,
+                "type": "terms",
+                "schema": "group",
+                "params": {
+                  "field": "data.severity",
+                  "size": 5,
+                  "order": "desc",
+                  "orderBy": "1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "threat-detection-summary",
+          "type": "visualizations",
+          "title": "Threat Detection Summary",
+          "visState": {
+            "title": "Threat Types by Severity",
+            "type": "pie",
+            "params": {
+              "addTooltip": true,
+              "addLegend": true,
+              "legendPosition": "right",
+              "isDonut": true,
+              "labels": {
+                "show": false,
+                "values": true,
+                "last_level": true,
+                "truncate": 100
+              }
+            },
+            "aggs": [
+              {
+                "id": "1",
+                "enabled": true,
+                "type": "count",
+                "schema": "metric",
+                "params": {}
+              },
+              {
+                "id": "2",
+                "enabled": true,
+                "type": "terms",
+                "schema": "segment",
+                "params": {
+                  "field": "data.threat_type",
+                  "size": 10,
+                  "order": "desc",
+                  "orderBy": "1"
+                }
+              },
+              {
+                "id": "3",
+                "enabled": true,
+                "type": "terms",
+                "schema": "segment",
+                "params": {
+                  "field": "data.threat_level",
+                  "size": 5,
+                  "order": "desc",
+                  "orderBy": "1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "authentication-events",
+          "type": "visualizations",
+          "title": "Authentication Events",
+          "visState": {
+            "title": "Authentication Failures and Successes",
+            "type": "histogram",
+            "params": {
+              "addLegend": true,
+              "addTimeMarker": true,
+              "addTooltip": true,
+              "categoryAxes": [
+                {
+                  "id": "CategoryAxis-1",
+                  "type": "category",
+                  "position": "bottom",
+                  "show": true,
+                  "style": {},
+                  "scale": {
+                    "type": "linear"
+                  },
+                  "labels": {
+                    "show": true,
+                    "truncate": 100
+                  }
+                }
+              ],
+              "grid": {
+                "categoryLines": false
+              },
+              "legendPosition": "right",
+              "seriesParams": [
+                {
+                  "show": true,
+                  "type": "histogram",
+                  "mode": "stacked",
+                  "data": {
+                    "label": "Auth Events",
+                    "id": "1"
+                  },
+                  "valueAxis": "ValueAxis-1",
+                  "drawLinesBetweenPoints": true,
+                  "showCircles": true
+                }
+              ],
+              "times": [],
+              "valueAxes": [
+                {
+                  "id": "ValueAxis-1",
+                  "name": "LeftAxis-1",
+                  "type": "value",
+                  "position": "left",
+                  "show": true,
+                  "scale": {
+                    "type": "linear",
+                    "mode": "normal"
+                  },
+                  "labels": {
+                    "show": true,
+                    "rotate": 0,
+                    "filter": false,
+                    "truncate": 100
+                  },
+                  "title": {
+                    "text": "Event Count"
+                  }
+                }
+              ]
+            },
+            "aggs": [
+              {
+                "id": "1",
+                "enabled": true,
+                "type": "count",
+                "schema": "metric",
+                "params": {}
+              },
+              {
+                "id": "2",
+                "enabled": true,
+                "type": "date_histogram",
+                "schema": "segment",
+                "params": {
+                  "field": "@timestamp",
+                  "interval": "auto",
+                  "customInterval": "1h",
+                  "min_doc_count": 1
+                }
+              },
+              {
+                "id": "3",
+                "enabled": true,
+                "type": "terms",
+                "schema": "group",
+                "params": {
+                  "field": "data.event_type",
+                  "size": 5,
+                  "order": "desc",
+                  "orderBy": "1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "financial-anomalies",
+          "type": "visualizations",
+          "title": "Financial Anomalies",
+          "visState": {
+            "title": "Financial Transaction Anomalies",
+            "type": "table",
+            "params": {
+              "perPage": 10,
+              "showPartialRows": false,
+              "showMeticsAtAllLevels": false,
+              "sort": {
+                "columnIndex": null,
+                "direction": null
+              },
+              "showTotal": false,
+              "showToolbar": true,
+              "totalFunc": "sum"
+            },
+            "aggs": [
+              {
+                "id": "1",
+                "enabled": true,
+                "type": "count",
+                "schema": "metric",
+                "params": {}
+              },
+              {
+                "id": "2",
+                "enabled": true,
+                "type": "terms",
+                "schema": "bucket",
+                "params": {
+                  "field": "data.risk_level",
+                  "size": 5,
+                  "order": "desc",
+                  "orderBy": "1"
+                }
+              },
+              {
+                "id": "3",
+                "enabled": true,
+                "type": "terms",
+                "schema": "bucket",
+                "params": {
+                  "field": "data.patterns",
+                  "size": 10,
+                  "order": "desc",
+                  "orderBy": "1"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "compliance-monitoring",
+          "type": "visualizations",
+          "title": "Compliance Monitoring",
+          "visState": {
+            "title": "Compliance Violations by Type",
+            "type": "bar",
+            "params": {
+              "addLegend": true,
+              "addTooltip": true,
+              "categoryAxes": [
+                {
+                  "id": "CategoryAxis-1",
+                  "type": "category",
+                  "position": "bottom",
+                  "show": true,
+                  "style": {},
+                  "scale": {
+                    "type": "linear"
+                  },
+                  "labels": {
+                    "show": true,
+                    "truncate": 100
+                  }
+                }
+              ],
+              "grid": {
+                "categoryLines": false
+              },
+              "legendPosition": "right",
+              "seriesParams": [
+                {
+                  "show": true,
+                  "type": "bar",
+                  "mode": "grouped",
+                  "data": {
+                    "label": "Compliance Events",
+                    "id": "1"
+                  },
+                  "valueAxis": "ValueAxis-1"
+                }
+              ],
+              "valueAxes": [
+                {
+                  "id": "ValueAxis-1",
+                  "name": "LeftAxis-1",
+                  "type": "value",
+                  "position": "left",
+                  "show": true,
+                  "scale": {
+                    "type": "linear",
+                    "mode": "normal"
+                  },
+                  "labels": {
+                    "show": true,
+                    "rotate": 0,
+                    "filter": false,
+                    "truncate": 100
+                  },
+                  "title": {
+                    "text": "Violation Count"
+                  }
+                }
+              ]
+            },
+            "aggs": [
+              {
+                "id": "1",
+                "enabled": true,
+                "type": "count",
+                "schema": "metric",
+                "params": {}
+              },
+              {
+                "id": "2",
+                "enabled": true,
+                "type": "terms",
+                "schema": "segment",
+                "params": {
+                  "field": "data.event_type",
+                  "size": 10,
+                  "order": "desc",
+                  "orderBy": "1"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { initZitadel } from '@/lib/auth/zitadel';
-import { getAccessToken } from '@/lib/auth/token-store';
+import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import { ChatWidget } from '@/components/support/ChatWidget';
 
 export default function LandingPage() {
@@ -25,14 +24,14 @@ export default function LandingPage() {
     }
   }, []);
 
-  // Fast/seamless login: attempt silent SSO so returning users can skip the auth UI.
+  // Check authentication via backend API
   useEffect(() => {
     (async () => {
       try {
-        await initZitadel();
-        setIsAuthenticated(!!getAccessToken());
+        const isAuthenticated = await checkBackendAuth();
+        setIsAuthenticated(isAuthenticated);
       } catch {
-        setIsAuthenticated(!!getAccessToken());
+        setIsAuthenticated(false);
       } finally {
         setAuthChecked(true);
       }

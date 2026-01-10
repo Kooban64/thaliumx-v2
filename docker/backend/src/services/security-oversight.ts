@@ -16,6 +16,7 @@
 import { LoggerService } from './logger';
 // ConfigService, BlnkFinanceService, KYCService, RBACService, createError, ethers imported but not used in this file
 import { EventStreamingService } from './event-streaming';
+import { wazuhApiService } from './wazuh-api.service';
 // import { BlnkFinanceService } from './blnkfinance';
 // import { KYCService } from './kyc';
 // import { RBACService } from './rbac';
@@ -98,6 +99,7 @@ export interface SecurityEvent {
   description: string;
   source: string;
   userId?: string;
+  tenantId?: string;
   brokerId?: string;
   ipAddress?: string;
   userAgent?: string;
@@ -140,6 +142,8 @@ export interface SecurityEventMetadata {
   entityType?: string;
   contractAddress?: string;
   component?: string;
+  ip?: string;
+  userAgent?: string;
   transactionHash?: string;
   reason?: string;
   eventId?: string;
@@ -758,8 +762,37 @@ export class SecurityOversightService {
         eventId,
         type: event.type,
         severity: event.severity,
-        title: event.title
+        title: event.title,
+        wazuh_sent: (event.severity === 'critical' || event.severity === 'high') // Mark if sent to Wazuh
       });
+
+      // Send to Wazuh API for CRITICAL/HIGH severity events (real-time)
+      if (event.severity === 'critical' || event.severity === 'high') {
+        wazuhApiService.sendSecurityEvent({
+          id: eventId,
+          type: event.type,
+          severity: event.severity,
+          title: event.title,
+          description: event.description,
+          source: event.source,
+          userId: event.userId,
+          tenantId: event.tenantId,
+          timestamp: event.timestamp,
+          metadata: {
+            ...event.metadata,
+            eventId,
+            status: event.status
+          },
+          ip: event.metadata?.ip || event.ipAddress,
+          userAgent: event.metadata?.userAgent || event.userAgent
+        }).catch((error) => {
+          // Log error but don't block event creation
+          LoggerService.error('Failed to send security event to Wazuh', {
+            eventId,
+            error: error instanceof Error ? error.message : String(error)
+          });
+        });
+      }
 
       // Emit event for real-time monitoring
       await EventStreamingService.emitSystemEvent(

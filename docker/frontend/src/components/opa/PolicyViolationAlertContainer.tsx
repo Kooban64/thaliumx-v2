@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { PolicyViolationAlert } from './PolicyViolationAlert';
-import { getAccessToken } from '@/lib/auth/token-store';
+import { getZitadelToken } from '@/lib/auth/backend-auth';
 import apiClient from '@/lib/api/client';
 
 export function PolicyViolationAlertContainer() {
@@ -14,7 +14,8 @@ export function PolicyViolationAlertContainer() {
     
     const fetchUserId = async () => {
       try {
-        if (getAccessToken()) {
+        const token = getZitadelToken();
+        if (token) {
           const profileRes = await apiClient.get<{ id: string }>('/api/auth/profile');
           const currentUserId = (profileRes.data as any)?.user?.id || (profileRes.data as any)?.id;
           if (currentUserId) {

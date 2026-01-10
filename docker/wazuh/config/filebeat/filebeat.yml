@@ -1,0 +1,102 @@
+# Filebeat Configuration for Wazuh Integration
+# Forwards security-relevant application logs to Wazuh Manager
+
+filebeat.inputs:
+  # Error logs - all errors are security-relevant
+  # Try both possible log paths (backend may use LOG_DIR env or default)
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/thaliumx/backend/error-*.log
+      - /app/logs/error-*.log
+    fields:
+      log_type: error
+      source: thaliumx-backend
+    fields_under_root: false
+    json.keys_under_root: true
+    json.add_error_key: true
+    json.message_key: message
+    exclude_lines: ['wazuh_sent.*true']  # Exclude events already sent via API
+
+  # Combined logs - filter for security-related entries
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/thaliumx/backend/combined-*.log
+      - /app/logs/combined-*.log
+    fields:
+      log_type: combined
+      source: thaliumx-backend
+    fields_under_root: false
+    json.keys_under_root: true
+    json.add_error_key: true
+    json.message_key: message
+    # Filter for security-related logs only
+    include_lines: 
+      - '"(level|severity)":\s*"(warn|error)"'
+      - '"threat"'
+      - '"security"'
+      - '"audit"'
+      - '"compliance"'
+      - '"authentication"'
+      - '"authorization"'
+      - '"suspicious"'
+      - '"anomaly"'
+    exclude_lines: ['wazuh_sent.*true']  # Exclude events already sent via API
+
+# Processors
+processors:
+  # Drop events that were already sent via Wazuh API
+  - drop_event:
+      when:
+        or:
+          - equals:
+              wazuh_sent: true
+          - regexp:
+              message: '.*wazuh_sent.*true.*'
+
+  # Add Wazuh-specific fields
+  - add_fields:
+      target: wazuh
+      fields:
+        integration: filebeat
+        source_type: application_log
+
+  # Parse timestamp
+  - timestamp:
+      field: timestamp
+      layouts:
+        - '2006-01-02T15:04:05.000Z'
+        - '2006-01-02T15:04:05Z'
+      test:
+        - '2024-01-01T12:00:00.000Z'
+
+  # Add host information
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+
+# Output to Wazuh Manager via syslog
+output.logstash:
+  enabled: false
+
+output.syslog:
+  enabled: true
+  host: thaliumx-wazuh-manager
+  port: 1514
+  protocol: tcp
+  format: rfc3164
+  tag: "thaliumx-backend"
+  priority: "info"
+  facility: "local0"
+
+# Logging configuration
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644
+
+# Monitoring
+monitoring.enabled: true

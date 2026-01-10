@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { TrendingUp, AlertTriangle, ArrowRight } from 'lucide-react';
-import { getAccessToken } from '@/lib/auth/token-store';
+import { getZitadelToken } from '@/lib/auth/backend-auth';
+import { KYCCollectionFlow } from './KYCCollectionFlow';
 
 interface LimitStatus {
   current: number;
@@ -33,14 +34,18 @@ interface UpgradePromptProps {
 export function UpgradePrompt({ limitType = 'investment', className, onUpgradeClick }: UpgradePromptProps) {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<UnifiedKYCStatus | null>(null);
+  const [triggeringWorkflow, setTriggeringWorkflow] = useState(false);
+  const [workflowId, setWorkflowId] = useState<string | null>(null);
+  const [showCollectionFlow, setShowCollectionFlow] = useState(false);
 
   useEffect(() => {
     const fetchStatus = async () => {
-      if (!getAccessToken()) { setLoading(false); return; }
+      const token = getZitadelToken();
+      if (!token) { setLoading(false); return; }
       try {
         const res = await fetch('/api/kyc/status/unified', {
           credentials: 'include',
-          headers: { 'Authorization': `Bearer ${getAccessToken()}` }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
           const data = await res.json();
@@ -60,11 +65,87 @@ export function UpgradePrompt({ limitType = 'investment', className, onUpgradeCl
   const getNextKYCLevel = (current: string): string => {
     const levels = ['L0', 'L1', 'L2', 'L3', 'INSTITUTIONAL'];
     const currentIndex = levels.indexOf(current);
-    return currentIndex < levels.length - 1 ? levels[currentIndex + 1] : current;
+    if (currentIndex < 0 || currentIndex >= levels.length - 1) {
+      return current;
+    }
+    const next = levels[currentIndex + 1];
+    return next || current;
   };
 
-  const nextLevel = getNextKYCLevel(status.kycLevel);
+  const nextLevel = getNextKYCLevel(status.kycLevel || 'L0');
   const isBlocking = limitStatus.status === 'at_limit' || limitStatus.status === 'exceeded';
+
+  // Handle upgrade button click - trigger workflow via backend API
+  const handleUpgradeClick = async () => {
+    if (onUpgradeClick) {
+      onUpgradeClick();
+      return;
+    }
+
+    setTriggeringWorkflow(true);
+    try {
+      const token = getZitadelToken();
+      if (!token) {
+        window.location.href = '/login?next=/dashboard';
+        return;
+      }
+
+      // Call backend API to trigger KYC upgrade workflow
+      const response = await fetch('/api/kyc/upgrade/trigger', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fromLevel: status.kycLevel || 'L0',
+          toLevel: nextLevel,
+          reason: `Upgrade required for ${limitType} limit increase`,
+          triggerType: isBlocking ? 'blocking' : 'proactive'
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to start upgrade workflow');
+      }
+
+      const data = await response.json();
+      if (data.success && data.data?.workflowId) {
+        // Workflow triggered successfully - show collection flow
+        setWorkflowId(data.data.workflowId);
+        setShowCollectionFlow(true);
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error: any) {
+      alert(error.message || 'Failed to start KYC upgrade. Please try again.');
+    } finally {
+      setTriggeringWorkflow(false);
+    }
+  };
+
+  // If collection flow should be shown, render it
+  if (showCollectionFlow && workflowId) {
+    return (
+      <div className={className}>
+        <KYCCollectionFlow
+          workflowId={workflowId}
+          onComplete={() => {
+            setShowCollectionFlow(false);
+            setWorkflowId(null);
+            // Refresh status
+            window.location.reload();
+          }}
+          onError={(error) => {
+            alert(`KYC verification error: ${error}`);
+            setShowCollectionFlow(false);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <Alert className={className} variant={isBlocking ? 'destructive' : 'default'}>
@@ -91,8 +172,17 @@ export function UpgradePrompt({ limitType = 'investment', className, onUpgradeCl
               <span className="text-muted-foreground ml-2">→ Recommended: </span>
               <Badge>{nextLevel}</Badge>
             </div>
-            <Button size="sm" onClick={onUpgradeClick || (() => window.location.href = '/onboarding')} variant={isBlocking ? 'default' : 'outline'}>
-              Upgrade KYC <ArrowRight className="ml-2 h-4 w-4" />
+            <Button 
+              size="sm" 
+              onClick={handleUpgradeClick} 
+              variant={isBlocking ? 'default' : 'outline'}
+              disabled={triggeringWorkflow}
+            >
+              {triggeringWorkflow ? (
+                <>Starting...</>
+              ) : (
+                <>Upgrade KYC <ArrowRight className="ml-2 h-4 w-4" /></>
+              )}
             </Button>
           </div>
         </div>

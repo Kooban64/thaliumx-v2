@@ -13,6 +13,7 @@ import { WorkflowProgress } from '../workflows/WorkflowProgress';
 import { useUserWorkflows } from '@/lib/api/hooks/workflows';
 import { WorkflowType, WorkflowStatus } from '@/lib/api/types/workflows';
 import { Loader2, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { KYCCollectionFlow } from '../kyc/KYCCollectionFlow';
 
 interface OnboardingProgressProps {
   userId: string;
@@ -131,8 +132,27 @@ export function OnboardingProgress({
       <CardContent>
         <WorkflowProgress workflow={workflow} steps={onboardingSteps} />
 
-        {/* KYC Status */}
-        {workflow.data?.ballerineWorkflowId && (
+        {/* KYC Collection Flow - Show when workflow needs user input */}
+        {workflow.status === WorkflowStatus.RUNNING && 
+         workflow.currentStep === 'wait_for_kyc_completion' && 
+         workflow.data?.ballerineWorkflowId && (
+          <div className="mt-4">
+            <KYCCollectionFlow
+              workflowId={workflow.data.ballerineWorkflowId}
+              onComplete={() => {
+                // Refresh workflow status after completion
+                refetch();
+              }}
+              onError={(error) => {
+                console.error('KYC collection error:', error);
+              }}
+            />
+          </div>
+        )}
+
+        {/* KYC Status (when not showing collection flow) */}
+        {workflow.data?.ballerineWorkflowId && 
+         !(workflow.status === WorkflowStatus.RUNNING && workflow.currentStep === 'wait_for_kyc_completion') && (
           <Alert className="mt-4">
             <Info className="h-4 w-4" />
             <AlertDescription>
@@ -151,19 +171,6 @@ export function OnboardingProgress({
             <AlertDescription>
               <div className="font-medium mb-1">Onboarding Failed</div>
               <div className="text-sm">{workflow.errorMessage}</div>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Next Steps */}
-        {workflow.status === WorkflowStatus.RUNNING && workflow.currentStep === 'wait_for_kyc_completion' && (
-          <Alert className="mt-4">
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              <div className="font-medium mb-1">What&apos;s Next?</div>
-              <div className="text-sm text-muted-foreground">
-                Please check your email for KYC verification instructions. Once verified, your account setup will continue automatically.
-              </div>
             </AlertDescription>
           </Alert>
         )}

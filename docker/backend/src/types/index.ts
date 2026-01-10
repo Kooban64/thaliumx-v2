@@ -20,6 +20,9 @@
  * - Used for API request/response validation
  */
 
+// Import KYCLevel from kyc service (single source of truth)
+import { KYCLevel } from '../services/kyc';
+
 // =============================================================================
 // CORE TYPES
 // =============================================================================
@@ -34,7 +37,7 @@ export interface User {
   dateOfBirth?: Date;
   address?: Address;
   kycStatus: KycStatus;
-  kycLevel: KycLevel;
+  kycLevel: KYCLevel;
   isActive: boolean;
   isVerified: boolean;
   createdAt: Date;
@@ -52,6 +55,7 @@ export interface User {
   permissions: Permission[];
   tenantId: string;
   passwordHash?: string; // Internal field for authentication
+  zitadelId?: string; // Zitadel user ID (links to Zitadel identity)
 }
 
 export interface Address {
@@ -71,12 +75,9 @@ export enum KycStatus {
   EXPIRED = 'expired'
 }
 
-export enum KycLevel {
-  BASIC = 'basic',
-  INTERMEDIATE = 'intermediate',
-  ADVANCED = 'advanced',
-  ENTERPRISE = 'enterprise'
-}
+// KYCLevel enum is imported from '../services/kyc' (single source of truth)
+// Re-export for convenience
+export { KYCLevel };
 
 export enum UserRole {
   USER = 'user',
@@ -229,7 +230,7 @@ export interface Tenant {
 export interface TenantSettings {
   allowRegistration: boolean;
   requireKyc: boolean;
-  minKycLevel: KycLevel;
+  minKycLevel: KYCLevel;
   supportedCurrencies: string[];
   supportedCountries: string[];
   features: Record<string, boolean>;
@@ -365,6 +366,13 @@ export interface AppConfig {
       issuer: string;
       jwksUri: string;
       audience?: string;
+    };
+    wazuh?: {
+      managerUrl?: string;
+      apiPort?: number;
+      username?: string;
+      password?: string;
+      enabled?: boolean;
     };
     blockchain: {
       rpcUrl: string;

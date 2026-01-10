@@ -13,8 +13,7 @@ import { useWorkflowHealth } from '@/lib/api/hooks/workflows';
 import type { WorkflowHealth } from '@/lib/api/types/workflows';
 import { Loader2, Activity, AlertTriangle, BarChart3 } from 'lucide-react';
 import apiClient from '@/lib/api/client';
-import { getAccessToken } from '@/lib/auth/token-store';
-import { initZitadel } from '@/lib/auth/zitadel';
+import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import Link from 'next/link';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -23,10 +22,10 @@ export default function AdminWorkflowsPage() {
   const { data: healthData } = useWorkflowHealth();
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAuthAndLoad = async () => {
       try {
-        await initZitadel();
-        if (!getAccessToken()) {
+        const isAuthenticated = await checkBackendAuth();
+        if (!isAuthenticated) {
           window.location.href = '/login?next=/admin/workflows';
           return;
         }
@@ -47,7 +46,7 @@ export default function AdminWorkflowsPage() {
       }
     };
 
-    checkAuth();
+    checkAuthAndLoad();
   }, []);
 
   if (loading) {

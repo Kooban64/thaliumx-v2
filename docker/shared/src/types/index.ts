@@ -2,6 +2,16 @@
 // CORE TYPES
 // =============================================================================
 
+// KYC Level enum - matches backend services/kyc.ts (single source of truth)
+// Values: L0, L1, L2, L3, INSTITUTIONAL
+export enum KYCLevel {
+  L0 = 'L0', // Web3 Basic - Wallet connection only
+  L1 = 'L1', // Basic Verification - Email + Phone
+  L2 = 'L2', // Identity Verified - ID + Address + Biometric
+  L3 = 'L3', // Enhanced Verification - Full due diligence + Source of funds
+  INSTITUTIONAL = 'INSTITUTIONAL' // Institutional/KYB verification for businesses
+}
+
 export interface User {
   id: string;
   email: string;
@@ -12,7 +22,7 @@ export interface User {
   dateOfBirth?: Date;
   address?: Address;
   kycStatus: KycStatus;
-  kycLevel: KycLevel;
+  kycLevel: KYCLevel;
   isActive: boolean;
   isVerified: boolean;
   createdAt: Date;
@@ -181,7 +191,7 @@ export interface Tenant {
 export interface TenantSettings {
   allowRegistration: boolean;
   requireKyc: boolean;
-  minKycLevel: KycLevel;
+  minKycLevel: KYCLevel;
   supportedCurrencies: string[];
   supportedCountries: string[];
   features: Record<string, boolean>;

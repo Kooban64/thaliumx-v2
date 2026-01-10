@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import apiClient from '@/lib/api/client';
-import { initZitadel } from '@/lib/auth/zitadel';
-import { getAccessToken } from '@/lib/auth/token-store';
+import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -49,9 +48,8 @@ export default function WithdrawPage() {
   useEffect(() => {
     (async () => {
       try {
-        await initZitadel();
-
-        if (!getAccessToken()) {
+        const isAuthenticated = await checkBackendAuth();
+        if (!isAuthenticated) {
           window.location.href = `/login?next=/wallet/withdraw`;
           return;
         }

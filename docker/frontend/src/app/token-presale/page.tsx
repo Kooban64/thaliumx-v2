@@ -20,8 +20,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { tokenPurchaseSchema, validateForm } from '@/lib/utils';
-import { getAccessToken } from '@/lib/auth/token-store';
-import { initZitadel } from '@/lib/auth/zitadel';
+import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import { ChatWidget } from '@/components/support/ChatWidget';
 import { UpgradePrompt } from '@/components/kyc/UpgradePrompt';
 import { PostPurchaseTrading } from '@/components/presale/PostPurchaseTrading';
@@ -37,7 +36,7 @@ export default function TokenPresalePage() {
   const [brokerCode, setBrokerCode] = useState<string>('');
   const [thalPrice, setThalPrice] = useState<number>(0.10); // Default fallback price
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [purchaseSuccess, setPurchaseSuccess] = useState<{ amount: number; tokens: number; kycLevel: string } | null>(null);
+  const [_purchaseSuccess, setPurchaseSuccess] = useState<{ amount: number; tokens: number; kycLevel: string } | null>(null);
 
   useEffect(() => {
     // Load presale data
@@ -49,22 +48,16 @@ export default function TokenPresalePage() {
     // Determine auth state
     (async () => {
       try {
-        await initZitadel();
+        const isAuth = await checkBackendAuth();
+        setIsAuthenticated(isAuth);
       } catch {
-        // ignore
+        setIsAuthenticated(false);
       }
-      setIsAuthenticated(!!getAccessToken());
     })();
   }, []);
 
-  const authzHeaders = (): Record<string, string> => {
-    const headers: Record<string, string> = {};
-    const token = getAccessToken();
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-    return headers;
-  };
+  // No need for authzHeaders - backend uses httpOnly cookies
+  // All requests automatically include credentials via 'credentials: include'
 
   const loadThalPrice = async () => {
     try {
@@ -89,7 +82,6 @@ export default function TokenPresalePage() {
         credentials: 'include', // Include cookies
         headers: {
           'X-Tenant-ID': defaultTenantId,
-          ...authzHeaders(),
         }
       });
 
@@ -132,7 +124,6 @@ export default function TokenPresalePage() {
           'Content-Type': 'application/json',
           'X-Tenant-ID': defaultTenantId,
           ...(brokerCode ? { 'X-Broker-Code': brokerCode } : {}),
-          ...authzHeaders(),
         },
         credentials: 'include', // Include cookies
         body: JSON.stringify({

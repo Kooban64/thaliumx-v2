@@ -52,10 +52,13 @@ const legacyAuthGone = (_req: any, res: any) => {
   });
 };
 
-// Public routes
-router.post('/login', validateLogin, legacyAuthGone);
+// Import actual handlers from auth.ts
+import { login, register } from './auth';
 
-router.post('/register', validateRegister, legacyAuthGone);
+// Public routes - now using proper Zitadel-backed authentication
+router.post('/login', validateLogin, login);
+
+router.post('/register', validateRegister, register);
 
 router.post('/refresh', legacyAuthGone);
 

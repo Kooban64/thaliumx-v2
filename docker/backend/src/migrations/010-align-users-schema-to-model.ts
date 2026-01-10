@@ -35,10 +35,11 @@ export async function up(queryInterface: any, Sequelize: any): Promise<void> {
   // KYC / account status
   if (!columns.kycLevel) {
     // Keep as STRING for compatibility with existing installs; model treats it as enum-like.
+    // Default is 'L0' to match unified KYC level system (migration 014 will handle existing 'basic' values)
     await queryInterface.addColumn('users', 'kycLevel', {
       type: Sequelize.STRING,
       allowNull: false,
-      defaultValue: 'basic'
+      defaultValue: 'L0'
     });
   }
   if (!columns.isActive) {

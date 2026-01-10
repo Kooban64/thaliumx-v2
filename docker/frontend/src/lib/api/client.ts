@@ -1,7 +1,7 @@
 // API Configuration
 // In browser: Use relative URLs (Next.js will proxy via API routes)
 // In SSR: Use NEXT_PUBLIC_API_URL or default to backend service name
-import { getAccessToken } from '@/lib/auth/token-store';
+import { getZitadelToken } from '@/lib/auth/backend-auth';
 
 const getApiBaseUrl = (): string => {
   // Always check NEXT_PUBLIC_API_URL first (set at build time)
@@ -127,10 +127,10 @@ class ApiClient {
     };
 
     // Attach Zitadel Bearer token when available.
-    // This allows backend+APISIX to authenticate without relying on cookies.
-    const accessToken = typeof window !== 'undefined' ? getAccessToken() : null;
-    if (accessToken && !('Authorization' in (options.headers as any || {}))) {
-      defaultHeaders['Authorization'] = `Bearer ${accessToken}`;
+    // This allows backend to authenticate using Zitadel JWTs.
+    const zitadelToken = typeof window !== 'undefined' ? getZitadelToken() : null;
+    if (zitadelToken && !('Authorization' in (options.headers as any || {}))) {
+      defaultHeaders['Authorization'] = `Bearer ${zitadelToken}`;
     }
 
     // CSRF tokens not needed for Zitadel Bearer token authentication

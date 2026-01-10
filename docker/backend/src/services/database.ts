@@ -169,8 +169,15 @@ export class DatabaseService {
         defaultValue: 'not_started'
       },
       kycLevel: {
-        type: DataTypes.ENUM('basic', 'intermediate', 'advanced', 'enterprise'),
-        defaultValue: 'basic'
+        type: DataTypes.STRING,
+        defaultValue: 'L0',
+        allowNull: false,
+        validate: {
+          isIn: {
+            args: [['L0', 'L1', 'L2', 'L3', 'INSTITUTIONAL']],
+            msg: 'KYC level must be one of: L0, L1, L2, L3, INSTITUTIONAL'
+          }
+        }
       },
       isActive: {
         type: DataTypes.BOOLEAN,
@@ -211,6 +218,12 @@ export class DatabaseService {
       passwordHash: {
         type: DataTypes.STRING,
         allowNull: false
+      },
+      zitadelId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true,
+        field: 'zitadel_id'
       }
     }, {
       tableName: 'users',
@@ -220,6 +233,7 @@ export class DatabaseService {
         { fields: ['username'] },
         { fields: ['tenantId'] },
         { fields: ['role'] },
+        { fields: ['zitadelId'], name: 'idx_users_zitadel_id' },
         { fields: ['kycStatus'] }
       ]
     });

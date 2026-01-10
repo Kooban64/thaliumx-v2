@@ -22,7 +22,7 @@ export function PostPurchaseTrading({ investmentAmount, tokenAmount, kycLevel, f
       L3: ['View Market Data', 'View Portfolio', 'Basic Trading', 'Spot Trading', 'Advanced Trading', 'Margin Trading', 'Futures Trading'],
       INSTITUTIONAL: ['All Features', 'API Access', 'Custom Solutions']
     };
-    return features.length > 0 ? features : (featureMap[level] || featureMap.L0);
+    return features.length > 0 ? features : (featureMap[level] ?? featureMap.L0 ?? []);
   };
 
   const availableFeatures = getFeatures(kycLevel);

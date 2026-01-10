@@ -32,7 +32,7 @@ import { authenticateToken, requireRole, asyncHandler, validateRequest } from '.
 import { UserService } from '../services/user';
 import { LoggerService } from '../services/logger';
 import { createError, omit } from '../utils';
-import { KycStatus, KycLevel, UserRole } from '../types';
+import { KycStatus, KYCLevel, UserRole } from '../types';
 import * as Joi from 'joi';
 
 const router: Router = Router();
@@ -57,7 +57,7 @@ const updateUserSchema = Joi.object({
 
 const updateKycSchema = Joi.object({
   kycStatus: Joi.string().valid(...Object.values(KycStatus)).required(),
-  kycLevel: Joi.string().valid(...Object.values(KycLevel)).required()
+  kycLevel: Joi.string().valid(...Object.values(KYCLevel)).required()
 });
 
 const _listUsersSchema = Joi.object({
@@ -547,7 +547,7 @@ router.put('/:id/kyc', requireRole(['compliance', 'admin', 'super_admin']), vali
     throw createError('Access denied', 403, 'ACCESS_DENIED');
   }
 
-  const updatedUser = await UserService.updateKycStatus(id, kycStatus as KycStatus, kycLevel as KycLevel);
+  const updatedUser = await UserService.updateKycStatus(id, kycStatus as KycStatus, kycLevel as KYCLevel);
 
   // Remove sensitive fields
   const sanitizedUser = omit(updatedUser, ['passwordHash', 'mfaSecret', 'mfaSecretTemp', 'mfaBackupCodes', 'mfaEmailCode']);
