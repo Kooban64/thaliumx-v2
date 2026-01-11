@@ -52,27 +52,49 @@ export async function login(email: string, password: string): Promise<{ success:
       body: JSON.stringify({ email, password }),
     });
 
-    const data = await response.json();
-
+    // Check if response is ok before parsing JSON
     if (!response.ok) {
+      // Try to parse error response, but handle cases where it might not be JSON
+      let errorMessage = 'Login failed';
+      try {
+        const errorData = await response.json();
+        if (typeof errorData.error === 'string') {
+          errorMessage = errorData.error;
+        } else if (errorData.error?.message) {
+          errorMessage = errorData.error.message;
+        } else if (errorData.error?.code) {
+          errorMessage = errorData.error.code;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } catch {
+        // If JSON parsing fails, use status text
+        errorMessage = response.statusText || `HTTP ${response.status}`;
+      }
       return {
         success: false,
-        error: data.error || data.message || 'Login failed'
+        error: errorMessage
       };
     }
 
-    // Store Zitadel token if returned (backend may set it in cookie instead)
-    // If token is in cookie, middleware will use it; if in response, store for Authorization header
+    // Parse successful response
+    const data = await response.json();
+
+    // Store Zitadel token from response (backend always returns token, not in cookies)
+    // Token is stored in memory and used in Authorization header for all API calls
     if (data.data?.accessToken) {
       setZitadelToken(data.data.accessToken, data.data.expiresIn || 3600);
     } else {
-      // Token is in cookie - try to get it from cookie or wait for next API call
-      // For now, we'll rely on cookie-based auth, but store a placeholder
-      // The actual token will be available via cookie in subsequent requests
+      // Token should always be in response - if missing, it's an error
+      return {
+        success: false,
+        error: 'Authentication token not received from server'
+      };
     }
 
     return { success: true };
   } catch (error: any) {
+    console.error('Login error:', error);
     return {
       success: false,
       error: error.message || 'Network error during login'
@@ -82,7 +104,7 @@ export async function login(email: string, password: string): Promise<{ success:
 
 /**
  * Check if user is authenticated by calling backend profile endpoint
- * Uses Zitadel token in Authorization header or httpOnly cookies
+ * Uses Zitadel token in Authorization header (stored in memory)
  */
 export async function checkAuth(): Promise<boolean> {
   try {

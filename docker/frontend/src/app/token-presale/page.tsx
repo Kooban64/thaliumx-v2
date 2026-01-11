@@ -11,7 +11,6 @@ import {
   TrendingUp,
   Loader2,
   CheckCircle,
-  ArrowLeft,
   Wallet,
   DollarSign,
   Clock,
@@ -164,42 +163,6 @@ export default function TokenPresalePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
-      {/* Header */}
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">T</span>
-            </div>
-            <span className="text-xl font-bold">ThaliumX</span>
-          </div>
-          <nav className="hidden md:flex items-center space-x-4">
-            <a href="/landing" className="text-sm font-medium hover:text-primary">Home</a>
-            <a href="/dashboard" className="text-sm font-medium hover:text-primary">Trading</a>
-            <a href="/token-presale" className="text-sm font-medium text-primary">Presale</a>
-          </nav>
-          <div className="flex items-center space-x-2">
-            {!isAuthenticated ? (
-              <>
-                <Button variant="ghost" size="sm" asChild>
-                  <a href="/login?next=/token-presale">Sign In</a>
-                </Button>
-                <Button size="sm" asChild>
-                  <a href="/dashboard">Launch App</a>
-                </Button>
-              </>
-            ) : (
-              <Button variant="ghost" size="sm" asChild>
-                <a href="/dashboard">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Dashboard
-                </a>
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
-
       <main className="container mx-auto px-4 py-16">
         {/* Hero Section */}
         <div className="text-center max-w-4xl mx-auto mb-16">
@@ -483,26 +446,6 @@ export default function TokenPresalePage() {
           </Card>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="border-t bg-background/95 mt-24">
-        <div className="container mx-auto px-4 py-8 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
-          <div className="flex items-center space-x-2">
-            <div className="h-6 w-6 rounded bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">T</span>
-            </div>
-            <span className="font-semibold">ThaliumX</span>
-          </div>
-          <nav className="flex items-center space-x-4 text-sm">
-            <a href="/landing" className="text-muted-foreground hover:text-primary">Home</a>
-            <a href="/dashboard" className="text-muted-foreground hover:text-primary">Trading</a>
-            <a href="/token-presale" className="text-muted-foreground hover:text-primary">Presale</a>
-          </nav>
-          <p className="text-sm text-muted-foreground">
-            © 2025 ThaliumX. All rights reserved.
-          </p>
-        </div>
-      </footer>
 
       {/* Public Support Chat Widget */}
       <ChatWidget isPublic={true} />

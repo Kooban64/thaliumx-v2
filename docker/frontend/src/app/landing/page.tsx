@@ -7,7 +7,6 @@ import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import { ChatWidget } from '@/components/support/ChatWidget';
 
 export default function LandingPage() {
-  const [authChecked, setAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Set default tenant ID for landing page (platform-default-tenant)
@@ -32,8 +31,6 @@ export default function LandingPage() {
         setIsAuthenticated(isAuthenticated);
       } catch {
         setIsAuthenticated(false);
-      } finally {
-        setAuthChecked(true);
       }
     })();
   }, []);
@@ -42,43 +39,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">T</span>
-            </div>
-            <span className="text-xl font-bold">ThaliumX</span>
-          </div>
-          <nav className="hidden md:flex items-center space-x-4">
-            <a href="#features" className="text-sm font-medium hover:text-primary">Features</a>
-            <a href="#how" className="text-sm font-medium hover:text-primary">How it works</a>
-            <a href="#contact" className="text-sm font-medium hover:text-primary">Contact</a>
-           </nav>
-           <div className="flex items-center space-x-2">
-             {authChecked && isAuthenticated ? (
-               <>
-                 <Button variant="ghost" asChild>
-                   <a href="/dashboard">Continue</a>
-                 </Button>
-                 <Button asChild>
-                   <a href="/dashboard">Launch App</a>
-                 </Button>
-               </>
-             ) : (
-               <>
-                  <Button variant="ghost" asChild>
-                    <a href="/login?next=/dashboard">Sign In</a>
-                  </Button>
-                 <Button asChild>
-                   <a href={appHref}>Launch App</a>
-                 </Button>
-               </>
-             )}
-           </div>
-         </div>
-       </header>
-
       <main className="container mx-auto px-4 py-20">
         <section className="text-center max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
@@ -197,16 +157,6 @@ export default function LandingPage() {
           </div>
         </section>
       </main>
-
-      <footer className="border-t bg-background/95 mt-20">
-        <div className="container mx-auto px-4 py-8 flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">© 2025 ThaliumX</span>
-          <div className="space-x-4 text-sm">
-            <a href="/privacy" className="hover:text-primary">Privacy</a>
-            <a href="/terms" className="hover:text-primary">Terms</a>
-          </div>
-        </div>
-      </footer>
 
       {/* Public Support Chat Widget */}
       <ChatWidget isPublic={true} />

@@ -83,7 +83,9 @@ RUN apk add --no-cache \
 
 # Copy package files
 COPY docker/backend/package.json ./
-COPY docker/shared ./shared
+COPY docker/shared/package.json ./shared/package.json
+COPY docker/shared/tsconfig.json ./shared/tsconfig.json
+COPY docker/shared/src ./shared/src
 
 # Security: Disable npm scripts during install
 RUN npm config set ignore-scripts true
@@ -95,6 +97,8 @@ RUN pnpm run build
 
 # Build the backend application
 WORKDIR /app
+# Update package.json to use correct shared path
+RUN sed -i 's|"file:../shared"|"file:./shared"|g' package.json || true
 RUN pnpm install --ignore-workspace --no-frozen-lockfile
 
 # Copy source code

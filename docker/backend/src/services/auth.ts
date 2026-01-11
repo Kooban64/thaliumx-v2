@@ -27,7 +27,7 @@
 
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
-// jwt imported but not used in this file
+import * as jwt from 'jsonwebtoken';
 import type { AuthResponse, User, JWTPayload} from '../types';
 import { UserRole, KYCLevel } from '../types';
 import { DatabaseService } from '../services/database';
@@ -35,13 +35,14 @@ import { RedisService } from '../services/redis';
 import { LoggerService } from '../services/logger';
 // authenticator, AuthRequest, ConfigService imported but not used in this file
 import { EmailService } from './email';
-import { zitadelApiService } from './zitadel-api.service';
+// Zitadel integration removed - using our own auth system
+// Note: Zitadel may be re-added later for SSO/social login support
+// import { zitadelApiService } from './zitadel-api.service';
 import { createError } from '../utils';
 import { UserService } from './user';
 import { MFAService } from './mfa';
 import { wazuhApiService } from './wazuh-api.service';
-// Note: Internal JWT generation removed - using Zitadel tokens only
-// import { generateAccessToken, generateRefreshToken, verifyToken } from '../utils';
+import { TokenService } from './token-service';
 import type { Response } from 'express';
 import type { Model, ModelCtor } from 'sequelize';
 
@@ -109,78 +110,21 @@ export class AuthService {
         throw createError('Account is temporarily locked due to too many failed login attempts', 423, 'ACCOUNT_LOCKED');
       }
 
-      // Authenticate user - Zitadel-first if zitadelId exists, otherwise fallback to bcrypt
+      // Authenticate user using bcrypt password verification
+      // Note: Zitadel integration removed - using our own auth system
+      // Zitadel may be re-added later for SSO/social login support
       let isPasswordValid = false;
 
-      if (user.zitadelId) {
-        // User has Zitadel ID - authenticate via Zitadel API
-        try {
-          const zitadelAuth = await zitadelApiService.authenticateUser(email, password);
-          isPasswordValid = true; // Zitadel authentication succeeded
-          
-          // Update zitadelId if it changed (shouldn't happen, but sync just in case)
-          if (zitadelAuth.userId !== user.zitadelId) {
-            await UserService.updateUser(user.id, { zitadelId: zitadelAuth.userId });
-            LoggerService.info('Updated zitadelId for user', { userId: user.id, oldZitadelId: user.zitadelId, newZitadelId: zitadelAuth.userId });
-          }
-        } catch (zitadelError: any) {
-          // Zitadel authentication failed
-          if (zitadelError.code === 'INVALID_CREDENTIALS' || zitadelError.code === 'USER_NOT_FOUND') {
-            isPasswordValid = false;
-          } else {
-            // For other Zitadel errors, fallback to bcrypt if password hash exists
-            LoggerService.warn('Zitadel authentication failed, falling back to bcrypt', {
-              error: zitadelError.message,
-              email,
-              userId: user.id
-            });
-            
-            if (user.passwordHash) {
-              isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-            } else {
-              isPasswordValid = false;
-            }
-          }
-        }
-      } else {
-        // No Zitadel ID - use bcrypt password verification (backward compatibility)
-        if (!user.passwordHash) {
-          // Try to find user in Zitadel and link them
-          try {
-            const zitadelUser = await zitadelApiService.getUserByEmail(email);
-            if (zitadelUser) {
-              // User exists in Zitadel but not linked - authenticate and link
-              const zitadelAuth = await zitadelApiService.authenticateUser(email, password);
-              isPasswordValid = true;
-              
-              // Link Zitadel ID to database user
-              await UserService.updateUser(user.id, { zitadelId: zitadelAuth.userId });
-              LoggerService.info('Linked Zitadel account to database user', {
-                userId: user.id,
-                zitadelId: zitadelAuth.userId,
-                email
-              });
-            } else {
-              // User not in Zitadel and no password hash - invalid
-              LoggerService.logAuth('login_attempt', user.id, false);
-              LoggerService.info('Login attempt failed - no password hash and not in Zitadel', { email, reason: 'NO_PASSWORD_HASH' });
-              const { MetricsService } = await import('./metrics');
-              MetricsService.recordAuthLoginFailure('no_password_hash');
-              throw createError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
-            }
-          } catch {
-            // Zitadel lookup/auth failed - use bcrypt if available
-            if (user.passwordHash) {
-              isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-            } else {
-              isPasswordValid = false;
-            }
-          }
-        } else {
-          // Use bcrypt password verification
-          isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-        }
+      if (!user.passwordHash) {
+        LoggerService.logAuth('login_attempt', user.id, false);
+        LoggerService.info('Login attempt failed - no password hash', { email, reason: 'NO_PASSWORD_HASH' });
+        const { MetricsService } = await import('./metrics');
+        MetricsService.recordAuthLoginFailure('no_password_hash');
+        throw createError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
       }
+
+      // Verify password using bcrypt
+      isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
       if (!isPasswordValid) {
         // Track failed attempts
@@ -266,63 +210,68 @@ export class AuthService {
         }
       }
 
-      // Get Zitadel OIDC token for the authenticated user
-      // This replaces internal JWT generation - we use Zitadel tokens only
-      let zitadelToken: { accessToken: string; expiresIn: number; tokenType: string };
-      
+      // Issue our own JWT tokens using TokenService
+      // Note: Zitadel integration removed - using our own token system
+      // Zitadel may be re-added later for SSO/social login support
       try {
-        // If user has Zitadel ID, get token using their credentials
-        if (user.zitadelId) {
-          zitadelToken = await zitadelApiService.getUserToken(email, password);
-        } else {
-          // User not in Zitadel yet - this shouldn't happen after registration
-          // but handle gracefully for backward compatibility
-          LoggerService.warn('User does not have Zitadel ID, cannot get Zitadel token', {
-            userId: user.id,
-            email
-          });
-          throw createError('User not configured in Zitadel', 500, 'ZITADEL_NOT_CONFIGURED');
-        }
+        // Get user's role (User type has single role, not roles array)
+        const userRole = user.role || 'user';
+        const userRoles = [userRole]; // Convert single role to array for TokenService
+        
+        // Get tenant ID for client separation (critical for multi-tenant isolation)
+        // tenantId is stored in user record or derived from user's tenant membership
+        const tenantId = user.tenantId || process.env.DEFAULT_TENANT_ID || '10000000-0000-0000-0000-000000000000';
+        
+        // Convert permissions from Permission[] to string[] for TokenService
+        const permissionStrings = (user.permissions || []).map(p => 
+          typeof p === 'string' ? p : `${p.resource}:${p.action}`
+        );
+        
+        // Issue token pair using TokenService
+        const tokenPair = await TokenService.issueTokenPair({
+          id: user.id,
+          userId: user.id,
+          email: user.email,
+          role: userRole,
+          roles: userRoles,
+          tenantId: tenantId, // Critical: tenantId ensures strict client separation
+          brokerId: undefined, // User type doesn't have brokerId, set to undefined
+          permissions: permissionStrings,
+          mfaEnabled: user.mfaEnabled || false,
+          mfaVerified: user.mfaEnabled || false // MFA verified if we got past MFA check
+        });
+
+        // Update last login
+        await UserService.updateLastLogin(user.id);
+
+        // Log successful login
+        LoggerService.logAuth('login_success', user.id, true);
+        LoggerService.info('Login successful', { 
+          email, 
+          userId: user.id,
+          tenantId: tenantId,
+          mfaEnabled: user.mfaEnabled || false
+        });
+
+        // Return token pair
+        return {
+          user: {
+            ...user,
+            passwordHash: undefined // Remove password hash from response
+          } as User,
+          accessToken: tokenPair.accessToken,
+          refreshToken: tokenPair.refreshToken,
+          expiresIn: tokenPair.accessTokenExpiresIn,
+          tokenType: 'Bearer' as const
+        };
       } catch (tokenError: any) {
-        LoggerService.error('Failed to get Zitadel token after authentication', {
+        LoggerService.error('Failed to issue token after authentication', {
           error: tokenError.message,
           userId: user.id,
           email
         });
         throw createError('Failed to obtain authentication token', 500, 'TOKEN_ERROR');
       }
-
-      // Update last login
-      await UserService.updateLastLogin(user.id);
-
-      // Log successful login
-      LoggerService.logAuth('login_success', user.id, true);
-      LoggerService.info('Login successful', { email, zitadelId: user.zitadelId });
-
-      // Set httpOnly cookies if response object provided
-      if (res) {
-        const isProduction = process.env.NODE_ENV === 'production';
-        const cookieOptions = {
-          httpOnly: true,
-          secure: isProduction,
-          sameSite: 'strict' as const,
-          maxAge: zitadelToken.expiresIn * 1000, // Convert to milliseconds
-          path: '/'
-        };
-
-        res.cookie('accessToken', zitadelToken.accessToken, cookieOptions);
-      }
-
-      return {
-        user: {
-          ...user,
-          passwordHash: undefined // Remove password hash from response
-        } as User,
-        accessToken: res ? undefined : zitadelToken.accessToken, // Don't return token if using cookies
-        refreshToken: undefined, // Zitadel handles refresh via OIDC
-        expiresIn: zitadelToken.expiresIn,
-        tokenType: 'Bearer' as const
-      };
     } catch (error: any) {
       if (error.code && error.code !== 'INVALID_CREDENTIALS') {
         throw error;
@@ -399,42 +348,11 @@ export class AuthService {
         }
       }
 
-      // Zitadel-first approach: Create user in Zitadel first, then in database
-      let zitadelId: string | null = null;
+      // Note: Zitadel integration removed - using our own auth system
+      // Zitadel may be re-added later for SSO/social login support
+      // User is created directly in our database
 
-      try {
-        // Step 1: Create user in Zitadel via Management API
-        const zitadelUser = await zitadelApiService.createUser(
-          userData.email,
-          userData.password,
-          userData.firstName || '',
-          userData.lastName || ''
-        );
-        
-        zitadelId = zitadelUser.userId;
-
-        LoggerService.info('User created in Zitadel', {
-          email: userData.email,
-          zitadelId: zitadelUser.userId
-        });
-      } catch (zitadelError: any) {
-        // If Zitadel creation fails, log but don't fail registration
-        // This allows fallback to database-only registration if Zitadel is unavailable
-        LoggerService.error('Failed to create user in Zitadel, proceeding with database-only registration', {
-          error: zitadelError.message,
-          email: userData.email
-        });
-        
-        // Only fail if it's a user already exists error (409)
-        if (zitadelError.code === 'USER_ALREADY_EXISTS') {
-          throw createError('User already exists', 409, 'USER_ALREADY_EXISTS');
-        }
-        
-        // For other errors, continue with database registration (zitadelId will be null)
-        // User can be linked to Zitadel later if needed
-      }
-
-      // Step 2: Create user in database with zitadel_id link
+      // Create user in database
       const newUser = await UserService.createUser({
         email: userData.email,
         username: userData.username || userData.email.split('@')[0],
@@ -448,15 +366,15 @@ export class AuthService {
         isActive: true,
         isVerified: false,
         mfaEnabled: false,
-        permissions: [],
-        zitadelId: zitadelId || undefined // Link to Zitadel user if created successfully
-      } as any); // Type assertion needed for zitadelId field
+        permissions: []
+        // zitadelId removed - Zitadel integration disabled
+      });
 
       LoggerService.logAuth('user_registered', newUser.id, true);
       LoggerService.info('User registered successfully', {
         email: newUser.email,
         userId: newUser.id,
-        zitadelId: zitadelId || 'none'
+        // zitadelId removed
       });
 
       return newUser;
@@ -470,17 +388,40 @@ export class AuthService {
 
   /**
    * Refresh access token using refresh token
-   * @deprecated With Zitadel OIDC, token refresh should be handled via OIDC refresh flow
-   * This method is kept for backward compatibility but should not be used with Zitadel tokens
+   * Uses our own JWT token system (Zitadel integration removed)
    */
   static async refreshToken(refreshToken: string): Promise<AuthResponse> {
-    // Token refresh is now handled by Zitadel OIDC flow
-    // Frontend should use Zitadel SDK's refresh token mechanism
-    throw createError(
-      'Token refresh via this endpoint is deprecated. Use Zitadel OIDC refresh flow instead.',
-      400,
-      'DEPRECATED_REFRESH_METHOD'
-    );
+    try {
+      const { TokenService } = await import('./token-service');
+      const tokenPair = await TokenService.refreshAccessToken(refreshToken);
+
+      // Get user info from token metadata or database
+      const decoded: any = jwt.decode(tokenPair.accessToken);
+      const userId = decoded?.userId || decoded?.id;
+      
+      if (!userId) {
+        throw createError('Invalid token', 401, 'INVALID_TOKEN');
+      }
+
+      const user = await UserService.getUserById(userId);
+      if (!user) {
+        throw createError('User not found', 404, 'USER_NOT_FOUND');
+      }
+
+      return {
+        user: {
+          ...user,
+          passwordHash: undefined
+        } as User,
+        accessToken: tokenPair.accessToken,
+        refreshToken: tokenPair.refreshToken,
+        expiresIn: tokenPair.accessTokenExpiresIn,
+        tokenType: 'Bearer' as const
+      };
+    } catch (error: any) {
+      LoggerService.error('Token refresh failed:', error);
+      throw createError('Token refresh failed', 401, 'REFRESH_FAILED');
+    }
   }
 
   /**
@@ -576,8 +517,7 @@ export class AuthService {
 
        // Clear cookies if response object provided
        if (res) {
-         res.clearCookie('accessToken', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/' });
-         res.clearCookie('refreshToken', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/' });
+         // No cookies to clear - tokens are stored in frontend memory only
        }
 
        LoggerService.logAuth('logout', userId, true);

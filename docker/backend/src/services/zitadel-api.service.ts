@@ -67,6 +67,8 @@ export class ZitadelApiService {
   private serviceAccountKey: string; // Not readonly - loaded from Vault
   private projectId: string; // Not readonly - loaded from Vault
   private orgId: string; // Not readonly - loaded from Vault
+  private oidcClientId: string; // OIDC client ID for password grants (separate from service account)
+  private oidcClientSecret: string; // OIDC client secret for password grants (optional, may be empty for public clients)
 
   private constructor() {
     // Load Zitadel credentials from Vault (secure) or environment variables (fallback)
@@ -78,6 +80,16 @@ export class ZitadelApiService {
     this.serviceAccountKey = process.env.ZITADEL_SERVICE_ACCOUNT_KEY || '';
     this.projectId = process.env.ZITADEL_PROJECT_ID || '';
     this.orgId = process.env.ZITADEL_ORG_ID || '';
+    
+    // OIDC client for password grants (separate from service account)
+    // This should be a public or confidential client configured for password grants
+    this.oidcClientId = process.env.ZITADEL_OIDC_CLIENT_ID || process.env.ZITADEL_SERVICE_ACCOUNT_ID || '';
+    this.oidcClientSecret = process.env.ZITADEL_OIDC_CLIENT_SECRET || process.env.ZITADEL_SERVICE_ACCOUNT_KEY || '';
+
+    // Warn if using service account for password grants (may not work)
+    if (!process.env.ZITADEL_OIDC_CLIENT_ID && this.oidcClientId) {
+      LoggerService.warn('Using service account for OIDC password grants. Consider configuring ZITADEL_OIDC_CLIENT_ID for a dedicated OIDC client.');
+    }
 
     // Load from Vault if available (async, will be loaded on first use)
     this.loadCredentialsFromVault();
@@ -89,12 +101,20 @@ export class ZitadelApiService {
     // Remove trailing slash from issuer
     const baseURL = this.issuer.replace(/\/$/, '');
 
+    // For Management API, use internal endpoint if issuer is external domain
+    // Zitadel Management API should be accessed via internal endpoint
+    const managementBaseURL = baseURL.includes('auth.thaliumx.com') 
+      ? 'http://thaliumx-zitadel:8080/management/v1'
+      : `${baseURL}/management/v1`;
+
     this.client = axios.create({
-      baseURL: `${baseURL}/management/v1`,
+      baseURL: managementBaseURL,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        // Add Host header for external domain requests to internal endpoint
+        ...(baseURL.includes('auth.thaliumx.com') ? { 'Host': 'auth.thaliumx.com' } : {})
       }
     });
 
@@ -150,7 +170,12 @@ export class ZitadelApiService {
     }
 
     try {
-      const tokenURL = `${this.issuer.replace(/\/$/, '')}/oauth/v2/token`;
+      // For OAuth token endpoint, use internal endpoint if issuer is external domain
+      // Add Host header to match external domain for instance routing
+      const tokenBaseURL = this.issuer.includes('auth.thaliumx.com')
+        ? 'http://thaliumx-zitadel:8080'
+        : this.issuer.replace(/\/$/, '');
+      const tokenURL = `${tokenBaseURL}/oauth/v2/token`;
       
       const response = await axios.post<ZitadelTokenResponse>(
         tokenURL,
@@ -162,7 +187,9 @@ export class ZitadelApiService {
         }),
         {
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
+            'Content-Type': 'application/x-www-form-urlencoded',
+            // Add Host header for external domain requests to internal endpoint
+            ...(this.issuer.includes('auth.thaliumx.com') ? { 'Host': 'auth.thaliumx.com' } : {})
           },
           timeout: 10000
         }
@@ -261,7 +288,11 @@ export class ZitadelApiService {
       }
 
       // Authenticate using password grant
-      const tokenURL = `${this.issuer.replace(/\/$/, '')}/oauth/v2/token`;
+      // For OAuth token endpoint, use internal endpoint if issuer is external domain
+      const tokenBaseURL = this.issuer.includes('auth.thaliumx.com')
+        ? 'http://thaliumx-zitadel:8080'
+        : this.issuer.replace(/\/$/, '');
+      const tokenURL = `${tokenBaseURL}/oauth/v2/token`;
       
       await axios.post<ZitadelTokenResponse>(
         tokenURL,
@@ -275,7 +306,9 @@ export class ZitadelApiService {
         }),
         {
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
+            'Content-Type': 'application/x-www-form-urlencoded',
+            // Add Host header for external domain requests to internal endpoint
+            ...(this.issuer.includes('auth.thaliumx.com') ? { 'Host': 'auth.thaliumx.com' } : {})
           },
           timeout: 10000
         }
@@ -408,16 +441,25 @@ export class ZitadelApiService {
     try {
       const tokenURL = `${this.issuer.replace(/\/$/, '')}/oauth/v2/token`;
       
+      // Use OIDC client for password grants (not service account)
+      // Password grants require a client configured for password grant flow
+      const params: Record<string, string> = {
+        grant_type: 'password',
+        client_id: this.oidcClientId,
+        username: email,
+        password: password,
+        scope: 'openid profile email'
+      };
+      
+      // Only include client_secret if it's configured (for confidential clients)
+      // Public clients don't need a secret
+      if (this.oidcClientSecret) {
+        params.client_secret = this.oidcClientSecret;
+      }
+      
       const response = await axios.post<ZitadelTokenResponse>(
         tokenURL,
-        new URLSearchParams({
-          grant_type: 'password',
-          client_id: this.serviceAccountId,
-          client_secret: this.serviceAccountKey,
-          username: email,
-          password: password,
-          scope: 'openid profile email'
-        }),
+        new URLSearchParams(params),
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
@@ -437,18 +479,34 @@ export class ZitadelApiService {
         tokenType: response.data.token_type || 'Bearer'
       };
     } catch (error: any) {
-      LoggerService.error('Failed to get Zitadel token for user', {
+      const errorDetails = {
         error: error.message,
         status: error.response?.status,
-        email
-      });
+        statusText: error.response?.statusText,
+        responseData: error.response?.data,
+        email,
+        clientId: this.oidcClientId ? 'configured' : 'missing',
+        hasClientSecret: !!this.oidcClientSecret
+      };
+      
+      LoggerService.error('Failed to get Zitadel token for user', errorDetails);
 
       if (error.response?.status === 401 || error.response?.status === 403) {
+        // Check if it's a client authentication error vs user authentication error
+        const errorMessage = error.response?.data?.error_description || error.response?.data?.message || error.message;
+        if (errorMessage?.includes('client') || errorMessage?.includes('invalid_client')) {
+          LoggerService.error('Zitadel OIDC client configuration error - check ZITADEL_OIDC_CLIENT_ID and ZITADEL_OIDC_CLIENT_SECRET', {
+            clientId: this.oidcClientId,
+            hasSecret: !!this.oidcClientSecret
+          });
+          throw createError('Authentication service configuration error', 500, 'ZITADEL_CLIENT_ERROR');
+        }
         throw createError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
       }
 
+      const errorMessage = error.response?.data?.error_description || error.response?.data?.message || error.message;
       throw createError(
-        `Failed to get Zitadel token: ${error.response?.data?.message || error.message}`,
+        `Failed to get Zitadel token: ${errorMessage}`,
         500,
         'ZITADEL_TOKEN_ERROR'
       );

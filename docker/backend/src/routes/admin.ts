@@ -652,4 +652,207 @@ router.get('/health', requireRole(['admin', 'super_admin']), async (req: Request
   }
 });
 
+/**
+ * GET /api/admin/user-limits/:userId
+ * Get user transaction limits and usage
+ */
+router.get('/user-limits/:userId', requireRole(['admin', 'super_admin', 'user']), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { userId } = req.params;
+    const requestingUserId = (req.user as any)?.userId || (req.user as any)?.id;
+    const requestingRole = (req.user as any)?.role;
+
+    // Users can only view their own limits unless they're admin
+    if (requestingRole !== 'admin' && requestingRole !== 'super_admin' && userId !== requestingUserId) {
+      return next({ status: 403, message: 'Access denied', code: 'ACCESS_DENIED' });
+    }
+
+    // Import services
+    const { TransactionVolumeTrackerService } = await import('../services/transaction-volume-tracker.service');
+    const { KYCService } = await import('../services/kyc');
+    const { DatabaseService } = await import('../services/database');
+
+    // Get user's tenant ID
+    const UserModel = DatabaseService.getModel('User');
+    const user = await UserModel.findByPk(userId);
+    if (!user) {
+      return next({ status: 404, message: 'User not found', code: 'USER_NOT_FOUND' });
+    }
+
+    const tenantId = (user as any).tenantId || '10000000-0000-0000-0000-000000000000';
+
+    // Ensure userId is a string
+    if (!userId || typeof userId !== 'string') {
+      return next({ status: 400, message: 'Invalid user ID', code: 'INVALID_USER_ID' });
+    }
+
+    // Import TimePeriod enum
+    const { TimePeriod } = await import('../services/transaction-volume-tracker.service');
+
+    // Get KYC status
+    let kycStatus: any = { kycLevel: 'L0', status: 'not_started' };
+    try {
+      kycStatus = await KYCService.getKYCStatus(userId);
+    } catch {
+      // Default to L0 if KYC not found
+    }
+
+    // Get transaction limits for different types
+    const investmentLimit = await TransactionVolumeTrackerService.checkLimit(
+      userId,
+      tenantId,
+      'investment',
+      0,
+      TimePeriod.TOTAL
+    );
+
+    const tradingLimit = await TransactionVolumeTrackerService.checkLimit(
+      userId,
+      tenantId,
+      'trading',
+      0,
+      TimePeriod.TOTAL
+    );
+
+    const withdrawalLimit = await TransactionVolumeTrackerService.checkLimit(
+      userId,
+      tenantId,
+      'withdrawal',
+      0,
+      TimePeriod.TOTAL
+    );
+
+    // Get daily usage
+    const dailyInvestment = await TransactionVolumeTrackerService.getCumulativeUsage(
+      userId,
+      tenantId,
+      'investment',
+      TimePeriod.DAILY
+    );
+
+    const dailyTrading = await TransactionVolumeTrackerService.getCumulativeUsage(
+      userId,
+      tenantId,
+      'trading',
+      TimePeriod.DAILY
+    );
+
+    const dailyWithdrawal = await TransactionVolumeTrackerService.getCumulativeUsage(
+      userId,
+      tenantId,
+      'withdrawal',
+      TimePeriod.DAILY
+    );
+
+    // Get monthly usage
+    const monthlyInvestment = await TransactionVolumeTrackerService.getCumulativeUsage(
+      userId,
+      tenantId,
+      'investment',
+      TimePeriod.MONTHLY
+    );
+
+    const monthlyTrading = await TransactionVolumeTrackerService.getCumulativeUsage(
+      userId,
+      tenantId,
+      'trading',
+      TimePeriod.MONTHLY
+    );
+
+    const monthlyWithdrawal = await TransactionVolumeTrackerService.getCumulativeUsage(
+      userId,
+      tenantId,
+      'withdrawal',
+      TimePeriod.MONTHLY
+    );
+
+    // Calculate max values
+    const maxDaily = Math.max(
+      investmentLimit.limit,
+      tradingLimit.limit,
+      withdrawalLimit.limit
+    );
+    const maxMonthly = Math.max(
+      investmentLimit.limit,
+      tradingLimit.limit,
+      withdrawalLimit.limit
+    );
+    const maxSingle = Math.max(
+      investmentLimit.limit,
+      tradingLimit.limit,
+      withdrawalLimit.limit
+    );
+    
+    const dailyUsed = Math.max(
+      dailyInvestment.total || 0,
+      dailyTrading.total || 0,
+      dailyWithdrawal.total || 0
+    );
+    const monthlyUsed = Math.max(
+      monthlyInvestment.total || 0,
+      monthlyTrading.total || 0,
+      monthlyWithdrawal.total || 0
+    );
+    
+    const dailyRemaining = Math.max(0, maxDaily - dailyUsed);
+    const monthlyRemaining = Math.max(0, maxMonthly - monthlyUsed);
+    
+    // Get risk score (default to 0 if not available)
+    const riskScore = kycStatus.riskScore || 0;
+    
+    // Calculate account age
+    const accountCreatedAt = (user as any).createdAt ? new Date((user as any).createdAt) : new Date();
+    const accountAgeDays = Math.floor((Date.now() - accountCreatedAt.getTime()) / (1000 * 60 * 60 * 24));
+
+    res.json({
+      success: true,
+      data: {
+        userId,
+        kycLevel: kycStatus.kycLevel || 'L0',
+        kycStatus: kycStatus.status || 'not_started',
+        riskScore,
+        accountAgeDays,
+        limits: {
+          maxDaily: maxDaily || 0,
+          maxMonthly: maxMonthly || 0,
+          maxSingle: maxSingle || 0,
+          dailyUsed: dailyUsed || 0,
+          monthlyUsed: monthlyUsed || 0,
+          dailyRemaining: dailyRemaining || 0,
+          monthlyRemaining: monthlyRemaining || 0,
+          currencies: ['USD', 'USDT', 'BTC', 'ETH'] // Default supported currencies
+        },
+        access: {
+          accountAccess: true,
+          tradingAccess: true,
+          withdrawalAccess: kycStatus.status === 'approved',
+          depositAccess: true,
+          availableFeatures: []
+        },
+        breakdown: {
+          investment: {
+            daily: dailyInvestment.total || 0,
+            monthly: monthlyInvestment.total || 0,
+            limit: investmentLimit.limit || 0
+          },
+          trading: {
+            daily: dailyTrading.total || 0,
+            monthly: monthlyTrading.total || 0,
+            limit: tradingLimit.limit || 0
+          },
+          withdrawal: {
+            daily: dailyWithdrawal.total || 0,
+            monthly: monthlyWithdrawal.total || 0,
+            limit: withdrawalLimit.limit || 0
+          }
+        }
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    LoggerService.error('Get user limits failed:', error);
+    next(error);
+  }
+});
+
 export default router;

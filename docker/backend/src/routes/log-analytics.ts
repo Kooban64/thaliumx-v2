@@ -8,7 +8,7 @@ import { Router, type Request, type Response } from 'express';
 import { LogAnalyticsService } from '../services/log-analytics';
 import { LoggerService } from '../services/logger';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 /**
  * Get log trends

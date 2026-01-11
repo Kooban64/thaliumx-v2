@@ -62,14 +62,18 @@ services:
       # Masterkey
       - --masterkeyFile
       - /run/secrets/zitadel-masterkey
-      # Proxy terminates TLS
+      # For local development, use disabled mode (no TLS)
       - --tlsMode
-      - external
+      - ${ZITADEL_TLS_MODE:-disabled}
       # External URL that end-users see (OIDC issuer is derived from this)
+      # For local dev, use localhost
       - --externalDomain
-      - ${ZITADEL_EXTERNAL_DOMAIN:-auth.thaliumx.com}
+      - ${ZITADEL_EXTERNAL_DOMAIN:-localhost}
       - --externalPort
-      - ${ZITADEL_EXTERNAL_PORT:-443}
+      - ${ZITADEL_EXTERNAL_PORT:-8080}
+    ports:
+      # Expose Zitadel for local development access
+      - "8080:8080"
     networks:
       - thaliumx-net
     # NOTE: The official zitadel container image is distroless (no shell/curl).

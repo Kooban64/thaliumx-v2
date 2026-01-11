@@ -32,15 +32,28 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY shared/package.json shared/tsconfig.json ./shared/
 COPY frontend/package.json frontend/tsconfig.json frontend/next.config.ts ./frontend/
 
-RUN pnpm install --frozen-lockfile
+# Install dependencies (pnpm will hoist to root node_modules)
+# Use --shamefully-hoist to ensure all deps are available in node_modules
+# Install with dev dependencies to get type definitions
+RUN pnpm install --no-frozen-lockfile --shamefully-hoist --include-workspace-root
 
 # 2) copy sources
 COPY shared ./shared
 COPY frontend ./frontend
 
 # Build shared first (frontend depends on its dist exports)
-RUN pnpm --filter @thaliumx/shared build
-RUN pnpm --filter @thaliumx/frontend build
+# Use workspace filter to ensure all dependencies are available
+RUN pnpm --filter @thaliumx/shared build || (cd shared && pnpm install && pnpm build)
+# Build frontend - find next in pnpm store and create proper symlink
+RUN if [ ! -f /workspace/frontend/node_modules/next/dist/bin/next ]; then \
+      rm -rf /workspace/frontend/node_modules/next 2>/dev/null || true; \
+      NEXT_PATH=$(find /workspace/node_modules -name "next" -type d -path "*/next" | head -1); \
+      if [ -n "$NEXT_PATH" ]; then \
+        mkdir -p /workspace/frontend/node_modules && \
+        ln -s "$NEXT_PATH" /workspace/frontend/node_modules/next; \
+      fi; \
+    fi
+RUN cd frontend && pnpm build
 
 
 FROM node:20.18.0-slim AS runner
@@ -60,9 +73,12 @@ WORKDIR /app
 
 # Next.js standalone output contains the minimal server + node_modules.
 # Copy it to /app, then add static assets.
+# Standalone output is at /workspace/frontend/.next/standalone
 COPY --from=builder --chown=nextjs:nodejs /workspace/frontend/.next/standalone /app/
 COPY --from=builder --chown=nextjs:nodejs /workspace/frontend/.next/static /app/workspace/frontend/.next/static
 COPY --from=builder --chown=nextjs:nodejs /workspace/frontend/public /app/workspace/frontend/public
+# Copy actual node_modules from workspace root (pnpm hoisted) to fix broken symlinks
+COPY --from=builder --chown=nextjs:nodejs /workspace/node_modules /app/workspace/node_modules
 
 # Run from the standalone app directory (where server.js and its .next folder live)
 WORKDIR /app/workspace/frontend

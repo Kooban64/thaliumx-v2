@@ -4,6 +4,9 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Providers } from "./providers";
 import { ChatWidget } from "@/components/support/ChatWidget";
 import { PolicyViolationAlertContainer } from "@/components/opa/PolicyViolationAlertContainer";
+import { AppFrame } from "@/components/layout/AppFrame";
+import { AppHeader } from "@/components/layout/AppHeader";
+import { AppFooter } from "@/components/layout/AppFooter";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,20 +30,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
           <ErrorBoundary>
-            <div className="p-4 flex justify-between items-center border-b">
-              <div className="font-semibold">ThaliumX</div>
-              <div className="flex gap-3 items-center">
-                {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-                <a className="text-sm underline" href="/portfolio">Portfolio</a>
-                {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-                <a className="text-sm underline" href="/login?next=/dashboard">Login</a>
-              </div>
-            </div>
-            <div className="p-4">{children}</div>
+            <AppFrame>
+              <AppHeader />
+              <main className="flex-1 overflow-auto p-4 md:p-6">
+                {children}
+              </main>
+              <AppFooter />
+            </AppFrame>
             <ChatWidget />
             <PolicyViolationAlertContainer />
           </ErrorBoundary>

@@ -28,8 +28,34 @@ function LoginPageContent() {
     checkAuth();
   }, [router, nextPath]);
 
-  const handleAuthSuccess = () => {
-    router.push(nextPath);
+  const handleAuthSuccess = async () => {
+    // Wait a moment for token to be stored, then check user role to redirect appropriately
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    try {
+      const response = await fetch('/api/auth/profile', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const json = await response.json();
+        const user = json?.data?.user || json?.data || null;
+        
+        // Redirect admins to admin dashboard, others to requested path
+        if (user?.role === 'admin' || user?.role === 'super_admin') {
+          router.push('/admin');
+        } else {
+          router.push(nextPath);
+        }
+      } else {
+        router.push(nextPath);
+      }
+    } catch {
+      router.push(nextPath);
+    }
   };
 
   return (

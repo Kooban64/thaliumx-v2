@@ -43,6 +43,8 @@ export class DatabaseService {
     try {
       const config = ConfigService.getConfig();
       
+      // Use individual connection parameters (more reliable with special characters)
+      // DATABASE_URL parsing can have issues with special characters in passwords
       this.sequelize = new Sequelize({
         host: config.database.host,
         port: config.database.port || 5432,
@@ -84,8 +86,27 @@ export class DatabaseService {
       });
 
       // Test connection with retry logic
-      await this.sequelize.authenticate();
-      LoggerService.info('Database connection established successfully');
+      try {
+        await this.sequelize.authenticate();
+        LoggerService.info('Database connection established successfully', {
+          host: config.database.host,
+          port: config.database.port,
+          database: config.database.database,
+          username: config.database.username,
+          // Don't log password for security
+        });
+      } catch (error: any) {
+        LoggerService.error('Database authentication failed', {
+          host: config.database.host,
+          port: config.database.port,
+          database: config.database.database,
+          username: config.database.username,
+          error: error.message,
+          code: error.parent?.code,
+          // Don't log password for security
+        });
+        throw error;
+      }
 
       // Initialize all Sequelize models
       this.initializeModels();

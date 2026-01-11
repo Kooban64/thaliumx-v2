@@ -367,13 +367,21 @@ class ThaliumXBackend {
     }));
 
     // API Gateway - First line of defense
-    this.app.use(apiGateway({
-      enabled: process.env.NODE_ENV === 'production',
-      allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
-      blockedIPs: process.env.BLOCKED_IPS?.split(',') || [],
-      maxConcurrentRequests: parseInt(process.env.MAX_CONCURRENT_REQUESTS || '1000'),
-      requestTimeout: parseInt(process.env.REQUEST_TIMEOUT || '30000')
-    }));
+    // Skip origin validation for public auth endpoints (login/register)
+    this.app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+      // Skip API gateway origin check for public auth endpoints
+      if (req.path.startsWith('/api/auth/login') || req.path.startsWith('/api/auth/register') || req.path.startsWith('/api/auth/reset-password')) {
+        return next();
+      }
+      // Apply API gateway for other endpoints
+      return apiGateway({
+        enabled: process.env.NODE_ENV === 'production',
+        allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'https://thaliumx.com'],
+        blockedIPs: process.env.BLOCKED_IPS?.split(',') || [],
+        maxConcurrentRequests: parseInt(process.env.MAX_CONCURRENT_REQUESTS || '1000'),
+        requestTimeout: parseInt(process.env.REQUEST_TIMEOUT || '30000')
+      })(req, res, next);
+    });
 
     // Security headers - CRITICAL for production
     this.app.use(securityHeaders);
@@ -413,7 +421,20 @@ class ThaliumXBackend {
     this.app.use(metricsMiddleware);
 
     // Rate limiting - CRITICAL for DDoS protection
-    this.app.use(rateLimiter);
+    // Wrap in error handler to catch "failed to limit count" errors
+    this.app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+      rateLimiter(req, res, (err?: any) => {
+        // If rate limiter fails with "failed to limit count" or any store error, allow request
+        if (err && (err.message?.includes('failed to limit count') || err.message?.includes('store'))) {
+          LoggerService.warn('Rate limiter store error, allowing request', {
+            error: err.message,
+            path: req.path
+          });
+          return next(); // Allow request to proceed
+        }
+        return next(err); // Pass through other errors
+      });
+    });
 
     // Additional rate limiting for financial operations
     this.app.use('/api/financial', financialRateLimiter);

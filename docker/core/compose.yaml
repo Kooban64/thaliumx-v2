@@ -129,7 +129,7 @@ services:
       - DB_PORT=5432
       - DB_NAME=thaliumx
       - DB_USER=thaliumx
-      - DB_PASSWORD=thaliumx-db-password-2025
+      - DB_PASSWORD=mkin+mkkMy74WX3/QaYyRL7bS3rue58V
       # Redis Configuration
       - REDIS_HOST=thaliumx-redis
       - REDIS_PORT=6379
@@ -140,6 +140,23 @@ services:
       # - KEYCLOAK_REALM=thaliumx
       # - KEYCLOAK_CLIENT_ID=thaliumx-backend
       # - KEYCLOAK_CLIENT_SECRET=thaliumx-keycloak-secret-2025
+      # Zitadel Configuration - REMOVED
+      # Note: Zitadel integration removed - using our own auth system
+      # Zitadel may be re-added later for SSO/social login support
+      # - ZITADEL_ISSUER=http://thaliumx-zitadel:8080
+      # - ZITADEL_JWKS_URI=http://thaliumx-zitadel:8080/oauth/v2/keys
+      # - ZITADEL_SERVICE_ACCOUNT_ID=${ZITADEL_SERVICE_ACCOUNT_ID:-}
+      # - ZITADEL_SERVICE_ACCOUNT_KEY=${ZITADEL_SERVICE_ACCOUNT_KEY:-}
+      # - ZITADEL_OIDC_CLIENT_ID=${ZITADEL_OIDC_CLIENT_ID:-}
+      # - ZITADEL_OIDC_CLIENT_SECRET=${ZITADEL_OIDC_CLIENT_SECRET:-}
+      
+      # JWT Token Configuration (required)
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-${JWT_SECRET:-change-me-in-production}}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-15m}
+      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
+      - TOKEN_ISSUER=${TOKEN_ISSUER:-thaliumx-platform}
+      - TOKEN_AUDIENCE=${TOKEN_AUDIENCE:-thaliumx-api}
       # Kafka Configuration
       - KAFKA_BROKERS=thaliumx-kafka:9092
       - KAFKA_SSL=false
@@ -196,6 +213,7 @@ services:
     tmpfs:
       - /tmp:noexec,nosuid,nodev,size=100M,uid=1001,gid=1001,mode=1777
       - /app/logs:noexec,nosuid,nodev,size=100M,uid=1001,gid=1001,mode=0770
+      - /var/log/thaliumx:noexec,nosuid,nodev,size=100M,uid=1001,gid=1001,mode=0755
     
     volumes:
       # Mount secrets directory for local development fallback (read-only)
@@ -239,6 +257,8 @@ services:
 secrets:
   redis-password:
     file: ./secrets/redis-password
+  postgres-password-backend:
+    file: ./secrets/postgres-password-backend
 
 networks:
   thaliumx-net:

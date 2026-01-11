@@ -161,7 +161,7 @@ services:
     environment:
       # Keycloak decommissioned; Zitadel is the only supported auth provider.
       THALIUMX_AUTH_PROVIDER: ${THALIUMX_AUTH_PROVIDER:-zitadel}
-      APISIX_ENABLE_OIDC: ${APISIX_ENABLE_OIDC:-true}
+      APISIX_ENABLE_OIDC: ${APISIX_ENABLE_OIDC:-false}
     volumes:
       - /home/ubuntu/thaliumx-v1/docker/gateway/scripts/init-apisix-routes.sh:/scripts/init-apisix-routes.sh:ro
       # Provide TLS material so the init script can create an APISIX SSL object (stored in ETCD).

@@ -63,9 +63,17 @@ services:
       # OIDC cutover support (Zitadel)
       # The backend validates Zitadel JWTs via issuer + JWKS.
       # Audience check for Zitadel is optional; configure `ZITADEL_AUDIENCE` to enforce.
-      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-https://auth.thaliumx.com}
-      ZITADEL_JWKS_URI: ${ZITADEL_JWKS_URI:-http://zitadel:8080/oauth/v2/keys}
-      # OIDC_ALLOWED_ISSUERS: https://auth.thaliumx.com
+      # For local development, use internal Zitadel URL
+      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-http://thaliumx-zitadel:8080}
+      ZITADEL_JWKS_URI: ${ZITADEL_JWKS_URI:-http://thaliumx-zitadel:8080/oauth/v2/keys}
+      # Service account credentials (for Management API)
+      # TODO: Create service account in Zitadel and update these values
+      ZITADEL_SERVICE_ACCOUNT_ID: ${ZITADEL_SERVICE_ACCOUNT_ID:-}
+      ZITADEL_SERVICE_ACCOUNT_KEY: ${ZITADEL_SERVICE_ACCOUNT_KEY:-}
+      # OIDC client for password grants (can be same as service account or separate)
+      ZITADEL_OIDC_CLIENT_ID: ${ZITADEL_OIDC_CLIENT_ID:-}
+      ZITADEL_OIDC_CLIENT_SECRET: ${ZITADEL_OIDC_CLIENT_SECRET:-}
+      # OIDC_ALLOWED_ISSUERS: http://thaliumx-zitadel:8080
       # ZITADEL_AUDIENCE: thaliumx-backend
 
       # Default tenant context (header injection + DB tenancy)
@@ -251,7 +259,7 @@ services:
     build:
       # Docker directory (frontend Dockerfile is docker/frontend/Dockerfile)
       context: ../..
-      dockerfile: frontend/Dockerfile
+      dockerfile: docker/frontend/Dockerfile
       args:
         # Production public URLs (via APISIX)
         # IMPORTANT: This must be the site origin (no trailing /api).

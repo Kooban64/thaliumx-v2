@@ -6,9 +6,12 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(request: NextRequest) {
   try {
-    // In Next.js API routes (server-side), use Docker service name
-    // NEXT_PUBLIC_API_URL is for browser, but we're in SSR context
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace('localhost', 'thaliumx-backend') || 'http://thaliumx-backend:3002';
+    // In Next.js API routes (server-side), always use Docker service name
+    let backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://thaliumx-backend:3002';
+    backendUrl = backendUrl.replace(/https?:\/\/(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)(:\d+)?/, 'http://thaliumx-backend:3002');
+    if (!backendUrl.includes('thaliumx-backend')) {
+      backendUrl = 'http://thaliumx-backend:3002';
+    }
     // Proxy /me to /profile on the backend
     const apiUrl = `${backendUrl}/api/auth/profile`;
 

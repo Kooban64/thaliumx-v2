@@ -6,8 +6,19 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function POST(request: NextRequest) {
   try {
-    // In Next.js API routes (server-side), use Docker service name
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace('localhost', 'thaliumx-backend') || 'http://thaliumx-backend:3002';
+    // In Next.js API routes (server-side), always use Docker service name
+    // Never use localhost or IP addresses - always use the Docker service name
+    // This ensures proper Docker network resolution
+    let backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://thaliumx-backend:3002';
+    
+    // Replace any localhost or IP address with Docker service name
+    backendUrl = backendUrl.replace(/https?:\/\/(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)(:\d+)?/, 'http://thaliumx-backend:3002');
+    
+    // If still doesn't contain the service name, force it
+    if (!backendUrl.includes('thaliumx-backend')) {
+      backendUrl = 'http://thaliumx-backend:3002';
+    }
+    
     const apiUrl = `${backendUrl}/api/auth/login`;
 
     // Get request body

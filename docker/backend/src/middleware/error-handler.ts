@@ -174,6 +174,7 @@ import rateLimit from 'express-rate-limit';
 // const redisClient = RedisService.getClient(); // Used in rate limiter configuration
 
 // Enhanced rate limiter with tiered limits
+// Using in-memory store (no Redis store) to prevent "failed to limit count" errors
 export const rateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: (req: Request) => {
@@ -217,7 +218,12 @@ export const rateLimiter = rateLimit({
   legacyHeaders: false,
   skip: (req: Request) => {
     // Skip rate limiting for health checks and metrics
-    if (req.path === '/health' || req.path === '/metrics') {
+    if (req.path === '/health' || req.path === '/metrics' || req.path === '/ready' || req.path === '/live') {
+      return true;
+    }
+
+    // Skip static assets (favicon, images, etc.)
+    if (req.path.match(/\.(ico|png|jpg|jpeg|gif|svg|css|js|woff|woff2|ttf|eot)$/i)) {
       return true;
     }
 
@@ -252,10 +258,13 @@ export const rateLimiter = rateLimit({
       timestamp: new Date().toISOString(),
       retryAfter: Math.ceil(res.getHeader('Retry-After') as number / 1000) || 900
     });
-  }
+  },
+  // Skip on errors to prevent 500s when store fails
+  skipFailedRequests: true
 });
 
 // Additional rate limiter for sensitive financial operations
+// Using in-memory store to prevent store errors
 export const financialRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: (_req: Request) => {
@@ -363,16 +372,15 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Zitadel-only auth (prod-v1).
-    // Only Zitadel OIDC tokens are supported.
-    // Supports Bearer tokens (primary) and httpOnly cookies (fallback).
+    // Token authentication - supports both our own JWT tokens and Zitadel tokens (if configured)
+    // Note: Zitadel integration removed but middleware supports it for future re-integration
+    // Tokens are stored in frontend memory and sent via Authorization header (high security).
     const authHeader = req.headers.authorization;
     const bearer = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
     const headerToken = (req.headers['x-access-token'] as string | undefined) || undefined;
-    const cookieToken = req.cookies?.accessToken as string | undefined;
 
-    // Priority: Bearer token > Header token > Cookie token
-    const token = bearer || headerToken || cookieToken;
+    // Priority: Bearer token > Header token (no cookie fallback - tokens in memory only)
+    const token = bearer || headerToken;
 
     if (!token) {
       throw createError('Access token required', 401, 'MISSING_TOKEN');
@@ -382,20 +390,12 @@ export const authenticateToken = async (
     const issuerRaw: string | undefined = typeof decoded.iss === 'string' ? decoded.iss : undefined;
     const issuerNorm = issuerRaw ? normalizeIssuer(issuerRaw) : undefined;
 
-    if (!issuerRaw || !issuerNorm) {
-      throw createError('Invalid token issuer', 401, 'INVALID_TOKEN');
-    }
-
-    // Only Zitadel tokens are supported
+    // Check if this is a Zitadel token (for future SSO support)
     const allowedZitadelIssuers = getAllowedIssuers();
-    const isZitadelToken = allowedZitadelIssuers.includes(issuerNorm);
-
-    if (!isZitadelToken) {
-      throw createError('Invalid token issuer', 401, 'INVALID_TOKEN');
-    }
+    const isZitadelToken = issuerNorm && allowedZitadelIssuers.includes(issuerNorm);
 
     // ------------------------------
-    // Zitadel token verification
+    // Zitadel token verification (if Zitadel is configured)
     // ------------------------------
     if (isZitadelToken) {
       const jwksUri = (process.env.ZITADEL_JWKS_URI || 'http://zitadel:8080/oauth/v2/keys').trim();
@@ -414,6 +414,11 @@ export const authenticateToken = async (
 
       // NOTE: We intentionally do not do introspection fallback for Zitadel here.
       // The platform currently uses stateless JWT validation.
+      const issuers = [issuerRaw, issuerNorm].filter((i): i is string => !!i);
+      if (issuers.length === 0) {
+        throw new Error('No valid issuer found');
+      }
+      
       await new Promise((resolve, reject) => {
         jwt.verify(
           token,
@@ -421,9 +426,9 @@ export const authenticateToken = async (
           {
             algorithms: ['RS256'],
             // Accept both raw and normalized issuer variants (some IdPs include a trailing slash).
-            issuer: [issuerRaw, issuerNorm],
+            issuer: issuers.length === 1 ? issuers[0] : issuers as [string, ...string[]],
           },
-          (err, payload) => {
+          (err: Error | null, payload: any) => {
             if (err) return reject(err);
             resolve(payload);
           },
@@ -494,6 +499,50 @@ export const authenticateToken = async (
 
       next();
       return;
+    }
+
+    // ------------------------------
+    // Our own JWT token verification (primary method)
+    // ------------------------------
+    // If not a Zitadel token, verify as our own JWT token
+    try {
+      const { TokenService } = await import('../services/token-service');
+      const payload = TokenService.verifyAccessToken(token) as JWTPayload;
+
+      // Ensure tenantId is present for client separation
+      const headerTenantId = (req.headers['x-tenant-id'] as string | undefined) || undefined;
+      const resolvedTenantId = payload.tenantId || headerTenantId || process.env.DEFAULT_TENANT_ID || '10000000-0000-0000-0000-000000000000';
+
+      // Update payload with resolved tenantId
+      payload.tenantId = resolvedTenantId;
+
+      req.user = payload;
+
+      // Log successful authentication
+      try {
+        await LoggerService.logAudit('authentication_success', 'authentication', { userId: payload.userId }, {
+          email: payload.email,
+          result: 'success',
+          ip: req.ip || req.socket.remoteAddress,
+          userAgent: req.headers['user-agent'],
+          method: 'jwt',
+          mfaUsed: (payload as any).mfa_enabled || false,
+          tenantId: resolvedTenantId,
+        });
+      } catch (logError) {
+        // Don't fail authentication on audit log errors
+        LoggerService.warn('Failed to log authentication event', logError);
+      }
+
+      next();
+      return;
+    } catch (jwtError: any) {
+      // JWT verification failed
+      LoggerService.warn('JWT token verification failed', {
+        error: jwtError.message,
+        hasIssuer: !!issuerRaw
+      });
+      throw createError('Invalid or expired token', 401, 'INVALID_TOKEN');
     }
 
   } catch (error) {

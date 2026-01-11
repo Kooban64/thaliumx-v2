@@ -141,17 +141,27 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
 
       if (!result.success) {
         // Check for MFA requirement
-        if (result.error?.includes('MFA') || result.error?.includes('MFA_REQUIRED')) {
+        let errorStr: string;
+        if (typeof result.error === 'string') {
+          errorStr = result.error;
+        } else if (result.error && typeof result.error === 'object') {
+          errorStr = (result.error as any)?.message || (result.error as any)?.code || 'Login failed';
+        } else {
+          errorStr = 'Login failed';
+        }
+        
+        // Ensure errorStr is always a string before calling .includes()
+        if (typeof errorStr === 'string' && (errorStr.includes('MFA') || errorStr.includes('MFA_REQUIRED'))) {
           setShowMFA(true);
           setIsLoading(false);
           return;
         }
-        setError(result.error || 'Login failed');
+        setError(errorStr);
         setIsLoading(false);
         return;
       }
 
-      // Login successful - token stored in memory or cookie by backend
+      // Login successful - Zitadel token stored in memory by backend-auth
       onSuccess?.('authenticated');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');

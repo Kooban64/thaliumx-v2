@@ -135,7 +135,7 @@ class LogSanitizer {
   /**
    * Sanitize a value based on its type and content
    */
-  private static sanitizeValue(value: unknown, fieldName?: string): unknown {
+  private static sanitizeValue(value: unknown, fieldName: string | undefined, visited: WeakSet<object>): unknown {
     if (value === null || value === undefined) {
       return value;
     }
@@ -204,12 +204,16 @@ class LogSanitizer {
 
     // Handle arrays
     if (Array.isArray(value)) {
-      return value.map((item) => this.sanitizeValue(item));
+      return value.map((item) => this.sanitizeValue(item, undefined, visited));
     }
 
-    // Handle objects
-    if (typeof value === 'object') {
-      return this.sanitizeObject(value as Record<string, unknown>);
+    // Handle objects - check for circular reference BEFORE processing
+    if (typeof value === 'object' && value !== null) {
+      // Check for circular reference
+      if (visited.has(value)) {
+        return { '[CIRCULAR]': true };
+      }
+      return this.sanitizeObject(value as Record<string, unknown>, visited);
     }
 
     // Return primitive values as-is
@@ -217,13 +221,24 @@ class LogSanitizer {
   }
 
   /**
-   * Recursively sanitize an object
+   * Recursively sanitize an object with cycle detection
    */
-  private static sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {
+  private static sanitizeObject(obj: Record<string, unknown>, visited: WeakSet<object>): Record<string, unknown> {
+    // Cycle detection - prevent infinite recursion
+    if (visited.has(obj)) {
+      return { '[CIRCULAR]': true };
+    }
+    visited.add(obj);
+
     const sanitized: Record<string, unknown> = {};
 
-    for (const [key, value] of Object.entries(obj)) {
-      sanitized[key] = this.sanitizeValue(value, key);
+    try {
+      for (const [key, value] of Object.entries(obj)) {
+        sanitized[key] = this.sanitizeValue(value, key, visited);
+      }
+    } catch (error) {
+      // If Object.entries fails (e.g., on circular structures), return minimal object
+      return { '[ERROR]': 'Failed to sanitize object' };
     }
 
     return sanitized;
@@ -248,19 +263,21 @@ class LogSanitizer {
       return data;
     }
 
+    const visited = new WeakSet<object>();
+
     // Handle primitives
     if (typeof data !== 'object') {
-      return this.sanitizeValue(data);
+      return this.sanitizeValue(data, undefined, visited);
     }
 
     // Handle arrays
     if (Array.isArray(data)) {
-      return data.map((item) => this.sanitize(item));
+      return data.map((item) => this.sanitizeValue(item, undefined, visited));
     }
 
     // Handle objects
     if (typeof data === 'object') {
-      return this.sanitizeObject(data as Record<string, unknown>);
+      return this.sanitizeObject(data as Record<string, unknown>, visited);
     }
 
     return data;

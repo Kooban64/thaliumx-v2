@@ -162,12 +162,12 @@ export function TransactionLimitsDisplay({
           <div className="flex items-center justify-between text-sm">
             <span className="font-medium">Daily Limit</span>
             <span className="text-muted-foreground">
-              {data.limits.dailyUsed.toLocaleString()} / {data.limits.maxDaily.toLocaleString()}
+              {(data.limits.dailyUsed ?? 0).toLocaleString()} / {(data.limits.maxDaily ?? 0).toLocaleString()}
             </span>
           </div>
           <Progress value={dailyUsagePercent} className="h-2" />
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Remaining: {data.limits.dailyRemaining.toLocaleString()}</span>
+            <span>Remaining: {(data.limits.dailyRemaining ?? 0).toLocaleString()}</span>
             <span>{dailyUsagePercent.toFixed(1)}% used</span>
           </div>
         </div>
@@ -176,12 +176,12 @@ export function TransactionLimitsDisplay({
           <div className="flex items-center justify-between text-sm">
             <span className="font-medium">Monthly Limit</span>
             <span className="text-muted-foreground">
-              {data.limits.monthlyUsed.toLocaleString()} / {data.limits.maxMonthly.toLocaleString()}
+              {(data.limits.monthlyUsed ?? 0).toLocaleString()} / {(data.limits.maxMonthly ?? 0).toLocaleString()}
             </span>
           </div>
           <Progress value={monthlyUsagePercent} className="h-2" />
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Remaining: {data.limits.monthlyRemaining.toLocaleString()}</span>
+            <span>Remaining: {(data.limits.monthlyRemaining ?? 0).toLocaleString()}</span>
             <span>{monthlyUsagePercent.toFixed(1)}% used</span>
           </div>
         </div>
@@ -189,7 +189,7 @@ export function TransactionLimitsDisplay({
         <div className="pt-4 border-t">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Single Transaction Limit</span>
-            <span className="text-lg font-bold">{data.limits.maxSingle.toLocaleString()}</span>
+            <span className="text-lg font-bold">{(data.limits.maxSingle ?? 0).toLocaleString()}</span>
           </div>
         </div>
 

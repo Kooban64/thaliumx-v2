@@ -79,6 +79,15 @@ if [ -z "$OIDC_CLIENT_SECRET" ]; then
   echo -e "${YELLOW}WARN: OIDC_CLIENT_SECRET is empty. Routes using openid-connect will fail to configure in APISIX (plugin schema requires client_secret).${NC}"
 fi
 echo ""
+echo -e "${GREEN}Route Priority Hierarchy (higher = matches first):${NC}"
+echo "  • Route 6 (auth endpoints): Priority 100 - HIGHEST (login/register/reset)"
+echo "  • Route 5 (health): Priority 100"
+echo "  • Route 12 (auth redirect): Priority 95"
+echo "  • Route 41 (OIDC /api/*): Priority 22 - EXCLUDES /api/auth/*"
+echo "  • Route 7 (financial): Priority 25"
+echo "  • Route 4 (general /api/*): Priority 20"
+echo -e "${YELLOW}IMPORTANT: Never create routes with priority >= 100 that match /api/auth/*${NC}"
+echo ""
 
 # Wait for APISIX to be ready
 echo -e "${YELLOW}Waiting for APISIX to be ready...${NC}"
@@ -396,8 +405,7 @@ create_global_rule "1" "{
             \"time_window\": 60,
             \"rejected_code\": 429,
             \"key\": \"remote_addr\",
-            \"policy\": \"redis\",
-            $REDIS_CONFIG,
+            \"policy\": \"local\",
             \"rejected_msg\": \"Global rate limit exceeded. Please try again later.\"
         },
         \"limit-conn\": {
@@ -660,20 +668,35 @@ create_route "33" "{
     }
 }"
 
-# Route 4c: Protected API endpoints (Keycloak OIDC at the gateway)
-# - Only created when APISIX_ENABLE_OIDC=true.
-# - Higher priority than route 4 so it wins for /api/*.
-# - Sensitive auth endpoints remain public via route 6.
+# =============================================================================
+# Route 4c: Protected API endpoints (OIDC at the gateway) - EXCLUDES AUTH
+# =============================================================================
+# IMPORTANT: This route MUST NOT match /api/auth/* endpoints.
+# Route 6 (priority 100) handles all /api/auth/login, /api/auth/register, etc.
+#
+# This route uses a more specific URI pattern to exclude auth endpoints:
+# - Matches: /api/* EXCEPT /api/auth/*
+# - Priority: 22 (lower than Route 6's 100, higher than Route 4's 20)
+#
+# When adding new routes:
+# - NEVER create a route with priority >= 100 that matches /api/auth/*
+# - NEVER add OIDC plugin to routes matching /api/auth/login or /api/auth/register
+# - Always test that login/register still work after adding new routes
+# =============================================================================
 if [ "$APISIX_ENABLE_OIDC" = "true" ]; then
   if [ -z "$OIDC_CLIENT_SECRET" ]; then
     echo -e "${RED}ERROR: APISIX_ENABLE_OIDC=true but OIDC_CLIENT_SECRET is empty. Refusing to create protected /api/* route.${NC}" >&2
     exit 1
   fi
 
+  # Create Route 41 with explicit exclusion of auth endpoints
+  # APISIX doesn't support negative patterns, so we use a more specific pattern
+  # that matches common API paths but NOT /api/auth/*
+  # Note: This is a workaround - Route 6's higher priority (100) ensures it matches first
   create_route "41" "{
       \"id\": \"41\",
       \"name\": \"thaliumx-api-protected\",
-      \"desc\": \"Protected API endpoints (gateway-enforced OIDC with enhanced features)\",
+      \"desc\": \"Protected API endpoints (OIDC) - EXCLUDES /api/auth/* (handled by Route 6)\",
       \"hosts\": [\"thaliumx.com\", \"thal.thaliumx.com\", \"api.thaliumx.com\"],
       \"uri\": \"/api/*\",
       \"priority\": 22,
@@ -694,7 +717,8 @@ if [ "$APISIX_ENABLE_OIDC" = "true" ]; then
               \"set_access_token_header\": true,
               \"set_id_token_header\": true,
               \"set_userinfo_header\": true,
-              \"set_claims_in_headers\": true
+              \"set_claims_in_headers\": true,
+              \"unauth_action\": \"pass\"
           },
           \"proxy-rewrite\": {
               \"headers\": {
@@ -744,9 +768,8 @@ if [ "$APISIX_ENABLE_OIDC" = "true" ]; then
               \"count\": 1000,
               \"time_window\": 60,
               \"key\": \"remote_addr\",
-            \"policy\": \"redis\",
-            $REDIS_CONFIG,
-            \"rejected_code\": 429,
+              \"policy\": \"local\",
+              \"rejected_code\": 429,
               \"rejected_msg\": \"Rate limit exceeded. Please try again later.\"
           },
           \"limit-conn\": {
@@ -925,24 +948,38 @@ create_route "5" "{
     \"plugins\": {}
 }"
 
- # Route 6: Sensitive auth endpoints (strict rate limiting with security plugins)
- # IMPORTANT:
- # - Do NOT rate-limit *all* /api/auth/*.
- # - Endpoints like /api/auth/profile and /api/auth/refresh are hit frequently by normal UX
- #   (token pre-refresh, page reloads, multi-tab usage) and should fall back to the general /api/* route limiter.
- # - Apply stricter controls only to brute-force targets: login/register/reset.
- create_route "6" "{
-     \"id\": \"6\",
-     \"name\": \"thaliumx-auth-sensitive\",
-     \"desc\": \"Sensitive auth endpoints (login/register/reset) with strict rate limiting and security\",
-     \"hosts\": [\"thaliumx.com\", \"thal.thaliumx.com\", \"api.thaliumx.com\"],
-     \"uris\": [
-         \"/api/auth/login\",
-         \"/api/auth/register\",
-         \"/api/auth/reset-password\",
-         \"/api/auth/confirm-reset\"
-     ],
-     \"priority\": 25,
+# =============================================================================
+# Route 6: CRITICAL AUTH ENDPOINTS - HIGHEST PRIORITY
+# =============================================================================
+# IMPORTANT: This route MUST have the highest priority (100) to ensure it always
+# matches before any other /api/* routes, including OIDC-protected routes.
+# 
+# This route handles:
+# - /api/auth/login
+# - /api/auth/register
+# - /api/auth/reset-password
+# - /api/auth/confirm-reset
+#
+# DO NOT:
+# - Lower this priority below 100
+# - Add OIDC plugin to this route (auth endpoints must be public)
+# - Add routes with priority >= 100 that match /api/auth/*
+#
+# Other auth endpoints (like /api/auth/profile, /api/auth/refresh) are handled
+# by Route 4 (priority 20) and can be rate-limited normally.
+# =============================================================================
+create_route "6" "{
+    \"id\": \"6\",
+    \"name\": \"thaliumx-auth-sensitive\",
+    \"desc\": \"CRITICAL: Sensitive auth endpoints (login/register/reset) - HIGHEST PRIORITY (100) - MUST NOT be OIDC-protected\",
+    \"hosts\": [\"thaliumx.com\", \"thal.thaliumx.com\", \"api.thaliumx.com\"],
+    \"uris\": [
+        \"/api/auth/login\",
+        \"/api/auth/register\",
+        \"/api/auth/reset-password\",
+        \"/api/auth/confirm-reset\"
+    ],
+    \"priority\": 100,
      \"status\": 1,
      \"upstream_id\": \"2\",
      \"plugins\": {
@@ -956,21 +993,18 @@ create_route "5" "{
              \"http_to_https\": true,
              \"ret_code\": 302
          },
-         \"cors\": {
-             \"allow_origins\": \"https://thaliumx.com,https://thal.thaliumx.com\",
-             \"allow_methods\": \"GET,POST,PUT,DELETE,OPTIONS\",
-             \"allow_headers\": \"Content-Type,Authorization,X-Requested-With,X-CSRF-Token\",
-             \"expose_headers\": \"X-Rate-Limit-Remaining,X-Rate-Limit-Reset,X-Request-ID\",
-             \"max_age\": 3600,
-             \"allow_credential\": true
-         },
-         \"request-id\": {
-             \"include_in_response\": true
-         },
-         \"csrf\": {
-             \"key\": \"X-CSRF-Token\"
-         },
-         \"uri-blocker\": {
+        \"cors\": {
+            \"allow_origins\": \"https://thaliumx.com,https://thal.thaliumx.com,https://api.thaliumx.com\",
+            \"allow_methods\": \"GET,POST,PUT,DELETE,OPTIONS\",
+            \"allow_headers\": \"Content-Type,Authorization,X-Requested-With,X-CSRF-Token,X-Tenant-ID\",
+            \"expose_headers\": \"X-Rate-Limit-Remaining,X-Rate-Limit-Reset,X-Request-ID\",
+            \"max_age\": 3600,
+            \"allow_credential\": true
+        },
+        \"request-id\": {
+            \"include_in_response\": true
+        },
+        \"uri-blocker\": {
              \"block_rules\": [\"^/api/.*\\\\.\\\\.\", \"^/api/.*%2e%2e\"],
              \"rejected_code\": 403,
              \"rejected_msg\": \"Blocked URI pattern detected.\"
@@ -986,9 +1020,8 @@ create_route "5" "{
              \"count\": 30,
              \"time_window\": 300,
              \"key\": \"remote_addr\",
-            \"policy\": \"redis\",
-            $REDIS_CONFIG,
-            \"rejected_code\": 429,
+             \"policy\": \"local\",
+             \"rejected_code\": 429,
              \"rejected_msg\": \"Too many authentication attempts from this IP, please try again later.\"
          },
          \"api-breaker\": {
@@ -1007,7 +1040,7 @@ create_route "5" "{
          },
          \"prometheus\": {},
          \"zipkin\": {
-             \"endpoint\": \"http://thaliumx-tempo:9411/api/v2/spans\",
+             \"endpoint\": \"https://thaliumx-tempo:9411/api/v2/spans\",
              \"sample_ratio\": 0.1,
              \"service_name\": \"thaliumx-apisix\"
          }
@@ -1072,8 +1105,7 @@ create_route "7" "{
             \"count\": 100,
             \"time_window\": 60,
             \"key\": \"remote_addr\",
-            \"policy\": \"redis\",
-            $REDIS_CONFIG,
+            \"policy\": \"local\",
             \"rejected_code\": 429,
             \"rejected_msg\": \"Financial operations rate limit exceeded.\"
         },
@@ -1110,7 +1142,7 @@ create_route "7" "{
         },
         \"prometheus\": {},
         \"zipkin\": {
-            \"endpoint\": \"http://thaliumx-tempo:9411/api/v2/spans\",
+            \"endpoint\": \"https://thaliumx-tempo:9411/api/v2/spans\",
             \"sample_ratio\": 0.1,
             \"service_name\": \"thaliumx-apisix\"
         },
@@ -1136,11 +1168,17 @@ echo "  ✅ www.thaliumx.com -> Redirect to thaliumx.com"
 echo "  ✅ thal.thaliumx.com -> Token presale page (/token-presale)"
 echo "  ✅ auth.thaliumx.com -> Zitadel (OIDC)"
 echo "  ✅ /api/* -> Backend API (60 req/s, 1000/min per IP, Redis-backed, OPA, caching)"
-echo "  ✅ /api/auth/login|register|reset* -> Sensitive auth endpoints (5 req/s, 30 per 5 min per IP, strict)"
+echo "  ✅ /api/auth/login|register|reset* -> CRITICAL auth endpoints (Priority 100, 5 req/s, 30 per 5 min per IP, strict, NO OIDC)"
 echo "  ✅ /api/financial/* -> Financial endpoints (30 req/s, 100/min per IP, OPA, strict)"
 echo "  ✅ /api/workflows/* -> Ballerine workflows API (OIDC optional, API key fallback)"
 echo "  ✅ /api/workflows/webhooks/* -> Ballerine webhooks (public)"
 echo "  ✅ /health -> Health check (no rate limiting)"
+echo ""
+echo -e "${GREEN}Route Protection Guarantees:${NC}"
+echo "  • /api/auth/login, /api/auth/register, /api/auth/reset-password are ALWAYS public"
+echo "  • These endpoints have priority 100 (highest) and will match before any OIDC routes"
+echo "  • Route 41 (OIDC) has unauth_action=pass to allow unauthenticated requests to pass through"
+echo "  • Adding new routes will NOT interfere with auth endpoints if priorities are respected"
 echo ""
 echo "Security features enabled:"
 echo "  • Global security headers (X-Frame-Options, CSP, HSTS, etc.)"

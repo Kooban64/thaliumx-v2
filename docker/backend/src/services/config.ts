@@ -512,12 +512,23 @@ export class ConfigService {
       }
     }
 
+    // Support reading password from file (Docker secrets)
+    let password = process.env.DB_PASSWORD || '';
+    if (!password && process.env.DB_PASSWORD_FILE) {
+      try {
+        const fs = require('fs');
+        password = fs.readFileSync(process.env.DB_PASSWORD_FILE, 'utf8').trim();
+      } catch (error) {
+        LoggerService.warn('Failed to read DB_PASSWORD_FILE, falling back to empty password', { error });
+      }
+    }
+
     return {
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432', 10),
       database: process.env.DB_NAME || 'thaliumx',
       username: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || '',
+      password: password,
       ssl: (process.env.DB_SSL || 'false').toLowerCase() === 'true',
       pool: {
         min: parseInt(process.env.DB_POOL_MIN || '2', 10),

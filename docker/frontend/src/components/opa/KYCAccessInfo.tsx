@@ -283,15 +283,15 @@ export function KYCAccessInfo({
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Single Transaction</span>
-                <span className="font-medium">{accessInfo.initialLimits.max_single.toLocaleString()}</span>
+                <span className="font-medium">{(accessInfo.initialLimits.max_single ?? 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Daily Limit</span>
-                <span className="font-medium">{accessInfo.initialLimits.max_daily.toLocaleString()}</span>
+                <span className="font-medium">{(accessInfo.initialLimits.max_daily ?? 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Monthly Limit</span>
-                <span className="font-medium">{accessInfo.initialLimits.max_monthly.toLocaleString()}</span>
+                <span className="font-medium">{(accessInfo.initialLimits.max_monthly ?? 0).toLocaleString()}</span>
               </div>
             </div>
           </div>

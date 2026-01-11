@@ -47,8 +47,18 @@ export default function Dashboard() {
           return;
         }
 
+        const { getZitadelToken } = await import('@/lib/auth/backend-auth');
+        const token = getZitadelToken();
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const response = await fetch('/api/auth/profile', {
           credentials: 'include',
+          headers,
         });
         if (!response.ok) {
           window.location.href = '/login?next=/dashboard';
@@ -60,6 +70,13 @@ export default function Dashboard() {
         const json = await response.json();
         const u = json?.data?.user || json?.data || null;
         setUser(u);
+        
+        // Redirect admins to admin dashboard
+        if (u?.role === 'admin' || u?.role === 'super_admin') {
+          window.location.href = '/admin';
+          return;
+        }
+        
         setIsLoading(false);
       } catch (error) {
         window.location.href = '/login?next=/dashboard';
@@ -121,8 +138,8 @@ export default function Dashboard() {
     { id: 'wallet', label: 'Wallet', icon: Wallet },
     { id: 'portfolio', label: 'Portfolio', icon: DollarSign },
     { id: 'analytics', label: 'Analytics', icon: Activity },
+    { id: 'account', label: 'Account', icon: Settings },
     { id: 'support', label: 'Support', icon: HelpCircle, href: '/support' as const },
-    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -233,7 +250,7 @@ export default function Dashboard() {
                 {activeTab === 'wallet' && 'Manage your digital assets'}
                 {activeTab === 'portfolio' && 'Track your investment performance'}
                 {activeTab === 'analytics' && 'Analyze market trends and patterns'}
-                {activeTab === 'settings' && 'Configure your account preferences'}
+                {activeTab === 'account' && 'Manage your account settings and KYC status'}
               </p>
             </div>
 
@@ -247,7 +264,7 @@ export default function Dashboard() {
                       <CardTitle className="flex items-center justify-between">
                         <span>
                           BTC/USDT
-                          {currentPrice !== null && (
+                          {currentPrice !== null && currentPrice !== undefined && (
                             <span className="ml-2 text-sm font-normal text-muted-foreground">
                               ${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                             </span>
@@ -394,7 +411,7 @@ export default function Dashboard() {
               </div>
             )}
 
-            {activeTab === 'settings' && (
+            {activeTab === 'account' && (
               <div className="space-y-6">
                 <Card>
                   <CardHeader>
@@ -425,16 +442,16 @@ export default function Dashboard() {
                     </Button>
                   </CardContent>
                 </Card>
+
+                {/* KYC Access Info and Transaction Limits - Only show on Account tab */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <KYCAccessInfo showUpgradePrompt={true} />
+                  <TransactionLimitsDisplay showUpgradePrompt={true} />
+                </div>
               </div>
             )}
           </div>
         </main>
-
-        {/* KYC Access Info and Transaction Limits */}
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <KYCAccessInfo showUpgradePrompt={true} />
-          <TransactionLimitsDisplay showUpgradePrompt={true} />
-        </div>
       </div>
     </div>
   );

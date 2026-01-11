@@ -16,7 +16,7 @@ import { LoggerService } from '../services/logger';
 import { ComplianceReportingService } from '../services/compliance-reporting';
 import { LogReplayService } from '../services/log-replay';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 /**
  * Query audit logs
