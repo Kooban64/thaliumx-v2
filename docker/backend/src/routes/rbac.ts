@@ -117,6 +117,85 @@ router.get('/roles/:roleId',
 // =============================================================================
 
 /**
+ * Assign Role to User (alias endpoint)
+ * POST /api/rbac/assign-role
+ */
+router.post('/assign-role',
+  authenticateToken,
+  requireRole(['platform-admin', 'broker-admin', 'admin', 'super_admin']),
+  validateRequest(Joi.object({
+    userId: Joi.string().required(),
+    role: Joi.string().optional(),
+    roleId: Joi.string().optional(),
+    reason: Joi.string().min(10).max(500).optional(),
+    expiresAt: Joi.date().optional()
+  })),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId, role, roleId, reason, expiresAt } = req.body;
+      const assignedBy = (req.user as any)?.userId || (req.user as any)?.id || 'system';
+      const tenantId = (req.user as any)?.tenantId;
+
+      LoggerService.info('Assigning role to user', {
+        userId,
+        roleId: roleId || role,
+        tenantId,
+        assignedBy,
+        reason
+      });
+
+      if (!userId || (!roleId && !role)) {
+        res.status(400).json({
+          success: false,
+          error: 'User ID and Role ID (or role) are required'
+        });
+        return;
+      }
+
+      const finalRoleId = roleId || role;
+      if (!finalRoleId) {
+        res.status(400).json({
+          success: false,
+          error: 'Role ID or role name is required'
+        });
+        return;
+      }
+
+      const userRole = await RBACService.assignRole(
+        userId,
+        finalRoleId,
+        tenantId,
+        assignedBy,
+        reason || 'Role assigned via API',
+        expiresAt ? new Date(expiresAt) : undefined
+      );
+
+      res.status(201).json({
+        success: true,
+        data: userRole,
+        message: 'Role assigned successfully'
+      });
+
+    } catch (error) {
+      LoggerService.error('Assign role failed:', error);
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error',
+          code: 'INTERNAL_ERROR'
+        });
+      }
+    }
+  }
+);
+
+/**
  * Assign Role to User
  * POST /api/rbac/users/:userId/roles
  */

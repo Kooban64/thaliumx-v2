@@ -56,6 +56,7 @@ import rbacRouter from './routes/rbac';
 import tokenSaleRouter from './routes/token-sale';
 import tenantsRouter from './routes/tenants';
 import adminRouter from './routes/admin';
+import adminBrokersRouter from './routes/admin-brokers';
 import exchangeRouter from './routes/exchange';
 import fiatRouter from './routes/fiat';
 import tokenRouter from './routes/token';
@@ -76,6 +77,7 @@ import walletSystemRouter, { initializeWalletSystem } from './routes/wallet-syst
 import nativeCEXRouter, { initializeNativeCEX } from './routes/native-cex';
 import brokerDashboardRouter from './routes/broker-dashboard';
 import adminMigrationRouter from './routes/admin-migration';
+import adminLimitsRouter from './routes/admin-limits';
 import advancedMarginRouter from './routes/advanced-margin';
 import web3WalletRouter from './routes/web3-wallet';
 import deviceFingerprintRouter from './routes/device-fingerprint';
@@ -660,10 +662,13 @@ class ThaliumXBackend {
     // API routes with proper validation
     this.app.use('/api/auth', authRouter);
     this.app.use('/api/users', usersRouter);
+    this.app.use('/api/user', usersRouter); // Alias for /api/users for profile endpoints
     this.app.use('/api/financial', financialRouter);
     this.app.use('/api/kyc', kycRouter);
     this.app.use('/api/tenants', tenantsRouter);
     this.app.use('/api/admin', adminRouter);
+    this.app.use('/api/admin/brokers', adminBrokersRouter);
+    this.app.use('/api/admin', adminLimitsRouter);
     this.app.use('/api/exchange', exchangeRouter);
     this.app.use('/api/fiat', fiatRouter);
     this.app.use('/api/token', tokenRouter);
@@ -687,7 +692,9 @@ class ThaliumXBackend {
     this.app.use('/api/ballerine', ballerineWebhookRouter);
     this.app.use('/api/omni-exchange', omniExchangeRouter);
     this.app.use('/api/wallets', walletSystemRouter);
+    this.app.use('/api/wallet', walletSystemRouter); // Alias for /api/wallets
     this.app.use('/api/cex', nativeCEXRouter);
+    this.app.use('/api/native-cex', nativeCEXRouter); // Alias for /api/cex
     this.app.use('/api/broker', brokerDashboardRouter);
     this.app.use('/api/admin', adminMigrationRouter);
     this.app.use('/api/advanced-margin', advancedMarginRouter);

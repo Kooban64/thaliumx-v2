@@ -7,6 +7,7 @@ import { PolicyViolationAlertContainer } from "@/components/opa/PolicyViolationA
 import { AppFrame } from "@/components/layout/AppFrame";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { AppFooter } from "@/components/layout/AppFooter";
+import { CommandPalette } from "@/components/navigation/CommandPalette";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -41,6 +42,7 @@ export default function RootLayout({
               </main>
               <AppFooter />
             </AppFrame>
+            <CommandPalette />
             <ChatWidget />
             <PolicyViolationAlertContainer />
           </ErrorBoundary>

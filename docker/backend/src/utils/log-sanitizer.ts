@@ -236,7 +236,7 @@ class LogSanitizer {
       for (const [key, value] of Object.entries(obj)) {
         sanitized[key] = this.sanitizeValue(value, key, visited);
       }
-    } catch (error) {
+    } catch {
       // If Object.entries fails (e.g., on circular structures), return minimal object
       return { '[ERROR]': 'Failed to sanitize object' };
     }

@@ -1492,6 +1492,136 @@ export class DatabaseService {
 
     this.models.set('SupportTicket', SupportTicketModel);
 
+    // =============================================================================
+    // LIMIT MANAGEMENT MODELS
+    // =============================================================================
+
+    // Limit Model - Stores KYC and Role-based limits
+    const LimitModel = this.sequelize.define('Limit', {
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+      },
+      type: {
+        type: DataTypes.ENUM('kyc', 'role'),
+        allowNull: false,
+        comment: 'Type of limit: kyc (KYC level) or role (user role)'
+      },
+      level: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'KYC level (L0, L1, L2, L3, INSTITUTIONAL) - only for type=kyc'
+      },
+      role: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'User role - only for type=role'
+      },
+      config: {
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: {},
+        comment: 'Limit configuration as JSON (maxInvestment, maxTrading, etc.)'
+      },
+      version: {
+        type: DataTypes.INTEGER,
+        defaultValue: 1,
+        comment: 'Version number for optimistic locking'
+      },
+      isActive: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+        comment: 'Whether this limit configuration is active'
+      }
+    }, {
+      tableName: 'limits',
+      timestamps: true,
+      indexes: [
+        { fields: ['type'] },
+        { fields: ['level'] },
+        { fields: ['role'] },
+        { fields: ['type', 'level'], unique: true, where: { type: 'kyc' } },
+        { fields: ['type', 'role'], unique: true, where: { type: 'role' } },
+        { fields: ['isActive'] }
+      ]
+    });
+
+    this.models.set('Limit', LimitModel);
+
+    // User Limit Override Model - Stores user-specific limit overrides
+    const UserLimitOverrideModel = this.sequelize.define('UserLimitOverride', {
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+      },
+      userId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+          model: 'users',
+          key: 'id'
+        },
+        comment: 'User ID this override applies to'
+      },
+      type: {
+        type: DataTypes.ENUM('temporary', 'permanent'),
+        allowNull: false,
+        defaultValue: 'permanent',
+        comment: 'Override type: temporary (expires) or permanent'
+      },
+      limits: {
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: {},
+        comment: 'Override limits as JSON (same structure as Limit.config)'
+      },
+      expiresAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'Expiry date for temporary overrides'
+      },
+      reason: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+        comment: 'Reason for this override'
+      },
+      approvedBy: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: {
+          model: 'users',
+          key: 'id'
+        },
+        comment: 'User ID who approved this override'
+      },
+      approvedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'When this override was approved'
+      },
+      isActive: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+        comment: 'Whether this override is currently active'
+      }
+    }, {
+      tableName: 'user_limit_overrides',
+      timestamps: true,
+      indexes: [
+        { fields: ['userId'] },
+        { fields: ['type'] },
+        { fields: ['expiresAt'] },
+        { fields: ['isActive'] },
+        { fields: ['approvedBy'] },
+        { fields: ['userId', 'isActive'] },
+        { fields: ['expiresAt'], where: { type: 'temporary' } }
+      ]
+    });
+
+    this.models.set('UserLimitOverride', UserLimitOverrideModel);
+
     // Chat Message Model (for storing chat history)
     const ChatMessageModel = this.sequelize.define('ChatMessage', {
       id: {
@@ -1682,6 +1812,23 @@ export class DatabaseService {
     const FinancialReportModel = this.models.get('FinancialReport')!;
     TenantModel.hasMany(FinancialReportModel, { foreignKey: 'tenantId', as: 'financialReports' });
     FinancialReportModel.belongsTo(TenantModel, { foreignKey: 'tenantId', as: 'tenant' });
+
+    // Limit Management associations
+    const LimitModel = this.models.get('Limit');
+    const UserLimitOverrideModel = this.models.get('UserLimitOverride');
+    
+    if (LimitModel) {
+      // Limits don't have direct associations, but are referenced by type/level or type/role
+    }
+    
+    if (UserLimitOverrideModel) {
+      // User has many Limit Overrides
+      UserModel.hasMany(UserLimitOverrideModel, { foreignKey: 'userId', as: 'limitOverrides' });
+      UserLimitOverrideModel.belongsTo(UserModel, { foreignKey: 'userId', as: 'user' });
+      
+      // Approved by user association
+      UserLimitOverrideModel.belongsTo(UserModel, { foreignKey: 'approvedBy', as: 'approver' });
+    }
   }
 
   /**

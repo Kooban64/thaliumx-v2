@@ -1,5 +1,7 @@
 'use client';
 
+import { logError, ErrorCategory, ErrorSeverity } from '@/lib/services/errorLogger';
+
 /**
  * Backend Authentication Utilities with Zitadel OIDC Support
  * 
@@ -94,7 +96,12 @@ export async function login(email: string, password: string): Promise<{ success:
 
     return { success: true };
   } catch (error: any) {
-    console.error('Login error:', error);
+    logError(
+      error,
+      ErrorCategory.AUTH,
+      ErrorSeverity.MEDIUM,
+      { component: 'backend-auth', action: 'login' }
+    );
     return {
       success: false,
       error: error.message || 'Network error during login'

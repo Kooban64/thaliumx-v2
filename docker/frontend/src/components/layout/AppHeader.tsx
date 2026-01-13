@@ -4,6 +4,8 @@ import { HeaderLogo } from './HeaderLogo';
 import { HeaderNav } from './HeaderNav';
 import { HeaderUserMenu } from './HeaderUserMenu';
 import { ThemeToggle } from './ThemeToggle';
+import { Search } from '@/components/navigation/Search';
+import { defaultSearch } from '@/lib/search/defaultSearch';
 import { cn } from '@/lib/utils';
 
 /**
@@ -31,6 +33,9 @@ export function AppHeader() {
       <HeaderLogo />
       <HeaderNav />
       <div className="flex items-center gap-2">
+        <div className="hidden md:block w-64">
+          <Search placeholder="Search..." defaultSearch={defaultSearch} />
+        </div>
         <ThemeToggle />
         <HeaderUserMenu />
       </div>

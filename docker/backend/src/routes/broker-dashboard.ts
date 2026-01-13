@@ -491,4 +491,288 @@ router.get('/audit-logs', requireRole(['broker-admin', 'broker-compliance']), as
   }
 });
 
+/**
+ * Get Broker Compliance Status
+ * GET /api/broker/compliance
+ */
+router.get('/compliance', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKER_COMPLIANCE]), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const brokerId = req.user?.brokerId;
+    if (!brokerId) {
+      throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
+    }
+
+    // Get compliance status for broker
+    const complianceStatus = {
+      brokerId,
+      status: 'compliant', // TODO: Implement actual compliance checking
+      requirements: {
+        kyc: 'complete',
+        aml: 'complete',
+        reporting: 'up_to_date'
+      },
+      lastAudit: new Date().toISOString(),
+      nextAudit: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days from now
+      alerts: [],
+      timestamp: new Date().toISOString()
+    };
+
+    res.json({ success: true, data: complianceStatus });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Get Broker Trading Configuration
+ * GET /api/broker/trading/config
+ */
+router.get('/trading/config', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKER_TRADING]), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const brokerId = req.user?.brokerId;
+    if (!brokerId) {
+      throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
+    }
+
+    // Get trading configuration for broker
+    // TODO: Implement actual trading config retrieval from database
+    const tradingConfig = {
+      brokerId,
+      pairs: [],
+      fees: {
+        maker: 0.001,
+        taker: 0.002
+      },
+      limits: {
+        minOrderSize: 10,
+        maxOrderSize: 1000000
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    res.json({ success: true, data: tradingConfig });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Update Broker Trading Configuration
+ * PUT /api/broker/trading/config
+ */
+router.put('/trading/config', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKER_TRADING]), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const brokerId = req.user?.brokerId;
+    if (!brokerId) {
+      throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
+    }
+
+    const { pairs, fees, limits } = req.body;
+
+    // TODO: Implement actual trading config update in database
+    LoggerService.info('Updating broker trading config', { brokerId, pairs, fees, limits });
+
+    res.json({
+      success: true,
+      data: {
+        brokerId,
+        pairs: pairs || [],
+        fees: fees || { maker: 0.001, taker: 0.002 },
+        limits: limits || { minOrderSize: 10, maxOrderSize: 1000000 }
+      },
+      message: 'Trading configuration updated successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Get Broker Settings
+ * GET /api/broker/settings
+ */
+router.get('/settings', requireRole([UserRole.BROKER_ADMIN]), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const brokerId = req.user?.brokerId;
+    if (!brokerId) {
+      throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
+    }
+
+    const brokerConfig = BrokerManagementService.getBroker(brokerId);
+    if (!brokerConfig) {
+      throw createError('Broker not found', 404, 'BROKER_NOT_FOUND');
+    }
+
+    // TODO: Get actual settings from database
+    const settings = {
+      brokerId,
+      features: brokerConfig.features || {},
+      notifications: {
+        email: true,
+        sms: false
+      },
+      security: {
+        twoFactorRequired: false,
+        sessionTimeout: 3600
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Update Broker Settings
+ * PUT /api/broker/settings
+ */
+router.put('/settings', requireRole([UserRole.BROKER_ADMIN]), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const brokerId = req.user?.brokerId;
+    if (!brokerId) {
+      throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
+    }
+
+    const settings = req.body;
+
+    // TODO: Implement actual settings update in database
+    LoggerService.info('Updating broker settings', { brokerId, settings });
+
+    res.json({
+      success: true,
+      data: {
+        brokerId,
+        ...settings
+      },
+      message: 'Settings updated successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Get Broker Branding
+ * GET /api/broker/settings/branding
+ */
+router.get('/settings/branding', requireRole([UserRole.BROKER_ADMIN]), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const brokerId = req.user?.brokerId;
+    if (!brokerId) {
+      throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
+    }
+
+    // TODO: Get actual branding from database
+    const branding = {
+      brokerId,
+      logo: null,
+      primaryColor: '#6366f1',
+      secondaryColor: '#8b5cf6',
+      customCSS: '',
+      timestamp: new Date().toISOString()
+    };
+
+    res.json({ success: true, data: branding });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Update Broker Branding
+ * PUT /api/broker/settings/branding
+ */
+router.put('/settings/branding', requireRole([UserRole.BROKER_ADMIN]), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const brokerId = req.user?.brokerId;
+    if (!brokerId) {
+      throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
+    }
+
+    const { logo, primaryColor, secondaryColor, customCSS } = req.body;
+
+    // TODO: Implement actual branding update in database
+    LoggerService.info('Updating broker branding', { brokerId, primaryColor, secondaryColor });
+
+    res.json({
+      success: true,
+      data: {
+        brokerId,
+        logo,
+        primaryColor: primaryColor || '#6366f1',
+        secondaryColor: secondaryColor || '#8b5cf6',
+        customCSS: customCSS || ''
+      },
+      message: 'Branding updated successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Get Broker Limits
+ * GET /api/broker/settings/limits
+ */
+router.get('/settings/limits', requireRole([UserRole.BROKER_ADMIN]), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const brokerId = req.user?.brokerId;
+    if (!brokerId) {
+      throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
+    }
+
+    // TODO: Get actual limits from database
+    const limits = {
+      brokerId,
+      maxDailyVolume: 1000000,
+      maxMonthlyVolume: 30000000,
+      maxSingleTransaction: 100000,
+      maxDailyWithdrawal: 50000,
+      maxMonthlyWithdrawal: 500000,
+      maxDailyDeposit: 100000,
+      maxMonthlyDeposit: 1000000,
+      timestamp: new Date().toISOString()
+    };
+
+    res.json({ success: true, data: limits });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Update Broker Limits
+ * PUT /api/broker/settings/limits
+ */
+router.put('/settings/limits', requireRole([UserRole.BROKER_ADMIN]), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const brokerId = req.user?.brokerId;
+    if (!brokerId) {
+      throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
+    }
+
+    const limits = req.body;
+
+    // TODO: Implement actual limits update in database
+    LoggerService.info('Updating broker limits', { brokerId, limits });
+
+    res.json({
+      success: true,
+      data: {
+        brokerId,
+        ...limits
+      },
+      message: 'Limits updated successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

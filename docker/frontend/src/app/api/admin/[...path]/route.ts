@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logApiProxyError } from '@/lib/services/serverErrorLogger';
 
 /**
  * Next.js API route to proxy /api/admin/* requests to the backend
+ * Supports all HTTP methods: GET, POST, PUT, DELETE, PATCH
  */
-export async function GET(request: NextRequest) {
+async function proxyRequest(
+  request: NextRequest,
+  method: string
+): Promise<NextResponse> {
+  const path = request.nextUrl.pathname.replace('/api/admin', '');
   try {
     // In Next.js API routes (server-side), always use Docker service name
     let backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://thaliumx-backend:3002';
@@ -11,7 +17,6 @@ export async function GET(request: NextRequest) {
     if (!backendUrl.includes('thaliumx-backend')) {
       backendUrl = 'http://thaliumx-backend:3002';
     }
-    const path = request.nextUrl.pathname.replace('/api/admin', '');
     const query = request.nextUrl.search;
     const apiUrl = `${backendUrl}/api/admin${path}${query}`;
 
@@ -34,9 +39,20 @@ export async function GET(request: NextRequest) {
       headers['X-Tenant-ID'] = tenantId;
     }
 
+    // Get request body for POST, PUT, PATCH, DELETE
+    let body: string | undefined;
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      try {
+        body = await request.text();
+      } catch {
+        // Body might be empty, that's okay
+      }
+    }
+
     const response = await fetch(apiUrl, {
-      method: 'GET',
+      method,
       headers,
+      body: body || undefined,
       credentials: 'include',
     });
 
@@ -48,8 +64,14 @@ export async function GET(request: NextRequest) {
         'Content-Type': 'application/json',
       },
     });
-  } catch (error) {
-    console.error('Error proxying /api/admin:', error);
+  } catch {
+    // Log error to backend (production-ready)
+    await logApiProxyError(
+      error,
+      `/api/admin${path}`,
+      method,
+      { query: request.nextUrl.search }
+    );
     return NextResponse.json(
       {
         success: false,
@@ -62,4 +84,24 @@ export async function GET(request: NextRequest) {
       { status: 502 }
     );
   }
+}
+
+export async function GET(request: NextRequest) {
+  return proxyRequest(request, 'GET');
+}
+
+export async function POST(request: NextRequest) {
+  return proxyRequest(request, 'POST');
+}
+
+export async function PUT(request: NextRequest) {
+  return proxyRequest(request, 'PUT');
+}
+
+export async function DELETE(request: NextRequest) {
+  return proxyRequest(request, 'DELETE');
+}
+
+export async function PATCH(request: NextRequest) {
+  return proxyRequest(request, 'PATCH');
 }

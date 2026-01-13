@@ -37,7 +37,9 @@ COPY frontend/package.json frontend/tsconfig.json frontend/next.config.ts ./fron
 # Install with dev dependencies to get type definitions
 RUN pnpm install --no-frozen-lockfile --shamefully-hoist --include-workspace-root
 
-# 2) copy sources
+# 2) copy sources (exclude node_modules and .next)
+# Remove any existing node_modules in frontend before copying
+RUN rm -rf /workspace/frontend/node_modules 2>/dev/null || true
 COPY shared ./shared
 COPY frontend ./frontend
 

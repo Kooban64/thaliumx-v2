@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getTickets, createTicket, getSupportMetrics, type Ticket, type SupportMetrics } from '@/lib/api/support';
 import { Plus, MessageSquare, AlertCircle, CheckCircle2, Clock, Search } from 'lucide-react';
 import Link from 'next/link';
+import { logApiError } from '@/lib/services/errorLogger';
 
 export default function SupportPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -52,7 +53,7 @@ export default function SupportPage() {
       const data = await getSupportMetrics();
       setMetrics(data);
     } catch (err) {
-      console.error('Failed to load metrics:', err);
+      logApiError(err, '/api/support/metrics', 'GET', undefined, { component: 'SupportPage' });
     }
   };
 

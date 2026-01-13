@@ -569,4 +569,51 @@ router.put('/:id/kyc', requireRole(['compliance', 'admin', 'super_admin']), vali
   });
 }));
 
+/**
+ * Update Current User Profile
+ * PUT /api/user/profile
+ */
+router.put('/profile', validateRequest(updateUserSchema), asyncHandler(async (req: Request, res: Response) => {
+  const currentUser = req.user!;
+  const userId = currentUser.userId || currentUser.id;
+  const updateData = req.body;
+
+  if (!userId) {
+    throw createError('User ID not found in token', 400, 'MISSING_USER_ID');
+  }
+
+  const targetUser = await UserService.getUserById(userId);
+
+  if (!targetUser) {
+    throw createError('User not found', 404, 'USER_NOT_FOUND');
+  }
+
+  // Regular users can only update limited fields
+  const allowedFields = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'address'];
+  const requestedFields = Object.keys(updateData);
+  const disallowedFields = requestedFields.filter(f => !allowedFields.includes(f));
+  
+  if (disallowedFields.length > 0) {
+    throw createError(`Cannot update fields: ${disallowedFields.join(', ')}`, 403, 'FIELD_UPDATE_DENIED');
+  }
+
+  const updatedUser = await UserService.updateUser(userId, updateData);
+
+  // Remove sensitive fields
+  const sanitizedUser = omit(updatedUser, ['passwordHash', 'mfaSecret', 'mfaSecretTemp', 'mfaBackupCodes', 'mfaEmailCode']);
+
+  LoggerService.info('User profile updated', {
+    userId,
+    updatedFields: Object.keys(updateData)
+  });
+
+  res.json({
+    success: true,
+    data: sanitizedUser,
+    message: 'Profile updated successfully',
+    timestamp: new Date().toISOString(),
+    requestId: req.headers['x-request-id'] || 'unknown'
+  });
+}));
+
 export default router;

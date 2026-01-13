@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logApiProxyError } from '@/lib/services/serverErrorLogger';
 
 /**
  * Proxy CSRF token requests to backend.
@@ -49,8 +50,13 @@ export async function GET(request: NextRequest) {
     }
 
     return nextResponse;
-  } catch (error) {
-    console.error('Error proxying /api/csrf-token:', error);
+  } catch {
+    // Log error to backend (production-ready)
+    await logApiProxyError(
+      error,
+      '/api/csrf-token',
+      'GET'
+    );
     return NextResponse.json(
       {
         success: false,

@@ -125,6 +125,71 @@ router.post('/verify',
 );
 
 /**
+ * Get KYC Status (current user)
+ * GET /api/kyc/status
+ */
+router.get('/status',
+  authenticateToken,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const tenantId = (req.user as any)?.tenantId;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          error: 'User ID not found in token',
+          code: 'USER_ID_REQUIRED'
+        });
+        return;
+      }
+
+      LoggerService.info('Fetching KYC status for current user', {
+        tenantId,
+        userId
+      });
+
+      const user = await KYCService.getKYCStatus(userId);
+
+      // Verify tenant access
+      if (user.tenantId !== tenantId) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied',
+          code: 'ACCESS_DENIED'
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          level: user.kycLevel || 'L0',
+          status: user.status || 'pending',
+          limits: {} // Limits are calculated separately based on KYC level
+        }
+      });
+
+    } catch (error) {
+      LoggerService.error('Get KYC status failed:', error);
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error',
+          code: 'INTERNAL_ERROR'
+        });
+      }
+    }
+  }
+);
+
+/**
  * Get KYC Status
  * GET /api/kyc/status/:userId
  */
@@ -246,6 +311,137 @@ router.put('/level/:userId',
 // =============================================================================
 // DOCUMENT MANAGEMENT ROUTES
 // =============================================================================
+
+/**
+ * Submit KYC Documents (alias for /documents/upload)
+ * POST /api/kyc/submit
+ */
+router.post('/submit',
+  authenticateToken,
+  upload.array('documents', 5),
+  validateRequest(Joi.object({
+    documentType: Joi.string().valid(
+      'PASSPORT',
+      'NATIONAL_ID',
+      'DRIVERS_LICENSE',
+      'UTILITY_BILL',
+      'BANK_STATEMENT',
+      'PROOF_OF_ADDRESS',
+      'PROOF_OF_INCOME',
+      'COMPANY_REGISTRATION',
+      'ARTICLES_OF_INCORPORATION',
+      'BENEFICIAL_OWNERSHIP'
+    ).required(),
+    country: Joi.string().length(2).default('US'),
+    documentNumber: Joi.string().optional(),
+    issuedDate: Joi.date().optional(),
+    expiryDate: Joi.date().optional(),
+    issuedBy: Joi.string().optional(),
+    firstName: Joi.string().optional(),
+    lastName: Joi.string().optional(),
+    dateOfBirth: Joi.date().optional(),
+    nationality: Joi.string().optional(),
+    gender: Joi.string().valid('MALE', 'FEMALE', 'OTHER').optional()
+  })),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const tenantId = (req.user as any)?.tenantId;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
+      const files = req.files as Express.Multer.File[];
+      const {
+        documentType,
+        country,
+        documentNumber,
+        issuedDate,
+        expiryDate,
+        issuedBy,
+        firstName,
+        lastName,
+        dateOfBirth,
+        nationality,
+        gender
+      } = req.body;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          error: 'User ID not found in token',
+          code: 'USER_ID_REQUIRED'
+        });
+        return;
+      }
+
+      if (!files || files.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'No documents uploaded',
+          code: 'NO_DOCUMENTS'
+        });
+        return;
+      }
+
+      LoggerService.info('Submitting KYC documents', {
+        tenantId,
+        userId,
+        documentType,
+        country,
+        fileCount: files.length
+      });
+
+      const results = [];
+
+      for (const file of files) {
+        const metadata = {
+          documentNumber,
+          issuedDate: issuedDate ? new Date(issuedDate) : undefined,
+          expiryDate: expiryDate ? new Date(expiryDate) : undefined,
+          issuedBy,
+          firstName,
+          lastName,
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+          nationality,
+          gender,
+          fileName: file.originalname,
+          fileSize: file.size,
+          mimeType: file.mimetype,
+          checksum: require('crypto').createHash('sha256').update(file.buffer).digest('hex')
+        };
+
+        const document = await KYCService.uploadDocument(
+          userId,
+          documentType,
+          file.buffer,
+          metadata,
+          country
+        );
+
+        results.push(document);
+      }
+
+      res.status(201).json({
+        success: true,
+        data: results,
+        message: `${results.length} document(s) submitted successfully`
+      });
+
+    } catch (error) {
+      LoggerService.error('Submit KYC documents failed:', error);
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error',
+          code: 'INTERNAL_ERROR'
+        });
+      }
+    }
+  }
+);
 
 /**
  * Upload Document
@@ -894,7 +1090,7 @@ router.get('/collection-flow/:workflowId',
         const collectionFlow = await ballerineService.getCollectionFlow(workflowId as string);
         collectionFlowUrl = collectionFlow.url;
         collectionFlowToken = collectionFlow.token;
-      } catch (error) {
+      } catch {
         // If collection flow doesn't exist, create one
         LoggerService.debug('Collection flow not found, creating new one', { workflowId });
         
@@ -978,6 +1174,93 @@ router.get('/collection-flow/:workflowId',
           success: false,
           error: 'Failed to get collection flow',
           code: 'COLLECTION_FLOW_ERROR'
+        });
+      }
+    }
+  }
+);
+
+/**
+ * Request KYC Upgrade
+ * POST /api/kyc/upgrade
+ */
+router.post('/upgrade',
+  authenticateToken,
+  validateRequest(Joi.object({
+    level: Joi.string().valid('L0', 'L1', 'L2', 'L3', 'INSTITUTIONAL').required()
+  })),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const tenantId = (req.user as any)?.tenantId;
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
+      const { level } = req.body;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          error: 'User ID not found in token',
+          code: 'USER_ID_REQUIRED'
+        });
+        return;
+      }
+
+      LoggerService.info('Requesting KYC upgrade', {
+        userId,
+        tenantId,
+        targetLevel: level
+      });
+
+      // Get current KYC status
+      const currentUser = await KYCService.getKYCStatus(userId);
+      const fromLevel = currentUser.kycLevel || 'L0';
+
+      // Trigger upgrade workflow
+      const { KYCWorkflowTriggerService } = await import('../services/kyc-workflow-trigger.service');
+      const result = await KYCWorkflowTriggerService.triggerUpgradeWorkflow({
+        userId,
+        tenantId,
+        fromLevel,
+        toLevel: level,
+        reason: `User requested upgrade from ${fromLevel} to ${level}`,
+        triggerType: 'proactive',
+        metadata: {
+          triggeredBy: 'user',
+          triggeredAt: new Date().toISOString(),
+          userAgent: req.headers['user-agent'],
+          ip: req.ip || req.socket.remoteAddress
+        }
+      });
+
+      if (!result.success) {
+        res.status(500).json({
+          success: false,
+          error: result.message || 'Failed to trigger upgrade workflow',
+          code: 'WORKFLOW_TRIGGER_ERROR'
+        });
+        return;
+      }
+
+      res.status(201).json({
+        success: true,
+        data: {
+          workflowId: result.workflowId,
+          message: result.message || 'KYC upgrade requested successfully'
+        }
+      });
+
+    } catch (error) {
+      LoggerService.error('Request KYC upgrade failed:', error);
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error',
+          code: 'INTERNAL_ERROR'
         });
       }
     }

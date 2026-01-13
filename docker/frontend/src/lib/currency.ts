@@ -39,7 +39,7 @@ export async function fetchCurrencyConfig(): Promise<typeof DEFAULT_CURRENCY> {
         return cachedCurrency!;
       }
     }
-  } catch (error) {
+  } catch {
     console.warn('Failed to fetch currency config, using defaults:', error);
   }
 
@@ -98,7 +98,7 @@ export function formatCurrency(
     }
 
     return formatted;
-  } catch (error) {
+  } catch {
     // Fallback formatting
     return `${currency.symbol}${amount.toFixed(decimals)}`;
   }

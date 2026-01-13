@@ -16,6 +16,7 @@ import { Loader2 } from 'lucide-react';
 import apiClient from '@/lib/api/client';
 import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import Link from 'next/link';
+import { logApiError, logRuntimeError } from '@/lib/services/errorLogger';
 
 function OnboardingPageContent() {
   const searchParams = useSearchParams();
@@ -43,8 +44,8 @@ function OnboardingPageContent() {
         if (response.success && response.data?.id) {
           setUserId(response.data.id);
         }
-      } catch (error) {
-        console.error('Failed to fetch user:', error);
+      } catch {
+        logApiError(error, '/api/auth/profile', 'GET', undefined, { component: 'Onboarding' });
       } finally {
         setLoading(false);
       }
@@ -118,7 +119,7 @@ function OnboardingPageContent() {
               setOnboardingComplete(true);
             }}
             onError={(error) => {
-              console.error('KYC collection error:', error);
+              logRuntimeError(error, 'Onboarding', { action: 'kycCollection' });
             }}
           />
         </div>

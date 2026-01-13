@@ -17,7 +17,7 @@
     "test:security": "pnpm run test:security:api && pnpm run test:security:dependencies",
     "test:security:api": "node tests/security/api-security-test.js",
     "test:security:dependencies": "pnpm audit --audit-level high",
-    "lint": "eslint src/**/*.ts",
+    "lint": "eslint src/**/*.ts --no-warn-ignored",
     "lint:fix": "eslint src/**/*.ts --fix",
     "typecheck": "tsc --noEmit",
     "migrate": "ts-node src/migrations/runner.ts up",

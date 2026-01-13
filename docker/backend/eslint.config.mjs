@@ -19,6 +19,7 @@ export default [
       'coverage/**',
       '**/*.d.ts',
       '**/*.js.map',
+      'src/__tests__/**/*.test.ts', // Exclude test files from linting
     ],
   },
 

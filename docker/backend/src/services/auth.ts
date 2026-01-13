@@ -28,7 +28,7 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import * as jwt from 'jsonwebtoken';
-import type { AuthResponse, User, JWTPayload} from '../types';
+import type { AuthResponse, User } from '../types';
 import { UserRole, KYCLevel } from '../types';
 import { DatabaseService } from '../services/database';
 import { RedisService } from '../services/redis';
@@ -61,7 +61,7 @@ export class AuthService {
   /**
     * Login user with email and password
     */
-   static async login(email: string, password: string, mfaCode?: string, rememberMe?: boolean, res?: Response): Promise<AuthResponse> {
+   static async login(email: string, password: string, mfaCode?: string, _rememberMe?: boolean, _res?: Response): Promise<AuthResponse> {
     try {
       // Get user by email
       const user = await UserService.getUserByEmail(email);

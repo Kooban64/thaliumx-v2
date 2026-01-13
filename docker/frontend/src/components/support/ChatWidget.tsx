@@ -13,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { MessageCircle, X, Send, Minimize2 } from 'lucide-react';
 import { createChatSession, escalateChat, type ChatMessage, type ChatSession } from '@/lib/api/support';
+import { toast } from '@/components/shared/Toast';
+import { logRuntimeError } from '@/lib/services/errorLogger';
 
 interface ChatWidgetProps {
   userId?: string;
@@ -121,8 +123,8 @@ export function ChatWidget({ userId: propUserId, className, isPublic = false }: 
       // Connect to WebSocket for real-time messages
       // Note: In production, this would connect to Live Helper Chat WebSocket
       // For now, we'll simulate with polling or direct API calls
-    } catch (error) {
-      console.error('Failed to initialize chat:', error);
+    } catch {
+      logRuntimeError(error, 'ChatWidget', { action: 'initializeChat' });
       setIsConnected(false);
     } finally {
       setIsLoading(false);
@@ -153,8 +155,8 @@ export function ChatWidget({ userId: propUserId, className, isPublic = false }: 
       setSession(newSession);
       setMessages(newSession.messages || []);
       setIsConnected(true);
-    } catch (error) {
-      console.error('Failed to initialize public chat:', error);
+    } catch {
+      logRuntimeError(error, 'ChatWidget', { action: 'initializePublicChat' });
       setIsConnected(false);
       setEmailError('Failed to start chat. Please try again.');
       setShowEmailForm(true);
@@ -226,8 +228,8 @@ export function ChatWidget({ userId: propUserId, className, isPublic = false }: 
           setMessages(prev => [...prev, agentMessage]);
         }, 1000);
       }
-    } catch (error) {
-      console.error('Failed to send message:', error);
+    } catch {
+      logRuntimeError(error, 'ChatWidget', { action: 'sendMessage', sessionId: session?.sessionId });
       // Remove the message from UI if send failed
       setMessages(prev => prev.filter(m => m.id !== userMessage.id));
       setInputMessage(messageToSend); // Restore message
@@ -247,10 +249,18 @@ export function ChatWidget({ userId: propUserId, className, isPublic = false }: 
         message: `Chat conversation escalated to ticket.\n\n${chatHistory}`,
         priority: 'normal',
       });
-      alert('Chat has been escalated to a support ticket. You will receive updates via email.');
-    } catch (error) {
-      console.error('Failed to escalate chat:', error);
-      alert('Failed to escalate chat. Please try again.');
+      toast({
+        type: 'success',
+        title: 'Chat escalated',
+        description: 'Chat has been escalated to a support ticket. You will receive updates via email.',
+      });
+    } catch {
+      logRuntimeError(error, 'ChatWidget', { action: 'escalateChat' });
+      toast({
+        type: 'error',
+        title: 'Escalation failed',
+        description: 'Failed to escalate chat. Please try again.',
+      });
     }
   };
 

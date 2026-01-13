@@ -115,7 +115,7 @@ export async function fetchWithRetry(
       const delay = calculateRetryDelay(attempt, config);
       await sleep(delay);
 
-    } catch (error) {
+    } catch {
       lastError = error as Error;
 
       // Don't retry on abort or client-side errors
@@ -311,7 +311,7 @@ export async function apiCall<T = any>(
       requestId: maybeStructured?.requestId,
     };
 
-  } catch (error) {
+  } catch {
     const apiError: ApiError = {
       code: 'NETWORK_ERROR',
       message: error instanceof Error ? error.message : 'Network request failed',
@@ -343,25 +343,26 @@ export function useApiCall<T = any>() {
 export function setupGlobalErrorHandling() {
   // Handle unhandled promise rejections
   window.addEventListener('unhandledrejection', (event) => {
-    console.error('Unhandled promise rejection:', event.reason);
+    const { logError, ErrorSeverity } = require('@/lib/services/errorLogger');
+    logError(event.reason, undefined, ErrorSeverity.HIGH, {
+      type: 'unhandledRejection',
+      component: 'global',
+    });
 
     // Prevent the default browser behavior (logging to console)
     event.preventDefault();
-
-    // In production, send to error reporting service
-    if (process.env.NODE_ENV === 'production') {
-      // reportError(event.reason);
-    }
   });
 
   // Handle uncaught errors
   window.addEventListener('error', (event) => {
-    console.error('Uncaught error:', event.error);
-
-    // In production, send to error reporting service
-    if (process.env.NODE_ENV === 'production') {
-      // reportError(event.error);
-    }
+    const { logError, ErrorSeverity } = require('@/lib/services/errorLogger');
+    logError(event.error, undefined, ErrorSeverity.CRITICAL, {
+      type: 'uncaughtError',
+      component: 'global',
+      filename: event.filename,
+      lineno: event.lineno,
+      colno: event.colno,
+    });
   });
 }
 
@@ -369,19 +370,17 @@ export function setupGlobalErrorHandling() {
  * Error reporting function (placeholder for error reporting service)
  */
 export function reportError(error: Error | string, context?: any) {
-  const errorData = {
-    message: typeof error === 'string' ? error : error.message,
-    stack: typeof error === 'string' ? undefined : error.stack,
-    context,
-    timestamp: new Date().toISOString(),
-    userAgent: navigator.userAgent,
-    url: window.location.href,
-  };
-
-  // Log error data for debugging (remove in production if not needed)
-  if (process.env.NODE_ENV === 'development') {
-    console.error('Error reported:', errorData);
-  }
+  // Log error data using error logger
+  const { logError, ErrorSeverity, ErrorCategory } = require('@/lib/services/errorLogger');
+  logError(
+    typeof error === 'string' ? new Error(error) : error,
+    ErrorCategory.UNKNOWN,
+    ErrorSeverity.MEDIUM,
+    {
+      ...context,
+      type: 'reportedError',
+    }
+  );
 
   // In production, send to error reporting service
   // Example: Sentry, LogRocket, Bugsnag, etc.

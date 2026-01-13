@@ -22,7 +22,6 @@ function hashString(input: string): string {
 
 function getPluginsHash(): string {
   try {
-    // @ts-ignore
     const plugins = navigator.plugins ? Array.from(navigator.plugins).map(p => `${p.name}:${p.filename}:${p.description}`).join('|') : '';
     return hashString(plugins);
   } catch {
@@ -56,8 +55,8 @@ function getWebGLHash(): string | undefined {
     const gl = canvas.getContext('webgl') as WebGLRenderingContext | null;
     if (!gl) return undefined;
     const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-    const vendor = debugInfo ? gl.getParameter((debugInfo as any).UNMASKED_VENDOR_WEBGL) : '';
-    const renderer = debugInfo ? gl.getParameter((debugInfo as any).UNMASKED_RENDERER_WEBGL) : '';
+    const vendor = debugInfo ? gl.getParameter((debugInfo as { UNMASKED_VENDOR_WEBGL: number }).UNMASKED_VENDOR_WEBGL) : '';
+    const renderer = debugInfo ? gl.getParameter((debugInfo as { UNMASKED_RENDERER_WEBGL: number }).UNMASKED_RENDERER_WEBGL) : '';
     return hashString(`${vendor}|${renderer}`);
   } catch {
     return undefined;
@@ -77,9 +76,7 @@ export function collectDeviceFingerprint(): DeviceFingerprint {
       pixelRatio: window.devicePixelRatio || 1,
     },
     hardware: {
-      // @ts-ignore
-      memory: (navigator as any).deviceMemory,
-      // @ts-ignore
+      memory: (navigator as { deviceMemory?: number }).deviceMemory,
       cores: navigator.hardwareConcurrency,
     },
     pluginsHash: getPluginsHash(),

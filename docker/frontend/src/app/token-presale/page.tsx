@@ -23,6 +23,7 @@ import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import { ChatWidget } from '@/components/support/ChatWidget';
 import { UpgradePrompt } from '@/components/kyc/UpgradePrompt';
 import { PostPurchaseTrading } from '@/components/presale/PostPurchaseTrading';
+import { logNetworkError } from '@/lib/services/errorLogger';
 
 export default function TokenPresalePage() {
   const [amount, setAmount] = useState('');
@@ -67,8 +68,8 @@ export default function TokenPresalePage() {
           setThalPrice(data.data.price);
         }
       }
-    } catch (error) {
-      console.error('Failed to load THAL price:', error);
+    } catch {
+      logNetworkError(error, { endpoint: '/api/market/prices/THAL', component: 'TokenPresale' });
       // Keep default price of $0.10
     }
   };
@@ -89,7 +90,7 @@ export default function TokenPresalePage() {
         setPresaleData(data);
       }
     } catch (err) {
-      console.error('Failed to load presale data:', err);
+      logNetworkError(err, { endpoint: '/api/presale/status', component: 'TokenPresale' });
     }
   };
 

@@ -4,7 +4,7 @@ import { TransactionLimitsDisplay } from '@/components/opa/TransactionLimitsDisp
 import { KYCAccessInfo } from '@/components/opa/KYCAccessInfo';
 
 import { useState, useEffect } from 'react';
-import { checkAuth as checkBackendAuth, logout as logoutBackend } from '@/lib/auth/backend-auth';
+import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,19 +17,13 @@ import {
   TrendingUp, 
   TrendingDown, 
   Wallet, 
-  Settings, 
-  LogOut,
-  Menu,
-  X,
-  BarChart3,
   DollarSign,
   Activity,
-  HelpCircle
 } from 'lucide-react';
+import { logNetworkError } from '@/lib/services/errorLogger';
 
 export default function Dashboard() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('trading');
+  const [activeTab] = useState('trading'); // Tab state for content switching
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
@@ -78,7 +72,7 @@ export default function Dashboard() {
         }
         
         setIsLoading(false);
-      } catch (error) {
+      } catch {
         window.location.href = '/login?next=/dashboard';
       }
     };
@@ -110,8 +104,8 @@ export default function Dashboard() {
           setPriceChange(priceData.data.changePercent24h);
         }
       }
-    } catch (error) {
-      console.error('Failed to load chart data:', error);
+    } catch {
+      logNetworkError(error, { endpoint: '/api/market', component: 'Dashboard' });
       // Fallback to mock data if API fails
       setChartData(Array.from({ length: 100 }, (_, i) => ({
         time: (Date.now() / 1000 - (100 - i) * 60) as any,
@@ -120,9 +114,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleLogout = async () => {
-    await logoutBackend();
-  };
+  // Logout handled by HeaderUserMenu component
 
   if (isLoading) {
     return (
@@ -132,116 +124,11 @@ export default function Dashboard() {
     );
   }
 
-  const sidebarItems = [
-    { id: 'home', label: 'Home', icon: BarChart3, href: '/landing' as const },
-    { id: 'trading', label: 'Trading', icon: BarChart3 },
-    { id: 'wallet', label: 'Wallet', icon: Wallet },
-    { id: 'portfolio', label: 'Portfolio', icon: DollarSign },
-    { id: 'analytics', label: 'Analytics', icon: Activity },
-    { id: 'account', label: 'Account', icon: Settings },
-    { id: 'support', label: 'Support', icon: HelpCircle, href: '/support' as const },
-  ];
+  // Sidebar removed - navigation is now in header
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Mobile Header */}
-      <header className="lg:hidden border-b bg-background/95 backdrop-blur">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">T</span>
-            </div>
-            <span className="text-xl font-bold">ThaliumX</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
-        </div>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-background border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}>
-          <div className="flex flex-col h-full">
-            {/* Desktop Header */}
-            <div className="hidden lg:flex items-center space-x-2 p-6 border-b">
-              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">T</span>
-              </div>
-              <span className="text-xl font-bold">ThaliumX</span>
-            </div>
-
-            {/* Navigation */}
-            <nav className="flex-1 p-4 space-y-2">
-              {sidebarItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Button
-                    key={item.id}
-                    variant={activeTab === item.id ? 'default' : 'ghost'}
-                    className="w-full justify-start"
-                    onClick={() => {
-                      if ((item as any).href) {
-                        window.location.href = (item as any).href;
-                        return;
-                      }
-                      setActiveTab(item.id);
-                      setSidebarOpen(false);
-                    }}
-                  >
-                    <Icon className="mr-2 h-4 w-4" />
-                    {item.label}
-                  </Button>
-                );
-              })}
-            </nav>
-
-            {/* User Info & Logout */}
-            <div className="p-4 border-t">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-primary font-bold text-sm">
-                    {user?.firstName?.[0] || 'U'}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {user?.firstName} {user?.lastName}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {user?.email}
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-                onClick={handleLogout}
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign Out
-              </Button>
-            </div>
-          </div>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 lg:ml-0">
-          {/* Mobile Overlay */}
-          {sidebarOpen && (
-            <div
-              className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
-
-          <div className="p-6">
+      <div className="p-6">
             {/* Page Header */}
             <div className="mb-8">
               <h1 className="text-3xl font-bold capitalize">{activeTab}</h1>
@@ -451,8 +338,6 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        </main>
-      </div>
     </div>
   );
 }

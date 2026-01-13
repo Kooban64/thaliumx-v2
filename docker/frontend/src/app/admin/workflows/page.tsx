@@ -16,6 +16,7 @@ import apiClient from '@/lib/api/client';
 import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import Link from 'next/link';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { logAuthError } from '@/lib/services/errorLogger';
 
 export default function AdminWorkflowsPage() {
   const [loading, setLoading] = useState(true);
@@ -40,8 +41,8 @@ export default function AdminWorkflowsPage() {
         // Load all workflows (admin endpoint would be needed)
         // For now, we'll show a message that admin endpoints need to be implemented
         setLoading(false);
-      } catch (error) {
-        console.error('Auth check failed:', error);
+      } catch {
+        logAuthError(error, 'checkAuth', { component: 'AdminWorkflows' });
         setLoading(false);
       }
     };

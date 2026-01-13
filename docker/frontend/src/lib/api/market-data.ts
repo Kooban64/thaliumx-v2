@@ -77,7 +77,7 @@ export class MarketDataService {
       }
 
       return null;
-    } catch (error) {
+    } catch {
       console.error('Failed to fetch price:', error);
       return null;
     }
@@ -98,7 +98,7 @@ export class MarketDataService {
       }
 
       return new Map();
-    } catch (error) {
+    } catch {
       console.error('Failed to fetch prices:', error);
       return new Map();
     }
@@ -118,7 +118,7 @@ export class MarketDataService {
       }
 
       return [];
-    } catch (error) {
+    } catch {
       console.error('Failed to fetch historical prices:', error);
       return [];
     }
@@ -136,7 +136,7 @@ export class MarketDataService {
       }
 
       return null;
-    } catch (error) {
+    } catch {
       console.error('Failed to fetch market stats:', error);
       return null;
     }
@@ -149,7 +149,7 @@ export class MarketDataService {
     try {
       const response = await apiCall<{ status: string }>(`/api/market/health`);
       return response.success && response.data?.status === 'healthy';
-    } catch (error) {
+    } catch {
       console.error('Market data health check failed:', error);
       return false;
     }

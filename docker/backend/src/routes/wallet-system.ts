@@ -1107,4 +1107,198 @@ router.get('/tax-report', authenticateToken, async (req: Request, res: Response,
   }
 });
 
+/**
+ * Get User Wallets (alias endpoint)
+ * GET /api/wallet/wallets
+ */
+router.get('/wallets', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = getAuthUserId(req);
+    
+    if (!userId) {
+      res.status(400).json({
+        success: false,
+        error: 'User ID not found in token'
+      });
+      return;
+    }
+
+    assertCanAccessUser(req, userId);
+    
+    const wallets = walletSystemService.getUserWallets(userId);
+    
+    res.json({
+      success: true,
+      data: wallets.map(w => ({
+        id: w.id,
+        walletType: w.walletType,
+        currency: w.currency,
+        address: w.address,
+        status: w.status,
+        balance: w.balance
+      })),
+      userId,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    LoggerService.error('Failed to get wallets', { error });
+    next(error);
+  }
+});
+
+/**
+ * Get All Balances (alias endpoint)
+ * GET /api/wallet/balances
+ */
+router.get('/balances', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = getAuthUserId(req);
+    
+    if (!userId) {
+      res.status(400).json({
+        success: false,
+        error: 'User ID not found in token'
+      });
+      return;
+    }
+
+    assertCanAccessUser(req, userId);
+    
+    // Get all wallets and calculate balances
+    const wallets = walletSystemService.getUserWallets(userId);
+    const balances: Record<string, string> = {};
+    
+    wallets.forEach(wallet => {
+      const currency = wallet.currency;
+      if (!balances[currency]) {
+        balances[currency] = '0';
+      }
+      balances[currency] = (parseFloat(balances[currency]) + parseFloat(wallet.balance || '0')).toString();
+    });
+    
+    res.json({
+      success: true,
+      data: balances,
+      userId,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    LoggerService.error('Failed to get balances', { error });
+    next(error);
+  }
+});
+
+/**
+ * Get Bank Accounts
+ * GET /api/wallet/bank-accounts
+ */
+router.get('/bank-accounts', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = getAuthUserId(req);
+    
+    if (!userId) {
+      res.status(400).json({
+        success: false,
+        error: 'User ID not found in token'
+      });
+      return;
+    }
+
+    assertCanAccessUser(req, userId);
+    
+    // Get FIAT wallets which represent bank accounts
+    const wallets = walletSystemService.getUserWallets(userId);
+    const bankAccounts = wallets
+      .filter(w => w.walletType === 'fiat')
+      .map(w => ({
+        id: w.id,
+        accountNumber: w.address || w.accountId, // FIAT wallet address or accountId
+        currency: w.currency,
+        balance: w.balance,
+        status: w.status,
+        createdAt: w.metadata?.createdAt || new Date()
+      }));
+    
+    res.json({
+      success: true,
+      data: bankAccounts,
+      userId,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    LoggerService.error('Failed to get bank accounts', { error });
+    next(error);
+  }
+});
+
+/**
+ * Add Bank Account
+ * POST /api/wallet/bank-accounts
+ */
+router.post('/bank-accounts', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = getAuthUserId(req);
+    const { accountNumber, currency = 'USD' } = req.body;
+    
+    if (!userId) {
+      res.status(400).json({
+        success: false,
+        error: 'User ID not found in token'
+      });
+      return;
+    }
+
+    assertCanAccessUser(req, userId);
+
+    if (!accountNumber || !currency) {
+      res.status(400).json({
+        success: false,
+        error: 'Account number and currency are required'
+      });
+      return;
+    }
+
+    // Create wallet infrastructure which includes FIAT wallet
+    const userInfo = {
+      email: (req.user as any)?.email || '',
+      firstName: (req.user as any)?.firstName || '',
+      lastName: (req.user as any)?.lastName || ''
+    };
+    
+    const wallets = await walletSystemService.createUserWalletInfrastructure(
+      userId,
+      (req.user as any)?.tenantId || process.env.DEFAULT_TENANT_ID || '',
+      (req.user as any)?.brokerId || process.env.DEFAULT_BROKER_ID || '',
+      userInfo
+    );
+    
+    // Find the FIAT wallet for the requested currency
+    const wallet = wallets.find(w => w.walletType === 'fiat' && w.currency === currency);
+    
+    if (!wallet) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create bank account wallet'
+      });
+      return;
+    }
+    
+    res.status(201).json({
+      success: true,
+      data: {
+        id: wallet.id,
+        accountNumber: wallet.address || wallet.accountId || accountNumber,
+        currency: wallet.currency,
+        balance: wallet.balance,
+        status: wallet.status
+      },
+      userId,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    LoggerService.error('Failed to add bank account', { error });
+    next(error);
+  }
+});
+
 export default router;

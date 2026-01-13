@@ -1,0 +1,12 @@
+// Barrel export for KYC components
+export { KYCStatusCard } from './KYCStatusCard';
+export { KYCProgressBar } from './KYCProgressBar';
+export { KYCUpgradePrompt } from './KYCUpgradePrompt';
+export { KYCBlockingModal } from './KYCBlockingModal';
+export { KYCUpgradeWizard } from './KYCUpgradeWizard';
+export { KYCDocumentUpload } from './KYCDocumentUpload';
+export { DocumentUploader } from './DocumentUploader';
+export { DocumentPreview } from './DocumentPreview';
+export { DocumentList } from './DocumentList';
+export { KYCWorkflowTracker } from './KYCWorkflowTracker';
+export { validateDocument } from './DocumentValidator';

@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { TrendingUp, AlertTriangle, ArrowRight } from 'lucide-react';
 import { getZitadelToken } from '@/lib/auth/backend-auth';
 import { KYCCollectionFlow } from './KYCCollectionFlow';
+import { toast } from '@/components/shared/Toast';
 
 interface LimitStatus {
   current: number;
@@ -120,7 +121,11 @@ export function UpgradePrompt({ limitType = 'investment', className, onUpgradeCl
         throw new Error('Invalid response from server');
       }
     } catch (error: any) {
-      alert(error.message || 'Failed to start KYC upgrade. Please try again.');
+      toast({
+        type: 'error',
+        title: 'KYC upgrade failed',
+        description: error.message || 'Failed to start KYC upgrade. Please try again.',
+      });
     } finally {
       setTriggeringWorkflow(false);
     }
@@ -139,7 +144,11 @@ export function UpgradePrompt({ limitType = 'investment', className, onUpgradeCl
             window.location.reload();
           }}
           onError={(error) => {
-            alert(`KYC verification error: ${error}`);
+            toast({
+              type: 'error',
+              title: 'KYC verification error',
+              description: String(error),
+            });
             setShowCollectionFlow(false);
           }}
         />

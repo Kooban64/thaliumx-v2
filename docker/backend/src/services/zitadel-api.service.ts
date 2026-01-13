@@ -92,7 +92,7 @@ export class ZitadelApiService {
     }
 
     // Load from Vault if available (async, will be loaded on first use)
-    this.loadCredentialsFromVault();
+    void this.loadCredentialsFromVault();
 
     if (!this.serviceAccountId || !this.serviceAccountKey) {
       LoggerService.warn('Zitadel service account credentials not configured. Zitadel API operations will fail.');

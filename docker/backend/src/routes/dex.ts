@@ -687,4 +687,162 @@ router.get('/health', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+/**
+ * Get DEX Trades (alias for /swaps)
+ * GET /api/dex/trades
+ */
+router.get('/trades',
+  authenticateToken,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
+      const { status, limit = 50, offset = 0 } = req.query;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          error: 'User ID not found in token',
+          code: 'USER_ID_REQUIRED'
+        });
+        return;
+      }
+
+      LoggerService.info('Fetching DEX trades', {
+        userId,
+        status,
+        limit,
+        offset
+      });
+
+      // Get swaps for user (swaps are trades)
+      const swaps = await DEXService.getUserSwaps(userId, {
+        status: status as any,
+        limit: Number(limit),
+        offset: Number(offset)
+      });
+
+      res.json({
+        success: true,
+        data: swaps.map(swap => ({
+          id: swap.id,
+          tokenIn: swap.tokenIn,
+          tokenOut: swap.tokenOut,
+          amountIn: swap.amountIn,
+          amountOut: swap.amountOut,
+          status: swap.status,
+          createdAt: swap.createdAt,
+          updatedAt: swap.updatedAt
+        }))
+      });
+
+    } catch (error) {
+      LoggerService.error('Get DEX trades failed:', error);
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error',
+          code: 'INTERNAL_ERROR'
+        });
+      }
+    }
+  }
+);
+
+/**
+ * Execute Swap (alias endpoint - singular)
+ * POST /api/dex/swap
+ */
+router.post('/swap',
+  authenticateToken,
+  validateRequest(Joi.object({
+    tokenIn: Joi.string().required(),
+    tokenOut: Joi.string().required(),
+    amountIn: Joi.string().required(),
+    slippage: Joi.number().min(0.1).max(10.0).default(0.5),
+    deadline: Joi.number().integer().min(Math.floor(Date.now() / 1000)).required(),
+    route: Joi.array().items(Joi.object({
+      tokenIn: Joi.string().required(),
+      tokenOut: Joi.string().required(),
+      fee: Joi.number().required(),
+      poolAddress: Joi.string().optional()
+    })).optional()
+  })),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = (req.user as any)?.userId || (req.user as any)?.id;
+      const { tokenIn, tokenOut, amountIn, slippage, deadline, route } = req.body;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          error: 'User ID not found in token',
+          code: 'USER_ID_REQUIRED'
+        });
+        return;
+      }
+
+      LoggerService.info('Executing DEX swap', {
+        userId,
+        tokenIn,
+        tokenOut,
+        amountIn,
+        slippage
+      });
+
+      // Execute swap via DEX service
+      const tenantId = (req.user as any)?.tenantId || process.env.DEFAULT_TENANT_ID || '';
+      const brokerId = (req.user as any)?.brokerId || process.env.DEFAULT_BROKER_ID || '';
+      
+      const swapResult = await DEXService.executeSwap(
+        userId,
+        tenantId,
+        brokerId,
+        tokenIn,
+        tokenOut,
+        amountIn,
+        slippage,
+        deadline,
+        route || []
+      );
+
+      res.status(201).json({
+        success: true,
+        data: {
+          swap: {
+            id: swapResult.id,
+            tokenIn: swapResult.tokenIn,
+            tokenOut: swapResult.tokenOut,
+            amountIn: swapResult.amountIn,
+            amountOut: swapResult.amountOut,
+            status: swapResult.status,
+            createdAt: swapResult.createdAt
+          }
+        }
+      });
+
+    } catch (error) {
+      LoggerService.error('Execute DEX swap failed:', error);
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error',
+          code: 'INTERNAL_ERROR'
+        });
+      }
+    }
+  }
+);
+
 export default router;

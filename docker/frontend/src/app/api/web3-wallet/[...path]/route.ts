@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logApiProxyError } from '@/lib/services/serverErrorLogger';
 
 /**
  * Next.js API route to proxy /api/web3-wallet/* requests to the backend
  */
 export async function GET(request: NextRequest) {
+  const path = request.nextUrl.pathname.replace('/api/web3-wallet', '');
   try {
     // In Next.js API routes (server-side), always use Docker service name
     let backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://thaliumx-backend:3002';
@@ -11,7 +13,6 @@ export async function GET(request: NextRequest) {
     if (!backendUrl.includes('thaliumx-backend')) {
       backendUrl = 'http://thaliumx-backend:3002';
     }
-    const path = request.nextUrl.pathname.replace('/api/web3-wallet', '');
     const query = request.nextUrl.search;
     const apiUrl = `${backendUrl}/api/web3-wallet${path}${query}`;
 
@@ -48,8 +49,14 @@ export async function GET(request: NextRequest) {
         'Content-Type': 'application/json',
       },
     });
-  } catch (error) {
-    console.error('Error proxying /api/web3-wallet:', error);
+  } catch {
+    // Log error to backend (production-ready)
+    await logApiProxyError(
+      error,
+      `/api/web3-wallet${path}`,
+      'GET',
+      { query: request.nextUrl.search }
+    );
     return NextResponse.json(
       {
         success: false,
@@ -65,6 +72,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const path = request.nextUrl.pathname.replace('/api/web3-wallet', '');
   try {
     // In Next.js API routes (server-side), always use Docker service name
     let backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://thaliumx-backend:3002';
@@ -72,7 +80,6 @@ export async function POST(request: NextRequest) {
     if (!backendUrl.includes('thaliumx-backend')) {
       backendUrl = 'http://thaliumx-backend:3002';
     }
-    const path = request.nextUrl.pathname.replace('/api/web3-wallet', '');
     const query = request.nextUrl.search;
     const apiUrl = `${backendUrl}/api/web3-wallet${path}${query}`;
 
@@ -112,8 +119,14 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
     });
-  } catch (error) {
-    console.error('Error proxying /api/web3-wallet:', error);
+  } catch {
+    // Log error to backend (production-ready)
+    await logApiProxyError(
+      error,
+      `/api/web3-wallet${path}`,
+      'GET',
+      { query: request.nextUrl.search }
+    );
     return NextResponse.json(
       {
         success: false,

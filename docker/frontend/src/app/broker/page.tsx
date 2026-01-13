@@ -1,47 +1,31 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { BrokerDashboard } from '@/components/broker/dashboard';
+import { useRBACStore } from '@/stores/rbacStore';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
-export default function BrokerAdmin() {
+export default function BrokerPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check if user has broker permissions
+    const { checkPermission } = useRBACStore.getState();
+    const canAccessBroker = checkPermission('broker:view') || 
+      checkPermission('broker:admin') ||
+      checkPermission('broker:compliance') ||
+      checkPermission('broker:finance') ||
+      checkPermission('broker:operations') ||
+      checkPermission('broker:trading');
+
+    if (!canAccessBroker) {
+      router.push('/dashboard');
+    }
+  }, [router]);
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Broker Admin</h1>
-        <Button asChild>
-          <a href="/dashboard">Back to App</a>
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Allocations</CardTitle>
-            <CardDescription>User and account allocations</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm text-muted-foreground">Coming soon</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Wallets</CardTitle>
-            <CardDescription>Hot wallets and segregation</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm text-muted-foreground">Coming soon</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Compliance</CardTitle>
-            <CardDescription>Approvals and reviews</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm text-muted-foreground">Coming soon</div>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="p-6">
+      <BrokerDashboard />
     </div>
   );
 }

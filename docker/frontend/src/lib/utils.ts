@@ -101,7 +101,7 @@ export function validateForm<T>(schema: z.ZodSchema<T>, data: unknown): { succes
   try {
     const result = schema.parse(data)
     return { success: true, data: result }
-  } catch (error) {
+  } catch {
     if (error instanceof z.ZodError) {
       const errors: Record<string, string> = {}
       error.issues.forEach((issue) => {

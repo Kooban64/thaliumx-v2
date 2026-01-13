@@ -98,8 +98,7 @@ class AsyncLogTransport extends Transport {
 
     // Flush if buffer is full
     if (this.buffer.length >= this.batchSize) {
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      this.flush();
+      void this.flush();
     }
 
     callback();

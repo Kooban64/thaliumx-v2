@@ -14,6 +14,7 @@ import { useUserWorkflows } from '@/lib/api/hooks/workflows';
 import { WorkflowType, WorkflowStatus } from '@/lib/api/types/workflows';
 import { Loader2, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { KYCCollectionFlow } from '../kyc/KYCCollectionFlow';
+import { logRuntimeError } from '@/lib/services/errorLogger';
 
 interface OnboardingProgressProps {
   userId: string;
@@ -144,7 +145,7 @@ export function OnboardingProgress({
                 refetch();
               }}
               onError={(error) => {
-                console.error('KYC collection error:', error);
+                logRuntimeError(error, 'OnboardingProgress', { action: 'kycCollection' });
               }}
             />
           </div>

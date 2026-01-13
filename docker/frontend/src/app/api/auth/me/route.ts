@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logApiProxyError } from '@/lib/services/serverErrorLogger';
 
 /**
  * Next.js API route to proxy /api/auth/me requests to /api/auth/profile on the backend
@@ -58,8 +59,13 @@ export async function GET(request: NextRequest) {
         }),
       },
     });
-  } catch (error) {
-    console.error('Error proxying /api/auth/me:', error);
+  } catch {
+    // Log error to backend (production-ready)
+    await logApiProxyError(
+      error,
+      '/api/auth/me',
+      'GET'
+    );
     return NextResponse.json(
       {
         success: false,
