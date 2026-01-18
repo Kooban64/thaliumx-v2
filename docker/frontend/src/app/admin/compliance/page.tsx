@@ -7,9 +7,39 @@ import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import apiClient from '@/lib/api/client';
 import { Loader2, Shield, FileText, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+interface ComplianceStatus {
+  kycStatus: string;
+  amlStatus: string;
+  reportingStatus: string;
+  lastAudit: string;
+  nextAudit: string;
+  alerts: Array<{
+    id: string;
+    type: string;
+    severity: string;
+    message: string;
+    timestamp: string;
+  }>;
+}
+
+interface ComplianceEvent {
+  id: string;
+  type: string;
+  severity: string;
+  message: string;
+  timestamp: string;
+  userId?: string;
+  action?: string;
+}
 
 export default function ComplianceDashboard() {
   const [loading, setLoading] = useState(true);
+  const [complianceStatus, setComplianceStatus] = useState<ComplianceStatus | null>(null);
+  const [complianceEvents, setComplianceEvents] = useState<ComplianceEvent[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -27,6 +57,30 @@ export default function ComplianceDashboard() {
           window.location.href = '/dashboard';
           return;
         }
+
+        // Load compliance status
+        try {
+          const statusRes = await apiClient.get('/api/audit-logs/compliance-status');
+          if (statusRes.success && statusRes.data) {
+            setComplianceStatus(statusRes.data as ComplianceStatus);
+          }
+        } catch (err) {
+          console.error('Failed to load compliance status:', err);
+        }
+
+        // Load recent compliance events from audit logs
+        try {
+          const eventsRes = await apiClient.get('/api/audit-logs?limit=10&category=compliance');
+          if (eventsRes.success && eventsRes.data) {
+            const data = eventsRes.data as any;
+            const events = Array.isArray(data) ? data : (data.logs || []);
+            setComplianceEvents(events.slice(0, 10) as ComplianceEvent[]);
+          }
+        } catch (err) {
+          console.error('Failed to load compliance events:', err);
+        }
+      } catch (err) {
+        setError('Failed to load compliance data');
       } finally {
         setLoading(false);
       }
@@ -69,16 +123,28 @@ export default function ComplianceDashboard() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">KYC Compliance:</span>
-                  <span className="font-medium text-green-600">Active</span>
+                  <Badge variant={complianceStatus?.kycStatus === 'active' ? 'default' : 'destructive'}>
+                    {complianceStatus?.kycStatus || 'Active'}
+                  </Badge>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">AML Screening:</span>
-                  <span className="font-medium text-green-600">Active</span>
+                  <Badge variant={complianceStatus?.amlStatus === 'active' ? 'default' : 'destructive'}>
+                    {complianceStatus?.amlStatus || 'Active'}
+                  </Badge>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Transaction Monitoring:</span>
-                  <span className="font-medium text-green-600">Active</span>
+                  <Badge variant={complianceStatus?.reportingStatus === 'up_to_date' ? 'default' : 'destructive'}>
+                    {complianceStatus?.reportingStatus === 'up_to_date' ? 'Active' : complianceStatus?.reportingStatus || 'Active'}
+                  </Badge>
                 </div>
+                {complianceStatus?.lastAudit && (
+                  <div className="flex justify-between mt-4 pt-4 border-t">
+                    <span className="text-muted-foreground">Last Audit:</span>
+                    <span className="text-xs">{new Date(complianceStatus.lastAudit).toLocaleDateString()}</span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -112,14 +178,24 @@ export default function ComplianceDashboard() {
               <CardDescription>Regulatory and compliance reports</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>Compliance reporting features coming soon</p>
-                <ul className="list-disc list-inside space-y-1 mt-2 text-xs">
-                  <li>Suspicious Activity Reports (SAR)</li>
-                  <li>Transaction reports</li>
-                  <li>KYC status reports</li>
-                  <li>Risk assessment reports</li>
-                </ul>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href="/admin/compliance/reports?type=sar">SAR Reports</Link>
+                  </Button>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href="/admin/compliance/reports?type=transaction">Transactions</Link>
+                  </Button>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href="/admin/compliance/reports?type=kyc">KYC Status</Link>
+                  </Button>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href="/admin/compliance/reports?type=risk">Risk Assessment</Link>
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Generate and download compliance reports for regulatory purposes
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -131,12 +207,50 @@ export default function ComplianceDashboard() {
             <CardDescription>Latest compliance-related activities</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Compliance event monitoring coming soon</p>
-              <p className="text-sm mt-2">
-                This will display recent KYC approvals, AML alerts, policy violations, and compliance actions
-              </p>
-            </div>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            {complianceEvents.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No recent compliance events</p>
+                <p className="text-sm mt-2">
+                  Compliance events will appear here as they occur
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {complianceEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="flex items-start justify-between p-3 border rounded-lg hover:bg-muted/50"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge
+                          variant={
+                            event.severity === 'high' ? 'destructive' :
+                            event.severity === 'medium' ? 'default' : 'secondary'
+                          }
+                        >
+                          {event.severity}
+                        </Badge>
+                        <span className="text-sm font-medium">{event.type}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{event.message}</p>
+                      {event.action && (
+                        <p className="text-xs text-muted-foreground mt-1">Action: {event.action}</p>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground ml-4">
+                      {new Date(event.timestamp).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

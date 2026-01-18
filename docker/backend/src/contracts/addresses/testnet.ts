@@ -13,15 +13,15 @@ export const TESTNET_ADDRESSES = {
   
   // DeFi Contracts
   THALIUM_DEX: '0x1E0B9fce147c2aB5646db027F9Ba3Cfd0ba573A6',
-  THALIUM_GOVERNANCE: '0x...', // Update when deployed
-  THALIUM_STAKING: '0x...', // Update when deployed
+  THALIUM_GOVERNANCE: '0x48Fa2BBcf5425db9aBeCD3B4d549b44f3FF7547E',
+  THALIUM_STAKING: '0x8C15da667477D419A3c76672e08A64C1F85f2E8A',
   
   // Infrastructure
-  USDT_TOKEN: process.env.USDT_TOKEN_ADDRESS || '', // BSC Testnet USDT address
+  USDT_TOKEN: process.env.USDT_TOKEN_ADDRESS || '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd', // BSC Testnet USDT address
   
   // Security Contracts
-  THALIUM_SECURITY: process.env.THALIUM_SECURITY_ADDRESS || '', // ThaliumSecurity contract
-  EMERGENCY_CONTROLS: process.env.EMERGENCY_CONTROLS_ADDRESS || '', // EmergencyControls contract
+  THALIUM_SECURITY: process.env.THALIUM_SECURITY_ADDRESS || '0xF66767De6481779bdDA59733a17CB724e49B92e8', // ThaliumSecurity contract
+  EMERGENCY_CONTROLS: process.env.EMERGENCY_CONTROLS_ADDRESS || '0xA7Dd54373213A438CB1FE18c024a93C42cB90Bf2', // EmergencyControls contract
   
   // Admin Wallet
   ADMIN_WALLET: '0x310Ff4fE76974DF5977a1a269F60F7B0a83d835A',

@@ -313,7 +313,7 @@ export class MarketDataService {
       'CHZ': 'chiliz',
       'ENJ': 'enjincoin',
       'BAT': 'basic-attention-token',
-      'THAL': 'thalium-token', // Placeholder - replace with actual CoinGecko ID when available
+      'THAL': process.env.COINGECKO_THAL_ID || 'thalium-token', // Configurable CoinGecko ID
     };
 
     return symbolMap[symbol.toUpperCase()] || null;

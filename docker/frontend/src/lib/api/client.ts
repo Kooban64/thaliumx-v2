@@ -100,6 +100,7 @@ class ApiClient {
    * Method kept for potential future use - prefixed with _ to indicate intentionally unused
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // @ts-expect-error - Method kept for future use
   private async _refreshTokenIfNeeded(): Promise<boolean> {
     // Zitadel manages token refresh automatically via OIDC flow
     return false;
@@ -213,7 +214,7 @@ class ApiClient {
         data: data.data || data, // Handle both { data: ... } and direct response
         timestamp: data.timestamp || new Date().toISOString(),
       };
-    } catch {
+    } catch (error) {
       clearTimeout(timeoutId);
 
       if (error instanceof Error) {

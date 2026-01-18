@@ -31,7 +31,7 @@ export default function SystemHealthPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push('/login?next=/admin/system/health');
       }
     };

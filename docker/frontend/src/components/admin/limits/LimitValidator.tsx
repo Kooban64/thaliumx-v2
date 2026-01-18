@@ -36,7 +36,7 @@ export function LimitValidator({ type, target, limits }: LimitValidatorProps) {
         limits,
       });
       setValidationResult(result as ValidationResult);
-    } catch {
+    } catch (error) {
       setValidationResult({
         valid: false,
         errors: [error instanceof Error ? error.message : 'Validation failed'],

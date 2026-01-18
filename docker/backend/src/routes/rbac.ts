@@ -86,6 +86,7 @@ router.get('/roles/:roleId',
           error: 'Role not found',
           code: 'ROLE_NOT_FOUND'
         });
+        return;
       }
 
       res.json({
@@ -95,6 +96,201 @@ router.get('/roles/:roleId',
 
     } catch (error) {
       LoggerService.error('Get role details failed:', error);
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error',
+          code: 'INTERNAL_ERROR'
+        });
+      }
+    }
+  }
+);
+
+/**
+ * Create Role
+ * POST /api/rbac/roles
+ */
+router.post('/roles',
+  authenticateToken,
+  requireRole(['platform-admin', 'admin', 'super_admin']),
+  validateRequest(Joi.object({
+    name: Joi.string().required().min(3).max(100),
+    description: Joi.string().optional().max(500),
+    tenantType: Joi.string().valid('platform', 'broker', 'user').optional(),
+    permissions: Joi.array().items(Joi.string()).optional(),
+    isSystemRole: Joi.boolean().optional().default(false),
+    canBeAssigned: Joi.boolean().optional().default(true),
+    requiresApproval: Joi.boolean().optional().default(false),
+    maxUsers: Joi.number().optional().min(1)
+  })),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const roleData = req.body;
+      const createdBy = (req.user as any)?.userId || (req.user as any)?.id || 'system';
+
+      LoggerService.info('Creating role', {
+        name: roleData.name,
+        createdBy
+      });
+
+      // Note: This is a placeholder - actual implementation would need to persist to database
+      // For now, we'll return an error indicating custom roles need database persistence
+      res.status(501).json({
+        success: false,
+        error: 'Custom role creation requires database persistence. This feature is not yet implemented.',
+        code: 'NOT_IMPLEMENTED'
+      });
+
+    } catch (error) {
+      LoggerService.error('Create role failed:', error);
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error',
+          code: 'INTERNAL_ERROR'
+        });
+      }
+    }
+  }
+);
+
+/**
+ * Update Role
+ * PUT /api/rbac/roles/:roleId
+ */
+router.put('/roles/:roleId',
+  authenticateToken,
+  requireRole(['platform-admin', 'admin', 'super_admin']),
+  validateRequest(Joi.object({
+    name: Joi.string().optional().min(3).max(100),
+    description: Joi.string().optional().max(500),
+    permissions: Joi.array().items(Joi.string()).optional(),
+    canBeAssigned: Joi.boolean().optional(),
+    requiresApproval: Joi.boolean().optional(),
+    maxUsers: Joi.number().optional().min(1)
+  })),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { roleId } = req.params;
+      const roleData = req.body;
+      const updatedBy = (req.user as any)?.userId || (req.user as any)?.id || 'system';
+
+      LoggerService.info('Updating role', {
+        roleId,
+        updatedBy
+      });
+
+      const roles = await RBACService.getAllRoles();
+      const role = roles.find(r => r.id === roleId);
+
+      if (!role) {
+        res.status(404).json({
+          success: false,
+          error: 'Role not found',
+          code: 'ROLE_NOT_FOUND'
+        });
+        return;
+      }
+
+      // System roles cannot be modified
+      if (role.isSystemRole) {
+        res.status(403).json({
+          success: false,
+          error: 'System roles cannot be modified',
+          code: 'SYSTEM_ROLE_IMMUTABLE'
+        });
+        return;
+      }
+
+      // Note: This is a placeholder - actual implementation would need to persist to database
+      res.status(501).json({
+        success: false,
+        error: 'Role updates require database persistence. This feature is not yet implemented.',
+        code: 'NOT_IMPLEMENTED'
+      });
+
+    } catch (error) {
+      LoggerService.error('Update role failed:', error);
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error',
+          code: 'INTERNAL_ERROR'
+        });
+      }
+    }
+  }
+);
+
+/**
+ * Delete Role
+ * DELETE /api/rbac/roles/:roleId
+ */
+router.delete('/roles/:roleId',
+  authenticateToken,
+  requireRole(['platform-admin', 'admin', 'super_admin']),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { roleId } = req.params;
+      const deletedBy = (req.user as any)?.userId || (req.user as any)?.id || 'system';
+
+      LoggerService.info('Deleting role', {
+        roleId,
+        deletedBy
+      });
+
+      const roles = await RBACService.getAllRoles();
+      const role = roles.find(r => r.id === roleId);
+
+      if (!role) {
+        res.status(404).json({
+          success: false,
+          error: 'Role not found',
+          code: 'ROLE_NOT_FOUND'
+        });
+        return;
+      }
+
+      // System roles cannot be deleted
+      if (role.isSystemRole) {
+        res.status(403).json({
+          success: false,
+          error: 'System roles cannot be deleted',
+          code: 'SYSTEM_ROLE_IMMUTABLE'
+        });
+        return;
+      }
+
+      // Check if role is assigned to any users
+      // This would require checking userRoles in the service
+      // For now, we'll return a placeholder response
+      res.status(501).json({
+        success: false,
+        error: 'Role deletion requires database persistence and user role checking. This feature is not yet implemented.',
+        code: 'NOT_IMPLEMENTED'
+      });
+
+    } catch (error) {
+      LoggerService.error('Delete role failed:', error);
       if (error instanceof AppError) {
         res.status(error.statusCode).json({
           success: false,

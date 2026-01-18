@@ -31,7 +31,7 @@ export default function AdminUsersPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push('/login?next=/admin/users');
       }
     };

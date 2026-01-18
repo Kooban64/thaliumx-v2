@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
-import { ChatWidget } from '@/components/support/ChatWidget';
 
 export default function LandingPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -23,13 +22,22 @@ export default function LandingPage() {
     }
   }, []);
 
-  // Check authentication via backend API
+  // Check authentication via backend API (only for determining button text)
+  // This is optional and errors are silently handled
   useEffect(() => {
     (async () => {
       try {
-        const isAuthenticated = await checkBackendAuth();
-        setIsAuthenticated(isAuthenticated);
-      } catch {
+        // Only check if we have a token in memory (no API call if no token)
+        const { getZitadelToken } = await import('@/lib/auth/backend-auth');
+        const token = getZitadelToken();
+        if (token) {
+          // Only make API call if we have a token
+          const auth = await checkBackendAuth();
+          setIsAuthenticated(auth);
+        } else {
+          setIsAuthenticated(false);
+        }
+      } catch (error) {
         setIsAuthenticated(false);
       }
     })();
@@ -39,7 +47,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
-      <main className="container mx-auto px-4 py-20">
+      <div className="container mx-auto px-4 py-20">
         <section className="text-center max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
             The unified platform for modern trading
@@ -156,10 +164,7 @@ export default function LandingPage() {
             </Button>
           </div>
         </section>
-      </main>
-
-      {/* Public Support Chat Widget */}
-      <ChatWidget isPublic={true} />
+      </div>
     </div>
   );
 }

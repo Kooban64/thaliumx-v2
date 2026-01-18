@@ -10,6 +10,7 @@ import { OrderHistory } from './OrderHistory';
 import { Web3WalletConnector } from './Web3WalletConnector';
 import { Globe, Wallet } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import apiClient from '@/lib/api/client';
 
 /**
  * DEXTradingInterface - Decentralized Exchange trading interface
@@ -18,13 +19,32 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 export function DEXTradingInterface() {
   const { selectedSymbol, fetchOrderHistory } = useTradingStore();
   const [hasWallet, setHasWallet] = useState(false);
+  const [isCheckingWallet, setIsCheckingWallet] = useState(true);
 
   useEffect(() => {
     fetchOrderHistory();
-    // Check if user has connected wallet
-    // This would be checked via Web3WalletConnector or wallet store
-    setHasWallet(false); // Placeholder - implement actual check
+    checkWalletConnection();
   }, [selectedSymbol, fetchOrderHistory]);
+
+  const checkWalletConnection = async () => {
+    setIsCheckingWallet(true);
+    try {
+      const response = await apiClient.get('/api/web3-wallet/wallets');
+      if (response.success && response.data) {
+        const wallets = Array.isArray(response.data) ? response.data : [];
+        const connectedWallets = wallets.filter((w: any) => 
+          w.status === 'connected' || w.status === 'pending'
+        );
+        setHasWallet(connectedWallets.length > 0);
+      } else {
+        setHasWallet(false);
+      }
+    } catch (error) {
+      setHasWallet(false);
+    } finally {
+      setIsCheckingWallet(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -45,7 +65,7 @@ export function DEXTradingInterface() {
       </Card>
 
       {/* Wallet Connection Alert */}
-      {!hasWallet && (
+      {!isCheckingWallet && !hasWallet && (
         <Alert>
           <Wallet className="h-4 w-4" />
           <AlertDescription>
@@ -64,7 +84,7 @@ export function DEXTradingInterface() {
 
         {/* Right Column: Wallet & History */}
         <div className="space-y-6">
-          <Web3WalletConnector />
+          <Web3WalletConnector onWalletConnected={checkWalletConnection} />
           <OrderHistory />
         </div>
       </div>

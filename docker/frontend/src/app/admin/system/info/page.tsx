@@ -31,7 +31,7 @@ export default function SystemInfoPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push('/login?next=/admin/system/info');
       }
     };

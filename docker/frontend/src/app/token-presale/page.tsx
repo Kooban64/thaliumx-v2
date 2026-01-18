@@ -20,10 +20,10 @@ import {
 } from 'lucide-react';
 import { tokenPurchaseSchema, validateForm } from '@/lib/utils';
 import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
-import { ChatWidget } from '@/components/support/ChatWidget';
 import { UpgradePrompt } from '@/components/kyc/UpgradePrompt';
 import { PostPurchaseTrading } from '@/components/presale/PostPurchaseTrading';
 import { logNetworkError } from '@/lib/services/errorLogger';
+import { initializeEntryDomain } from '@/lib/utils/domain-detection';
 
 export default function TokenPresalePage() {
   const [amount, setAmount] = useState('');
@@ -37,20 +37,45 @@ export default function TokenPresalePage() {
   const [thalPrice, setThalPrice] = useState<number>(0.10); // Default fallback price
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [_purchaseSuccess, setPurchaseSuccess] = useState<{ amount: number; tokens: number; kycLevel: string } | null>(null);
+  const [deliveryWalletType, setDeliveryWalletType] = useState<'user_web3' | 'platform_hot'>('platform_hot');
+  const [connectedWeb3Wallets, setConnectedWeb3Wallets] = useState<any[]>([]);
+  const [selectedWeb3Wallet, setSelectedWeb3Wallet] = useState<string>('');
 
   useEffect(() => {
+    // Initialize entry domain detection - mark this as presale domain entry
+    const initDomain = async () => {
+      initializeEntryDomain();
+      // Explicitly set as presale domain if on this page
+      if (typeof window !== 'undefined') {
+        const { setEntryDomain } = await import('@/lib/utils/domain-detection');
+        setEntryDomain('presale');
+      }
+    };
+    initDomain();
+
     // Load presale data
     loadPresaleData();
 
     // Load THAL price
     loadThalPrice();
 
-    // Determine auth state
+    // Load connected Web3 wallets if authenticated
+    // Only check auth if we have a token in memory (no API call if no token)
     (async () => {
       try {
-        const isAuth = await checkBackendAuth();
-        setIsAuthenticated(isAuth);
-      } catch {
+        const { getZitadelToken } = await import('@/lib/auth/backend-auth');
+        const token = getZitadelToken();
+        if (token) {
+          // Only make API call if we have a token
+          const isAuth = await checkBackendAuth();
+          setIsAuthenticated(isAuth);
+          if (isAuth) {
+            loadConnectedWeb3Wallets();
+          }
+        } else {
+          setIsAuthenticated(false);
+        }
+      } catch (error) {
         setIsAuthenticated(false);
       }
     })();
@@ -68,7 +93,7 @@ export default function TokenPresalePage() {
           setThalPrice(data.data.price);
         }
       }
-    } catch {
+    } catch (error) {
       logNetworkError(error, { endpoint: '/api/market/prices/THAL', component: 'TokenPresale' });
       // Keep default price of $0.10
     }
@@ -88,9 +113,49 @@ export default function TokenPresalePage() {
       if (response.ok) {
         const data = await response.json();
         setPresaleData(data);
+        
+        // Check if presale has ended and redirect to main platform
+        if (data.status === 'completed' || data.status === 'COMPLETED') {
+          // Presale has ended - redirect to main platform after a short delay
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 3000); // 3 second delay to show message
+        } else if (data.endDate) {
+          // Check if end date has passed
+          const endDate = new Date(data.endDate);
+          const now = new Date();
+          if (now > endDate) {
+            // Presale has ended - redirect to main platform
+            setTimeout(() => {
+              window.location.href = '/dashboard';
+            }, 3000);
+          }
+        }
       }
     } catch (err) {
       logNetworkError(err, { endpoint: '/api/presale/status', component: 'TokenPresale' });
+    }
+  };
+
+  const loadConnectedWeb3Wallets = async () => {
+    try {
+      const response = await fetch('/api/web3-wallet/wallets', {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && Array.isArray(data.data)) {
+          setConnectedWeb3Wallets(data.data);
+          // Auto-select first wallet if available
+          if (data.data.length > 0 && !selectedWeb3Wallet) {
+            setSelectedWeb3Wallet(data.data[0].address);
+            setDeliveryWalletType('user_web3');
+          }
+        }
+      }
+    } catch (err) {
+      // Silently fail - user can still use platform hot wallet
+      console.error('Failed to load Web3 wallets:', err);
     }
   };
 
@@ -131,7 +196,8 @@ export default function TokenPresalePage() {
           amount: parseFloat(amount),
           paymentMethod,
           tier: 'bronze',
-          walletAddress: paymentMethod === 'USDT' ? walletAddress : undefined,
+          walletAddress: paymentMethod === 'USDT' ? (deliveryWalletType === 'user_web3' ? selectedWeb3Wallet : walletAddress) : undefined,
+          deliveryWalletType, // New field: 'user_web3' or 'platform_hot'
           referralCode: brokerCode || undefined
         }),
       });
@@ -145,12 +211,21 @@ export default function TokenPresalePage() {
       setSuccess('Token purchase request submitted!');
       
       // Store purchase success data for post-purchase CTA
-      const tokenAmount = Math.floor(parseFloat(amount) / thalPrice);
+      const investmentData = data.data || {};
+      const tokenAmount = investmentData.tokenAmount || Math.floor(parseFloat(amount) / thalPrice);
+      const kycLevel = investmentData.kycLevel || 'L1';
+      const postPurchaseFlow = investmentData.postPurchaseFlow;
+      
       setPurchaseSuccess({
         amount: parseFloat(amount),
         tokens: tokenAmount,
-        kycLevel: 'L1' // Would be fetched from API response
+        kycLevel: kycLevel
       });
+      
+      // If trading account was created/enabled, show enhanced success message
+      if (postPurchaseFlow?.tradingAccountCreated || postPurchaseFlow?.tradingAccountEnabled) {
+        setSuccess('Token purchase successful! Your trading account is ready.');
+      }
       
       setAmount('');
       setWalletAddress('');
@@ -338,10 +413,83 @@ export default function TokenPresalePage() {
                   </div>
                 </div>
 
-                {paymentMethod === 'USDT' && (
+                {/* Token Delivery Wallet Selection */}
+                <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+                  <Label className="text-base font-semibold">Where should we send your THAL tokens?</Label>
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted transition-colors">
+                      <input 
+                        type="radio" 
+                        name="deliveryWallet" 
+                        value="user_web3" 
+                        checked={deliveryWalletType === 'user_web3'} 
+                        onChange={() => setDeliveryWalletType('user_web3')}
+                        className="mt-1"
+                        disabled={connectedWeb3Wallets.length === 0}
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium flex items-center gap-2">
+                          <Wallet className="h-4 w-4" />
+                          Send to my Web3 wallet
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Tokens sent directly to your connected wallet (MetaMask, Trust Wallet, etc.). 
+                          Fully visible on-chain for maximum transparency.
+                        </div>
+                        {deliveryWalletType === 'user_web3' && connectedWeb3Wallets.length > 0 && (
+                          <div className="mt-2">
+                            <Label className="text-xs">Select Wallet:</Label>
+                            <select
+                              value={selectedWeb3Wallet}
+                              onChange={(e) => setSelectedWeb3Wallet(e.target.value)}
+                              className="mt-1 w-full p-2 text-sm border rounded bg-background"
+                            >
+                              {connectedWeb3Wallets.map((wallet: any) => (
+                                <option key={wallet.id} value={wallet.address}>
+                                  {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)} ({wallet.walletType})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                        {connectedWeb3Wallets.length === 0 && (
+                          <div className="mt-2 text-xs text-amber-600">
+                            No Web3 wallets connected. Connect a wallet first or use platform hot wallet.
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                    
+                    <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted transition-colors">
+                      <input 
+                        type="radio" 
+                        name="deliveryWallet" 
+                        value="platform_hot" 
+                        checked={deliveryWalletType === 'platform_hot'} 
+                        onChange={() => setDeliveryWalletType('platform_hot')}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium flex items-center gap-2">
+                          <Coins className="h-4 w-4" />
+                          Send to platform hot wallet
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Tokens sent to your platform-managed hot wallet. Still visible on-chain, 
+                          but managed through our platform for easier trading and management.
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {paymentMethod === 'USDT' && deliveryWalletType === 'platform_hot' && (
                   <div className="space-y-2">
-                    <Label htmlFor="wallet">Wallet Address</Label>
+                    <Label htmlFor="wallet">Wallet Address (optional - for USDT payment)</Label>
                     <Input id="wallet" placeholder="0x..." value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">
+                      Your USDT payment wallet address. THAL tokens will be sent to your selected delivery wallet above.
+                    </p>
                   </div>
                 )}
 
@@ -447,9 +595,6 @@ export default function TokenPresalePage() {
           </Card>
         </div>
       </main>
-
-      {/* Public Support Chat Widget */}
-      <ChatWidget isPublic={true} />
     </div>
   );
 }

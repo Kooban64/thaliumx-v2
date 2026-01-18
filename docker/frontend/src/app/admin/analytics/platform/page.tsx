@@ -31,7 +31,7 @@ export default function PlatformAnalyticsPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push('/login?next=/admin/analytics/platform');
       }
     };

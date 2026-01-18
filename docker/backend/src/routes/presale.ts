@@ -144,7 +144,8 @@ const makeInvestmentSchema = Joi.object({
   amount: Joi.number().positive().required(),
   paymentMethod: Joi.string().valid('USDT', 'USDC', 'ETH', 'BTC', 'BANK_TRANSFER', 'CREDIT_CARD').required(),
   tier: Joi.string().valid('bronze', 'silver', 'gold', 'platinum', 'diamond').required(),
-  referralCode: Joi.string().optional()
+  referralCode: Joi.string().optional(),
+  deliveryWalletType: Joi.string().valid('user_web3', 'platform_hot').optional().default('platform_hot')
 });
 
 const addToWhitelistSchema = Joi.object({
@@ -344,7 +345,7 @@ router.post('/investments',
   validateRequest(makeInvestmentSchema), 
   async (req, res): Promise<void> => {
   try {
-    const { presaleId, amount, paymentMethod, tier, referralCode, walletAddress } = req.body;
+    const { presaleId, amount, paymentMethod, tier, referralCode, walletAddress, deliveryWalletType } = req.body;
     const userId = (req as any).user?.id;
     const tenantId = (req as any).tenantId || (req as any).user?.tenantId || process.env.ZITADEL_DEFAULT_TENANT_ID || '10000000-0000-0000-0000-000000000000';
     if (!tenantId) {
@@ -407,12 +408,39 @@ router.post('/investments',
       referralCode,
       walletAddress, // Pass wallet address for on-chain purchase
       attributedBrokerId,
-      req // Pass request object for OPA evaluation
+      req, // Pass request object for OPA evaluation
+      deliveryWalletType // Pass delivery wallet type: 'user_web3' or 'platform_hot'
     );
+    
+    // Get post-purchase flow result if available
+    let postPurchaseResult = null;
+    try {
+      const { PostPurchaseFlowService } = await import('../services/post-purchase-flow.service');
+      postPurchaseResult = await PostPurchaseFlowService.initializeTrading(
+        userId,
+        tenantId,
+        amount,
+        investment.tokenAmount?.toNumber() || parseFloat(amount) / 0.10 // Default token price fallback
+      );
+    } catch (postPurchaseError) {
+      LoggerService.warn('Post-purchase flow initialization failed (non-blocking)', {
+        userId,
+        tenantId,
+        error: postPurchaseError instanceof Error ? postPurchaseError.message : 'unknown'
+      });
+    }
     
     const responseBody = {
       success: true,
-      data: investment,
+      data: {
+        ...investment,
+        postPurchaseFlow: postPurchaseResult ? {
+          tradingAccountCreated: postPurchaseResult.tradingAccountCreated,
+          tradingAccountEnabled: postPurchaseResult.tradingAccountEnabled,
+          tradingDashboardUrl: postPurchaseResult.tradingDashboardUrl,
+          message: postPurchaseResult.message
+        } : null
+      },
       message: 'Investment made successfully'
     };
     IdempotencyService.set(idemKey, 201, responseBody);

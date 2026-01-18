@@ -4,12 +4,21 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
+import { initializeEntryDomain, getPostLoginRedirectPath } from '@/lib/utils/domain-detection';
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const nextPath = searchParams.get('next') || '/dashboard';
+  const requestedNextPath = searchParams.get('next');
+  
+  // Initialize entry domain detection on page load
+  useEffect(() => {
+    initializeEntryDomain();
+  }, []);
+  
+  // Determine next path: use requested path, or default based on entry domain
+  const nextPath = requestedNextPath || getPostLoginRedirectPath('/dashboard');
 
   // Check if user is already authenticated
   useEffect(() => {
@@ -21,7 +30,7 @@ function LoginPageContent() {
         if (response.ok) {
           router.push(nextPath);
         }
-      } catch {
+      } catch (error) {
         // User is not authenticated, show login form
       }
     };
@@ -44,17 +53,24 @@ function LoginPageContent() {
         const json = await response.json();
         const user = json?.data?.user || json?.data || null;
         
-        // Redirect admins to admin dashboard, others to requested path
+        // Redirect admins to admin dashboard
         if (user?.role === 'admin' || user?.role === 'super_admin') {
           router.push('/admin');
-        } else {
-          router.push(nextPath);
+          return;
         }
+        
+        // For regular users, use domain-aware redirect
+        // If from presale domain, redirect to /token-presale
+        // Otherwise, use requested path or default to /dashboard
+        const redirectPath = getPostLoginRedirectPath(nextPath);
+        router.push(redirectPath);
       } else {
-        router.push(nextPath);
+        const redirectPath = getPostLoginRedirectPath(nextPath);
+        router.push(redirectPath);
       }
-    } catch {
-      router.push(nextPath);
+    } catch (error) {
+      const redirectPath = getPostLoginRedirectPath(nextPath);
+      router.push(redirectPath);
     }
   };
 

@@ -23,6 +23,7 @@ import { createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
 import { kycLimitsConfig, getCurrencySymbol, formatCurrency } from '../config/kyc-limits.config';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
+import { UserService } from './user';
 
 // =============================================================================
 // CORE TYPES & INTERFACES
@@ -1190,6 +1191,22 @@ export class KYCService {
         throw new Error(`No workflow configured for KYC level: ${user.kycLevel}`);
       }
 
+      // Fetch user profile data from database to get firstName and lastName
+      let firstName = user.email.split('@')[0]; // Fallback to email prefix
+      let lastName = '';
+      try {
+        const dbUser = await UserService.getUserByEmail(user.email);
+        if (dbUser) {
+          firstName = dbUser.firstName || firstName;
+          lastName = dbUser.lastName || lastName;
+        }
+      } catch (error) {
+        LoggerService.warn('Could not fetch user profile for KYC workflow, using fallback', {
+          email: user.email,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+
       // Prepare case data for Ballerine
       const caseData = {
         id: document.id,
@@ -1199,7 +1216,8 @@ export class KYCService {
         broker_id: user.brokerId,
         entity_data: {
           personalInformation: {
-            firstName: user.email.split('@')[0], // Placeholder - should come from user profile
+            firstName: firstName,
+            lastName: lastName,
             email: user.email,
             phoneNumber: user.phoneNumber,
             walletAddress: user.walletAddress

@@ -70,7 +70,7 @@ export const useWalletStore = create<WalletState>((set) => ({
       const data = await response.json();
       const wallets = data.data || data.wallets || [];
       set({ wallets, isLoading: false });
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch wallets';
       set({ error: errorMessage, isLoading: false });
     }
@@ -94,7 +94,7 @@ export const useWalletStore = create<WalletState>((set) => ({
       });
       
       return balance;
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch wallet balance';
       set({ error: errorMessage });
       return null;
@@ -112,7 +112,7 @@ export const useWalletStore = create<WalletState>((set) => ({
       const data = await response.json();
       const balances = data.data || data.balances || [];
       set({ balances, isLoading: false });
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch balances';
       set({ error: errorMessage, isLoading: false });
     }
@@ -134,7 +134,7 @@ export const useWalletStore = create<WalletState>((set) => ({
       const data = await response.json();
       const transactions = data.data || data.transactions || [];
       set({ transactions, isLoading: false });
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch transactions';
       set({ error: errorMessage, isLoading: false });
     }

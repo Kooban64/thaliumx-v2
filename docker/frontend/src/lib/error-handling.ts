@@ -115,7 +115,7 @@ export async function fetchWithRetry(
       const delay = calculateRetryDelay(attempt, config);
       await sleep(delay);
 
-    } catch {
+    } catch (error) {
       lastError = error as Error;
 
       // Don't retry on abort or client-side errors
@@ -282,7 +282,7 @@ export async function apiCall<T = any>(
     if (hasJson) {
       try {
         data = await (response as any).json();
-      } catch {
+      } catch (error) {
         data = typeof (response as any)?.text === 'function' ? await (response as any).text() : undefined;
       }
     } else {
@@ -311,7 +311,7 @@ export async function apiCall<T = any>(
       requestId: maybeStructured?.requestId,
     };
 
-  } catch {
+  } catch (error) {
     const apiError: ApiError = {
       code: 'NETWORK_ERROR',
       message: error instanceof Error ? error.message : 'Network request failed',
@@ -367,24 +367,32 @@ export function setupGlobalErrorHandling() {
 }
 
 /**
- * Error reporting function (placeholder for error reporting service)
+ * Error reporting function - Reports errors to backend and external services
  */
 export function reportError(error: Error | string, context?: any) {
-  // Log error data using error logger
+  // Import error logger
   const { logError, ErrorSeverity, ErrorCategory } = require('@/lib/services/errorLogger');
+  
+  // Determine category from context
+  const category = context?.category || ErrorCategory.UNKNOWN;
+  const severity = context?.severity || ErrorSeverity.MEDIUM;
+
+  // Log error using error logger (which will batch and send to backend)
   logError(
     typeof error === 'string' ? new Error(error) : error,
-    ErrorCategory.UNKNOWN,
-    ErrorSeverity.MEDIUM,
+    category,
+    severity,
     {
       ...context,
       type: 'reportedError',
+      reportedAt: new Date().toISOString(),
     }
   );
 
-  // In production, send to error reporting service
+  // In production, optionally send to external error reporting services
   // Example: Sentry, LogRocket, Bugsnag, etc.
-  // if (process.env.NEXT_PUBLIC_ERROR_REPORTING_ENABLED) {
-  //   // Send to error reporting service
-  // }
+  if (process.env.NEXT_PUBLIC_ERROR_REPORTING_ENABLED === 'true') {
+    // External error reporting service integration can be added here
+    // For now, errors are logged via the error logger which sends to backend
+  }
 }

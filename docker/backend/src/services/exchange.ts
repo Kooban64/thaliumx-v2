@@ -693,21 +693,56 @@ export class ExchangeService {
     return rows.map((r: any) => r.dataValues as Order);
   }
 
-  /** Get simple order book (placeholder from DB orders) */
+  /** Get order book from database orders */
   public static async getOrderBook(symbol: string, limit: number = 50): Promise<{ bids: [number, number][], asks: [number, number][] }> {
-    const OrderModel = DatabaseService.getModel('Order');
-    const rows = await OrderModel.findAll({ where: { symbol, status: 'pending' } });
-    const bids: [number, number][] = [];
-    const asks: [number, number][] = [];
-    for (const o of rows) {
-      const od = o.dataValues as Order;
-      const price = od.price || 0;
-      const qty = od.quantity - od.filledQuantity;
-      if (od.side === 'buy') bids.push([price, qty]); else asks.push([price, qty]);
+    try {
+      const OrderModel = DatabaseService.getModel('Order');
+      if (!OrderModel) {
+        LoggerService.warn('Order model not available, returning empty order book');
+        return { bids: [], asks: [] };
+      }
+
+      const rows = await OrderModel.findAll({ 
+        where: { 
+          symbol, 
+          status: 'pending' 
+        },
+        order: [['createdAt', 'DESC']],
+        limit: limit * 2 // Get more to aggregate by price
+      });
+
+      // Aggregate orders by price level
+      const bidMap = new Map<number, number>();
+      const askMap = new Map<number, number>();
+
+      for (const o of rows) {
+        const od = o.dataValues as Order;
+        const price = od.price || 0;
+        const qty = Math.max(0, (od.quantity || 0) - (od.filledQuantity || 0));
+        
+        if (qty > 0) {
+          if (od.side === 'buy') {
+            bidMap.set(price, (bidMap.get(price) || 0) + qty);
+          } else {
+            askMap.set(price, (askMap.get(price) || 0) + qty);
+          }
+        }
+      }
+
+      // Convert maps to arrays and sort
+      const bids: [number, number][] = Array.from(bidMap.entries())
+        .sort((a, b) => b[0] - a[0]) // Sort by price descending (highest first)
+        .slice(0, limit);
+      
+      const asks: [number, number][] = Array.from(askMap.entries())
+        .sort((a, b) => a[0] - b[0]) // Sort by price ascending (lowest first)
+        .slice(0, limit);
+
+      return { bids, asks };
+    } catch (error) {
+      LoggerService.error('Get order book failed:', error);
+      return { bids: [], asks: [] };
     }
-    bids.sort((a,b) => b[0]-a[0]);
-    asks.sort((a,b) => a[0]-b[0]);
-    return { bids: bids.slice(0, limit), asks: asks.slice(0, limit) };
   }
 
   /** Get market data for a symbol */

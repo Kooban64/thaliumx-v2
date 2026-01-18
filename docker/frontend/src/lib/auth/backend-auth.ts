@@ -69,7 +69,7 @@ export async function login(email: string, password: string): Promise<{ success:
         } else if (errorData.message) {
           errorMessage = errorData.message;
         }
-      } catch {
+      } catch (error) {
         // If JSON parsing fails, use status text
         errorMessage = response.statusText || `HTTP ${response.status}`;
       }
@@ -131,7 +131,7 @@ export async function checkAuth(): Promise<boolean> {
       headers,
     });
     return response.ok;
-  } catch {
+  } catch (error) {
     return false;
   }
 }
@@ -162,7 +162,7 @@ export async function getCurrentUser(): Promise<any | null> {
     
     const data = await response.json();
     return data.data?.user || null;
-  } catch {
+  } catch (error) {
     return null;
   }
 }
@@ -186,7 +186,7 @@ export async function logout(): Promise<void> {
       method: 'POST',
       headers,
     });
-  } catch {
+  } catch (error) {
     // Ignore errors, still redirect
   }
   
@@ -199,7 +199,7 @@ export async function logout(): Promise<void> {
       sessionStorage.clear();
       localStorage.removeItem('thaliumx_oidc_access_token');
       localStorage.removeItem('thaliumx_oidc_access_token_exp');
-    } catch {
+    } catch (error) {
       // Ignore storage errors
     }
   }

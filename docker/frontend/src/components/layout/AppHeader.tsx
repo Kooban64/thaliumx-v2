@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { HeaderLogo } from './HeaderLogo';
 import { HeaderNav } from './HeaderNav';
 import { HeaderUserMenu } from './HeaderUserMenu';
@@ -17,8 +18,19 @@ import { cn } from '@/lib/utils';
  * - Navigation menu (all items)
  * - User menu
  * - Theme toggle
+ * - Conditionally hides on public pages (uses PublicHeader instead)
  */
 export function AppHeader() {
+  const pathname = usePathname();
+  
+  // Public pages use PublicHeader instead
+  const publicPages = ['/landing', '/token-presale', '/login', '/register'];
+  const isPublicPage = publicPages.some(page => pathname === page || pathname.startsWith(page));
+  
+  if (isPublicPage) {
+    return null; // Public pages use their own layout with PublicHeader
+  }
+
   return (
     <header
       className={cn(

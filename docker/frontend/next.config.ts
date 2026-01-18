@@ -17,6 +17,23 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  // Disable HTTPS redirect for development/localhost
+  // This prevents browser from redirecting HTTP to HTTPS when no certificate is configured
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=0', // Disable HSTS for localhost
+          },
+        ],
+      },
+    ];
+  },
+  // For development: allow HTTP on localhost
+  // In production, this should be handled by a reverse proxy (APISIX) with proper SSL
 };
 
 export default nextConfig;

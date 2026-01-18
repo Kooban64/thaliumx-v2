@@ -33,7 +33,7 @@ export function UserLimitOverride({ userId, userName }: UserLimitOverrideProps) 
         title: 'Override created',
         description: 'User limit override has been created successfully',
       });
-    } catch {
+    } catch (error) {
       logRuntimeError(error, 'UserLimitOverride', { action: 'createOverride', userId });
       toast({
         type: 'error',
@@ -54,7 +54,7 @@ export function UserLimitOverride({ userId, userName }: UserLimitOverrideProps) 
         title: 'Override deleted',
         description: 'User limit override has been deleted successfully',
       });
-    } catch {
+    } catch (error) {
       logRuntimeError(error, 'UserLimitOverride', { action: 'deleteOverride', userId, overrideId });
       toast({
         type: 'error',

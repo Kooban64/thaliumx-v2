@@ -31,7 +31,7 @@ export default function FinancialLedgerPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push('/login?next=/admin/financial/ledger');
       }
     };

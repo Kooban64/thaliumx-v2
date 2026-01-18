@@ -25,7 +25,19 @@ interface Web3Wallet {
   balance: string;
 }
 
-export function Web3WalletConnector() {
+interface Web3WalletConnectorProps {
+  onWalletConnected?: () => void;
+  onWalletSelected?: (address: string) => void; // Callback when wallet is selected
+  showBalance?: boolean; // Show wallet balance
+  compact?: boolean; // Compact mode for presale page
+}
+
+export function Web3WalletConnector({ 
+  onWalletConnected, 
+  onWalletSelected,
+  showBalance = true,
+  compact: _compact = false 
+}: Web3WalletConnectorProps = {}) {
   const [wallets, setWallets] = useState<Web3Wallet[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,7 +58,7 @@ export function Web3WalletConnector() {
       const res = await apiClient.get<any>('/api/auth/profile');
       const u = (res.success ? (res.data as any)?.user : null) || null;
       setBrokerId(u?.brokerId || null);
-    } catch {
+    } catch (error) {
       setBrokerId(null);
     } finally {
       setUserContextLoaded(true);
@@ -76,7 +88,7 @@ export function Web3WalletConnector() {
               status: w.status,
               balance: native || '—',
             };
-          } catch {
+          } catch (error) {
             return {
               id: w.id,
               address: w.address,
@@ -155,7 +167,12 @@ export function Web3WalletConnector() {
       }
 
       setSuccess('Wallet connected successfully!');
-      loadConnectedWallets();
+      await loadConnectedWallets();
+      onWalletConnected?.();
+      // Notify parent of selected wallet
+      if (address && onWalletSelected) {
+        onWalletSelected(address);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect wallet');
     } finally {
@@ -171,7 +188,8 @@ export function Web3WalletConnector() {
       }
 
       setSuccess('Wallet disconnected successfully!');
-      loadConnectedWallets();
+      await loadConnectedWallets();
+      onWalletConnected?.();
     } catch (_err) {
       setError('Failed to disconnect wallet');
     }
@@ -318,9 +336,21 @@ export function Web3WalletConnector() {
                 <div className="text-sm font-mono text-muted-foreground">
                   {formatAddress(wallet.address)}
                 </div>
-                <div className="text-sm">
-                  Balance: {wallet.balance}
-                </div>
+                {showBalance && (
+                  <div className="text-sm">
+                    Balance: {wallet.balance}
+                  </div>
+                )}
+                {onWalletSelected && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 w-full"
+                    onClick={() => onWalletSelected(wallet.address)}
+                  >
+                    Select This Wallet
+                  </Button>
+                )}
               </div>
             ))}
           </div>

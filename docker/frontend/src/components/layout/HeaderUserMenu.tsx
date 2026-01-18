@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { User, LogOut, Settings, Bell, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { checkAuth as checkBackendAuth, getCurrentUser, logout as logoutBackend } from '@/lib/auth/backend-auth';
@@ -28,7 +29,7 @@ export function HeaderUserMenu() {
           const currentUser = await getCurrentUser();
           setUser(currentUser);
         }
-      } catch {
+      } catch (error) {
         setIsAuthenticated(false);
       } finally {
         setLoading(false);
@@ -84,16 +85,16 @@ export function HeaderUserMenu() {
           <p className="text-xs text-muted-foreground">{user?.email}</p>
         </div>
         <DropdownMenuItem>
-          <a href="/dashboard/account" className="flex items-center">
+          <Link href="/dashboard/account/profile" className="flex items-center w-full">
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
-          </a>
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem>
-          <a href="/dashboard/account" className="flex items-center">
+          <Link href="/dashboard/account/notifications" className="flex items-center w-full">
             <Bell className="mr-2 h-4 w-4" />
             <span>Notifications</span>
-          </a>
+          </Link>
         </DropdownMenuItem>
         <div className="border-t my-1" />
         <DropdownMenuItem onClick={handleLogout} className="text-destructive">

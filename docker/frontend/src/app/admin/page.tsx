@@ -31,7 +31,7 @@ export default function PlatformAdmin() {
         }
         
         setProfile(userProfile);
-      } catch {
+      } catch (error) {
         router.push('/login?next=/admin');
       } finally {
         setLoading(false);

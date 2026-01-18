@@ -31,7 +31,7 @@ export default function AnalyticsReportsPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push('/login?next=/admin/analytics/reports');
       }
     };

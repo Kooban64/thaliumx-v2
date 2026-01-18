@@ -31,7 +31,7 @@ export default function BrokerOnboardingPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push('/login?next=/admin/brokers/onboard');
       }
     };

@@ -186,10 +186,28 @@ export class TransactionVolumeTrackerService {
 
       if (limitType === 'investment') {
         // Investment includes both presale and token sale
-        // For now, we'll need to track them separately in the future
-        // For now, assume all investment is presale (can be enhanced)
-        presale = investmentTotal;
-        tokenSale = 0; // TODO: Track token sale separately
+        // Get token sale investments from TokenSaleService
+        try {
+          const { TokenSaleService } = await import('./token-sale');
+          const userInvestments = await TokenSaleService.getUserInvestments(userId);
+          // Separate presale and token sale investments
+          // Presale investments are tracked via presale service
+          // Token sale investments are from TokenSaleService
+          const { InvestmentStatus } = await import('./token-sale');
+          const tokenSaleInvestments = userInvestments.filter(inv => {
+            // Token sale investments are those not from presale phases
+            // In practice, you'd check if the phase is a token sale phase
+            return inv.status === InvestmentStatus.COMPLETED || inv.status === InvestmentStatus.CONFIRMED;
+          });
+          tokenSale = tokenSaleInvestments.reduce((sum, inv) => sum + inv.investmentAmountUSD, 0);
+          // Presale is the remainder of investment total
+          presale = Math.max(0, investmentTotal - tokenSale);
+        } catch (error) {
+          // If TokenSaleService is not available, assume all investment is presale
+          LoggerService.warn('Failed to fetch token sale investments, assuming all investment is presale', { error });
+          presale = investmentTotal;
+          tokenSale = 0;
+        }
         mainPlatform = 0;
       } else if (limitType === 'trading') {
         presale = 0;

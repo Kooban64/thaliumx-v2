@@ -33,7 +33,7 @@ export default function WorkflowDetailsPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push(`/login?next=/admin/workflows/${workflowId}`);
       }
     };

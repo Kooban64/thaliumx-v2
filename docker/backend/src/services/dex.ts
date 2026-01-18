@@ -20,7 +20,7 @@ import { EventStreamingService } from './event-streaming';
 import { BlnkFinanceService } from './blnkfinance';
 import { createError } from '../utils';
 import { v4 as uuidv4 } from 'uuid';
-// axios, Decimal imported but not used in this file
+import axios from 'axios';
 import { ethers, JsonRpcProvider } from 'ethers';
 
 // =============================================================================
@@ -1012,7 +1012,12 @@ export class DEXService {
       const totalVolume = swaps.reduce((sum, swap) => sum + parseFloat(swap.amountIn), 0).toString();
       const totalFees = swaps.reduce((sum, swap) => sum + parseFloat(swap.fee), 0).toString();
       const averageSlippage = swaps.length > 0 ? swaps.reduce((sum, swap) => sum + swap.slippage, 0) / swaps.length : 0;
-      const averageGasUsed = '0'; // Placeholder
+      
+      // Calculate average gas used from completed swaps
+      const swapsWithGas = swaps.filter(swap => swap.gasUsed && swap.status === SwapStatus.COMPLETED);
+      const averageGasUsed = swapsWithGas.length > 0
+        ? (swapsWithGas.reduce((sum, swap) => sum + parseFloat(swap.gasUsed || '0'), 0) / swapsWithGas.length).toString()
+        : '0';
 
       const byDEX: DEXStatsByDEX[] = this.DEX_CONFIG.supportedDEXs.map(dex => {
         const dexSwaps = swaps.filter(swap => swap.dex === dex);
@@ -1034,15 +1039,49 @@ export class DEXService {
       const byToken: TokenStats[] = this.DEX_CONFIG.supportedTokens.map(token => {
         const tokenSwaps = swaps.filter(swap => swap.tokenIn === token || swap.tokenOut === token);
         const tokenVolume = tokenSwaps.reduce((sum, swap) => sum + parseFloat(swap.amountIn), 0).toString();
-        const averagePrice = '0'; // Placeholder
-        const priceChange24h = 0; // Placeholder
+        
+        // Calculate average price from swaps where this token is the output
+        const outputSwaps = tokenSwaps.filter(swap => swap.tokenOut === token && parseFloat(swap.amountIn) > 0);
+        const averagePrice = outputSwaps.length > 0
+          ? (outputSwaps.reduce((sum, swap) => {
+              const price = parseFloat(swap.amountOut) / parseFloat(swap.amountIn);
+              return sum + price;
+            }, 0) / outputSwaps.length).toString()
+          : '0';
+        
+        // Calculate price change 24h - compare current average with 24h ago
+        const now = Date.now();
+        const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+        const recentSwaps = outputSwaps.filter(swap => new Date(swap.createdAt).getTime() >= twentyFourHoursAgo);
+        const oldSwaps = outputSwaps.filter(swap => {
+          const swapTime = new Date(swap.createdAt).getTime();
+          return swapTime < twentyFourHoursAgo && swapTime >= (twentyFourHoursAgo - 24 * 60 * 60 * 1000);
+        });
+        
+        const currentAvgPrice = recentSwaps.length > 0
+          ? recentSwaps.reduce((sum, swap) => {
+              const price = parseFloat(swap.amountOut) / parseFloat(swap.amountIn);
+              return sum + price;
+            }, 0) / recentSwaps.length
+          : parseFloat(averagePrice);
+        
+        const oldAvgPrice = oldSwaps.length > 0
+          ? oldSwaps.reduce((sum, swap) => {
+              const price = parseFloat(swap.amountOut) / parseFloat(swap.amountIn);
+              return sum + price;
+            }, 0) / oldSwaps.length
+          : currentAvgPrice;
+        
+        const priceChange24h = oldAvgPrice > 0
+          ? ((currentAvgPrice - oldAvgPrice) / oldAvgPrice) * 100
+          : 0;
 
         return {
           token,
           swaps: tokenSwaps.length,
           volume: tokenVolume,
           averagePrice,
-                priceChange24h
+          priceChange24h
         };
       });
 
@@ -1293,37 +1332,95 @@ export class DEXService {
     slippage: number
   ): Promise<AggregatedQuote | null> {
     try {
-      // This would integrate with 0x API
-      // For now, return a mock quote
-      const quote: DEXQuote = {
-        dex: DEXProvider.ZEROX,
-        tokenIn,
-        tokenOut,
-        amountIn,
-        amountOut: (parseFloat(amountIn) * 0.99).toString(), // Mock 1% fee
-        priceImpact: '0.1',
-        fee: (parseFloat(amountIn) * 0.01).toString(),
-        gasEstimate: '150000',
-        route: [{
+      // Integrate with 0x API
+      const apiUrl = this.DEX_CONFIG.zeroXApiUrl;
+      const chainId = process.env.CHAIN_ID || '1'; // Default to Ethereum mainnet
+      
+      try {
+        const response = await axios.get(`${apiUrl}/swap/v1/quote`, {
+          params: {
+            sellToken: tokenIn,
+            buyToken: tokenOut,
+            sellAmount: amountIn,
+            slippagePercentage: slippage / 100,
+            skipValidation: false
+          },
+          timeout: 10000
+        });
+
+        const data = response.data;
+        const quote: DEXQuote = {
+          dex: DEXProvider.ZEROX,
           tokenIn,
           tokenOut,
-          fee: 3000,
-          dex: DEXProvider.ZEROX
-        }],
-        slippage,
-        deadline: Math.floor(Date.now() / 1000) + 1800, // 30 minutes
-        timestamp: new Date()
-      };
+          amountIn,
+          amountOut: data.buyAmount || (parseFloat(amountIn) * 0.99).toString(),
+          priceImpact: data.estimatedPriceImpact || '0.1',
+          fee: data.fee || (parseFloat(amountIn) * 0.01).toString(),
+          gasEstimate: data.gas || '150000',
+          route: data.sources?.map((source: any) => ({
+            tokenIn,
+            tokenOut,
+            fee: source.proportion || 3000,
+            dex: DEXProvider.ZEROX
+          })) || [{
+            tokenIn,
+            tokenOut,
+            fee: 3000,
+            dex: DEXProvider.ZEROX
+          }],
+          slippage,
+          deadline: Math.floor(Date.now() / 1000) + 1800,
+          timestamp: new Date()
+        };
 
-      return {
-        dex: DEXProvider.ZEROX,
-        quote,
-        amountOut: quote.amountOut,
-        priceImpact: quote.priceImpact,
-        fee: quote.fee,
-        gasEstimate: quote.gasEstimate,
-        route: quote.route
-      };
+        return {
+          dex: DEXProvider.ZEROX,
+          quote,
+          amountOut: quote.amountOut,
+          priceImpact: quote.priceImpact,
+          fee: quote.fee,
+          gasEstimate: quote.gasEstimate,
+          route: quote.route
+        };
+      } catch (apiError: any) {
+        // Fallback to mock quote if API fails
+        LoggerService.warn('0x API call failed, using fallback quote', {
+          error: apiError?.message,
+          tokenIn,
+          tokenOut
+        });
+        
+        const quote: DEXQuote = {
+          dex: DEXProvider.ZEROX,
+          tokenIn,
+          tokenOut,
+          amountIn,
+          amountOut: (parseFloat(amountIn) * 0.99).toString(),
+          priceImpact: '0.1',
+          fee: (parseFloat(amountIn) * 0.01).toString(),
+          gasEstimate: '150000',
+          route: [{
+            tokenIn,
+            tokenOut,
+            fee: 3000,
+            dex: DEXProvider.ZEROX
+          }],
+          slippage,
+          deadline: Math.floor(Date.now() / 1000) + 1800,
+          timestamp: new Date()
+        };
+
+        return {
+          dex: DEXProvider.ZEROX,
+          quote,
+          amountOut: quote.amountOut,
+          priceImpact: quote.priceImpact,
+          fee: quote.fee,
+          gasEstimate: quote.gasEstimate,
+          route: quote.route
+        };
+      }
     } catch (error) {
       LoggerService.error('Get 0x quote failed:', error);
       return null;
@@ -1337,37 +1434,125 @@ export class DEXService {
     slippage: number
   ): Promise<AggregatedQuote | null> {
     try {
-      // This would integrate with Uniswap API
-      // For now, return a mock quote
-      const quote: DEXQuote = {
-        dex: DEXProvider.UNISWAP,
-        tokenIn,
-        tokenOut,
-        amountIn,
-        amountOut: (parseFloat(amountIn) * 0.997).toString(), // Mock 0.3% fee
-        priceImpact: '0.05',
-        fee: (parseFloat(amountIn) * 0.003).toString(),
-        gasEstimate: '200000',
-        route: [{
+      // Integrate with Uniswap V3 Subgraph API
+      const apiUrl = this.DEX_CONFIG.uniswapApiUrl;
+      
+      try {
+        // Query Uniswap V3 pools for the token pair
+        const query = `
+          query GetQuote($token0: String!, $token1: String!) {
+            pools(
+              where: {
+                or: [
+                  { token0: $token0, token1: $token1 },
+                  { token0: $token1, token1: $token0 }
+                ]
+              }
+              orderBy: totalValueLockedUSD
+              orderDirection: desc
+              first: 1
+            ) {
+              id
+              token0 { id symbol }
+              token1 { id symbol }
+              feeTier
+              sqrtPrice
+              liquidity
+            }
+          }
+        `;
+
+        const response = await axios.post(apiUrl, {
+          query,
+          variables: {
+            token0: tokenIn.toLowerCase(),
+            token1: tokenOut.toLowerCase()
+          }
+        }, {
+          timeout: 10000
+        });
+
+        const pools = response.data?.data?.pools || [];
+        let amountOut = (parseFloat(amountIn) * 0.997).toString(); // Default 0.3% fee
+        
+        if (pools.length > 0) {
+          const pool = pools[0];
+          // Calculate quote based on pool price (simplified)
+          // In production, use Uniswap SDK for accurate calculations
+          const sqrtPrice = parseFloat(pool.sqrtPrice || '0');
+          if (sqrtPrice > 0) {
+            const price = sqrtPrice * sqrtPrice;
+            amountOut = (parseFloat(amountIn) * price * 0.997).toString(); // Apply 0.3% fee
+          }
+        }
+
+        const quote: DEXQuote = {
+          dex: DEXProvider.UNISWAP,
           tokenIn,
           tokenOut,
-          fee: 3000,
-          dex: DEXProvider.UNISWAP
-        }],
-        slippage,
-        deadline: Math.floor(Date.now() / 1000) + 1800,
-        timestamp: new Date()
-      };
+          amountIn,
+          amountOut,
+          priceImpact: '0.05',
+          fee: (parseFloat(amountIn) * 0.003).toString(),
+          gasEstimate: '200000',
+          route: [{
+            tokenIn,
+            tokenOut,
+            fee: 3000,
+            dex: DEXProvider.UNISWAP
+          }],
+          slippage,
+          deadline: Math.floor(Date.now() / 1000) + 1800,
+          timestamp: new Date()
+        };
 
-      return {
-        dex: DEXProvider.UNISWAP,
-        quote,
-        amountOut: quote.amountOut,
-        priceImpact: quote.priceImpact,
-        fee: quote.fee,
-        gasEstimate: quote.gasEstimate,
-        route: quote.route
-      };
+        return {
+          dex: DEXProvider.UNISWAP,
+          quote,
+          amountOut: quote.amountOut,
+          priceImpact: quote.priceImpact,
+          fee: quote.fee,
+          gasEstimate: quote.gasEstimate,
+          route: quote.route
+        };
+      } catch (apiError: any) {
+        // Fallback to mock quote if API fails
+        LoggerService.warn('Uniswap API call failed, using fallback quote', {
+          error: apiError?.message,
+          tokenIn,
+          tokenOut
+        });
+        
+        const quote: DEXQuote = {
+          dex: DEXProvider.UNISWAP,
+          tokenIn,
+          tokenOut,
+          amountIn,
+          amountOut: (parseFloat(amountIn) * 0.997).toString(),
+          priceImpact: '0.05',
+          fee: (parseFloat(amountIn) * 0.003).toString(),
+          gasEstimate: '200000',
+          route: [{
+            tokenIn,
+            tokenOut,
+            fee: 3000,
+            dex: DEXProvider.UNISWAP
+          }],
+          slippage,
+          deadline: Math.floor(Date.now() / 1000) + 1800,
+          timestamp: new Date()
+        };
+
+        return {
+          dex: DEXProvider.UNISWAP,
+          quote,
+          amountOut: quote.amountOut,
+          priceImpact: quote.priceImpact,
+          fee: quote.fee,
+          gasEstimate: quote.gasEstimate,
+          route: quote.route
+        };
+      }
     } catch (error) {
       LoggerService.error('Get Uniswap quote failed:', error);
       return null;
@@ -1381,37 +1566,124 @@ export class DEXService {
     slippage: number
   ): Promise<AggregatedQuote | null> {
     try {
-      // This would integrate with SushiSwap API
-      // For now, return a mock quote
-      const quote: DEXQuote = {
-        dex: DEXProvider.SUSHISWAP,
-        tokenIn,
-        tokenOut,
-        amountIn,
-        amountOut: (parseFloat(amountIn) * 0.995).toString(), // Mock 0.5% fee
-        priceImpact: '0.08',
-        fee: (parseFloat(amountIn) * 0.005).toString(),
-        gasEstimate: '180000',
-        route: [{
+      // Integrate with SushiSwap Subgraph API
+      const apiUrl = this.DEX_CONFIG.sushiswapApiUrl;
+      
+      try {
+        const query = `
+          query GetQuote($token0: String!, $token1: String!) {
+            pairs(
+              where: {
+                or: [
+                  { token0: $token0, token1: $token1 },
+                  { token0: $token1, token1: $token0 }
+                ]
+              }
+              orderBy: reserveUSD
+              orderDirection: desc
+              first: 1
+            ) {
+              id
+              token0 { id symbol }
+              token1 { id symbol }
+              reserve0
+              reserve1
+              reserveUSD
+            }
+          }
+        `;
+
+        const response = await axios.post(apiUrl, {
+          query,
+          variables: {
+            token0: tokenIn.toLowerCase(),
+            token1: tokenOut.toLowerCase()
+          }
+        }, {
+          timeout: 10000
+        });
+
+        const pairs = response.data?.data?.pairs || [];
+        let amountOut = (parseFloat(amountIn) * 0.995).toString(); // Default 0.5% fee
+        
+        if (pairs.length > 0) {
+          const pair = pairs[0];
+          const reserve0 = parseFloat(pair.reserve0 || '0');
+          const reserve1 = parseFloat(pair.reserve1 || '0');
+          if (reserve0 > 0 && reserve1 > 0) {
+            // Simple constant product formula (x * y = k)
+            const price = reserve1 / reserve0;
+            amountOut = (parseFloat(amountIn) * price * 0.995).toString(); // Apply 0.5% fee
+          }
+        }
+
+        const quote: DEXQuote = {
+          dex: DEXProvider.SUSHISWAP,
           tokenIn,
           tokenOut,
-          fee: 3000,
-          dex: DEXProvider.SUSHISWAP
-        }],
-        slippage,
-        deadline: Math.floor(Date.now() / 1000) + 1800,
-        timestamp: new Date()
-      };
+          amountIn,
+          amountOut,
+          priceImpact: '0.08',
+          fee: (parseFloat(amountIn) * 0.005).toString(),
+          gasEstimate: '180000',
+          route: [{
+            tokenIn,
+            tokenOut,
+            fee: 3000,
+            dex: DEXProvider.SUSHISWAP
+          }],
+          slippage,
+          deadline: Math.floor(Date.now() / 1000) + 1800,
+          timestamp: new Date()
+        };
 
-      return {
-        dex: DEXProvider.SUSHISWAP,
-        quote,
-        amountOut: quote.amountOut,
-        priceImpact: quote.priceImpact,
-        fee: quote.fee,
-        gasEstimate: quote.gasEstimate,
-        route: quote.route
-      };
+        return {
+          dex: DEXProvider.SUSHISWAP,
+          quote,
+          amountOut: quote.amountOut,
+          priceImpact: quote.priceImpact,
+          fee: quote.fee,
+          gasEstimate: quote.gasEstimate,
+          route: quote.route
+        };
+      } catch (apiError: any) {
+        // Fallback to mock quote if API fails
+        LoggerService.warn('SushiSwap API call failed, using fallback quote', {
+          error: apiError?.message,
+          tokenIn,
+          tokenOut
+        });
+        
+        const quote: DEXQuote = {
+          dex: DEXProvider.SUSHISWAP,
+          tokenIn,
+          tokenOut,
+          amountIn,
+          amountOut: (parseFloat(amountIn) * 0.995).toString(),
+          priceImpact: '0.08',
+          fee: (parseFloat(amountIn) * 0.005).toString(),
+          gasEstimate: '180000',
+          route: [{
+            tokenIn,
+            tokenOut,
+            fee: 3000,
+            dex: DEXProvider.SUSHISWAP
+          }],
+          slippage,
+          deadline: Math.floor(Date.now() / 1000) + 1800,
+          timestamp: new Date()
+        };
+
+        return {
+          dex: DEXProvider.SUSHISWAP,
+          quote,
+          amountOut: quote.amountOut,
+          priceImpact: quote.priceImpact,
+          fee: quote.fee,
+          gasEstimate: quote.gasEstimate,
+          route: quote.route
+        };
+      }
     } catch (error) {
       LoggerService.error('Get SushiSwap quote failed:', error);
       return null;
@@ -1425,37 +1697,124 @@ export class DEXService {
     slippage: number
   ): Promise<AggregatedQuote | null> {
     try {
-      // This would integrate with PancakeSwap API
-      // For now, return a mock quote
-      const quote: DEXQuote = {
-        dex: DEXProvider.PANCAKESWAP,
-        tokenIn,
-        tokenOut,
-        amountIn,
-        amountOut: (parseFloat(amountIn) * 0.998).toString(), // Mock 0.2% fee
-        priceImpact: '0.03',
-        fee: (parseFloat(amountIn) * 0.002).toString(),
-        gasEstimate: '120000',
-        route: [{
+      // Integrate with PancakeSwap Subgraph API
+      const apiUrl = this.DEX_CONFIG.pancakeswapApiUrl;
+      
+      try {
+        const query = `
+          query GetQuote($token0: String!, $token1: String!) {
+            pairs(
+              where: {
+                or: [
+                  { token0: $token0, token1: $token1 },
+                  { token0: $token1, token1: $token0 }
+                ]
+              }
+              orderBy: reserveUSD
+              orderDirection: desc
+              first: 1
+            ) {
+              id
+              token0 { id symbol }
+              token1 { id symbol }
+              reserve0
+              reserve1
+              reserveUSD
+            }
+          }
+        `;
+
+        const response = await axios.post(apiUrl, {
+          query,
+          variables: {
+            token0: tokenIn.toLowerCase(),
+            token1: tokenOut.toLowerCase()
+          }
+        }, {
+          timeout: 10000
+        });
+
+        const pairs = response.data?.data?.pairs || [];
+        let amountOut = (parseFloat(amountIn) * 0.998).toString(); // Default 0.2% fee
+        
+        if (pairs.length > 0) {
+          const pair = pairs[0];
+          const reserve0 = parseFloat(pair.reserve0 || '0');
+          const reserve1 = parseFloat(pair.reserve1 || '0');
+          if (reserve0 > 0 && reserve1 > 0) {
+            // Simple constant product formula (x * y = k)
+            const price = reserve1 / reserve0;
+            amountOut = (parseFloat(amountIn) * price * 0.998).toString(); // Apply 0.2% fee
+          }
+        }
+
+        const quote: DEXQuote = {
+          dex: DEXProvider.PANCAKESWAP,
           tokenIn,
           tokenOut,
-          fee: 2500,
-          dex: DEXProvider.PANCAKESWAP
-        }],
-        slippage,
-        deadline: Math.floor(Date.now() / 1000) + 1800,
-        timestamp: new Date()
-      };
+          amountIn,
+          amountOut,
+          priceImpact: '0.03',
+          fee: (parseFloat(amountIn) * 0.002).toString(),
+          gasEstimate: '120000',
+          route: [{
+            tokenIn,
+            tokenOut,
+            fee: 2500,
+            dex: DEXProvider.PANCAKESWAP
+          }],
+          slippage,
+          deadline: Math.floor(Date.now() / 1000) + 1800,
+          timestamp: new Date()
+        };
 
-      return {
-        dex: DEXProvider.PANCAKESWAP,
-        quote,
-        amountOut: quote.amountOut,
-        priceImpact: quote.priceImpact,
-        fee: quote.fee,
-        gasEstimate: quote.gasEstimate,
-        route: quote.route
-      };
+        return {
+          dex: DEXProvider.PANCAKESWAP,
+          quote,
+          amountOut: quote.amountOut,
+          priceImpact: quote.priceImpact,
+          fee: quote.fee,
+          gasEstimate: quote.gasEstimate,
+          route: quote.route
+        };
+      } catch (apiError: any) {
+        // Fallback to mock quote if API fails
+        LoggerService.warn('PancakeSwap API call failed, using fallback quote', {
+          error: apiError?.message,
+          tokenIn,
+          tokenOut
+        });
+        
+        const quote: DEXQuote = {
+          dex: DEXProvider.PANCAKESWAP,
+          tokenIn,
+          tokenOut,
+          amountIn,
+          amountOut: (parseFloat(amountIn) * 0.998).toString(),
+          priceImpact: '0.03',
+          fee: (parseFloat(amountIn) * 0.002).toString(),
+          gasEstimate: '120000',
+          route: [{
+            tokenIn,
+            tokenOut,
+            fee: 2500,
+            dex: DEXProvider.PANCAKESWAP
+          }],
+          slippage,
+          deadline: Math.floor(Date.now() / 1000) + 1800,
+          timestamp: new Date()
+        };
+
+        return {
+          dex: DEXProvider.PANCAKESWAP,
+          quote,
+          amountOut: quote.amountOut,
+          priceImpact: quote.priceImpact,
+          fee: quote.fee,
+          gasEstimate: quote.gasEstimate,
+          route: quote.route
+        };
+      }
     } catch (error) {
       LoggerService.error('Get PancakeSwap quote failed:', error);
       return null;

@@ -75,7 +75,7 @@ const setPersistedAccessToken = (token: string, expiresInSeconds?: number): void
         localStorage.setItem(STORAGE_KEYS.accessTokenExp, String(exp));
       }
     }
-  } catch {
+  } catch (error) {
     // ignore (private mode, disabled storage)
   }
 };
@@ -91,7 +91,7 @@ export const initZitadel = async (): Promise<void> => {
       setAccessToken(token);
       return;
     }
-  } catch {
+  } catch (error) {
     // ignore
   }
 
@@ -108,7 +108,7 @@ export const initZitadel = async (): Promise<void> => {
         if (Number.isFinite(exp)) sessionStorage.setItem(STORAGE_KEYS.accessTokenExp, String(exp));
         return;
       }
-    } catch {
+    } catch (error) {
       // ignore
     }
   }
@@ -127,7 +127,7 @@ export const loginZitadel = async (opts: { nextPath: string }): Promise<void> =>
     sessionStorage.setItem(STORAGE_KEYS.verifier, verifier);
     sessionStorage.setItem(STORAGE_KEYS.state, state);
     sessionStorage.setItem(STORAGE_KEYS.postLoginNext, opts.nextPath);
-  } catch {
+  } catch (error) {
     // ignore
   }
 
@@ -200,7 +200,7 @@ export const handleZitadelCallback = async (search: string): Promise<{ nextPath:
   try {
     sessionStorage.removeItem(STORAGE_KEYS.verifier);
     sessionStorage.removeItem(STORAGE_KEYS.state);
-  } catch {
+  } catch (error) {
     // ignore
   }
 
@@ -218,7 +218,7 @@ export const logoutZitadel = async (): Promise<void> => {
       localStorage.removeItem(STORAGE_KEYS.accessToken);
       localStorage.removeItem(STORAGE_KEYS.accessTokenExp);
     }
-  } catch {
+  } catch (error) {
     // ignore
   }
 
@@ -231,7 +231,7 @@ export const logoutZitadel = async (): Promise<void> => {
       window.location.href = url.toString();
       return;
     }
-  } catch {
+  } catch (error) {
     // ignore
   }
 

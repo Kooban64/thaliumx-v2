@@ -200,7 +200,7 @@ export function sanitizeObject(obj: any, schema?: Record<string, 'text' | 'email
     if (schema && schema[key]) {
       try {
         sanitized[key] = sanitizeFormInput(value, schema[key]);
-      } catch {
+      } catch (error) {
         // Schema path is strict (can throw). For object-wide sanitization, prefer best-effort.
         sanitized[key] = typeof value === 'string' ? sanitizeText(value) : sanitizeObject(value, schema);
       }

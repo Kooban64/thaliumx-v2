@@ -29,7 +29,7 @@ export function RoleLimitConfig() {
         role: selectedRole,
         limits: updatedLimits,
       });
-    } catch {
+    } catch (error) {
       logRuntimeError(error, 'RoleLimitConfig', { action: 'updateRoleLimits', role: selectedRole });
       toast({
         type: 'error',

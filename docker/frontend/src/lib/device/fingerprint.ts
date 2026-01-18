@@ -24,7 +24,7 @@ function getPluginsHash(): string {
   try {
     const plugins = navigator.plugins ? Array.from(navigator.plugins).map(p => `${p.name}:${p.filename}:${p.description}`).join('|') : '';
     return hashString(plugins);
-  } catch {
+  } catch (error) {
     return 'na';
   }
 }
@@ -44,7 +44,7 @@ function getCanvasHash(): string | undefined {
     ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
     ctx.fillText('thaliumx-canvas-fp', 4, 17);
     return hashString(canvas.toDataURL());
-  } catch {
+  } catch (error) {
     return undefined;
   }
 }
@@ -58,7 +58,7 @@ function getWebGLHash(): string | undefined {
     const vendor = debugInfo ? gl.getParameter((debugInfo as { UNMASKED_VENDOR_WEBGL: number }).UNMASKED_VENDOR_WEBGL) : '';
     const renderer = debugInfo ? gl.getParameter((debugInfo as { UNMASKED_RENDERER_WEBGL: number }).UNMASKED_RENDERER_WEBGL) : '';
     return hashString(`${vendor}|${renderer}`);
-  } catch {
+  } catch (error) {
     return undefined;
   }
 }
@@ -100,7 +100,7 @@ export async function submitDeviceFingerprint(endpoint = '/api/security/fingerpr
       body: JSON.stringify(fp),
       keepalive: true,
     });
-  } catch {
+  } catch (error) {
     return undefined;
   }
 }

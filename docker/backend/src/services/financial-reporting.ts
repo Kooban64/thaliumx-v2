@@ -352,11 +352,48 @@ export class FinancialReportingService {
   async listReports(
     tenantId: string,
     reportType?: string,
-    _limit: number = 50,
-    _offset: number = 0
+    limit: number = 50,
+    offset: number = 0
   ): Promise<FinancialReport[]> {
-    // TODO: Retrieve from database
-    return [];
+    try {
+      const FinancialReportModel = DatabaseService.getModel('FinancialReport');
+      if (!FinancialReportModel) {
+        LoggerService.warn('FinancialReport model not available, returning empty list');
+        return [];
+      }
+
+      const where: any = { tenantId };
+      if (reportType) {
+        where.reportType = reportType;
+      }
+
+      const reports = await FinancialReportModel.findAll({
+        where,
+        order: [['createdAt', 'DESC']],
+        limit,
+        offset
+      });
+
+      return reports.map((r: any) => {
+        const data = r.toJSON ? r.toJSON() : r;
+        return {
+          id: data.id,
+          tenantId: data.tenantId,
+          reportType: data.reportType,
+          period: data.period || {
+            startDate: data.startDate ? new Date(data.startDate) : new Date(),
+            endDate: data.endDate ? new Date(data.endDate) : new Date()
+          },
+          generatedAt: data.generatedAt ? new Date(data.generatedAt) : new Date(data.createdAt || Date.now()),
+          generatedBy: data.generatedBy || 'system',
+          data: data.data || {},
+          status: data.status || 'completed'
+        };
+      });
+    } catch (error) {
+      LoggerService.error('Failed to list financial reports:', error);
+      return [];
+    }
   }
 
   /**

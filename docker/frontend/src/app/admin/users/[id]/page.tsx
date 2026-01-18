@@ -33,7 +33,7 @@ export default function UserDetailsPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push(`/login?next=/admin/users/${userId}`);
       }
     };

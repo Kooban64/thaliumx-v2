@@ -80,7 +80,7 @@ export function RoleLimitEditor({ role, limits: initialLimits, onSave, isSaving 
         title: 'Limits saved',
         description: 'Role limits have been saved successfully',
       });
-    } catch {
+    } catch (error) {
       logRuntimeError(error, 'RoleLimitEditor', { action: 'saveLimits', role });
       toast({
         type: 'error',

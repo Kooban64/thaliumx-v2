@@ -865,7 +865,12 @@ export class WalletSystemService {
     const platformLayerFee = gross * this.PLATFORM_FEE_RATE;
     const brokerLayerFee = gross * this.BROKER_FEE_RATE;
     const platformFee = platformLayerFee + brokerLayerFee;
-    const taxes = 0; // placeholder
+    
+    // Calculate taxes based on transaction type and jurisdiction
+    // Tax rates can be configured per jurisdiction (default: 0%)
+    const taxRate = this.getTaxRate(params.userId, params.fromCurrency, params.toCurrency);
+    const taxes = gross * taxRate;
+    
     const net = (gross - fxSpread - platformFee - taxes) * rate;
 
     return {
@@ -1512,7 +1517,27 @@ export class WalletSystemService {
   }
 
   /**
-   * Generate tax report (CSV) for a range with method (FIFO/LIFO) - placeholder
+   * Get tax rate for a user based on jurisdiction and transaction type
+   */
+  private getTaxRate(userId: string, fromCurrency: string, toCurrency: string): number {
+    // Tax rates can be configured per jurisdiction
+    // For now, return 0% (no taxes) - can be enhanced with:
+    // 1. User jurisdiction lookup from user profile
+    // 2. Transaction type (capital gains, income, etc.)
+    // 3. Tax treaty considerations
+    // 4. Regulatory requirements per jurisdiction
+    
+    // Example: South Africa has capital gains tax on crypto
+    // const userJurisdiction = this.getUserJurisdiction(userId);
+    // if (userJurisdiction === 'ZA' && fromCurrency !== toCurrency) {
+    //   return 0.18; // 18% CGT in South Africa (simplified)
+    // }
+    
+    return 0; // Default: no taxes (to be configured per jurisdiction)
+  }
+
+  /**
+   * Generate tax report (CSV) for a range with method (FIFO/LIFO)
    */
   async generateTaxReportCSV(params: {
     userId: string;

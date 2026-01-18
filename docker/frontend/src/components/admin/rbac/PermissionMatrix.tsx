@@ -1,13 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Check, X } from 'lucide-react';
+
+interface Permission {
+  id: string;
+  name: string;
+  resource?: string;
+  action?: string;
+}
 
 interface Role {
   id: string;
   name: string;
-  permissions: string[];
+  permissions?: Permission[] | string[];
+  description?: string;
 }
 
 interface PermissionMatrixProps {
@@ -20,12 +28,69 @@ interface PermissionMatrixProps {
 export function PermissionMatrix({ roles }: PermissionMatrixProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Get all unique permissions from all roles
-  const allPermissions = Array.from(
-    new Set(roles.flatMap((role) => role.permissions || []))
-  ).filter((perm) =>
-    searchTerm ? perm.toLowerCase().includes(searchTerm.toLowerCase()) : true
-  );
+  // Extract all unique permissions from all roles
+  // Handle both Permission[] objects and string[] arrays
+  const allPermissions = useMemo(() => {
+    const permissionSet = new Set<string>();
+    
+    roles.forEach((role) => {
+      if (Array.isArray(role.permissions)) {
+        role.permissions.forEach((perm) => {
+          if (typeof perm === 'string') {
+            permissionSet.add(perm);
+          } else if (perm && typeof perm === 'object' && 'id' in perm) {
+            permissionSet.add(perm.id);
+          } else if (perm && typeof perm === 'object' && 'name' in perm) {
+            permissionSet.add((perm as { name: string }).name);
+          }
+        });
+      }
+    });
+
+    return Array.from(permissionSet)
+      .filter((perm) =>
+        searchTerm ? perm.toLowerCase().includes(searchTerm.toLowerCase()) : true
+      )
+      .sort();
+  }, [roles, searchTerm]);
+
+  // Helper to check if a role has a specific permission
+  const roleHasPermission = (role: Role, permissionId: string): boolean => {
+    if (!role.permissions || !Array.isArray(role.permissions)) {
+      return false;
+    }
+    
+    return role.permissions.some((perm) => {
+      if (typeof perm === 'string') {
+        return perm === permissionId;
+      }
+      if (perm && typeof perm === 'object') {
+        return ('id' in perm && perm.id === permissionId) || 
+               ('name' in perm && perm.name === permissionId);
+      }
+      return false;
+    });
+  };
+
+  // Get permission display name
+  const getPermissionName = (permissionId: string): string => {
+    // Try to find the permission in any role to get its name
+    for (const role of roles) {
+      if (Array.isArray(role.permissions)) {
+        for (const perm of role.permissions) {
+          if (typeof perm === 'object' && perm !== null) {
+            if ('id' in perm && perm.id === permissionId && 'name' in perm) {
+              return perm.name || permissionId;
+            }
+            if ('name' in perm && perm.name === permissionId) {
+              return perm.name;
+            }
+          }
+        }
+      }
+    }
+    return permissionId;
+  };
 
   return (
     <div className="space-y-4">
@@ -45,15 +110,22 @@ export function PermissionMatrix({ roles }: PermissionMatrixProps) {
             <table className="min-w-full divide-y divide-border">
               <thead className="bg-muted">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground">
+                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground sticky left-0 bg-muted z-10">
                     Permission
                   </th>
                   {roles.map((role) => (
                     <th
                       key={role.id || role.name}
-                      className="px-4 py-3 text-center text-sm font-medium text-foreground"
+                      className="px-4 py-3 text-center text-sm font-medium text-foreground min-w-[120px]"
                     >
-                      {role.name || role.id}
+                      <div className="flex flex-col">
+                        <span>{role.name || role.id}</span>
+                        {role.description && (
+                          <span className="text-xs text-muted-foreground font-normal mt-1">
+                            {role.description}
+                          </span>
+                        )}
+                      </div>
                     </th>
                   ))}
                 </tr>
@@ -69,13 +141,14 @@ export function PermissionMatrix({ roles }: PermissionMatrixProps) {
                     </td>
                   </tr>
                 ) : (
-                  allPermissions.map((permission) => (
-                    <tr key={permission} className="hover:bg-muted/50">
-                      <td className="px-4 py-3 text-sm">
-                        <div className="font-medium">{permission}</div>
+                  allPermissions.map((permissionId) => (
+                    <tr key={permissionId} className="hover:bg-muted/50">
+                      <td className="px-4 py-3 text-sm sticky left-0 bg-background z-10">
+                        <div className="font-medium">{getPermissionName(permissionId)}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{permissionId}</div>
                       </td>
                       {roles.map((role) => {
-                        const hasPermission = role.permissions?.includes(permission);
+                        const hasPermission = roleHasPermission(role, permissionId);
                         return (
                           <td key={role.id || role.name} className="px-4 py-3 text-center">
                             {hasPermission ? (

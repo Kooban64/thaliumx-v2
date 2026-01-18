@@ -10,7 +10,7 @@ import { Router } from 'express';
 import { marketDataService } from '../services/market-data';
 import { LoggerService } from '../services/logger';
 import { createError } from '../utils';
-import { rateLimiter } from '../middleware/error-handler';
+import { rateLimiter, authenticateToken, requireRole } from '../middleware/error-handler';
 
 const router: Router = Router();
 
@@ -152,9 +152,12 @@ router.get('/stats', rateLimiter, async (req: Request, res: Response, next: Next
  * Clear market data cache (admin only)
  * Query params: symbol (optional - clear specific symbol cache)
  */
-router.post('/cache/clear', rateLimiter, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/cache/clear', 
+  rateLimiter,
+  authenticateToken,
+  requireRole(['platform-admin', 'admin', 'super_admin']),
+  async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // TODO: Add admin authentication check
     const symbol = req.query.symbol as string;
 
     await marketDataService.clearCache(symbol);

@@ -31,7 +31,7 @@ export default function RBACPermissionsPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push('/login?next=/admin/rbac/permissions');
       }
     };

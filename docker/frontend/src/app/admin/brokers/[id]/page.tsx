@@ -33,7 +33,7 @@ export default function BrokerDetailsPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push(`/login?next=/admin/brokers/${brokerId}`);
       }
     };

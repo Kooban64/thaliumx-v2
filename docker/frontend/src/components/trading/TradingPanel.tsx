@@ -58,7 +58,7 @@ export function TradingPanel() {
         if (response.success && response.data?.id) {
           setUserId(response.data.id);
         }
-      } catch {
+      } catch (error) {
         // Ignore errors
       }
     };
@@ -305,7 +305,7 @@ export function TradingPanel() {
                       const percentageValue = parseFloat(percentage) / 100;
                       setAmount((bal * percentageValue).toFixed(8));
                     }
-                  } catch {
+                  } catch (error) {
                     console.warn('Failed to fetch balance for quick amount:', error);
                     // Fallback to small amount if balance fetch fails
                     setAmount('0.001');

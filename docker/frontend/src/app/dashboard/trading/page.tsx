@@ -49,7 +49,7 @@ export default function TradingPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push('/login?next=/dashboard/trading');
       }
     };

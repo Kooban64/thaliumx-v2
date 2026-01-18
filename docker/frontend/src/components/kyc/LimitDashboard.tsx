@@ -125,7 +125,7 @@ export function LimitDashboard({ className }: { className?: string }) {
                   } else {
                     window.location.href = '/onboarding';
                   }
-                } catch {
+                } catch (error) {
                   window.location.href = '/onboarding';
                 }
               }}

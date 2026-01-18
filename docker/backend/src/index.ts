@@ -88,6 +88,8 @@ import workflowsRouter from './routes/workflows';
 import supportRouter from './routes/support';
 import auditLogsRouter from './routes/audit-logs';
 import logAnalyticsRouter from './routes/log-analytics';
+import errorsRouter from './routes/errors';
+import multiPlatformLaunchRouter from './routes/multi-platform-launch';
 // import complianceRouter from './routes/compliance-router';
 // import accessReviewRouter from './routes/access-review-router';
 // import mfaRouter from './routes/mfa-router';
@@ -684,6 +686,7 @@ class ThaliumXBackend {
     this.app.use('/api/dex', dexRouter);
     this.app.use('/api/ai-ml', aiMlRouter);
     this.app.use('/api/presale', presaleRouter);
+    this.app.use('/api/multi-platform-launch', multiPlatformLaunchRouter);
     this.app.use('/api/security', securityOversightRouter);
     this.app.use('/api/graphsense', graphsenseRouter);
     // this.app.use('/api/compliance', complianceRouter);
@@ -707,6 +710,7 @@ class ThaliumXBackend {
     this.app.use('/api/support', supportRouter);
     this.app.use('/api/audit-logs', auditLogsRouter);
     this.app.use('/api/log-analytics', logAnalyticsRouter);
+    this.app.use('/api/errors', errorsRouter);
 
     // API documentation endpoint
     this.app.get('/api/docs', (_req, res) => {

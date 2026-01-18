@@ -18,8 +18,19 @@ import Link from 'next/link';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { logAuthError } from '@/lib/services/errorLogger';
 
+interface WorkflowAnalytics {
+  totalWorkflows: number;
+  activeWorkflows: number;
+  completedWorkflows: number;
+  failedWorkflows: number;
+  averageCompletionTime: number;
+  successRate: number;
+  workflowsByType: Record<string, number>;
+}
+
 export default function AdminWorkflowsPage() {
   const [loading, setLoading] = useState(true);
+  const [analytics, setAnalytics] = useState<WorkflowAnalytics | null>(null);
   const { data: healthData } = useWorkflowHealth();
 
   useEffect(() => {
@@ -38,11 +49,57 @@ export default function AdminWorkflowsPage() {
           return;
         }
 
-        // Load all workflows (admin endpoint would be needed)
-        // For now, we'll show a message that admin endpoints need to be implemented
+        // Load workflow analytics
+        try {
+          const workflowsRes = await apiClient.get('/api/workflows');
+          if (workflowsRes.success && workflowsRes.data) {
+            const data = workflowsRes.data as any;
+            const workflows = Array.isArray(data) ? data : (data.workflows || []);
+            
+            // Calculate analytics
+            const total = workflows.length;
+            const active = workflows.filter((w: any) => w.status === 'active' || w.status === 'running').length;
+            const completed = workflows.filter((w: any) => w.status === 'completed' || w.status === 'success').length;
+            const failed = workflows.filter((w: any) => w.status === 'failed' || w.status === 'error').length;
+            
+            const completedWorkflows = workflows.filter((w: any) => w.status === 'completed' || w.status === 'success');
+            const totalCompletionTime = completedWorkflows.reduce((sum: number, w: any) => {
+              if (w.startedAt && w.completedAt) {
+                const start = new Date(w.startedAt).getTime();
+                const end = new Date(w.completedAt).getTime();
+                return sum + (end - start);
+              }
+              return sum;
+            }, 0);
+            const avgCompletionTime = completedWorkflows.length > 0 
+              ? totalCompletionTime / completedWorkflows.length / 1000 / 60 // Convert to minutes
+              : 0;
+            
+            const successRate = total > 0 ? (completed / total) * 100 : 0;
+            
+            const workflowsByType = workflows.reduce((acc: Record<string, number>, w: any) => {
+              const type = w.type || w.workflowType || 'unknown';
+              acc[type] = (acc[type] || 0) + 1;
+              return acc;
+            }, {});
+
+            setAnalytics({
+              totalWorkflows: total,
+              activeWorkflows: active,
+              completedWorkflows: completed,
+              failedWorkflows: failed,
+              averageCompletionTime: avgCompletionTime,
+              successRate: successRate,
+              workflowsByType: workflowsByType,
+            });
+          }
+        } catch (err) {
+          console.error('Failed to load workflow analytics:', err);
+        }
+
         setLoading(false);
-      } catch {
-        logAuthError(error, 'checkAuth', { component: 'AdminWorkflows' });
+      } catch (err) {
+        logAuthError(err, 'checkAuth', { component: 'AdminWorkflows' });
         setLoading(false);
       }
     };
@@ -112,7 +169,7 @@ export default function AdminWorkflowsPage() {
           </Card>
         )}
 
-        {/* Analytics Placeholder */}
+        {/* Analytics */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -122,12 +179,58 @@ export default function AdminWorkflowsPage() {
             <CardDescription>Performance metrics and statistics</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Workflow analytics dashboard coming soon</p>
-              <p className="text-sm mt-2">
-                This will include metrics like average completion time, success rates, and workflow type distribution
-              </p>
-            </div>
+            {analytics ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">Total Workflows</div>
+                  <div className="text-2xl font-bold">{analytics.totalWorkflows}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">Active</div>
+                  <div className="text-2xl font-bold text-blue-600">{analytics.activeWorkflows}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">Completed</div>
+                  <div className="text-2xl font-bold text-green-600">{analytics.completedWorkflows}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">Failed</div>
+                  <div className="text-2xl font-bold text-red-600">{analytics.failedWorkflows}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">Success Rate</div>
+                  <div className="text-2xl font-bold">
+                    {analytics.successRate.toFixed(1)}%
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">Avg Completion</div>
+                  <div className="text-2xl font-bold">
+                    {analytics.averageCompletionTime > 0 
+                      ? `${analytics.averageCompletionTime.toFixed(1)} min`
+                      : 'N/A'}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Loading workflow analytics...</p>
+              </div>
+            )}
+            
+            {analytics && Object.keys(analytics.workflowsByType).length > 0 && (
+              <div className="mt-6 pt-6 border-t">
+                <div className="text-sm font-medium mb-3">Workflows by Type</div>
+                <div className="space-y-2">
+                  {Object.entries(analytics.workflowsByType).map(([type, count]) => (
+                    <div key={type} className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground capitalize">{type}</span>
+                      <span className="font-medium">{count as number}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

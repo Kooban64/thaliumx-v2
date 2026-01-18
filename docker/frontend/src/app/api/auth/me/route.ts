@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         }),
       },
     });
-  } catch {
+  } catch (error) {
     // Log error to backend (production-ready)
     await logApiProxyError(
       error,

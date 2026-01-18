@@ -77,9 +77,32 @@ export class NedbankService {
 
   public static async initialize(): Promise<void> {
     if (this.isInit) return;
-    // Read secrets
-    const secretsPath = path.resolve(process.env.NEDBANK_SECRETS_PATH || '/home/ubuntu/thaliumx-clean/.secrets/nedbank.json');
-    const raw = fs.readFileSync(secretsPath, 'utf8');
+    // Read secrets - check multiple possible locations
+    const possiblePaths = [
+      process.env.NEDBANK_SECRETS_PATH,
+      path.join(process.cwd(), '.secrets', 'nedbank-pool-account-scraping'),
+      path.join(process.cwd(), '.secrets', 'nedbank.json'),
+      '/home/ubuntu/thaliumx-v1/.secrets/nedbank-pool-account-scraping',
+      '/home/ubuntu/thaliumx-v1/.secrets/nedbank.json',
+      '/app/secrets/nedbank-pool-account-scraping', // Docker mount path
+      '/app/secrets/nedbank.json'
+    ].filter(Boolean) as string[];
+    
+    let secretsPath: string | null = null;
+    let raw: string = '';
+    
+    for (const possiblePath of possiblePaths) {
+      const resolvedPath = path.resolve(possiblePath);
+      if (fs.existsSync(resolvedPath)) {
+        secretsPath = resolvedPath;
+        raw = fs.readFileSync(resolvedPath, 'utf8');
+        break;
+      }
+    }
+    
+    if (!secretsPath || !raw) {
+      throw new Error(`Nedbank secrets file not found. Checked paths: ${possiblePaths.join(', ')}`);
+    }
     const secrets: NedbankSecrets = JSON.parse(raw);
 
     this.payoutClient = axios.create({
@@ -132,14 +155,26 @@ export class NedbankService {
         metadata: req.metadata
       };
 
-      // Endpoint selection (mocked paths; replace with actual from secrets doc)
-      // endpoint extracted but not used in this function
-      req.beneficiary.payshapId ? '/payouts/payshap' : '/payouts/eft';
-      // TODO: Make actual API call to Nedbank
-      const data: any = {
-        id: `payout_${Date.now()}`,
-        status: 'pending'
-      };
+      // Ensure service is initialized
+      if (!this.isInit) {
+        await this.initialize();
+      }
+
+      // Endpoint selection based on payment method
+      const endpoint = req.beneficiary.payshapId ? '/payouts/payshap' : '/payouts/eft';
+      
+      // Make actual API call to Nedbank
+      const response = await this.payoutClient.post(endpoint, {
+        poolAccountNumber: req.poolAccountNumber,
+        brokerId: req.brokerId,
+        beneficiary: req.beneficiary,
+        amount: req.amount,
+        currency: req.currency,
+        reference: req.reference,
+        metadata: req.metadata
+      });
+
+      const data = response.data;
 
       // Fee layering example: assume fees returned or compute basic model
       const amountNum = parseFloat(req.amount);
@@ -178,8 +213,34 @@ export class NedbankService {
   public static async scrapeDeposits(req: DepositScrapeRequest): Promise<DepositRecord[]> {
     try {
       // Read secrets to get account number and endpoint
-      const secretsPath = path.resolve(process.env.NEDBANK_SECRETS_PATH || '/home/ubuntu/thaliumx-clean/.secrets/nedbank.json');
-      const raw = fs.readFileSync(secretsPath, 'utf8');
+      const possiblePaths = [
+        process.env.NEDBANK_SECRETS_PATH,
+        path.join(process.cwd(), '.secrets', 'nedbank-pool-account-scraping'),
+        path.join(process.cwd(), '.secrets', 'nedbank.json'),
+        '/home/ubuntu/thaliumx-v1/.secrets/nedbank-pool-account-scraping',
+        '/home/ubuntu/thaliumx-v1/.secrets/nedbank.json',
+        '/app/secrets/nedbank-pool-account-scraping', // Docker mount path
+        '/app/secrets/nedbank.json'
+      ].filter(Boolean) as string[];
+      
+      let secretsPath: string | null = null;
+      let raw: string = '';
+      
+      for (const possiblePath of possiblePaths) {
+        const resolvedPath = path.resolve(possiblePath);
+        if (fs.existsSync(resolvedPath)) {
+          secretsPath = resolvedPath;
+          raw = fs.readFileSync(resolvedPath, 'utf8');
+          break;
+        }
+      }
+      
+      if (!secretsPath || !raw) {
+        LoggerService.warn('Nedbank secrets file not found, using defaults', { checkedPaths: possiblePaths });
+        // Return empty array if secrets not found (fail gracefully)
+        return [];
+      }
+      
       const secrets = JSON.parse(raw);
       
       const accountNumber = req.poolAccountNumber || secrets.deposits?.accountNumber;
@@ -199,10 +260,14 @@ export class NedbankService {
       
       LoggerService.info('Nedbank deposit scrape starting', { accountNumber, endpoint, params });
       
-      // TODO: Make actual API call to Nedbank
-      const data: any = {
-        body: JSON.stringify([])
-      };
+      // Ensure service is initialized
+      if (!this.isInit) {
+        await this.initialize();
+      }
+      
+      // Make actual API call to Nedbank
+      const response = await this.depositsClient.get(endpoint, { params });
+      const data = response.data;
 
       // Handle the API response format - body is a JSON string
       let transactions: any[] = [];

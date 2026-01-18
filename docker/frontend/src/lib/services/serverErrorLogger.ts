@@ -79,7 +79,7 @@ export async function logServerError(
       // Silently fail - don't log logging errors
       // In production, you might want to use a queue or external service
     });
-  } catch {
+  } catch (error) {
     // Silently fail - don't log logging errors
     // In production, consider using a message queue or external service
   }

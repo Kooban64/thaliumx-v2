@@ -36,7 +36,7 @@ async function getUserId(): Promise<string | undefined> {
       const user = data?.data?.user || data?.data;
       return user?.id || user?.userId;
     }
-  } catch {
+  } catch (error) {
     // Ignore errors - will create session without userId
   }
   
@@ -123,7 +123,7 @@ export function ChatWidget({ userId: propUserId, className, isPublic = false }: 
       // Connect to WebSocket for real-time messages
       // Note: In production, this would connect to Live Helper Chat WebSocket
       // For now, we'll simulate with polling or direct API calls
-    } catch {
+    } catch (error) {
       logRuntimeError(error, 'ChatWidget', { action: 'initializeChat' });
       setIsConnected(false);
     } finally {
@@ -155,7 +155,7 @@ export function ChatWidget({ userId: propUserId, className, isPublic = false }: 
       setSession(newSession);
       setMessages(newSession.messages || []);
       setIsConnected(true);
-    } catch {
+    } catch (error) {
       logRuntimeError(error, 'ChatWidget', { action: 'initializePublicChat' });
       setIsConnected(false);
       setEmailError('Failed to start chat. Please try again.');
@@ -228,7 +228,7 @@ export function ChatWidget({ userId: propUserId, className, isPublic = false }: 
           setMessages(prev => [...prev, agentMessage]);
         }, 1000);
       }
-    } catch {
+    } catch (error) {
       logRuntimeError(error, 'ChatWidget', { action: 'sendMessage', sessionId: session?.sessionId });
       // Remove the message from UI if send failed
       setMessages(prev => prev.filter(m => m.id !== userMessage.id));
@@ -254,7 +254,7 @@ export function ChatWidget({ userId: propUserId, className, isPublic = false }: 
         title: 'Chat escalated',
         description: 'Chat has been escalated to a support ticket. You will receive updates via email.',
       });
-    } catch {
+    } catch (error) {
       logRuntimeError(error, 'ChatWidget', { action: 'escalateChat' });
       toast({
         type: 'error',

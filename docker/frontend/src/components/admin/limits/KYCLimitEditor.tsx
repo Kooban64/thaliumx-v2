@@ -81,7 +81,7 @@ export function KYCLimitEditor({ level, limits: initialLimits, onSave, isSaving 
         title: 'Limits saved',
         description: 'KYC level limits have been saved successfully',
       });
-    } catch {
+    } catch (error) {
       logRuntimeError(error, 'KYCLimitEditor', { action: 'saveLimits', level });
       toast({
         type: 'error',

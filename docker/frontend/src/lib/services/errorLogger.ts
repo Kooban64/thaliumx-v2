@@ -205,7 +205,7 @@ class ErrorLogger {
           this.errorQueue.unshift(...errorsToSend);
         });
       }
-    } catch {
+    } catch (error) {
       // Silently fail - don't log logging errors
       // Re-queue errors if send fails
       this.errorQueue.unshift(...errorsToSend);

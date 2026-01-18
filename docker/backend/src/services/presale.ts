@@ -259,6 +259,9 @@ export interface InvestmentMetadata {
   onChainError?: string;
   paymentNote?: string;
   userWalletAddress?: string; // User's wallet address for on-chain transactions
+  targetWalletAddress?: string; // Target wallet address for token delivery
+  deliveryWalletType?: 'user_web3' | 'platform_hot'; // Where to send tokens
+  tokenType?: 'vested' | 'liquid'; // Token type: vested (presale) or liquid (post-presale)
   // Fee transparency
   platformFee?: string; // in USD or token-equivalent depending on payment method
   paymentProcessorFee?: string; // e.g., card/bank fees
@@ -1283,7 +1286,8 @@ export class PresaleService {
     referralCode?: string,
     walletAddress?: string, // User's wallet address for on-chain transactions
     attributedBrokerId?: string, // optional broker attribution
-    req?: Request // Optional Express request for OPA evaluation
+    req?: Request, // Optional Express request for OPA evaluation
+    deliveryWalletType?: 'user_web3' | 'platform_hot' // Where to send tokens
   ): Promise<PresaleInvestment> {
     try {
       const presale = this.presales.get(presaleId);
@@ -1781,6 +1785,8 @@ export class PresaleService {
           complianceFlags: [],
           riskScore: 0.5,
           userWalletAddress: walletAddress, // Store wallet address for on-chain purchase
+          deliveryWalletType: deliveryWalletType || 'platform_hot', // Default to platform hot wallet
+          tokenType: 'vested', // Presale purchases are always vested
           platformFee: platformFeeUsd.toString(),
           paymentProcessorFee: paymentProcessorFeeUsd.toString(),
           networkFeeEstimate: networkFeeEstimate.toString(),
@@ -1824,17 +1830,69 @@ export class PresaleService {
       // Execute on-chain purchase if payment method is crypto (USDT, USDC, etc.)
       if (paymentMethod === PaymentMethod.USDT || paymentMethod === PaymentMethod.USDC) {
         try {
-          // Get user's wallet address from metadata (provided in request)
-          // In production, this should come from authenticated user's connected wallet
-          const userWalletAddress = investment.metadata.userWalletAddress;
+          // Determine target wallet address based on deliveryWalletType
+          let targetWalletAddress: string | undefined;
           
-          if (!userWalletAddress || !ethers.isAddress(userWalletAddress)) {
-            throw createError(
-              'Valid user wallet address required for on-chain purchase. Please connect your Web3 wallet and provide wallet address.',
-              400,
-              'WALLET_ADDRESS_REQUIRED'
-            );
+          if (deliveryWalletType === 'user_web3') {
+            // Use user's connected Web3 wallet address
+            targetWalletAddress = investment.metadata.userWalletAddress;
+            if (!targetWalletAddress || !ethers.isAddress(targetWalletAddress)) {
+              throw createError(
+                'Valid user Web3 wallet address required. Please connect your Web3 wallet and provide wallet address.',
+                400,
+                'WALLET_ADDRESS_REQUIRED'
+              );
+            }
+          } else {
+            // Use platform hot wallet address
+            try {
+              const { WalletSystemService } = await import('./wallet-system');
+              const { DatabaseService } = await import('./database');
+              const walletService = new WalletSystemService(DatabaseService.getSequelize());
+              const userWallets = walletService.getUserWallets(userId);
+              const hotWallet = userWallets.find(w => w.walletType === 'crypto_hot');
+              
+              if (hotWallet && hotWallet.address) {
+                targetWalletAddress = hotWallet.address;
+              } else {
+                // Create hot wallet if it doesn't exist
+                const walletInfrastructure = await walletService.createUserWalletInfrastructure(
+                  userId,
+                  tenantId,
+                  tenantId, // broker-equivalent for public tenant
+                  {
+                    firstName: 'User',
+                    lastName: 'Presale',
+                    email: 'unknown@thaliumx.com'
+                  }
+                );
+                const newHotWallet = walletInfrastructure.find(w => w.walletType === 'crypto_hot');
+                targetWalletAddress = newHotWallet?.address;
+              }
+              
+              if (!targetWalletAddress || !ethers.isAddress(targetWalletAddress)) {
+                throw createError(
+                  'Failed to get or create platform hot wallet address.',
+                  500,
+                  'HOT_WALLET_ERROR'
+                );
+              }
+            } catch (walletError: any) {
+              LoggerService.error('Failed to get platform hot wallet', { error: walletError, userId, tenantId });
+              throw createError(
+                'Failed to get platform hot wallet. Please try again or use your Web3 wallet.',
+                500,
+                'HOT_WALLET_ERROR'
+              );
+            }
           }
+          
+          // Store target wallet address in metadata
+          investment.metadata.targetWalletAddress = targetWalletAddress;
+          investment.metadata.userWalletAddress = targetWalletAddress; // For backward compatibility
+          
+          // Use targetWalletAddress for wallet screening and transaction
+          const userWalletAddress = targetWalletAddress;
 
           // CRITICAL SECURITY: Wallet screening before contract interaction
           try {

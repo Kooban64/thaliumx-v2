@@ -58,7 +58,11 @@ export function PostPurchaseTrading({ investmentAmount, tokenAmount, kycLevel, f
         <div className="pt-4 border-t">
           <h3 className="font-semibold mb-3 flex items-center gap-2"><TrendingUp className="h-5 w-5" />Start Trading Now</h3>
           <p className="text-sm text-muted-foreground mb-4">Your trading account is ready! You can now access the main platform and start trading.</p>
-          <Button size="lg" className="w-full" onClick={() => window.location.href = '/trading'}>
+          <Button 
+            size="lg" 
+            className="w-full" 
+            onClick={() => window.location.href = '/dashboard/trading'}
+          >
             Go to Trading Dashboard <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         </div>

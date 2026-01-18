@@ -33,7 +33,7 @@ export function OpenOrders() {
         title: 'Order cancelled',
         description: 'The order has been cancelled successfully',
       });
-    } catch {
+    } catch (error) {
       logRuntimeError(error, 'OpenOrders', { action: 'cancelOrder', orderId });
       toast({
         type: 'error',

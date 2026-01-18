@@ -31,7 +31,7 @@ export default function SecurityOversightPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push('/login?next=/admin/security/oversight');
       }
     };

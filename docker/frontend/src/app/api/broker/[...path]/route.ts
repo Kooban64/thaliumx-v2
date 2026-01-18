@@ -44,7 +44,7 @@ async function proxyRequest(
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
       try {
         body = await request.text();
-      } catch {
+      } catch (error) {
         // Body might be empty, that's okay
       }
     }
@@ -64,7 +64,7 @@ async function proxyRequest(
         'Content-Type': 'application/json',
       },
     });
-  } catch {
+  } catch (error) {
     // Log error to backend (production-ready)
     await logApiProxyError(
       error,

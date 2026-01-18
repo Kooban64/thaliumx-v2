@@ -96,7 +96,7 @@ function PolicyManagementInner() {
       // backend returns `{ success, healthy, timestamp }`
       const raw = res.data as any;
       setOpaStatus({ healthy: !!raw?.healthy, version: raw?.version });
-    } catch {
+    } catch (error) {
       setOpaStatus({ healthy: false });
     }
   };
@@ -109,7 +109,7 @@ function PolicyManagementInner() {
         const raw = res.data as any;
         setPresets(raw?.presets || []);
       }
-    } catch {
+    } catch (error) {
       // Ignore preset fetch errors
     }
   };
@@ -121,7 +121,7 @@ function PolicyManagementInner() {
       if (res.success) {
         setAuditLog(res.data || []);
       }
-    } catch {
+    } catch (error) {
       // Ignore audit log fetch errors
     }
   };
@@ -274,7 +274,7 @@ function PolicyManagementInner() {
                 try {
                   const parsed = JSON.parse(e.target.value);
                   updateParameter(currentPath, parsed);
-                } catch {
+                } catch (error) {
                   // Invalid JSON, ignore
                 }
               }}

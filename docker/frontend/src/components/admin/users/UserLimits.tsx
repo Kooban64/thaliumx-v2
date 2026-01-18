@@ -237,7 +237,7 @@ export function UserLimits({ userId, limits, isLoading }: UserLimitsProps) {
                     });
                     setIsEditing(false);
                     setReason('');
-                  } catch {
+                  } catch (error) {
                     toast({
                       type: 'error',
                       title: 'Update Failed',

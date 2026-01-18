@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     }
 
     return nextResponse;
-  } catch {
+  } catch (error) {
     // Log error to backend (production-ready)
     await logApiProxyError(
       error,

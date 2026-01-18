@@ -472,10 +472,29 @@ export class SupportService {
           }, 0) / resolvedTickets.length
         : 0;
 
+      // Calculate average response time from tickets that have been responded to
+      // Response time is the time between ticket creation and first update (when agent responds)
+      const respondedTickets = tickets.filter((t: any) => {
+        const ticketData = t.toJSON ? t.toJSON() : t;
+        const created = new Date(ticketData.createdAt || ticketData.dataValues?.createdAt).getTime();
+        const updated = new Date(ticketData.updatedAt || ticketData.dataValues?.updatedAt).getTime();
+        return updated > created && ticketData.status !== 'open'; // Ticket was updated and not still open
+      });
+
+      const averageResponseTime = respondedTickets.length > 0
+        ? respondedTickets.reduce((sum, t: any) => {
+            const ticketData = t.toJSON ? t.toJSON() : t;
+            const created = new Date(ticketData.createdAt || ticketData.dataValues?.createdAt).getTime();
+            const updated = new Date(ticketData.updatedAt || ticketData.dataValues?.updatedAt).getTime();
+            const responseTimeMinutes = (updated - created) / (1000 * 60); // Convert to minutes
+            return sum + responseTimeMinutes;
+          }, 0) / respondedTickets.length
+        : 0;
+
       return {
         totalTickets,
         openTickets,
-        averageResponseTime: 60, // Placeholder - would need actual response tracking
+        averageResponseTime: Math.round(averageResponseTime * 10) / 10, // Round to 1 decimal place
         averageResolutionTime,
         ticketsByPriority,
         ticketsByStatus,

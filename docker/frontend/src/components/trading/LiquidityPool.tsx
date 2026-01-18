@@ -23,7 +23,7 @@ export function LiquidityPool() {
           const data = await response.json();
           setPools(data.data || data.pools || []);
         }
-      } catch {
+      } catch (error) {
         logNetworkError(error, { endpoint: '/api/dex/pools', component: 'LiquidityPool' });
       } finally {
         setIsLoading(false);

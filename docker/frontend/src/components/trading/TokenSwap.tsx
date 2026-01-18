@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowDownUp, Loader2, AlertTriangle } from 'lucide-react';
+import apiClient from '@/lib/api/client';
+import { toast } from '@/components/shared/Toast';
 
 /**
  * TokenSwap - DEX token swap interface
@@ -18,34 +20,92 @@ export function TokenSwap() {
   const [amountOut, setAmountOut] = useState('');
   const [slippage, setSlippage] = useState('0.5');
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingQuote, setIsFetchingQuote] = useState(false);
   const [error, setError] = useState('');
-  // const [estimatedGas, setEstimatedGas] = useState<number | null>(null);
-  const [estimatedGas] = useState<number | null>(null);
+  const [estimatedGas, setEstimatedGas] = useState<number | null>(null);
+
+  // Fetch quote when amount or tokens change
+  useEffect(() => {
+    if (!amountIn || parseFloat(amountIn) <= 0) {
+      setAmountOut('');
+      setEstimatedGas(null);
+      return;
+    }
+
+    const fetchQuote = async () => {
+      setIsFetchingQuote(true);
+      try {
+        const response = await apiClient.post('/api/dex/quotes', {
+          tokenIn,
+          tokenOut,
+          amountIn: amountIn,
+          slippage: parseFloat(slippage),
+        });
+
+        if (response.success && response.data) {
+          const data = response.data as any;
+          setAmountOut(data.amountOut?.toString() || data.bestQuote?.amountOut?.toString() || '');
+          setEstimatedGas(data.estimatedGas || data.bestQuote?.gasEstimate || null);
+        } else {
+          setAmountOut('');
+          setEstimatedGas(null);
+        }
+      } catch (err) {
+        // Silently fail quote fetching - user can still attempt swap
+        setAmountOut('');
+        setEstimatedGas(null);
+      } finally {
+        setIsFetchingQuote(false);
+      }
+    };
+
+    const timeoutId = setTimeout(fetchQuote, 500); // Debounce
+    return () => clearTimeout(timeoutId);
+  }, [amountIn, tokenIn, tokenOut, slippage]);
 
   const handleSwap = async () => {
+    if (!amountIn || parseFloat(amountIn) <= 0) {
+      setError('Please enter an amount');
+      return;
+    }
+
+    if (!amountOut || parseFloat(amountOut) <= 0) {
+      setError('Unable to get quote. Please try again.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
     try {
-      // TODO: Implement actual swap API call
-      const response = await fetch('/api/dex/swap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tokenIn,
-          tokenOut,
-          amountIn: parseFloat(amountIn),
-          slippage: parseFloat(slippage),
-        }),
+      const response = await apiClient.post('/api/dex/swap', {
+        tokenIn,
+        tokenOut,
+        amountIn: parseFloat(amountIn),
+        slippage: parseFloat(slippage),
       });
 
-      if (!response.ok) {
-        throw new Error('Swap failed');
+      if (!response.success) {
+        throw new Error(response.error || 'Swap failed');
       }
 
-      // const data = await response.json();
-      // Handle success
+      toast({
+        type: 'success',
+        title: 'Swap Successful',
+        description: `Swapped ${amountIn} ${tokenIn} for ${amountOut} ${tokenOut}`,
+      });
+
+      // Reset form
+      setAmountIn('');
+      setAmountOut('');
+      setEstimatedGas(null);
     } catch (err: any) {
-      setError(err.message || 'Swap failed');
+      const errorMessage = err.message || 'Swap failed';
+      setError(errorMessage);
+      toast({
+        type: 'error',
+        title: 'Swap Failed',
+        description: errorMessage,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -113,14 +173,18 @@ export function TokenSwap() {
               onChange={(e) => setTokenOut(e.target.value)}
               className="w-24"
             />
-            <Input
-              type="number"
-              placeholder="0.0"
-              value={amountOut}
-              onChange={(e) => setAmountOut(e.target.value)}
-              readOnly
-              className="flex-1 bg-muted"
-            />
+            <div className="flex-1 relative">
+              <Input
+                type="number"
+                placeholder="0.0"
+                value={amountOut}
+                readOnly
+                className="bg-muted pr-10"
+              />
+              {isFetchingQuote && (
+                <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
           </div>
         </div>
 

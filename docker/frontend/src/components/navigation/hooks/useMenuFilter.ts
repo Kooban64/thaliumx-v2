@@ -5,6 +5,7 @@ import type { NavItem } from '@/config/nav/types';
 import { useUserStore } from '@/stores/userStore';
 import { useKYCStore } from '@/stores/kycStore';
 import { useConfigStore } from '@/stores/configStore';
+import { useRBACStore } from '@/stores/rbacStore';
 import { isFeatureEnabled } from '@/lib/config';
 
 /**
@@ -81,10 +82,15 @@ function shouldShowItem(
     }
   }
 
-  // Check permissions (if implemented)
+  // Check permissions
   if (item.permissions && item.permissions.length > 0) {
-    // TODO: Implement permission checking when permission system is ready
-    // For now, allow all items
+    const rbacStore = useRBACStore.getState();
+    const hasRequiredPermission = item.permissions.some((permission) =>
+      rbacStore.checkPermission(permission)
+    );
+    if (!hasRequiredPermission) {
+      return false;
+    }
   }
 
   return true;

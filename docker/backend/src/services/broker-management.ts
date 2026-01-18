@@ -22,6 +22,7 @@ import { EventStreamingService } from './event-streaming';
 // import { KeycloakService } from './keycloak'; // Removed - using Zitadel now
 import { DatabaseService } from './database';
 import { createError } from '../utils';
+import { Op } from 'sequelize';
 
 // =============================================================================
 // TYPES & INTERFACES
@@ -1005,14 +1006,20 @@ export class BrokerManagementService {
       // KYCService extracted but not used in this function
       await import('./kyc');
       
-      // Users analytics
-      const allUsers = await UserModel.findAll({
-        attributes: ['id', 'createdAt', 'isActive', 'kycStatus']
+      // Users analytics - filter users by broker association through wallets
+      const wallets = await WalletModel.findAll({
+        where: { brokerId },
+        attributes: ['userId'],
+        raw: true
       });
-      const brokerUsers = allUsers.filter((_u: any) => {
-        // Filter by broker association (would need proper relationship)
-        return true; // Placeholder - implement proper broker filtering
-      });
+      const brokerUserIds = [...new Set(wallets.map((w: any) => w.userId))];
+      
+      const brokerUsers = brokerUserIds.length > 0
+        ? await UserModel.findAll({
+            where: { id: { [Op.in]: brokerUserIds } },
+            attributes: ['id', 'createdAt', 'isActive', 'kycStatus']
+          })
+        : [];
       
       const totalUsers = brokerUsers.length;
       const activeUsers = brokerUsers.filter((u: any) => u.isActive === true || u.dataValues?.isActive === true).length;
@@ -1046,7 +1053,7 @@ export class BrokerManagementService {
       }, 0);
       
       // Financial analytics
-      const wallets = await WalletModel.findAll({
+      const brokerWallets = await WalletModel.findAll({
         where: { brokerId },
         attributes: ['balance', 'currency']
       });

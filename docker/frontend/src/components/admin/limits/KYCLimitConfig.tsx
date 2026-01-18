@@ -28,7 +28,7 @@ export function KYCLimitConfig() {
         level: selectedLevel,
         limits: updatedLimits,
       });
-    } catch {
+    } catch (error) {
       logRuntimeError(error, 'KYCLimitConfig', { action: 'updateKYCLimits', level: selectedLevel });
       toast({
         type: 'error',

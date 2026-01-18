@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Order, OrderRequest, TradingPair } from '@/types/trading';
+import apiClient from '@/lib/api/client';
 
 export type ExchangeType = 'cex' | 'omni' | 'dex';
 
@@ -126,10 +127,9 @@ export const useTradingStore = create<TradingState>((set, get) => ({
 
   setError: (error) => set({ error }),
 
-  placeOrder: async (orderRequest) => {
+  placeOrder: async (orderRequest): Promise<Order> => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Implement API call based on selected exchange
       const { selectedExchange } = get();
       let endpoint = '';
       
@@ -143,29 +143,23 @@ export const useTradingStore = create<TradingState>((set, get) => ({
         case 'dex':
           endpoint = '/api/dex/swap';
           break;
+        default:
+          throw new Error('Invalid exchange type');
       }
       
-      // Placeholder - will be implemented with actual API
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderRequest),
-      });
+      const response = await apiClient.post(endpoint, orderRequest);
       
-      if (!response.ok) {
-        throw new Error('Failed to place order');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to place order');
       }
       
-      const data = await response.json();
-      const order = data.data || data;
+      const order = response.data as Order;
       
       get().addOrder(order);
       set({ isLoading: false });
       
       return order;
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to place order';
       set({ error: errorMessage, isLoading: false });
       throw error;
@@ -188,19 +182,19 @@ export const useTradingStore = create<TradingState>((set, get) => ({
         case 'dex':
           // DEX orders typically can't be cancelled once submitted
           throw new Error('DEX orders cannot be cancelled');
+        default:
+          throw new Error('Invalid exchange type');
       }
       
-      const response = await fetch(endpoint, {
-        method: 'DELETE',
-      });
+      const response = await apiClient.delete(endpoint);
       
-      if (!response.ok) {
-        throw new Error('Failed to cancel order');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to cancel order');
       }
       
       get().removeOrder(orderId);
       set({ isLoading: false });
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to cancel order';
       set({ error: errorMessage, isLoading: false });
       throw error;
@@ -223,18 +217,20 @@ export const useTradingStore = create<TradingState>((set, get) => ({
         case 'dex':
           endpoint = '/api/dex/trades';
           break;
+        default:
+          throw new Error('Invalid exchange type');
       }
       
-      const response = await fetch(endpoint);
-      if (!response.ok) {
-        throw new Error('Failed to fetch orders');
+      const response = await apiClient.get(endpoint);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch orders');
       }
       
-      const data = await response.json();
-      const orders = data.data || data.orders || [];
+      const orders = (response.data as Order[]) || [];
       
       set({ orders, isLoading: false });
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch orders';
       set({ error: errorMessage, isLoading: false });
     }
@@ -257,18 +253,20 @@ export const useTradingStore = create<TradingState>((set, get) => ({
           // DEX doesn't have open orders in the same way
           set({ openOrders: [], isLoading: false });
           return;
+        default:
+          throw new Error('Invalid exchange type');
       }
       
-      const response = await fetch(endpoint);
-      if (!response.ok) {
-        throw new Error('Failed to fetch open orders');
+      const response = await apiClient.get(endpoint);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch open orders');
       }
       
-      const data = await response.json();
-      const openOrders = data.data || data.orders || [];
+      const openOrders = (response.data as Order[]) || [];
       
       set({ openOrders, isLoading: false });
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch open orders';
       set({ error: errorMessage, isLoading: false });
     }
@@ -290,18 +288,20 @@ export const useTradingStore = create<TradingState>((set, get) => ({
         case 'dex':
           endpoint = '/api/dex/trades';
           break;
+        default:
+          throw new Error('Invalid exchange type');
       }
       
-      const response = await fetch(endpoint);
-      if (!response.ok) {
-        throw new Error('Failed to fetch order history');
+      const response = await apiClient.get(endpoint);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch order history');
       }
       
-      const data = await response.json();
-      const orderHistory = data.data || data.orders || [];
+      const orderHistory = (response.data as Order[]) || [];
       
       set({ orderHistory, isLoading: false });
-    } catch {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch order history';
       set({ error: errorMessage, isLoading: false });
     }

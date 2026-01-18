@@ -31,7 +31,7 @@ export default function RegulatoryReportsPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push('/login?next=/admin/compliance/reports');
       }
     };

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { ExternalLink, Heart, Github, FileText, HelpCircle, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -14,9 +15,19 @@ import apiClient from '@/lib/api/client';
  * - System information
  * - Status indicators
  * - Version information
+ * - Conditionally hides on public pages (uses PublicFooter instead)
  */
 export function AppFooter() {
+  const pathname = usePathname();
   const [systemHealth, setSystemHealth] = useState<any>(null);
+
+  // Public pages use PublicFooter instead
+  const publicPages = ['/landing', '/token-presale', '/login', '/register'];
+  const isPublicPage = publicPages.some(page => pathname === page || pathname.startsWith(page));
+  
+  if (isPublicPage) {
+    return null; // Public pages use their own layout with PublicFooter
+  }
 
   useEffect(() => {
     const fetchHealth = async () => {
@@ -25,7 +36,7 @@ export function AppFooter() {
         if (res.success && res.data) {
           setSystemHealth(res.data);
         }
-      } catch {
+      } catch (error) {
         // Ignore errors - health check is optional
       }
     };

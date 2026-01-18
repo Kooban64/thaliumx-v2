@@ -41,7 +41,7 @@ export function RateLimitDisplay({
             ...info,
             resetTime: new Date(info.resetTime)
           });
-        } catch {
+        } catch (error) {
           // Invalid stored data
         }
       }

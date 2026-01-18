@@ -14,6 +14,7 @@ import { LoggerService } from './logger';
 import { ConfigService } from './config';
 import { EventStreamingService } from './event-streaming';
 import { SecurityOversightService } from './security-oversight';
+import { RedisService } from './redis';
 import type { JsonRpcProvider } from 'ethers';
 import { ethers } from 'ethers';
 // Contract imported but not used in this file
@@ -55,6 +56,7 @@ export class ContractEventMonitorService {
   private static monitoringInterval: NodeJS.Timeout | null = null;
   private static lastProcessedBlock: Map<string, number> = new Map();
   private static eventHandlers: Map<string, (event: ContractEvent) => Promise<void>> = new Map();
+  private static readonly PAUSED_CONTRACTS_KEY = 'contract_monitor:paused_contracts';
 
   /**
    * Start monitoring contract events
@@ -169,8 +171,8 @@ export class ContractEventMonitorService {
         {}
       );
 
-      // TODO: Pause backend processing for affected contracts
-      LoggerService.warn('Backend processing should be paused for emergency mode');
+      // Pause backend processing for affected contracts
+      await this.pauseContractProcessing(event.contractAddress, event.args.reason || 'Emergency mode activated');
     });
 
     // CircuitBreakerTriggered handler
@@ -508,5 +510,91 @@ export class ContractEventMonitorService {
       lastProcessedBlocks: Object.fromEntries(this.lastProcessedBlock),
       registeredHandlers: Array.from(this.eventHandlers.keys())
     };
+  }
+
+  /**
+   * Pause backend processing for a specific contract
+   */
+  private static async pauseContractProcessing(contractAddress: string, reason: string): Promise<void> {
+    try {
+      const redis = RedisService.getClient();
+      if (redis) {
+        // Store paused contract in Redis with expiration (24 hours)
+        await redis.setex(
+          `${this.PAUSED_CONTRACTS_KEY}:${contractAddress}`,
+          24 * 60 * 60, // 24 hours
+          JSON.stringify({
+            contractAddress,
+            reason,
+            pausedAt: new Date().toISOString()
+          })
+        );
+        LoggerService.warn('Backend processing paused for contract', { contractAddress, reason });
+      } else {
+        // Fallback: log warning if Redis is not available
+        LoggerService.warn('Backend processing should be paused for contract (Redis not available)', {
+          contractAddress,
+          reason
+        });
+      }
+
+      // Emit event for other services to react
+      await EventStreamingService.emitSystemEvent(
+        'contract.processing.paused',
+        'contract_monitor',
+        'warn',
+        {
+          contractAddress,
+          reason,
+          pausedAt: new Date().toISOString()
+        },
+        {}
+      );
+    } catch (error) {
+      LoggerService.error('Failed to pause contract processing', { error, contractAddress });
+    }
+  }
+
+  /**
+   * Check if contract processing is paused
+   */
+  public static async isContractPaused(contractAddress: string): Promise<boolean> {
+    try {
+      const redis = RedisService.getClient();
+      if (redis) {
+        const paused = await redis.get(`${this.PAUSED_CONTRACTS_KEY}:${contractAddress}`);
+        return paused !== null;
+      }
+      return false;
+    } catch (error) {
+      LoggerService.error('Failed to check contract pause status', { error, contractAddress });
+      return false;
+    }
+  }
+
+  /**
+   * Resume backend processing for a contract
+   */
+  public static async resumeContractProcessing(contractAddress: string): Promise<void> {
+    try {
+      const redis = RedisService.getClient();
+      if (redis) {
+        await redis.del(`${this.PAUSED_CONTRACTS_KEY}:${contractAddress}`);
+        LoggerService.info('Backend processing resumed for contract', { contractAddress });
+
+        await EventStreamingService.emitSystemEvent(
+          'contract.processing.resumed',
+          'contract_monitor',
+          'info',
+          {
+            contractAddress,
+            resumedAt: new Date().toISOString()
+          },
+          {}
+        );
+      }
+    } catch (error) {
+      LoggerService.error('Failed to resume contract processing', { error, contractAddress });
+    }
   }
 }

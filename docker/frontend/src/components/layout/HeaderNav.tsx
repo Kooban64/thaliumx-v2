@@ -55,7 +55,7 @@ export function HeaderNav() {
           const currentUser = await getCurrentUser();
           setUser(currentUser);
         }
-      } catch {
+      } catch (error) {
         setIsAuthenticated(false);
       } finally {
         setLoading(false);

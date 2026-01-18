@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         'Content-Type': 'application/json',
       },
     });
-  } catch {
+  } catch (error) {
     // Log error to backend (production-ready)
     await logApiProxyError(
       error,
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
     });
-  } catch {
+  } catch (error) {
     // Log error to backend (production-ready)
     await logApiProxyError(
       error,

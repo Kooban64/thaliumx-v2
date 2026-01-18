@@ -15,7 +15,7 @@ export async function requireAuth(): Promise<boolean> {
   try {
     const user = await getCurrentUser();
     return !!user;
-  } catch {
+  } catch (error) {
     return false;
   }
 }
@@ -31,7 +31,7 @@ export async function requireRole(requiredRoles: string | string[]): Promise<boo
     // Use RBAC store for role checking
     const { checkRole } = useRBACStore.getState();
     return checkRole(requiredRoles);
-  } catch {
+  } catch (error) {
     return false;
   }
 }
@@ -46,7 +46,7 @@ export async function requirePermission(permission: string): Promise<boolean> {
 
     const { checkPermission } = useRBACStore.getState();
     return checkPermission(permission);
-  } catch {
+  } catch (error) {
     return false;
   }
 }
@@ -65,7 +65,7 @@ export async function requireKYCLevel(minLevel: KYCLevel): Promise<boolean> {
     const minLevelIndex = levels.indexOf(minLevel);
 
     return userLevelIndex >= minLevelIndex;
-  } catch {
+  } catch (error) {
     return false;
   }
 }

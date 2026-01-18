@@ -49,7 +49,7 @@ export default function FIATWalletPage() {
         }
 
         setIsLoading(false);
-      } catch {
+      } catch (error) {
         router.push('/login?next=/dashboard/wallet/fiat');
       }
     };

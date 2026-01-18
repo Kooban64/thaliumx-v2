@@ -69,24 +69,43 @@ if [ $RENEWAL_STATUS -eq 0 ]; then
     echo ""
     echo -e "${GREEN}Certificate renewal completed${NC}"
     
-    # Deploy hook - copy certificates to gateway
+    # Deploy hook - copy certificates to APISIX
     if [ "$DEPLOY_HOOK" = true ]; then
         echo ""
         echo -e "${YELLOW}Deploying certificates to APISIX gateway...${NC}"
         
-        # Create gateway SSL directory if it doesn't exist
-        mkdir -p "$GATEWAY_SSL_DIR"
-        
-        # Copy certificates
-        cp data/certbot/conf/live/thaliumx.com/fullchain.pem "$GATEWAY_SSL_DIR/"
-        cp data/certbot/conf/live/thaliumx.com/privkey.pem "$GATEWAY_SSL_DIR/"
-        
-        echo -e "${GREEN}Certificates deployed to $GATEWAY_SSL_DIR${NC}"
+        # Run the APISIX certificate setup script
+        APISIX_SCRIPT_DIR="$(cd "$SCRIPT_DIR/../../apisix/scripts" && pwd)"
+        if [ -f "$APISIX_SCRIPT_DIR/setup-letsencrypt-certs.sh" ]; then
+            bash "$APISIX_SCRIPT_DIR/setup-letsencrypt-certs.sh"
+        else
+            # Fallback: copy to APISIX certs directory
+            APISIX_CERTS_DIR="$(cd "$SCRIPT_DIR/../../apisix/certs/letsencrypt" && pwd)"
+            mkdir -p "$APISIX_CERTS_DIR"
+            
+            # Copy certificates
+            cp data/certbot/conf/live/thaliumx.com/fullchain.pem "$APISIX_CERTS_DIR/server.crt"
+            cp data/certbot/conf/live/thaliumx.com/privkey.pem "$APISIX_CERTS_DIR/server.key"
+            chmod 600 "$APISIX_CERTS_DIR/server.key"
+            chmod 644 "$APISIX_CERTS_DIR/server.crt"
+            
+            echo -e "${GREEN}Certificates deployed to $APISIX_CERTS_DIR${NC}"
+            
+            # Copy to APISIX container if running
+            if docker ps | grep -q thaliumx-apisix; then
+                echo -e "${YELLOW}Copying certificates to APISIX container...${NC}"
+                docker cp "$APISIX_CERTS_DIR/server.crt" thaliumx-apisix:/tmp/certs/server.crt
+                docker cp "$APISIX_CERTS_DIR/server.key" thaliumx-apisix:/tmp/certs/server.key
+                docker exec thaliumx-apisix chmod 644 /tmp/certs/server.crt
+                docker exec thaliumx-apisix chmod 600 /tmp/certs/server.key
+                echo -e "${GREEN}Certificates copied to container${NC}"
+            fi
+        fi
         
         # Reload APISIX if running
         if docker ps | grep -q thaliumx-apisix; then
             echo -e "${YELLOW}Reloading APISIX configuration...${NC}"
-            docker exec thaliumx-apisix apisix reload
+            docker restart thaliumx-apisix || echo -e "${YELLOW}Note: APISIX restart may be needed manually${NC}"
             echo -e "${GREEN}APISIX reloaded${NC}"
         fi
     fi

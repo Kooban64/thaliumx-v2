@@ -44,7 +44,7 @@ function OnboardingPageContent() {
         if (response.success && response.data?.id) {
           setUserId(response.data.id);
         }
-      } catch {
+      } catch (error) {
         logApiError(error, '/api/auth/profile', 'GET', undefined, { component: 'Onboarding' });
       } finally {
         setLoading(false);

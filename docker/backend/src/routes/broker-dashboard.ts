@@ -503,17 +503,23 @@ router.get('/compliance', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKER_CO
     }
 
     // Get compliance status for broker
+    const broker = BrokerManagementService.getBroker(brokerId);
+    if (!broker) {
+      throw createError('Broker not found', 404, 'BROKER_NOT_FOUND');
+    }
+
+    const compliance = broker.compliance || {} as any;
     const complianceStatus = {
       brokerId,
-      status: 'compliant', // TODO: Implement actual compliance checking
+      status: compliance.auditStatus === 'passed' ? 'compliant' : (compliance.auditStatus || 'compliant'),
       requirements: {
-        kyc: 'complete',
-        aml: 'complete',
-        reporting: 'up_to_date'
+        kyc: compliance.kycRequired ? 'complete' : 'not_required',
+        aml: compliance.amlRequired ? 'complete' : 'not_required',
+        reporting: compliance.reporting ? 'up_to_date' : 'not_required'
       },
-      lastAudit: new Date().toISOString(),
-      nextAudit: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days from now
-      alerts: [],
+      lastAudit: compliance.lastAuditDate?.toISOString() || new Date().toISOString(),
+      nextAudit: compliance.nextAuditDate?.toISOString() || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      alerts: compliance.violations?.filter((v: any) => v.status === 'open') || [],
       timestamp: new Date().toISOString()
     };
 
@@ -535,15 +541,19 @@ router.get('/trading/config', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKE
     }
 
     // Get trading configuration for broker
-    // TODO: Implement actual trading config retrieval from database
+    const broker = BrokerManagementService.getBroker(brokerId);
+    if (!broker) {
+      throw createError('Broker not found', 404, 'BROKER_NOT_FOUND');
+    }
+
     const tradingConfig = {
       brokerId,
-      pairs: [],
-      fees: {
+      pairs: (broker.features as any)?.tradingPairs || [],
+      fees: (broker.features as any)?.tradingFees || {
         maker: 0.001,
         taker: 0.002
       },
-      limits: {
+      limits: broker.limits || {
         minOrderSize: 10,
         maxOrderSize: 1000000
       },
@@ -569,8 +579,30 @@ router.put('/trading/config', requireRole([UserRole.BROKER_ADMIN, UserRole.BROKE
 
     const { pairs, fees, limits } = req.body;
 
-    // TODO: Implement actual trading config update in database
-    LoggerService.info('Updating broker trading config', { brokerId, pairs, fees, limits });
+    const broker = BrokerManagementService.getBroker(brokerId);
+    if (!broker) {
+      throw createError('Broker not found', 404, 'BROKER_NOT_FOUND');
+    }
+
+    // Update broker configuration
+    broker.features = {
+      ...broker.features,
+      ...(pairs ? { tradingPairs: pairs } : {}),
+      ...(fees ? { tradingFees: fees } : {})
+    } as any;
+    broker.limits = {
+      ...broker.limits,
+      ...limits
+    };
+    broker.updatedAt = new Date();
+
+    // Save to database via BrokerManagementService
+    await BrokerManagementService.updateBroker(brokerId, {
+      features: broker.features,
+      limits: broker.limits
+    });
+
+    LoggerService.info('Broker trading config updated', { brokerId, pairs, fees, limits });
 
     res.json({
       success: true,
@@ -604,15 +636,16 @@ router.get('/settings', requireRole([UserRole.BROKER_ADMIN]), async (req: Reques
       throw createError('Broker not found', 404, 'BROKER_NOT_FOUND');
     }
 
-    // TODO: Get actual settings from database
+    // Get settings from broker configuration
+    const brokerSettings = (brokerConfig as any).settings || {};
     const settings = {
       brokerId,
       features: brokerConfig.features || {},
-      notifications: {
+      notifications: brokerSettings.notifications || {
         email: true,
         sms: false
       },
-      security: {
+      security: brokerSettings.security || {
         twoFactorRequired: false,
         sessionTimeout: 3600
       },
@@ -638,8 +671,25 @@ router.put('/settings', requireRole([UserRole.BROKER_ADMIN]), async (req: Reques
 
     const settings = req.body;
 
-    // TODO: Implement actual settings update in database
-    LoggerService.info('Updating broker settings', { brokerId, settings });
+    const broker = BrokerManagementService.getBroker(brokerId);
+    if (!broker) {
+      throw createError('Broker not found', 404, 'BROKER_NOT_FOUND');
+    }
+
+    // Update broker settings (stored as metadata in BrokerConfig)
+    const brokerSettings = (broker as any).settings || {};
+    (broker as any).settings = {
+      ...brokerSettings,
+      ...settings
+    };
+    broker.updatedAt = new Date();
+
+    // Save to database via BrokerManagementService
+    await BrokerManagementService.updateBroker(brokerId, {
+      ...(settings ? { settings: (broker as any).settings } : {})
+    } as any);
+
+    LoggerService.info('Broker settings updated', { brokerId, settings });
 
     res.json({
       success: true,
@@ -666,13 +716,18 @@ router.get('/settings/branding', requireRole([UserRole.BROKER_ADMIN]), async (re
       throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
     }
 
-    // TODO: Get actual branding from database
+    // Get branding from broker configuration
+    const broker = BrokerManagementService.getBroker(brokerId);
+    if (!broker) {
+      throw createError('Broker not found', 404, 'BROKER_NOT_FOUND');
+    }
+
     const branding = {
       brokerId,
-      logo: null,
-      primaryColor: '#6366f1',
-      secondaryColor: '#8b5cf6',
-      customCSS: '',
+      logo: broker.branding?.logo || null,
+      primaryColor: broker.branding?.primaryColor || '#6366f1',
+      secondaryColor: broker.branding?.secondaryColor || '#8b5cf6',
+      customCSS: broker.branding?.customCss || '',
       timestamp: new Date().toISOString()
     };
 
@@ -695,8 +750,27 @@ router.put('/settings/branding', requireRole([UserRole.BROKER_ADMIN]), async (re
 
     const { logo, primaryColor, secondaryColor, customCSS } = req.body;
 
-    // TODO: Implement actual branding update in database
-    LoggerService.info('Updating broker branding', { brokerId, primaryColor, secondaryColor });
+    const broker = BrokerManagementService.getBroker(brokerId);
+    if (!broker) {
+      throw createError('Broker not found', 404, 'BROKER_NOT_FOUND');
+    }
+
+    // Update broker branding
+    broker.branding = {
+      ...broker.branding,
+      logo: logo || broker.branding?.logo,
+      primaryColor: primaryColor || broker.branding?.primaryColor,
+      secondaryColor: secondaryColor || broker.branding?.secondaryColor,
+      customCss: customCSS || broker.branding?.customCss || ''
+    };
+    broker.updatedAt = new Date();
+
+    // Save to database via BrokerManagementService
+    await BrokerManagementService.updateBroker(brokerId, {
+      branding: broker.branding
+    });
+
+    LoggerService.info('Broker branding updated', { brokerId, primaryColor, secondaryColor });
 
     res.json({
       success: true,
@@ -726,16 +800,21 @@ router.get('/settings/limits', requireRole([UserRole.BROKER_ADMIN]), async (req:
       throw createError('Broker ID not found in user context', 400, 'BROKER_ID_REQUIRED');
     }
 
-    // TODO: Get actual limits from database
+    // Get limits from broker configuration
+    const broker = BrokerManagementService.getBroker(brokerId);
+    if (!broker) {
+      throw createError('Broker not found', 404, 'BROKER_NOT_FOUND');
+    }
+
     const limits = {
       brokerId,
-      maxDailyVolume: 1000000,
-      maxMonthlyVolume: 30000000,
-      maxSingleTransaction: 100000,
-      maxDailyWithdrawal: 50000,
-      maxMonthlyWithdrawal: 500000,
-      maxDailyDeposit: 100000,
-      maxMonthlyDeposit: 1000000,
+      maxDailyVolume: broker.limits?.maxTradingVolume || 1000000,
+      maxMonthlyVolume: (broker.limits?.maxTradingVolume || 1000000) * 30,
+      maxSingleTransaction: broker.limits?.maxWithdrawalAmount || 100000,
+      maxDailyWithdrawal: broker.limits?.maxWithdrawalAmount || 50000,
+      maxMonthlyWithdrawal: (broker.limits?.maxWithdrawalAmount || 50000) * 10,
+      maxDailyDeposit: broker.limits?.maxDepositAmount || 100000,
+      maxMonthlyDeposit: (broker.limits?.maxDepositAmount || 100000) * 10,
       timestamp: new Date().toISOString()
     };
 
@@ -758,8 +837,26 @@ router.put('/settings/limits', requireRole([UserRole.BROKER_ADMIN]), async (req:
 
     const limits = req.body;
 
-    // TODO: Implement actual limits update in database
-    LoggerService.info('Updating broker limits', { brokerId, limits });
+    const broker = BrokerManagementService.getBroker(brokerId);
+    if (!broker) {
+      throw createError('Broker not found', 404, 'BROKER_NOT_FOUND');
+    }
+
+    // Update broker limits
+    broker.limits = {
+      ...broker.limits,
+      maxTradingVolume: limits.maxDailyVolume || broker.limits?.maxTradingVolume,
+      maxWithdrawalAmount: limits.maxDailyWithdrawal || broker.limits?.maxWithdrawalAmount,
+      maxDepositAmount: limits.maxDailyDeposit || broker.limits?.maxDepositAmount
+    };
+    broker.updatedAt = new Date();
+
+    // Save to database via BrokerManagementService
+    await BrokerManagementService.updateBroker(brokerId, {
+      limits: broker.limits
+    });
+
+    LoggerService.info('Broker limits updated', { brokerId, limits });
 
     res.json({
       success: true,

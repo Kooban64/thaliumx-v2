@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { useKYCStore } from './kycStore';
 import { useConfigStore } from './configStore';
+import { useAuthStore } from './authStore';
 import { getPermissionsForRole } from '@/lib/rbac/permissions';
 import { hasRole, hasPermission, hasKYCLevel, hasFeature, canAccess } from '@/lib/rbac/utils';
 import type { AccessCheckOptions } from '@/lib/rbac/utils';
 import type { KYCLevel } from './kycStore';
 import { logApiError } from '@/lib/services/errorLogger';
+import apiClient from '@/lib/api/client';
 
 interface RBACState {
   // User roles and permissions
@@ -85,21 +87,47 @@ export const useRBACStore = create<RBACState>((set, get) => ({
 
   fetchUserRoles: async () => {
     try {
-      // TODO: Implement API call to fetch user roles
-      // const response = await apiClient.get('/api/rbac/user-roles');
-      // set({ userRoles: response.data.roles, userRole: response.data.primaryRole });
-    } catch {
-      logApiError(error, '/api/rbac/user-roles', 'GET', undefined, { component: 'rbacStore', action: 'fetchUserRoles' });
+      const user = useAuthStore.getState().user;
+      if (!user || !user.id) {
+        console.warn('Cannot fetch user roles: user not authenticated');
+        return;
+      }
+
+      const response = await apiClient.get(`/api/rbac/users/${user.id}/roles`);
+
+      if (response.success && response.data) {
+        const data = response.data as any;
+        const userRoles = Array.isArray(data) ? data : data.roles || [];
+        const roleNames = userRoles.map((ur: any) => ur.roleName || ur.roleId);
+        const primaryRole = roleNames[0] || null;
+
+        set({ 
+          userRoles: roleNames,
+          userRole: primaryRole 
+        });
+      }
+    } catch (error) {
+      logApiError(error, '/api/rbac/users/:userId/roles', 'GET', undefined, { component: 'rbacStore', action: 'fetchUserRoles' });
     }
   },
 
   fetchPermissions: async () => {
     try {
-      // TODO: Implement API call to fetch user permissions
-      // const response = await apiClient.get('/api/rbac/user-permissions');
-      // set({ permissions: response.data.permissions });
-    } catch {
-      logApiError(error, '/api/rbac/user-permissions', 'GET', undefined, { component: 'rbacStore', action: 'fetchPermissions' });
+      const user = useAuthStore.getState().user;
+      if (!user || !user.id) {
+        console.warn('Cannot fetch user permissions: user not authenticated');
+        return;
+      }
+
+      const response = await apiClient.get(`/api/rbac/users/${user.id}/permissions`);
+
+      if (response.success && response.data) {
+        const data = response.data as any;
+        const permissions = data.permissions || [];
+        set({ permissions });
+      }
+    } catch (error) {
+      logApiError(error, '/api/rbac/users/:userId/permissions', 'GET', undefined, { component: 'rbacStore', action: 'fetchPermissions' });
     }
   },
 

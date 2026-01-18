@@ -117,7 +117,7 @@ services:
       - NODE_ENV=development
       - NODE_ENV
       - PORT=3002
-      - DISABLE_RATE_LIMIT=${DISABLE_RATE_LIMIT:-false}
+      - DISABLE_RATE_LIMIT=${DISABLE_RATE_LIMIT:-true}
       # API Gateway Configuration
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:3002,https://thaliumx.com,https://thal.thaliumx.com
       # Vault Configuration (primary secrets source)
@@ -232,7 +232,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 90s  # Increased to allow all 48 services to initialize
+      start_period: 120s  # Increased to allow all services to initialize, including Kafka retries
     
     deploy:
       resources:
