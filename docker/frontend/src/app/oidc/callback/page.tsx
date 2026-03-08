@@ -35,7 +35,7 @@ export default function OidcCallbackPage() {
           const expectedPrefix = `/b/${entryBrokerSlug}`;
           const role = user?.role;
           const isBrokerRole = typeof role === 'string' && role.startsWith('broker_');
-          const fallback = isBrokerRole ? expectedPrefix : '/login';
+          const fallback = isBrokerRole ? expectedPrefix : '/auth';
           const target = requestedPath.startsWith(expectedPrefix) ? requestedPath : fallback;
           router.replace(target);
           return;
@@ -45,7 +45,8 @@ export default function OidcCallbackPage() {
         router.replace(getSafePostLoginPath(roleBasedRedirect));
       } catch (e) {
         setError(e instanceof Error ? e.message : 'OIDC callback failed');
-        router.replace('/login?error=oidc_callback_failed');
+        // Use hard navigation for deterministic fail-closed behavior under E2E/dev runtime.
+        window.location.assign('/auth?error=oidc_callback_failed');
       }
     })();
   }, [router]);

@@ -85,22 +85,7 @@ describe('Authentication Integration Tests', () => {
   });
 
   describe('POST /api/auth/login', () => {
-    beforeAll(async () => {
-      // Register a user for login tests
-      const userData = {
-        email: 'login-test@example.com',
-        password: 'password123',
-        username: 'logintest',
-        firstName: 'Login',
-        lastName: 'Test'
-      };
-
-      await request(app)
-        .post('/api/auth/register')
-        .send(userData);
-    });
-
-    it('should login successfully with correct credentials', async () => {
+    it('should return 410 and deterministic deprecation payload for legacy login', async () => {
       const loginData = {
         email: 'login-test@example.com',
         password: 'password123'
@@ -109,72 +94,25 @@ describe('Authentication Integration Tests', () => {
       const response = await request(app)
         .post('/api/auth/login')
         .send(loginData)
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.accessToken).toBeDefined();
-      expect(response.body.data.refreshToken).toBeDefined();
-      expect(response.body.data.user).toBeDefined();
-    });
-
-    it('should return 401 for incorrect password', async () => {
-      const loginData = {
-        email: 'login-test@example.com',
-        password: 'wrongpassword'
-      };
-
-      const response = await request(app)
-        .post('/api/auth/login')
-        .send(loginData)
-        .expect(401);
+        .expect(410);
 
       expect(response.body.success).toBe(false);
-      if (typeof response.body.error === 'string') {
-        expect(response.body.error).toContain('Invalid credentials');
-      } else {
-        expect(response.body.error?.message).toContain('Login failed');
-      }
+      expect(response.body.error?.code).toBe('LEGACY_AUTH_DISABLED');
+      expect(response.body.error?.message).toContain('Use Keycloak via /auth');
     });
 
-    it('should return 400 for missing email or password', async () => {
+    it('should return 410 even when payload is incomplete (no auth fallback)', async () => {
       const response = await request(app)
         .post('/api/auth/login')
         .send({ email: 'login-test@example.com' })
-        .expect(400);
+        .expect(410);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Email and password are required');
+      expect(response.body.error?.code).toBe('LEGACY_AUTH_DISABLED');
     });
   });
 
   describe('POST /api/auth/refresh', () => {
-    let refreshToken: string;
-
-    beforeAll(async () => {
-      // Login to get a refresh token
-      const loginData = {
-        email: 'login-test@example.com',
-        password: 'password123'
-      };
-
-      const loginResponse = await request(app)
-        .post('/api/auth/login')
-        .send(loginData);
-
-      refreshToken = loginResponse.body.data.refreshToken;
-    });
-
-    it('should refresh tokens successfully', async () => {
-      const response = await request(app)
-        .post('/api/auth/refresh')
-        .send({ refreshToken })
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.accessToken).toBeDefined();
-      expect(response.body.data.refreshToken).toBeDefined();
-    });
-
     it('should return 400 for missing refresh token', async () => {
       const response = await request(app)
         .post('/api/auth/refresh')

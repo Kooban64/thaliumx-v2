@@ -15,9 +15,20 @@ test.describe('Keycloak integration (smoke)', () => {
   });
 
   test('oidc callback route exists (shows error without code)', async ({ page }) => {
-    // The callback route is expected to show an error when called without params.
+    // Callback without params must fail closed and return to canonical /auth entry.
     await page.goto('/oidc/callback', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByText(/authentication failed|missing authorization code/i)).toBeVisible();
+    await page.waitForURL(/\/auth(\?|$)/, { timeout: 15000 });
+    await expect(page.getByRole('button', { name: /^continue$/i })).toBeVisible();
+  });
+
+  test('legacy login endpoint is deprecated (410)', async ({ page }) => {
+    const response = await page.request.post('/api/auth/login', {
+      data: { email: 'legacy@example.com', password: 'legacy-password' },
+    });
+
+    expect(response.status()).toBe(410);
+    const body = await response.text();
+    expect(body).toContain('LEGACY_AUTH_DISABLED');
   });
 
   test('dashboard is reachable when authenticated (best-effort)', async ({ page }) => {

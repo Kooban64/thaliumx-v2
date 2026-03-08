@@ -25,7 +25,6 @@
 
 import { Router } from 'express';
 import {
-  validateLogin,
   validateRegister,
   validateRefreshToken,
   validateChangePassword,
@@ -39,24 +38,24 @@ const router: Router = Router();
 // =============================================================================
 // PROVIDER-AWARE AUTH MODE
 // =============================================================================
-// Legacy MFA/password-reset paths are retained as stubs for compatibility.
-// Primary authentication is provider-driven (Keycloak/Zitadel/internal JWT fallback).
+// Legacy password/MFA endpoints are retained as deterministic stubs for compatibility.
+// Primary authentication is provider-driven (Keycloak-only).
 const legacyAuthGone = (_req: any, res: any) => {
   res.status(410).json({
     success: false,
     error: {
       code: 'LEGACY_AUTH_DISABLED',
-      message: 'Legacy auth endpoint is disabled. Use OIDC login flow.'
+      message: 'Legacy auth is disabled. Use Keycloak via /auth.'
     },
     timestamp: new Date()
   });
 };
 
 // Import actual handlers from auth.ts
-import { login, register, refreshToken } from './auth';
+import { register, refreshToken } from './auth';
 
-// Public routes - provider-aware login/register
-router.post('/login', validateLogin, login);
+// Public routes - legacy login explicitly disabled (fail-closed)
+router.post('/login', legacyAuthGone);
 
 router.post('/register', validateRegister, register);
 

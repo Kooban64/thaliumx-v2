@@ -55,7 +55,12 @@ const randomString = (bytes: number): string => {
 const getDiscovery = async (): Promise<OidcDiscovery> => {
   if (discoveryCache) return discoveryCache;
   const url = `${KEYCLOAK_ISSUER}/.well-known/openid-configuration`;
-  const res = await fetch(url, { credentials: 'omit' });
+  const res = await fetch(url, {
+    credentials: 'omit',
+    // Fail fast in e2e/dev when issuer DNS/network is unavailable,
+    // so /auth surfaces deterministic feedback instead of hanging.
+    signal: AbortSignal.timeout(8000),
+  });
   if (!res.ok) {
     throw new Error(`Failed to load OIDC discovery: ${res.status}`);
   }
