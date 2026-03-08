@@ -2,6 +2,20 @@ import { create } from 'zustand';
 import type { Order, OrderRequest, TradingPair } from '@/types/trading';
 import apiClient from '@/lib/api/client';
 
+interface OrdersPayload {
+  data?: Order[];
+  orders?: Order[];
+}
+
+interface OrderPayload {
+  data?: Order;
+  order?: Order;
+}
+
+function isOrder(value: unknown): value is Order {
+  return !!value && typeof value === 'object' && 'id' in value && 'symbol' in value;
+}
+
 export type ExchangeType = 'cex' | 'omni' | 'dex';
 
 interface TradingState {
@@ -147,13 +161,17 @@ export const useTradingStore = create<TradingState>((set, get) => ({
           throw new Error('Invalid exchange type');
       }
       
-      const response = await apiClient.post(endpoint, orderRequest);
+      const response = await apiClient.post<OrderPayload | Order>(endpoint, orderRequest);
       
       if (!response.success) {
         throw new Error(response.error || 'Failed to place order');
       }
       
-      const order = response.data as Order;
+      const payload = response.data;
+      const order = (payload && typeof payload === 'object' && 'order' in payload ? payload.order : payload) as unknown;
+      if (!isOrder(order)) {
+        throw new Error('Invalid order payload');
+      }
       
       get().addOrder(order);
       set({ isLoading: false });
@@ -221,13 +239,16 @@ export const useTradingStore = create<TradingState>((set, get) => ({
           throw new Error('Invalid exchange type');
       }
       
-      const response = await apiClient.get(endpoint);
+      const response = await apiClient.get<OrdersPayload | Order[]>(endpoint);
       
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch orders');
       }
       
-      const orders = (response.data as Order[]) || [];
+      const payload = response.data;
+      const orders = Array.isArray(payload)
+        ? payload
+        : payload?.data || payload?.orders || [];
       
       set({ orders, isLoading: false });
     } catch (error) {
@@ -257,13 +278,16 @@ export const useTradingStore = create<TradingState>((set, get) => ({
           throw new Error('Invalid exchange type');
       }
       
-      const response = await apiClient.get(endpoint);
+      const response = await apiClient.get<OrdersPayload | Order[]>(endpoint);
       
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch open orders');
       }
       
-      const openOrders = (response.data as Order[]) || [];
+      const payload = response.data;
+      const openOrders = Array.isArray(payload)
+        ? payload
+        : payload?.data || payload?.orders || [];
       
       set({ openOrders, isLoading: false });
     } catch (error) {
@@ -292,13 +316,16 @@ export const useTradingStore = create<TradingState>((set, get) => ({
           throw new Error('Invalid exchange type');
       }
       
-      const response = await apiClient.get(endpoint);
+      const response = await apiClient.get<OrdersPayload | Order[]>(endpoint);
       
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch order history');
       }
       
-      const orderHistory = (response.data as Order[]) || [];
+      const payload = response.data;
+      const orderHistory = Array.isArray(payload)
+        ? payload
+        : payload?.data || payload?.orders || [];
       
       set({ orderHistory, isLoading: false });
     } catch (error) {

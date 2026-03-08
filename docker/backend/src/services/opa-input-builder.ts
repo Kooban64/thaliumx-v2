@@ -10,7 +10,7 @@ import { LoggerService } from './logger';
 import { TransactionVolumeTrackerService, TimePeriod } from './transaction-volume-tracker.service';
 import { KYCService } from './kyc';
 import { RoleMapperService } from './role-mapper';
-import { ZitadelAttributesService } from './zitadel-attributes.service';
+import { AuthAttributesService } from './zitadel-attributes.service';
 import { RedisService } from './redis';
 
 export interface OPAInput {
@@ -60,8 +60,8 @@ export class OPAInputBuilder {
     const resolvedAction = action || this.extractAction(req);
     const resolvedResourceType = resourceType || this.extractResourceType(req);
 
-    // Extract Zitadel attributes
-    const zitadelContext = ZitadelAttributesService.extractFromRequest(req);
+    // Extract auth attributes
+    const authContext = AuthAttributesService.extractFromRequest(req);
 
     const input: OPAInput = {
       action: resolvedAction,
@@ -69,14 +69,14 @@ export class OPAInputBuilder {
         id: userId,
         email: user?.email,
         role: user?.role,
-        roles: zitadelContext.normalizedRoles.length > 0 ? zitadelContext.normalizedRoles : (Array.isArray(user?.roles) ? user?.roles : (user?.role ? [user.role] : [])),
+        roles: authContext.normalizedRoles.length > 0 ? authContext.normalizedRoles : (Array.isArray(user?.roles) ? user?.roles : (user?.role ? [user.role] : [])),
         tenantId,
-        brokerId: zitadelContext.brokerId || user?.brokerId,
-        organization_id: zitadelContext.organizationId,
-        zitadel_project_id: zitadelContext.projectId,
-        zitadel_roles: zitadelContext.roles,
-        metadata: zitadelContext.metadata,
-        custom_claims: zitadelContext.customClaims,
+        brokerId: authContext.brokerId || user?.brokerId,
+        organization_id: authContext.organizationId,
+        client_id: authContext.clientId,
+        auth_roles: authContext.roles,
+        metadata: authContext.metadata,
+        custom_claims: authContext.customClaims,
         authenticated: !!user,
         ...additionalContext?.user
       },

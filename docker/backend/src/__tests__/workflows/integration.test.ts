@@ -10,6 +10,7 @@
 import { WorkflowOrchestratorService } from '../../services/workflow-orchestrator';
 import { WorkflowType } from '../../types/workflow';
 import { DatabaseService } from '../../services/database';
+import '../../workflows';
 
 // Mock all external services
 jest.mock('../../services/database');
@@ -21,6 +22,47 @@ jest.mock('../../services/wallet-system');
 jest.mock('../../services/email');
 
 describe('Workflow Integration Tests', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    const workflowStates = new Map<string, Record<string, unknown>>();
+    const WorkflowStateModel = {
+      create: jest.fn(async (record: Record<string, unknown>) => {
+        const workflowId = String(record.workflowId);
+        workflowStates.set(workflowId, {
+          ...record,
+          createdAt: record.createdAt ?? new Date(),
+          updatedAt: new Date(),
+        });
+        return record;
+      }),
+      update: jest.fn(async (updates: Record<string, unknown>, options: { where?: { workflowId?: string } }) => {
+        const workflowId = options?.where?.workflowId;
+        if (!workflowId) return [0];
+
+        const existing = workflowStates.get(workflowId);
+        if (!existing) return [0];
+
+        workflowStates.set(workflowId, {
+          ...existing,
+          ...updates,
+          updatedAt: new Date(),
+        });
+
+        return [1];
+      }),
+      findByPk: jest.fn(async (workflowId: string) => {
+        const state = workflowStates.get(workflowId);
+        return state ? { toJSON: () => state } : null;
+      }),
+      findAll: jest.fn(async () => {
+        return [...workflowStates.values()].map(state => ({ toJSON: () => state }));
+      }),
+    };
+
+    (DatabaseService.getModel as jest.Mock).mockReturnValue(WorkflowStateModel);
+  });
+
   beforeEach(async () => {
     await WorkflowOrchestratorService.initialize();
   });

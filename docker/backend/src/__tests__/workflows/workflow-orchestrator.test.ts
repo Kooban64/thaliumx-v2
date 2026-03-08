@@ -9,7 +9,7 @@
  */
 
 import { WorkflowOrchestratorService } from '../../services/workflow-orchestrator';
-import { _WorkflowType, WorkflowStatus } from '../../types/workflow';
+import { WorkflowType, WorkflowStatus } from '../../types/workflow';
 import { DatabaseService } from '../../services/database';
 
 // Mock dependencies
@@ -20,6 +20,14 @@ jest.mock('../../services/event-streaming');
 describe('WorkflowOrchestratorService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+
+    const WorkflowStateModel = {
+      create: jest.fn().mockResolvedValue({}),
+      update: jest.fn().mockResolvedValue([1]),
+      findByPk: jest.fn().mockResolvedValue(null),
+    };
+
+    (DatabaseService.getModel as jest.Mock).mockReturnValue(WorkflowStateModel);
   });
 
   describe('startWorkflow', () => {
@@ -51,15 +59,15 @@ describe('WorkflowOrchestratorService', () => {
       expect(result.workflowType).toBe(WorkflowType.USER_ONBOARDING);
     });
 
-    it('should fail if workflow not registered', async () => {
+    it('should return failed status if workflow not registered', async () => {
       const input = {
         workflowType: 'non_existent_workflow' as any,
         data: {}
       };
 
-      await expect(
-        WorkflowOrchestratorService.startWorkflow(input)
-      ).rejects.toThrow('Workflow implementation not found');
+      const result = await WorkflowOrchestratorService.startWorkflow(input);
+      expect(result.status).toBe(WorkflowStatus.FAILED);
+      expect(result.error).toContain('Workflow implementation not found');
     });
   });
 

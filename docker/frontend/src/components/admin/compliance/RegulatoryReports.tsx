@@ -6,7 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api/client';
-import { FileText, Download, AlertTriangle, Loader2, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import {
+  FileText,
+  Download,
+  AlertTriangle,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  type LucideIcon,
+} from 'lucide-react';
 import { toast } from '@/components/shared/Toast';
 
 interface Report {
@@ -26,7 +35,12 @@ export function RegulatoryReports() {
   const queryClient = useQueryClient();
   const [selectedReportType, setSelectedReportType] = useState<string>('');
 
-  const reportTypes = [
+  const reportTypes: Array<{
+    id: string;
+    name: string;
+    description: string;
+    icon: LucideIcon;
+  }> = [
     {
       id: 'sar',
       name: 'Suspicious Activity Report (SAR)',
@@ -56,9 +70,11 @@ export function RegulatoryReports() {
   const { data: reports, isLoading: isLoadingReports } = useQuery<Report[]>({
     queryKey: ['admin', 'compliance', 'reports'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/admin/compliance/reports') as any;
+      const response = await apiClient.get<Report[] | { data?: Report[] }>(
+        '/api/admin/compliance/reports',
+      );
       if (response.success && response.data) {
-        return response.data;
+        return Array.isArray(response.data) ? response.data : response.data.data || [];
       }
       return [];
     },
@@ -83,11 +99,11 @@ export function RegulatoryReports() {
         description: 'Your report is being generated. You will be notified when it is ready.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         type: 'error',
         title: 'Failed to generate report',
-        description: error.message || 'Failed to generate report',
+        description: error instanceof Error ? error.message : 'Failed to generate report',
       });
     },
   });
@@ -139,7 +155,10 @@ export function RegulatoryReports() {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: any }> = {
+    const variants: Record<
+      string,
+      { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: LucideIcon }
+    > = {
       generating: { variant: 'outline', icon: Clock },
       completed: { variant: 'default', icon: CheckCircle2 },
       failed: { variant: 'destructive', icon: XCircle },

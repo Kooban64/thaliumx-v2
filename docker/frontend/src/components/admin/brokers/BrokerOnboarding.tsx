@@ -46,10 +46,10 @@ export function BrokerOnboarding() {
       const brokerData = data as { id?: string; brokerId?: string };
       router.push(`/admin/brokers/${brokerData.id || brokerData.brokerId}`);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to onboard broker',
+        description: error instanceof Error ? error.message : 'Failed to onboard broker',
         type: 'error',
       });
     },
@@ -114,7 +114,7 @@ export function BrokerOnboarding() {
               Step 1: Basic Information
             </CardTitle>
             <CardDescription>
-              Enter the broker's basic information
+              Enter the broker&apos;s basic information
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

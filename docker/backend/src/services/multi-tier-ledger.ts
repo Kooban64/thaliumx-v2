@@ -3470,7 +3470,6 @@ export class MultiTierLedgerService {
       // Check KYC and AML compliance from KYC service
       // Note: brokerAccounts are LedgerAccount objects, not user objects
       // For compliance checking, we'd need to map accounts to users or check at tenant level
-      const { KYCService, KYCStatus } = await import('./kyc');
       let kycCompliant = true;
       try {
         // Check compliance at tenant level or skip if no user association

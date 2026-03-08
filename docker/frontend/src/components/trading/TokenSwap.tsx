@@ -10,6 +10,15 @@ import { ArrowDownUp, Loader2, AlertTriangle } from 'lucide-react';
 import apiClient from '@/lib/api/client';
 import { toast } from '@/components/shared/Toast';
 
+interface DexQuoteResponse {
+  amountOut?: string | number;
+  estimatedGas?: number;
+  bestQuote?: {
+    amountOut?: string | number;
+    gasEstimate?: number;
+  };
+}
+
 /**
  * TokenSwap - DEX token swap interface
  */
@@ -35,7 +44,7 @@ export function TokenSwap() {
     const fetchQuote = async () => {
       setIsFetchingQuote(true);
       try {
-        const response = await apiClient.post('/api/dex/quotes', {
+        const response = await apiClient.post<DexQuoteResponse>('/api/dex/quotes', {
           tokenIn,
           tokenOut,
           amountIn: amountIn,
@@ -43,14 +52,14 @@ export function TokenSwap() {
         });
 
         if (response.success && response.data) {
-          const data = response.data as any;
+          const data = response.data;
           setAmountOut(data.amountOut?.toString() || data.bestQuote?.amountOut?.toString() || '');
           setEstimatedGas(data.estimatedGas || data.bestQuote?.gasEstimate || null);
         } else {
           setAmountOut('');
           setEstimatedGas(null);
         }
-      } catch (err) {
+      } catch {
         // Silently fail quote fetching - user can still attempt swap
         setAmountOut('');
         setEstimatedGas(null);
@@ -98,8 +107,8 @@ export function TokenSwap() {
       setAmountIn('');
       setAmountOut('');
       setEstimatedGas(null);
-    } catch (err: any) {
-      const errorMessage = err.message || 'Swap failed';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Swap failed';
       setError(errorMessage);
       toast({
         type: 'error',

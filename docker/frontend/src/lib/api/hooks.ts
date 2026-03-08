@@ -6,11 +6,13 @@ import { ApiResponse } from './client';
 // Hook for API calls with loading and error states
 export function useApi<T>(
   apiCall: () => Promise<ApiResponse<T>>,
-  dependencies: any[] = []
+  dependencies: unknown[] = []
 ) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const dependenciesKey = JSON.stringify(dependencies);
 
   const execute = useCallback(async () => {
     setLoading(true);
@@ -28,17 +30,17 @@ export function useApi<T>(
     } finally {
       setLoading(false);
     }
-  }, dependencies);
+  }, [apiCall]);
 
   useEffect(() => {
-    execute();
-  }, [execute]);
+    void execute();
+  }, [execute, dependenciesKey]);
 
   return { data, loading, error, refetch: execute };
 }
 
 // Hook for mutations (POST, PUT, DELETE)
-export function useApiMutation<T, P = any>(
+export function useApiMutation<T, P = unknown>(
   apiCall: (params: P) => Promise<ApiResponse<T>>
 ) {
   const [data, setData] = useState<T | null>(null);

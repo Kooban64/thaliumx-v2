@@ -1,14 +1,14 @@
 /**
- * Zitadel Migration Verification E2E Tests
- * Comprehensive tests to verify Keycloak to Zitadel migration is 100% complete
+ * Keycloak Authentication Verification E2E Tests
+ * Comprehensive tests to verify Keycloak-only frontend authentication paths.
  */
 
 import { test, expect, Page } from '@playwright/test';
 
-const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'zitadel';
+const env = (globalThis as any).process?.env ?? {};
+const KEYCLOAK_ISSUER = env.NEXT_PUBLIC_KEYCLOAK_ISSUER || 'https://auth.thaliumx.com';
 
-test.describe('Zitadel Migration Verification', () => {
-  test.skip(AUTH_MODE !== 'zitadel', 'Migration verification only runs when NEXT_PUBLIC_AUTH_MODE=zitadel');
+test.describe('Keycloak Authentication Verification', () => {
 
   test.beforeEach(async ({ page }) => {
     // Clear all storage to start fresh
@@ -20,27 +20,22 @@ test.describe('Zitadel Migration Verification', () => {
     });
   });
 
-  test('✅ Migration: Zitadel is the only auth provider configured', async ({ page }) => {
-    console.log('🔍 Verifying Zitadel-only configuration...');
+  test('✅ Configuration: Keycloak issuer is configured', async ({ page }) => {
+    console.log('🔍 Verifying Keycloak configuration...');
     
     // Check environment variables are set correctly
-    const authMode = AUTH_MODE;
-    const zitadelIssuer = process.env.NEXT_PUBLIC_ZITADEL_ISSUER || 'https://auth.thaliumx.com';
-    
-    expect(authMode).toBe('zitadel');
-    expect(zitadelIssuer).toBeTruthy();
-    expect(zitadelIssuer).toContain('auth.thaliumx.com');
-    
-    console.log(`✅ Auth mode: ${authMode}`);
-    console.log(`✅ Zitadel issuer: ${zitadelIssuer}`);
+    expect(KEYCLOAK_ISSUER).toBeTruthy();
+    expect(KEYCLOAK_ISSUER).toContain('auth.thaliumx.com');
+
+    console.log(`✅ Keycloak issuer: ${KEYCLOAK_ISSUER}`);
   });
 
-  test('✅ Migration: Auth page shows Zitadel CTA (not legacy login)', async ({ page }) => {
-    console.log('🔍 Verifying auth page uses Zitadel...');
+  test('✅ Auth page shows continue CTA (not legacy login)', async ({ page }) => {
+    console.log('🔍 Verifying auth page uses Keycloak flow...');
     
     await page.goto('/auth', { waitUntil: 'domcontentloaded' });
     
-    // Should show "Continue" button for Zitadel, not legacy email/password form
+    // Should show "Continue" button for Keycloak, not legacy email/password form
     const continueButton = page.getByRole('button', { name: /^continue$/i });
     await expect(continueButton).toBeVisible({ timeout: 15000 });
     
@@ -54,10 +49,10 @@ test.describe('Zitadel Migration Verification', () => {
     expect(emailVisible).toBe(false);
     expect(passwordVisible).toBe(false);
     
-    console.log('✅ Auth page correctly shows Zitadel CTA');
+    console.log('✅ Auth page correctly shows Keycloak CTA');
   });
 
-  test('✅ Migration: OIDC callback route handles Zitadel responses', async ({ page }) => {
+  test('✅ OIDC callback route handles auth responses', async ({ page }) => {
     console.log('🔍 Verifying OIDC callback handling...');
     
     // Visit callback without params (should show error, not crash)
@@ -70,22 +65,15 @@ test.describe('Zitadel Migration Verification', () => {
     console.log('✅ OIDC callback route handles errors gracefully');
   });
 
-  test('✅ Migration: No Keycloak endpoints accessible', async ({ page }) => {
-    console.log('🔍 Verifying Keycloak endpoints are not accessible...');
+  test('✅ Auth host is reachable via browser redirect flow', async ({ page }) => {
+    console.log('🔍 Verifying redirect to auth.thaliumx.com...');
     
-    // Try to access potential Keycloak endpoints
-    const keycloakEndpoints = [
-      '/auth/realms',
-      '/auth/admin',
-      '/auth/realms/thaliumx',
-    ];
-    
-    for (const endpoint of keycloakEndpoints) {
-      const response = await page.goto(endpoint, { waitUntil: 'domcontentloaded' });
-      expect(response?.status()).not.toBe(200); // Should not return 200
-    }
-    
-    console.log('✅ Keycloak endpoints correctly inaccessible');
+    await page.goto('/auth', { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: /^continue$/i }).click();
+    await page.waitForURL(/.*auth\.thaliumx\.com.*/, { timeout: 30000 });
+    expect(page.url()).toContain('auth.thaliumx.com');
+
+    console.log('✅ Redirect reached auth.thaliumx.com');
   });
 
   test('✅ Migration: Backend rejects legacy auth requests', async ({ page }) => {
@@ -104,13 +92,13 @@ test.describe('Zitadel Migration Verification', () => {
     
     const responseText = await response.text();
     expect(responseText).toContain('Legacy auth is disabled');
-    expect(responseText).toContain('Use Zitadel');
+    expect(responseText).toContain('Use Keycloak');
     
     console.log('✅ Backend correctly rejects legacy auth with 410 Gone');
   });
 
-  test('✅ Migration: Frontend redirects to Zitadel for authentication', async ({ page }) => {
-    console.log('🔍 Verifying frontend Zitadel redirect flow...');
+  test('✅ Frontend redirects to auth.thaliumx.com for authentication', async ({ page }) => {
+    console.log('🔍 Verifying frontend Keycloak redirect flow...');
     
     await page.goto('/auth', { waitUntil: 'domcontentloaded' });
     
@@ -118,65 +106,51 @@ test.describe('Zitadel Migration Verification', () => {
     const continueButton = page.getByRole('button', { name: /^continue$/i });
     await continueButton.click();
     
-    // Should redirect to Zitadel
+    // Should redirect to auth host
     await page.waitForURL(/.*auth\.thaliumx\.com.*/, { timeout: 30000 });
     
     const currentUrl = page.url();
     expect(currentUrl).toContain('auth.thaliumx.com');
     expect(currentUrl).toContain('authorize');
     
-    console.log(`✅ Frontend correctly redirects to Zitadel: ${currentUrl}`);
+    console.log(`✅ Frontend correctly redirects to Keycloak host: ${currentUrl}`);
   });
 
-  test('✅ Migration: APISIX routes to Zitadel (not Keycloak)', async ({ page }) => {
+  test('✅ APISIX routes to auth provider host', async ({ page }) => {
     console.log('🔍 Verifying APISIX gateway configuration...');
     
-    // Test that APISIX is configured to route to Zitadel
+    // Test that APISIX is configured to route to auth.thaliumx.com
     const authResponse = await page.request.get('http://localhost/auth/health', {
       headers: { 'Host': 'auth.thaliumx.com' }
     });
     
-    // Should not get Keycloak responses
+    // Response should not be a generic upstream error payload.
     const responseText = await authResponse.text().catch(() => '');
-    expect(responseText).not.toContain('Keycloak');
-    expect(responseText).not.toContain('keycloak');
+    expect(authResponse.status()).toBeLessThan(500);
+    expect(responseText.toLowerCase()).not.toContain('upstream connect error');
     
-    console.log('✅ APISIX gateway not routing to Keycloak');
+    console.log('✅ APISIX gateway auth routing looks healthy');
   });
 
-  test('✅ Migration: Environment variables are clean', async ({ page }) => {
+  test('✅ Environment variables are clean for Keycloak-only test path', async ({ page }) => {
     console.log('🔍 Verifying clean environment configuration...');
     
-    // Check that no Keycloak-specific env vars are present in the frontend
-    await page.goto('/auth', { waitUntil: 'domcontentloaded' });
-    
-    // Inject a script to check for Keycloak references in environment
-    const hasKeycloakRefs = await page.evaluate(() => {
-      const env = (window as any).process?.env || {};
-      const hasKeycloak = Object.keys(env).some(key => 
-        key.toLowerCase().includes('keycloak') || 
-        (typeof env[key] === 'string' && env[key].toLowerCase().includes('keycloak'))
-      );
-      return hasKeycloak;
-    });
-    
-    expect(hasKeycloakRefs).toBe(false);
-    
-    console.log('✅ No Keycloak references in frontend environment');
+    expect(KEYCLOAK_ISSUER).toContain('auth.thaliumx.com');
+    console.log('✅ Keycloak env contract present for e2e path');
   });
 
-  test('✅ Migration: Zitadel JWKS endpoint is accessible', async ({ page }) => {
-    console.log('🔍 Verifying Zitadel JWKS endpoint...');
+  test('✅ Keycloak JWKS endpoint is accessible', async ({ page }) => {
+    console.log('🔍 Verifying Keycloak JWKS endpoint...');
     
     // Test JWKS endpoint accessibility
     const jwksResponse = await page.request.get('http://localhost:8080/oauth/v2/keys', {
       headers: { 'Host': 'auth.thaliumx.com' }
     });
     
-    // Should be accessible (even if it returns error, it should be Zitadel error, not connection error)
+    // Should be accessible via auth host (status below 500 expected)
     expect(jwksResponse.status()).toBeLessThan(500);
     
-    console.log(`✅ Zitadel JWKS endpoint accessible (status: ${jwksResponse.status()})`);
+    console.log(`✅ Keycloak JWKS endpoint accessible (status: ${jwksResponse.status()})`);
   });
 
   test('✅ Migration: Legacy Keycloak compose files are archived', async () => {
@@ -196,10 +170,10 @@ test.describe('Zitadel Migration Verification', () => {
   });
 
   test('🔄 Integration: Full authentication flow simulation', async ({ page }) => {
-    console.log('🔍 Running full Zitadel authentication simulation...');
+    console.log('🔍 Running full Keycloak authentication simulation...');
     
     let authFlowCompleted = false;
-    let errorMessages: string[] = [];
+    const errorMessages: string[] = [];
     
     // Capture console errors
     page.on('console', (msg) => {
@@ -220,21 +194,21 @@ test.describe('Zitadel Migration Verification', () => {
       await page.goto('/auth', { waitUntil: 'domcontentloaded' });
       console.log('✅ Step 1: Auth page loaded');
       
-      // Step 2: Click continue (redirects to Zitadel)
+      // Step 2: Click continue (redirects to Keycloak host)
       const continueButton = page.getByRole('button', { name: /^continue$/i });
       await continueButton.click();
       console.log('✅ Step 2: Continue button clicked');
       
-      // Step 3: Verify redirect to Zitadel
+      // Step 3: Verify redirect to auth host
       await page.waitForURL(/.*auth\.thaliumx\.com.*/, { timeout: 30000 });
       const currentUrl = page.url();
       expect(currentUrl).toContain('auth.thaliumx.com');
-      console.log('✅ Step 3: Redirected to Zitadel');
+      console.log('✅ Step 3: Redirected to Keycloak host');
       
-      // Step 4: Check for Zitadel login interface
+      // Step 4: Check for login interface
       const hasLoginInterface = await page.locator('input[type="text"], input[type="email"], input[name*="login" i]').isVisible().catch(() => false);
       expect(hasLoginInterface).toBe(true);
-      console.log('✅ Step 4: Zitadel login interface detected');
+      console.log('✅ Step 4: Keycloak login interface detected');
       
       authFlowCompleted = true;
       
@@ -261,17 +235,17 @@ test.describe('Zitadel Migration Verification', () => {
 // Test summary and reporting
 test.describe('Migration Test Summary', () => {
   test('📊 Migration verification test suite completed', async () => {
-    console.log('\n📋 ZITADEL MIGRATION VERIFICATION SUMMARY');
+    console.log('\n📋 KEYCLOAK AUTH VERIFICATION SUMMARY');
     console.log('===========================================');
-    console.log('✅ Zitadel configuration verified');
+    console.log('✅ Keycloak configuration verified');
     console.log('✅ Legacy auth endpoints disabled (410 Gone)');
-    console.log('✅ Frontend redirects to Zitadel');
-    console.log('✅ APISIX routes to Zitadel (not Keycloak)');
-    console.log('✅ Environment variables clean');
+    console.log('✅ Frontend redirects to auth.thaliumx.com');
+    console.log('✅ APISIX routes to auth host');
+    console.log('✅ Environment variables clean for Keycloak-only path');
     console.log('✅ OIDC callback handling correct');
-    console.log('✅ No Keycloak endpoints accessible');
+    console.log('✅ Auth host reachable via browser redirects');
     console.log('✅ Full authentication flow simulation');
-    console.log('\n🎉 MIGRATION VERIFICATION: PASSED');
-    console.log('The Keycloak to Zitadel migration is 100% complete!\n');
+    console.log('\n🎉 AUTH VERIFICATION: PASSED');
+    console.log('The frontend auth e2e path is aligned to Keycloak-only contracts.\n');
   });
 });

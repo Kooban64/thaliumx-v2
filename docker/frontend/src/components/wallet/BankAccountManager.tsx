@@ -51,8 +51,8 @@ export function BankAccountManager() {
         accountType: 'checking',
         currency: 'ZAR',
       });
-    } catch (err: any) {
-      setError(err.message || 'Failed to add bank account');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to add bank account');
     }
   };
 
@@ -63,8 +63,8 @@ export function BankAccountManager() {
 
     try {
       await removeBankAccountMutation.mutateAsync(accountId);
-    } catch (err: any) {
-      setError(err.message || 'Failed to remove bank account');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to remove bank account');
     }
   };
 

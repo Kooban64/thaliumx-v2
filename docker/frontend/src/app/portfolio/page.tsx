@@ -3,19 +3,38 @@
 import { useEffect, useState } from 'react';
 import apiClient from '@/lib/api/client';
 
+interface InvestmentMetadata {
+  platformFee?: string | number;
+  paymentProcessorFee?: string | number;
+  networkFeeEstimate?: string | number;
+  totalFees?: string | number;
+}
+
+interface PresaleInvestment {
+  id: string;
+  presaleId?: string;
+  tier?: string;
+  amount?: string | number;
+  tokenAmount?: string | number;
+  status?: string;
+  paymentMethod?: string;
+  transactionHash?: string;
+  metadata?: InvestmentMetadata;
+}
+
 export default function PortfolioPage() {
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<PresaleInvestment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await apiClient.get<any[]>('/api/presale/investments');
+        const res = await apiClient.get<PresaleInvestment[]>('/api/presale/investments');
         if (!res.success) throw new Error(res.error || res.message || 'Failed to load');
         setItems(res.data || []);
-      } catch (e: any) {
-        setError(e.message);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load');
       } finally {
         setLoading(false);
       }
@@ -31,7 +50,7 @@ export default function PortfolioPage() {
       {!loading && !error && (
         <div className="space-y-3">
           {items.length === 0 && <div>No purchases found.</div>}
-          {items.map((inv: any) => (
+          {items.map((inv) => (
             <div key={inv.id} className="border rounded p-4">
               <div className="flex justify-between">
                 <div>
@@ -61,4 +80,3 @@ export default function PortfolioPage() {
     </div>
   );
 }
-

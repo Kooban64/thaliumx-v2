@@ -5,6 +5,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useBrokerAuditLogs } from '@/lib/api/hooks/useBroker';
 import { Loader2, FileText } from 'lucide-react';
 
+interface AuditLogItem {
+  id: string;
+  action: string;
+  createdAt?: string;
+  timestamp?: string;
+  userId?: string;
+}
+
+function isAuditLogItem(value: unknown): value is AuditLogItem {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Record<string, unknown>;
+  return typeof item.id === 'string' && typeof item.action === 'string';
+}
+
 /**
  * BrokerAuditLogs - View broker audit logs
  */
@@ -12,7 +26,9 @@ export function BrokerAuditLogs() {
   const [page] = useState(1);
   const { data, isLoading } = useBrokerAuditLogs({ page, limit: 20 });
 
-  const logs = data?.data || [];
+  const logs: AuditLogItem[] = Array.isArray(data?.data)
+    ? (data.data as unknown[]).filter(isAuditLogItem)
+    : [];
   const pagination = data?.pagination;
 
   if (isLoading) {
@@ -47,12 +63,12 @@ export function BrokerAuditLogs() {
             </div>
           ) : (
             <div className="space-y-2">
-              {logs.map((log: any) => (
+              {logs.map((log) => (
                 <div key={log.id} className="p-3 border rounded text-sm">
                   <div className="flex justify-between">
                     <span className="font-medium">{log.action}</span>
                     <span className="text-muted-foreground">
-                      {new Date(log.createdAt || log.timestamp).toLocaleString()}
+                      {new Date(log.createdAt || log.timestamp || Date.now()).toLocaleString()}
                     </span>
                   </div>
                   {log.userId && (

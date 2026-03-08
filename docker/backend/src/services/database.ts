@@ -1341,7 +1341,7 @@ export class DatabaseService {
         type: DataTypes.UUID,
         allowNull: true,
         references: {
-          model: 'Users',
+          model: 'users',
           key: 'id'
         }
       },
@@ -1349,7 +1349,7 @@ export class DatabaseService {
         type: DataTypes.UUID,
         allowNull: true,
         references: {
-          model: 'Tenants',
+          model: 'tenants',
           key: 'id'
         }
       },
@@ -1402,6 +1402,7 @@ export class DatabaseService {
     }, {
       tableName: 'workflow_states',
       timestamps: true,
+      underscored: true,
       indexes: [
         { fields: ['userId'] },
         { fields: ['status'] },

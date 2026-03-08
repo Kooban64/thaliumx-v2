@@ -35,6 +35,10 @@ interface ComplianceEvent {
   action?: string;
 }
 
+interface ComplianceEventsPayload {
+  logs?: ComplianceEvent[];
+}
+
 export default function ComplianceDashboard() {
   const [loading, setLoading] = useState(true);
   const [complianceStatus, setComplianceStatus] = useState<ComplianceStatus | null>(null);
@@ -60,9 +64,9 @@ export default function ComplianceDashboard() {
 
         // Load compliance status
         try {
-          const statusRes = await apiClient.get('/api/audit-logs/compliance-status');
+          const statusRes = await apiClient.get<ComplianceStatus>('/api/audit-logs/compliance-status');
           if (statusRes.success && statusRes.data) {
-            setComplianceStatus(statusRes.data as ComplianceStatus);
+            setComplianceStatus(statusRes.data);
           }
         } catch (err) {
           console.error('Failed to load compliance status:', err);
@@ -70,16 +74,16 @@ export default function ComplianceDashboard() {
 
         // Load recent compliance events from audit logs
         try {
-          const eventsRes = await apiClient.get('/api/audit-logs?limit=10&category=compliance');
+          const eventsRes = await apiClient.get<ComplianceEvent[] | ComplianceEventsPayload>('/api/audit-logs?limit=10&category=compliance');
           if (eventsRes.success && eventsRes.data) {
-            const data = eventsRes.data as any;
+            const data = eventsRes.data;
             const events = Array.isArray(data) ? data : (data.logs || []);
-            setComplianceEvents(events.slice(0, 10) as ComplianceEvent[]);
+            setComplianceEvents(events.slice(0, 10));
           }
         } catch (err) {
           console.error('Failed to load compliance events:', err);
         }
-      } catch (err) {
+      } catch {
         setError('Failed to load compliance data');
       } finally {
         setLoading(false);

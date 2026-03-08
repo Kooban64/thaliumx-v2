@@ -53,6 +53,12 @@ export class TokenService {
     roles?: string[];
     tenantId?: string;
     brokerId?: string;
+    brokerSlug?: string;
+    channel?: 'direct' | 'broker';
+    customerId?: string;
+    mandateScopes?: string[];
+    sessionType?: string;
+    authProvider?: 'keycloak' | 'internal-jwt';
     permissions?: string[];
     mfaEnabled?: boolean;
     mfaVerified?: boolean;
@@ -69,6 +75,12 @@ export class TokenService {
       roles: (user.roles || []) as any[],
       tenantId: user.tenantId || '',
       brokerId: user.brokerId || '',
+      brokerSlug: user.brokerSlug,
+      channel: user.channel || (user.brokerId ? 'broker' : 'direct'),
+      customerId: user.customerId,
+      mandateScopes: user.mandateScopes || [],
+      sessionType: user.sessionType,
+      authProvider: user.authProvider || 'internal-jwt',
       permissions: (user.permissions || []) as any[],
       mfa_enabled: user.mfaEnabled || false,
       mfa_verified: user.mfaVerified || false,

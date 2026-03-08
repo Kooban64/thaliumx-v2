@@ -35,7 +35,7 @@ describe('Market Data API Integration', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        headers: { get: () => 'application/json' } as any,
+        headers: { get: () => 'application/json' } as unknown,
         json: async () => mockResponse,
       } as Response);
 
@@ -49,7 +49,7 @@ describe('Market Data API Integration', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
-        headers: { get: () => 'application/json' } as any,
+        headers: { get: () => 'application/json' } as unknown,
         json: async () => ({ error: { message: 'Internal server error' } }),
       } as Response);
 
@@ -88,7 +88,7 @@ describe('Market Data API Integration', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        headers: { get: () => 'application/json' } as any,
+        headers: { get: () => 'application/json' } as unknown,
         json: async () => mockResponse,
       } as Response);
 
@@ -118,7 +118,7 @@ describe('Market Data API Integration', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        headers: { get: () => 'application/json' } as any,
+        headers: { get: () => 'application/json' } as unknown,
         json: async () => mockResponse,
       } as Response);
 
@@ -166,7 +166,7 @@ describe('Market Data API Integration', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        headers: { get: () => 'application/json' } as any,
+        headers: { get: () => 'application/json' } as unknown,
         json: async () => mockResponse,
       } as Response);
 
@@ -184,7 +184,7 @@ describe('Market Data API Integration', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 429,
-        headers: { get: () => 'application/json' } as any,
+        headers: { get: () => 'application/json' } as unknown,
         json: async () => ({
           error: {
             code: 'RATE_LIMITED',
@@ -202,7 +202,7 @@ describe('Market Data API Integration', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
-        headers: { get: () => 'application/json' } as any,
+        headers: { get: () => 'application/json' } as unknown,
         json: async () => ({
           error: {
             code: 'NOT_FOUND',
@@ -236,7 +236,7 @@ describe('Market Data API Integration', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        headers: { get: () => 'application/json' } as any,
+        headers: { get: () => 'application/json' } as unknown,
         json: async () => mockResponse,
       } as Response);
 

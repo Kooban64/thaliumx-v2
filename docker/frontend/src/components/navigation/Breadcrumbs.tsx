@@ -36,7 +36,13 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
     >
       <Link
         href="/"
-        className="flex items-center gap-1 hover:text-foreground transition-colors"
+        className="flex items-center gap-1 hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            // Navigation handled by Link component
+          }
+        }}
       >
         <Home className="h-4 w-4" />
         <span className="sr-only">Home</span>
@@ -47,13 +53,19 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
         
         return (
           <div key={item.href || index} className="flex items-center gap-2">
-            <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground/50" aria-hidden="true" />
             {isLast ? (
-              <span className="text-foreground font-medium">{item.label}</span>
+              <span className="text-foreground font-medium" aria-current="page">{item.label}</span>
             ) : (
               <Link
                 href={item.href || '#'}
-                className="hover:text-foreground transition-colors"
+                className="hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded"
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ' ') && item.href && item.href !== '#') {
+                    e.preventDefault();
+                    // Navigation handled by Link component
+                  }
+                }}
               >
                 {item.label}
               </Link>

@@ -8,12 +8,58 @@
 import type { Request, Response, NextFunction } from 'express';
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/error-handler';
+import { createError } from '../utils';
+import {
+  requireBrokerContext,
+  requireBrokerCustomerMatch,
+  requireMandateScopes,
+  resolveBrokerChannelContext,
+} from '../middleware/broker-context';
 import { LoggerService } from '../services/logger';
 
 const router: Router = Router();
 
+const resolveDelegatedCustomerId = (req: Request): string | undefined => {
+  const body = req.body as { customerId?: string; customer_id?: string };
+  return body?.customerId || body?.customer_id;
+};
+
+const requireDelegatedTradingContext = (req: Request, _res: Response, next: NextFunction): void => {
+  const customerId = resolveDelegatedCustomerId(req);
+  if (!customerId) {
+    next();
+    return;
+  }
+
+  const channel = req.channel || req.user?.channel;
+  const brokerId = req.brokerId || req.user?.brokerId;
+
+  if (channel !== 'broker' || !brokerId) {
+    next(
+      createError(
+        'Delegated customer trading requires broker channel with broker context',
+        403,
+        'BROKER_CHANNEL_REQUIRED',
+      ),
+    );
+    return;
+  }
+
+  next();
+};
+
 // Forward trading order requests to CEX orders
-router.post('/order', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.post(
+  '/order',
+  authenticateToken,
+  resolveBrokerChannelContext,
+  requireDelegatedTradingContext,
+  requireMandateScopes(['trade:place']),
+  requireBrokerCustomerMatch(req => {
+    const body = req.body as { brokerId?: string; broker_id?: string };
+    return body?.brokerId || body?.broker_id;
+  }),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     // Import the native CEX router dynamically to avoid circular dependencies
     const { default: nativeCEXRouter } = await import('./native-cex');
@@ -22,9 +68,12 @@ router.post('/order', authenticateToken, async (req: Request, res: Response, nex
     const mockReq = {
       ...req,
       body: {
-        userId: (req as any).user?.id,
-        tenantId: (req as any).user?.tenantId || 'default',
-        brokerId: (req as any).user?.brokerId || 'default',
+        userId: req.user?.id || req.user?.userId,
+        tenantId: req.user?.tenantId,
+        brokerId: req.brokerId || req.user?.brokerId,
+        channel: req.channel || req.user?.channel,
+        broker_slug: req.brokerSlug || req.user?.brokerSlug,
+        customer_id: resolveDelegatedCustomerId(req),
         ...req.body
       }
     } as Request;
@@ -62,7 +111,7 @@ router.post('/order', authenticateToken, async (req: Request, res: Response, nex
 });
 
 // Forward market data requests
-router.get('/prices/:symbol', authenticateToken, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.get('/prices/:symbol', authenticateToken, resolveBrokerChannelContext, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     // Import the native CEX router dynamically
     const { default: nativeCEXRouter } = await import('./native-cex');
@@ -103,6 +152,19 @@ router.get('/prices/:symbol', authenticateToken, async (req: Request, res: Respo
     LoggerService.error('Failed to fetch market data', { error, symbol: req.params.symbol });
     next(error);
   }
+});
+
+router.get('/broker/context', authenticateToken, resolveBrokerChannelContext, requireBrokerContext, (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: {
+      channel: req.channel,
+      brokerId: req.brokerId,
+      brokerSlug: req.brokerSlug,
+      authContext: req.authContext,
+    },
+    timestamp: new Date(),
+  });
 });
 
 export default router;

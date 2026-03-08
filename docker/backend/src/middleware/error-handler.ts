@@ -37,13 +37,18 @@
 import type { Request, Response, NextFunction } from 'express';
 import { createError, AppError } from '../utils';
 import { LoggerService } from '../services/logger';
-import type { JWTPayload } from '../types';
+import type { AuthContext, JWTPayload, SessionChannel } from '../types';
 
 // Extend Express Request type to include user
 declare global {
   namespace Express {
     interface Request {
       user?: JWTPayload;
+      authContext?: AuthContext;
+      tenantId?: string;
+      channel?: SessionChannel;
+      brokerId?: string;
+      brokerSlug?: string;
     }
   }
 }
@@ -342,18 +347,46 @@ const getJwksClient = (jwksUri: string): JwksClient => {
 
 const normalizeIssuer = (iss: string): string => iss.replace(/\/+$/, '');
 
-
-const getZitadelIssuerDefault = (): string => {
-  // Prefer explicit config. Fall back to standard prod hostname.
-  const envIss = (process.env.ZITADEL_ISSUER || '').trim();
-  if (envIss) return normalizeIssuer(envIss);
-
-  const host = (process.env.ZITADEL_PUBLIC_HOST || 'auth.thaliumx.com').trim();
-  return normalizeIssuer(`https://${host}`);
+const normalizeSessionChannel = (channel: unknown): SessionChannel | null => {
+  if (typeof channel !== 'string') return null;
+  const normalized = channel.trim().toLowerCase();
+  if (normalized === 'direct' || normalized === 'broker') return normalized;
+  return null;
 };
 
+const normalizeAudience = (aud: unknown): string[] => {
+  if (Array.isArray(aud)) return aud.filter((v): v is string => typeof v === 'string');
+  if (typeof aud === 'string') return [aud];
+  return [];
+};
+
+const getStringClaim = (decoded: Record<string, unknown>, ...keys: string[]): string | undefined => {
+  for (const key of keys) {
+    const value = decoded[key];
+    if (typeof value === 'string' && value.trim().length) return value;
+  }
+  return undefined;
+};
+
+const getStringArrayClaim = (decoded: Record<string, unknown>, ...keys: string[]): string[] => {
+  for (const key of keys) {
+    const value = decoded[key];
+    if (Array.isArray(value)) {
+      return value.filter((v): v is string => typeof v === 'string' && v.length > 0);
+    }
+    if (typeof value === 'string' && value.length > 0) {
+      return value
+        .split(/[\s,]+/)
+        .map(v => v.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+};
+
+
 const getAllowedIssuers = (): string[] => {
-  // Comma-separated allowlist. If unset, default to Zitadel issuer only.
+  // Comma-separated allowlist. If unset, default to Keycloak issuer only.
   const raw = (process.env.OIDC_ALLOWED_ISSUERS || '').trim();
   const list = raw
     ? raw
@@ -363,7 +396,104 @@ const getAllowedIssuers = (): string[] => {
         .map(normalizeIssuer)
     : [];
 
-  return list.length ? list : [getZitadelIssuerDefault()];
+  return list.length ? Array.from(new Set(list)) : [getKeycloakIssuerDefault()];
+};
+
+const getKeycloakIssuerDefault = (): string => {
+  const explicitIssuer = (process.env.KEYCLOAK_ISSUER || '').trim();
+  if (explicitIssuer) return normalizeIssuer(explicitIssuer);
+
+  const keycloakUrl = (process.env.KEYCLOAK_URL || '').trim();
+  const realm = (process.env.KEYCLOAK_REALM || 'thaliumx').trim();
+  if (!keycloakUrl) {
+    return normalizeIssuer(`https://auth.thaliumx.com/realms/${realm}`);
+  }
+  return normalizeIssuer(`${normalizeIssuer(keycloakUrl)}/realms/${realm}`);
+};
+
+const getExpectedAudience = (): string[] => {
+  const values = [
+    process.env.KEYCLOAK_AUDIENCE,
+    process.env.KEYCLOAK_CLIENT_ID,
+  ]
+    .filter((v): v is string => typeof v === 'string')
+    .map(v => v.trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(values));
+};
+
+const getJwtVerificationProvider = () => {
+  const keycloakIssuer = getKeycloakIssuerDefault();
+  const keycloakJwks =
+    (process.env.KEYCLOAK_JWKS_URI || '').trim() || `${keycloakIssuer}/protocol/openid-connect/certs`;
+
+  return {
+    name: 'keycloak' as const,
+    issuer: keycloakIssuer,
+    jwksUri: keycloakJwks,
+  };
+};
+
+const extractRoleClaims = (decoded: Record<string, unknown>): string[] => {
+  const claimRoles = getStringArrayClaim(decoded, 'roles', 'broker_roles', 'platform_roles');
+  const realmRoles =
+    typeof decoded.realm_access === 'object' && decoded.realm_access !== null
+      ? getStringArrayClaim(decoded.realm_access as Record<string, unknown>, 'roles')
+      : [];
+  return Array.from(new Set([...claimRoles, ...realmRoles]));
+};
+
+const enforceContextInvariants = (
+  req: Request,
+  opts: {
+    channel: SessionChannel;
+    brokerId?: string;
+    brokerSlug?: string;
+    provider: 'keycloak' | 'internal-jwt';
+  },
+): void => {
+  const allowDirectBrokerContext = (process.env.AUTH_ALLOW_DIRECT_BROKER_CONTEXT || 'false')
+    .trim()
+    .toLowerCase() === 'true';
+
+  const headerChannel = normalizeSessionChannel(req.headers['x-channel']);
+  const headerBrokerIdRaw = req.headers['x-broker-id'];
+  const headerBrokerId =
+    typeof headerBrokerIdRaw === 'string' && headerBrokerIdRaw.trim().length
+      ? headerBrokerIdRaw.trim()
+      : undefined;
+  const headerBrokerSlugRaw = req.headers['x-broker-slug'];
+  const headerBrokerSlug =
+    typeof headerBrokerSlugRaw === 'string' && headerBrokerSlugRaw.trim().length
+      ? headerBrokerSlugRaw.trim()
+      : undefined;
+
+  if (headerChannel && headerChannel !== opts.channel) {
+    throw createError('Channel mismatch between gateway and token context', 403, 'AUTH_CONTEXT_MISMATCH');
+  }
+
+  if (opts.channel === 'broker') {
+    if (!opts.brokerId || !opts.brokerSlug) {
+      throw createError(
+        `Missing broker context claims for ${opts.provider} broker-channel token`,
+        401,
+        'INVALID_TOKEN',
+      );
+    }
+
+    if (headerBrokerId && headerBrokerId !== opts.brokerId) {
+      throw createError('Broker ID mismatch between gateway and token', 403, 'AUTH_CONTEXT_MISMATCH');
+    }
+
+    if (headerBrokerSlug && headerBrokerSlug !== opts.brokerSlug) {
+      throw createError('Broker slug mismatch between gateway and token', 403, 'AUTH_CONTEXT_MISMATCH');
+    }
+  }
+
+  if (opts.channel === 'direct' && !allowDirectBrokerContext && (opts.brokerId || opts.brokerSlug)) {
+    throw createError('Direct channel token contains broker context', 403, 'AUTH_CONTEXT_MISMATCH');
+  }
 };
 
 export const authenticateToken = async (
@@ -372,8 +502,7 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Token authentication - supports both our own JWT tokens and Zitadel tokens (if configured)
-    // Note: Zitadel integration removed but middleware supports it for future re-integration
+    // Token authentication - supports Keycloak OIDC tokens and internal JWT tokens.
     // Tokens are stored in frontend memory and sent via Authorization header (high security).
     const authHeader = req.headers.authorization;
     const bearer = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
@@ -390,15 +519,18 @@ export const authenticateToken = async (
     const issuerRaw: string | undefined = typeof decoded.iss === 'string' ? decoded.iss : undefined;
     const issuerNorm = issuerRaw ? normalizeIssuer(issuerRaw) : undefined;
 
-    // Check if this is a Zitadel token (for future SSO support)
-    const allowedZitadelIssuers = getAllowedIssuers();
-    const isZitadelToken = issuerNorm && allowedZitadelIssuers.includes(issuerNorm);
+    const verificationProvider = getJwtVerificationProvider();
+    const configuredIssuers = new Set<string>([
+      normalizeIssuer(verificationProvider.issuer),
+      ...getAllowedIssuers(),
+    ]);
+    const isOidcToken = !!(issuerNorm && configuredIssuers.has(issuerNorm));
 
     // ------------------------------
-    // Zitadel token verification (if Zitadel is configured)
+    // Keycloak OIDC token verification
     // ------------------------------
-    if (isZitadelToken) {
-      const jwksUri = (process.env.ZITADEL_JWKS_URI || 'http://zitadel:8080/oauth/v2/keys').trim();
+    if (isOidcToken) {
+      const jwksUri = verificationProvider.jwksUri;
 
       const client = getJwksClient(jwksUri);
       const getKey: jwt.GetPublicKeyOrSecret = (header, callback) => {
@@ -412,10 +544,8 @@ export const authenticateToken = async (
         });
       };
 
-      // NOTE: We intentionally do not do introspection fallback for Zitadel here.
-      // The platform currently uses stateless JWT validation.
-      const issuers = [issuerRaw, issuerNorm].filter((i): i is string => !!i);
-      if (issuers.length === 0) {
+      const issuers = issuerNorm ? [issuerNorm, `${issuerNorm}/`] : [];
+      if (!issuerNorm || issuers.length === 0 || !configuredIssuers.has(issuerNorm)) {
         throw new Error('No valid issuer found');
       }
       
@@ -425,7 +555,7 @@ export const authenticateToken = async (
           getKey,
           {
             algorithms: ['RS256'],
-            // Accept both raw and normalized issuer variants (some IdPs include a trailing slash).
+            // Accept normalized issuer and one trailing-slash variant only.
             issuer: issuers.length === 1 ? issuers[0] : issuers as [string, ...string[]],
           },
           (err: Error | null, payload: any) => {
@@ -435,24 +565,17 @@ export const authenticateToken = async (
         );
       });
 
-      // Optional audience check (only enforced if configured).
-      const expectedAud = (process.env.ZITADEL_AUDIENCE || '').trim();
-      if (expectedAud) {
+      const expectedAudiences = getExpectedAudience();
+      if (expectedAudiences.length) {
         const aud = decoded?.aud;
         const audList = Array.isArray(aud) ? aud : typeof aud === 'string' ? [aud] : [];
-        if (!audList.includes(expectedAud)) {
+        const audienceMatch = expectedAudiences.some(expectedAud => audList.includes(expectedAud));
+        if (!audienceMatch) {
           throw createError('Invalid token audience', 401, 'INVALID_TOKEN');
         }
       }
 
-      // Map Zitadel claims into our internal JWTPayload shape.
-      // Role extraction is best-effort (claim shapes differ between providers).
-      const zitadelRolesObj = decoded?.['urn:zitadel:iam:org:project:roles'];
-      const roleKeys: string[] =
-        zitadelRolesObj && typeof zitadelRolesObj === 'object' && !Array.isArray(zitadelRolesObj)
-          ? Object.keys(zitadelRolesObj)
-          : [];
-      const allRoles = Array.from(new Set(roleKeys));
+      const allRoles = extractRoleClaims(decoded as Record<string, unknown>);
 
       // Normalize roles using RoleMapperService
       const { RoleMapperService } = await import('../services/role-mapper');
@@ -460,9 +583,30 @@ export const authenticateToken = async (
       const rolePriority = ['master_system_admin', 'platform_admin', 'broker_admin', 'platform_compliance', 'broker_compliance', 'platform_finance', 'broker_finance', 'platform_support', 'broker_support', 'user_trader', 'user_viewer'];
       const selectedRole = normalizedRoles.find((r: string) => rolePriority.includes(r)) || normalizedRoles[0] || 'user_viewer';
 
+      const claimChannel = normalizeSessionChannel(decoded?.channel);
+      const claimBrokerId =
+        (decoded?.broker_id as string | undefined) || (decoded?.brokerId as string | undefined) || undefined;
+      const claimBrokerSlug =
+        (decoded?.broker_slug as string | undefined) ||
+        (decoded?.brokerSlug as string | undefined) ||
+        undefined;
+      const channel: SessionChannel = claimChannel || (claimBrokerId || claimBrokerSlug ? 'broker' : 'direct');
+
+      enforceContextInvariants(req, {
+        channel,
+        brokerId: claimBrokerId,
+        brokerSlug: claimBrokerSlug,
+        provider: verificationProvider.name,
+      });
+
       const headerTenantId = (req.headers['x-tenant-id'] as string | undefined) || undefined;
       const tokenTenantId = (decoded?.tenant_id as string | undefined) || (decoded?.tenantId as string | undefined) || undefined;
-      const resolvedTenantId = tokenTenantId || headerTenantId || process.env.DEFAULT_TENANT_ID || '10000000-0000-0000-0000-000000000000';
+      const resolvedTenantId =
+        tokenTenantId ||
+        claimBrokerId ||
+        headerTenantId ||
+        process.env.DEFAULT_TENANT_ID ||
+        '10000000-0000-0000-0000-000000000000';
 
       const userId = (decoded?.sub as string) || 'unknown';
       const email = (decoded?.email as string) || (decoded?.preferred_username as string) || 'unknown';
@@ -474,13 +618,41 @@ export const authenticateToken = async (
         role: selectedRole as any,
         roles: normalizedRoles as any,
         tenantId: resolvedTenantId,
-        brokerId: (decoded?.broker_id as string | undefined) || (decoded?.brokerId as string | undefined) || undefined,
+        brokerId: claimBrokerId,
+        brokerSlug: claimBrokerSlug,
+        channel,
+        customerId: getStringClaim(decoded as Record<string, unknown>, 'customer_id', 'customerId'),
+        mandateScopes: getStringArrayClaim(decoded as Record<string, unknown>, 'mandate_scopes', 'mandateScopes'),
+        sessionType: getStringClaim(decoded as Record<string, unknown>, 'session_type', 'sessionType'),
+        authProvider: verificationProvider.name,
+        issuer: issuerNorm,
+        audience: normalizeAudience(decoded?.aud),
         permissions: [],
         iat: typeof decoded?.iat === 'number' ? decoded.iat : Math.floor(Date.now() / 1000),
         exp: typeof decoded?.exp === 'number' ? decoded.exp : Math.floor(Date.now() / 1000) + 300,
       };
 
       req.user = payload;
+      req.tenantId = resolvedTenantId;
+      req.channel = channel;
+      req.brokerId = claimBrokerId;
+      req.brokerSlug = claimBrokerSlug;
+      req.authContext = {
+        provider: verificationProvider.name,
+        channel,
+        brokerId: claimBrokerId,
+        brokerSlug: claimBrokerSlug,
+        customerId: payload.customerId,
+        mandateScopes: payload.mandateScopes || [],
+        sessionType: payload.sessionType,
+        subject: userId,
+        issuer: issuerNorm,
+        audience: payload.audience || [],
+        resolvedHost:
+          (req.headers['x-resolved-host'] as string | undefined) ||
+          (req.headers.host as string | undefined) ||
+          undefined,
+      };
 
       // Log successful authentication
       try {
@@ -489,7 +661,7 @@ export const authenticateToken = async (
           result: 'success',
           ip: req.ip || req.socket.remoteAddress,
           userAgent: req.headers['user-agent'],
-          method: 'zitadel_oidc',
+          method: 'keycloak_oidc',
           mfaUsed: false, // MFA status would come from token claims if available
         });
       } catch (logError) {
@@ -504,7 +676,7 @@ export const authenticateToken = async (
     // ------------------------------
     // Our own JWT token verification (primary method)
     // ------------------------------
-    // If not a Zitadel token, verify as our own JWT token
+    // If not a recognized OIDC token, verify as our own JWT token
     try {
       const { TokenService } = await import('../services/token-service');
       const payload = TokenService.verifyAccessToken(token) as JWTPayload;
@@ -515,8 +687,37 @@ export const authenticateToken = async (
 
       // Update payload with resolved tenantId
       payload.tenantId = resolvedTenantId;
+      const channel: SessionChannel = payload.channel || (payload.brokerId ? 'broker' : 'direct');
+      enforceContextInvariants(req, {
+        channel,
+        brokerId: payload.brokerId,
+        brokerSlug: payload.brokerSlug,
+        provider: 'internal-jwt',
+      });
+      payload.channel = channel;
+      payload.authProvider = payload.authProvider || 'internal-jwt';
 
       req.user = payload;
+      req.tenantId = resolvedTenantId;
+      req.channel = channel;
+      req.brokerId = payload.brokerId;
+      req.brokerSlug = payload.brokerSlug;
+      req.authContext = {
+        provider: payload.authProvider,
+        channel,
+        brokerId: payload.brokerId,
+        brokerSlug: payload.brokerSlug,
+        customerId: payload.customerId,
+        mandateScopes: payload.mandateScopes || [],
+        sessionType: payload.sessionType,
+        subject: payload.userId,
+        issuer: payload.issuer,
+        audience: payload.audience || [],
+        resolvedHost:
+          (req.headers['x-resolved-host'] as string | undefined) ||
+          (req.headers.host as string | undefined) ||
+          undefined,
+      };
 
       // Log successful authentication
       try {
@@ -555,7 +756,7 @@ export const authenticateToken = async (
         reason: error instanceof Error ? error.message : 'unknown_error',
         ip: req.ip || req.socket.remoteAddress,
         userAgent: req.headers['user-agent'],
-        method: 'zitadel_oidc',
+        method: 'keycloak_oidc',
       });
     } catch {
       // Ignore audit log errors

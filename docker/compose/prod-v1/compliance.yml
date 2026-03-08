@@ -57,9 +57,9 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
 
-      # OIDC (Zitadel)
-      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-https://auth.thaliumx.com}
-      ZITADEL_JWKS_URI: ${ZITADEL_JWKS_URI:-http://zitadel:8080/oauth/v2/keys}
+      # OIDC (Keycloak)
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.thaliumx.com/auth/realms/thaliumx}
+      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI:-http://keycloak:8080/auth/realms/thaliumx/protocol/openid-connect/certs}
 
       # Observability toggles
       METRICS_ENABLED: "true"
@@ -155,9 +155,9 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
 
-      # OIDC (Zitadel)
-      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-https://auth.thaliumx.com}
-      ZITADEL_JWKS_URI: ${ZITADEL_JWKS_URI:-http://zitadel:8080/oauth/v2/keys}
+      # OIDC (Keycloak)
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.thaliumx.com/auth/realms/thaliumx}
+      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI:-http://keycloak:8080/auth/realms/thaliumx/protocol/openid-connect/certs}
 
       METRICS_ENABLED: "true"
       AUDIT_LOG_ENABLED: "true"
@@ -251,9 +251,9 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /certs/ca.crt
 
-      # OIDC (Zitadel)
-      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-https://auth.thaliumx.com}
-      ZITADEL_JWKS_URI: ${ZITADEL_JWKS_URI:-http://zitadel:8080/oauth/v2/keys}
+      # OIDC (Keycloak)
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.thaliumx.com/auth/realms/thaliumx}
+      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI:-http://keycloak:8080/auth/realms/thaliumx/protocol/openid-connect/certs}
 
       METRICS_ENABLED: "true"
       AUDIT_LOG_ENABLED: "true"
@@ -342,9 +342,9 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
 
-      # OIDC (Zitadel)
-      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-https://auth.thaliumx.com}
-      ZITADEL_JWKS_URI: ${ZITADEL_JWKS_URI:-http://zitadel:8080/oauth/v2/keys}
+      # OIDC (Keycloak)
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.thaliumx.com/auth/realms/thaliumx}
+      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI:-http://keycloak:8080/auth/realms/thaliumx/protocol/openid-connect/certs}
 
       METRICS_ENABLED: "true"
       AUDIT_LOG_ENABLED: "true"
@@ -442,9 +442,9 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
 
-      # OIDC (Zitadel)
-      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-https://auth.thaliumx.com}
-      ZITADEL_JWKS_URI: ${ZITADEL_JWKS_URI:-http://zitadel:8080/oauth/v2/keys}
+      # OIDC (Keycloak)
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.thaliumx.com/auth/realms/thaliumx}
+      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI:-http://keycloak:8080/auth/realms/thaliumx/protocol/openid-connect/certs}
 
       METRICS_ENABLED: "true"
       AUDIT_LOG_ENABLED: "true"

@@ -105,7 +105,7 @@ export class SystemService {
     return apiClient.get('/health');
   }
 
-  static async getApiDocumentation(): Promise<ApiResponse<any>> {
+  static async getApiDocumentation(): Promise<ApiResponse<unknown>> {
     return apiClient.get('/api/docs');
   }
 }

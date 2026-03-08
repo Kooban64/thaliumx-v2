@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useUsers, useAdminAssignRole } from '@/lib/api/hooks/useAdmin';
-import { useRoles } from '@/lib/api/hooks/useRBAC';
+import { useUsers, useAdminAssignRole, type AdminUser } from '@/lib/api/hooks/useAdmin';
+import { useRoles, type Role } from '@/lib/api/hooks/useRBAC';
 import { Loader2, Search, User, Shield, Check } from 'lucide-react';
 import { toast } from '@/components/shared/Toast';
 import {
@@ -53,10 +53,10 @@ export function UserRoleAssignment() {
       });
       setSelectedUser(null);
       setSelectedRole('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to assign role',
+        description: error instanceof Error ? error.message : 'Failed to assign role',
         type: 'error',
       });
     }
@@ -106,7 +106,7 @@ export function UserRoleAssignment() {
                       <Loader2 className="h-4 w-4 animate-spin" />
                     </div>
                   ) : (
-                    roles?.map((role: any) => (
+                    roles?.map((role: Role) => (
                       <SelectItem key={role.id || role.name} value={role.id || role.name}>
                         {role.name || role.id}
                       </SelectItem>
@@ -156,15 +156,20 @@ export function UserRoleAssignment() {
             </div>
           ) : (
             <div className="space-y-2">
-              {users.map((user: any) => (
-                <div
-                  key={user.id || user.userId}
+              {users.map((user: AdminUser) => {
+                const userKey = user.id || user.userId;
+                if (!userKey) {
+                  return null;
+                }
+
+                return <div
+                  key={userKey}
                   className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-colors ${
-                    selectedUser === (user.id || user.userId)
+                    selectedUser === userKey
                       ? 'bg-primary/10 border-primary'
                       : 'hover:bg-muted/50'
                   }`}
-                  onClick={() => setSelectedUser(user.id || user.userId)}
+                  onClick={() => setSelectedUser(userKey)}
                 >
                   <div className="flex items-center gap-4">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -184,11 +189,11 @@ export function UserRoleAssignment() {
                       </div>
                     </div>
                   </div>
-                  {selectedUser === (user.id || user.userId) && (
+                  {selectedUser === userKey && (
                     <Shield className="h-5 w-5 text-primary" />
                   )}
-                </div>
-              ))}
+                </div>;
+              })}
             </div>
           )}
         </CardContent>

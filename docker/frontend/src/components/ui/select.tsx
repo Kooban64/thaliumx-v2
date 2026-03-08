@@ -17,13 +17,14 @@ const SelectContext = React.createContext<SelectContextValue | null>(null);
 
 interface SelectProps {
   value?: string;
+  defaultValue?: string;
   onValueChange?: (value: string) => void;
   children: React.ReactNode;
 }
 
-export function Select({ value, onValueChange, children }: SelectProps) {
+export function Select({ value, defaultValue, onValueChange, children }: SelectProps) {
   const [open, setOpen] = React.useState(false);
-  const [internalValue, setInternalValue] = React.useState(value || '');
+  const [internalValue, setInternalValue] = React.useState(value ?? defaultValue ?? '');
 
   const currentValue = value !== undefined ? value : internalValue;
 
@@ -103,7 +104,7 @@ export function SelectContent({ children, className }: SelectContentProps) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [context?.open]);
+  }, [context]);
 
   if (!context?.open) return null;
 
@@ -137,6 +138,7 @@ export function SelectItem({ value, children, disabled }: SelectItemProps) {
     <button
       type="button"
       role="option"
+      aria-selected={context.value === value}
       disabled={disabled}
       className={cn(
         'relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none',

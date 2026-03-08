@@ -3,15 +3,25 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Building2, TrendingUp, Activity } from 'lucide-react';
 
+interface PlatformMetrics {
+  totalUsers?: number;
+  totalBrokers?: number;
+  totalTransactions?: number;
+  activeUsers?: number;
+  totalVolume?: number;
+}
+
 interface PlatformMetricsCardProps {
-  data?: any;
+  data?: {
+    metrics?: PlatformMetrics;
+  };
 }
 
 /**
  * PlatformMetricsCard - Display platform metrics
  */
 export function PlatformMetricsCard({ data }: PlatformMetricsCardProps) {
-  const metrics = data?.metrics || {
+  const metrics: PlatformMetrics = data?.metrics || {
     totalUsers: 0,
     totalBrokers: 0,
     totalTransactions: 0,

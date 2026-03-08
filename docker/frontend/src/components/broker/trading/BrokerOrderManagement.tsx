@@ -6,6 +6,28 @@ import { Badge } from '@/components/ui/badge';
 import { useBrokerTransactions } from '@/lib/api/hooks/useBroker';
 import { Loader2, ShoppingCart, TrendingUp, TrendingDown } from 'lucide-react';
 
+interface BrokerTransactionItem {
+  id: string;
+  type: string;
+  amount: string;
+  currency: string;
+  status: string;
+  createdAt: string;
+}
+
+function isBrokerTransactionItem(value: unknown): value is BrokerTransactionItem {
+  if (!value || typeof value !== 'object') return false;
+  const tx = value as Record<string, unknown>;
+  return (
+    typeof tx.id === 'string' &&
+    typeof tx.type === 'string' &&
+    typeof tx.amount === 'string' &&
+    typeof tx.currency === 'string' &&
+    typeof tx.status === 'string' &&
+    typeof tx.createdAt === 'string'
+  );
+}
+
 /**
  * BrokerOrderManagement - Manage orders for broker
  */
@@ -13,7 +35,9 @@ export function BrokerOrderManagement() {
   const [page] = useState(1);
   const { data, isLoading } = useBrokerTransactions({ page, limit: 20 });
 
-  const transactions = data?.data || [];
+  const transactions: BrokerTransactionItem[] = Array.isArray(data?.data)
+    ? (data.data as unknown[]).filter(isBrokerTransactionItem)
+    : [];
   const pagination = data?.pagination;
 
   if (isLoading) {
@@ -48,7 +72,7 @@ export function BrokerOrderManagement() {
             </div>
           ) : (
             <div className="space-y-4">
-              {transactions.map((tx: any) => (
+              {transactions.map((tx) => (
                 <div
                   key={tx.id}
                   className="flex items-center justify-between p-4 border rounded-lg"

@@ -98,8 +98,8 @@ services:
       DB_USER: support
       DB_PASS_FILE: /run/secrets/support-db-password
       DB_NAME: support
-      ZITADEL_CLIENT_ID: ${ZITADEL_CLIENT_ID}
-      ZITADEL_CLIENT_SECRET: ${ZITADEL_CLIENT_SECRET}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
       CHAT_ENCRYPTION_KEY: ${CHAT_ENCRYPTION_KEY}
       SMTP_HOST: thaliumx-mailhog
       SMTP_PORT: 1025
@@ -135,8 +135,8 @@ services:
       DB_USER: support
       DB_PASS_FILE: /run/secrets/support-db-password
       DB_NAME: support
-      ZITADEL_CLIENT_ID: ${ZITADEL_CLIENT_ID}
-      ZITADEL_CLIENT_SECRET: ${ZITADEL_CLIENT_SECRET}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
       OSTICKET_SECRET_SALT: ${OSTICKET_SECRET_SALT}
       LHC_API_KEY: ${LHC_API_KEY}
       SMTP_HOST: thaliumx-mailhog

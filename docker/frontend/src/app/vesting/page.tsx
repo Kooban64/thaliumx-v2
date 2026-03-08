@@ -3,8 +3,25 @@
 import { useEffect, useState } from 'react';
 import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 
+interface VestingSchedule {
+  scheduleId: string;
+  investmentId?: string;
+  totalAmount?: string | number;
+  releasedAmount?: string | number;
+  releasableAmount?: string | number;
+  cliffDuration?: number;
+  vestingDuration?: number;
+  lastClaimTime?: string;
+  nextClaimAvailable?: string;
+}
+
+interface VestingResponse {
+  data?: VestingSchedule[];
+  error?: { message?: string };
+}
+
 export default function VestingPage() {
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<VestingSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,11 +37,11 @@ export default function VestingPage() {
         const res = await fetch('/api/presale/vesting/user/me', {
           credentials: 'include'
         });
-        const data = await res.json();
+        const data: VestingResponse = await res.json();
         if (!res.ok) throw new Error(data?.error?.message || 'Failed to load');
         setItems(data.data || []);
-      } catch (e: any) {
-        setError(e.message);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load');
       } finally {
         setLoading(false);
       }
@@ -40,7 +57,7 @@ export default function VestingPage() {
       {!loading && !error && (
         <div className="space-y-3">
           {items.length === 0 && <div>No vesting schedules found.</div>}
-          {items.map((v: any) => (
+          {items.map((v) => (
             <div key={v.scheduleId} className="border rounded p-4">
               <div className="flex justify-between">
                 <div>

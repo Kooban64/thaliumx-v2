@@ -7,6 +7,13 @@
 
 import { apiClient } from './client';
 
+type AnyRecord = Record<string, unknown>;
+
+const asRecord = (value: unknown): AnyRecord =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as AnyRecord) : {};
+
+const asArray = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
 export interface Ticket {
   id: string;
   ticketId: string;
@@ -17,7 +24,7 @@ export interface Ticket {
   status: 'open' | 'in_progress' | 'resolved' | 'closed';
   department?: string;
   issueType?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string;
@@ -74,7 +81,7 @@ export interface EscalateChatRequest {
   subject: string;
   message: string;
   priority?: 'low' | 'normal' | 'high' | 'critical';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ListTicketsFilters {
@@ -88,9 +95,10 @@ export interface ListTicketsFilters {
  * Create a support ticket
  */
 export async function createTicket(request: CreateTicketRequest): Promise<Ticket> {
-  const response = await apiClient.post('/api/support/tickets', request);
-  const data = response.data as any;
-  return data.ticket || data.data?.ticket || data;
+  const response = await apiClient.post<Ticket | { ticket?: Ticket; data?: { ticket?: Ticket } }>('/api/support/tickets', request);
+  const data = asRecord(response.data);
+  const nested = asRecord(data.data);
+  return (data.ticket as Ticket | undefined) || (nested.ticket as Ticket | undefined) || (response.data as Ticket);
 }
 
 /**
@@ -105,27 +113,30 @@ export async function getTickets(filters?: ListTicketsFilters): Promise<Ticket[]
 
   const queryString = params.toString();
   const url = `/api/support/tickets${queryString ? `?${queryString}` : ''}`;
-  const response = await apiClient.get(url);
-  const data = response.data as any;
-  return data.tickets || data.data?.tickets || [];
+  const response = await apiClient.get<{ tickets?: Ticket[]; data?: { tickets?: Ticket[] } }>(url);
+  const data = asRecord(response.data);
+  const nested = asRecord(data.data);
+  return asArray<Ticket>(data.tickets) || asArray<Ticket>(nested.tickets);
 }
 
 /**
  * Get ticket by ID
  */
 export async function getTicket(ticketId: string): Promise<Ticket> {
-  const response = await apiClient.get(`/api/support/tickets/${ticketId}`);
-  const data = response.data as any;
-  return data.ticket || data.data?.ticket || data;
+  const response = await apiClient.get<Ticket | { ticket?: Ticket; data?: { ticket?: Ticket } }>(`/api/support/tickets/${ticketId}`);
+  const data = asRecord(response.data);
+  const nested = asRecord(data.data);
+  return (data.ticket as Ticket | undefined) || (nested.ticket as Ticket | undefined) || (response.data as Ticket);
 }
 
 /**
  * Create a chat session
  */
 export async function createChatSession(): Promise<ChatSession> {
-  const response = await apiClient.post('/api/support/chat/sessions', {});
-  const data = response.data as any;
-  return data.session || data.data?.session || data;
+  const response = await apiClient.post<ChatSession | { session?: ChatSession; data?: { session?: ChatSession } }>('/api/support/chat/sessions', {});
+  const data = asRecord(response.data);
+  const nested = asRecord(data.data);
+  return (data.session as ChatSession | undefined) || (nested.session as ChatSession | undefined) || (response.data as ChatSession);
 }
 
 /**
@@ -133,15 +144,16 @@ export async function createChatSession(): Promise<ChatSession> {
  */
 export async function getChatSession(sessionId: string): Promise<ChatSession> {
   const response = await apiClient.get(`/api/support/chat/sessions/${sessionId}`);
-  const data = response.data as any;
+  const data = asRecord(response.data);
+  const nested = asRecord(data.data);
   return {
     id: sessionId,
     sessionId,
-    userId: data.userId || data.data?.userId || '',
-    status: data.status || data.data?.status || 'active',
-    messages: data.messages || data.data?.messages || [],
-    createdAt: data.createdAt || data.data?.createdAt || new Date().toISOString(),
-    updatedAt: data.updatedAt || data.data?.updatedAt || new Date().toISOString(),
+    userId: (data.userId as string | undefined) || (nested.userId as string | undefined) || '',
+    status: ((data.status as ChatSession['status'] | undefined) || (nested.status as ChatSession['status'] | undefined) || 'active'),
+    messages: asArray<ChatMessage>(data.messages) || asArray<ChatMessage>(nested.messages),
+    createdAt: (data.createdAt as string | undefined) || (nested.createdAt as string | undefined) || new Date().toISOString(),
+    updatedAt: (data.updatedAt as string | undefined) || (nested.updatedAt as string | undefined) || new Date().toISOString(),
   };
 }
 
@@ -149,18 +161,20 @@ export async function getChatSession(sessionId: string): Promise<ChatSession> {
  * Escalate chat to ticket
  */
 export async function escalateChat(request: EscalateChatRequest): Promise<Ticket> {
-  const response = await apiClient.post('/api/support/chat/escalate', request);
-  const data = response.data as any;
-  return data.ticket || data.data?.ticket || data;
+  const response = await apiClient.post<Ticket | { ticket?: Ticket; data?: { ticket?: Ticket } }>('/api/support/chat/escalate', request);
+  const data = asRecord(response.data);
+  const nested = asRecord(data.data);
+  return (data.ticket as Ticket | undefined) || (nested.ticket as Ticket | undefined) || (response.data as Ticket);
 }
 
 /**
  * Get support metrics
  */
 export async function getSupportMetrics(): Promise<SupportMetrics> {
-  const response = await apiClient.get('/api/support/metrics');
-  const data = response.data as any;
-  return data.metrics || data.data?.metrics || {
+  const response = await apiClient.get<{ metrics?: SupportMetrics; data?: { metrics?: SupportMetrics } }>('/api/support/metrics');
+  const data = asRecord(response.data);
+  const nested = asRecord(data.data);
+  return (data.metrics as SupportMetrics | undefined) || (nested.metrics as SupportMetrics | undefined) || {
     totalTickets: 0,
     openTickets: 0,
     averageResponseTime: 0,

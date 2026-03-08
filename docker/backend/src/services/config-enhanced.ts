@@ -644,6 +644,9 @@ export class ConfigService {
    */
   private static async loadConfig(): Promise<AppConfig> {
     const dnsOrigins = this.loadDnsOriginsFromSecrets();
+    const keycloakIssuer =
+      process.env.KEYCLOAK_ISSUER ||
+      `${(process.env.KEYCLOAK_URL || 'https://auth.thaliumx.com').replace(/\/+$/, '')}/realms/${process.env.KEYCLOAK_REALM || 'thaliumx'}`;
     
     // Load secrets from Vault or fallback
     const dbSecret = await this.getVaultSecret(VAULT_SECRET_PATHS.database);
@@ -659,6 +662,7 @@ export class ConfigService {
     return {
       port: parseInt(process.env.PORT || '3002', 10),
       env: (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
+      authProvider: 'keycloak',
 
       cors: {
         origin: Array.from(new Set([
@@ -719,10 +723,14 @@ export class ConfigService {
         } : undefined
       },
 
-      zitadel: {
-        issuer: process.env.ZITADEL_ISSUER || 'https://auth.thaliumx.com',
-        jwksUri: process.env.ZITADEL_JWKS_URI || 'https://auth.thaliumx.com/oauth/v2/keys',
-        audience: process.env.ZITADEL_AUDIENCE || 'thaliumx-backend'
+      keycloak: {
+        issuer: keycloakIssuer,
+        jwksUri:
+          process.env.KEYCLOAK_JWKS_URI ||
+          `${keycloakIssuer.replace(/\/+$/, '')}/protocol/openid-connect/certs`,
+        audience: process.env.KEYCLOAK_AUDIENCE || process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend',
+        realm: process.env.KEYCLOAK_REALM || 'thaliumx',
+        clientId: process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend',
       },
 
       blockchain: {
@@ -742,10 +750,14 @@ export class ConfigService {
    */
   private static loadConfigSync(): AppConfig {
     const dnsOrigins = this.loadDnsOriginsFromSecrets();
+    const keycloakIssuer =
+      process.env.KEYCLOAK_ISSUER ||
+      `${(process.env.KEYCLOAK_URL || 'https://auth.thaliumx.com').replace(/\/+$/, '')}/realms/${process.env.KEYCLOAK_REALM || 'thaliumx'}`;
     
     return {
       port: parseInt(process.env.PORT || '3002', 10),
       env: (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
+      authProvider: 'keycloak',
 
       cors: {
         origin: Array.from(new Set([
@@ -806,10 +818,14 @@ export class ConfigService {
         } : undefined
       },
 
-      zitadel: {
-        issuer: process.env.ZITADEL_ISSUER || 'https://auth.thaliumx.com',
-        jwksUri: process.env.ZITADEL_JWKS_URI || 'https://auth.thaliumx.com/oauth/v2/keys',
-        audience: process.env.ZITADEL_AUDIENCE || 'thaliumx-backend'
+      keycloak: {
+        issuer: keycloakIssuer,
+        jwksUri:
+          process.env.KEYCLOAK_JWKS_URI ||
+          `${keycloakIssuer.replace(/\/+$/, '')}/protocol/openid-connect/certs`,
+        audience: process.env.KEYCLOAK_AUDIENCE || process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend',
+        realm: process.env.KEYCLOAK_REALM || 'thaliumx',
+        clientId: process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend',
       },
 
       blockchain: {
@@ -1021,10 +1037,12 @@ export class ConfigService {
     const config = this.getConfig();
     const errors: string[] = [];
 
-    // Identity provider selection (defaults to Zitadel in prod-v1).
-    // Keycloak is supported for rollback only.
-    // authProvider extracted but not used in this function
-    String(process.env.THALIUMX_AUTH_PROVIDER || process.env.AUTH_PROVIDER || 'zitadel').toLowerCase();
+    // Identity provider selection (Keycloak-only OIDC runtime).
+    const authProvider = config.authProvider || 'keycloak';
+
+    if (!['keycloak', 'internal-jwt'].includes(authProvider)) {
+      errors.push(`Unsupported auth provider: ${authProvider}`);
+    }
 
     // JWT validation
     if (!config.jwt.secret || config.jwt.secret.length < 32) {
@@ -1047,7 +1065,12 @@ export class ConfigService {
         errors.push('Database SSL must be enabled in production');
       }
 
-      // Keycloak validation removed - migrated to Zitadel
+      if (authProvider === 'keycloak' && !config.keycloak?.issuer) {
+        errors.push('Keycloak issuer is required when auth provider is keycloak');
+      }
+      if (authProvider === 'keycloak' && !config.keycloak?.jwksUri) {
+        errors.push('Keycloak JWKS URI is required when auth provider is keycloak');
+      }
 
       if (!this.isVaultConnected()) {
         LoggerService.warn('Vault is not connected in production - secrets may not be properly managed');

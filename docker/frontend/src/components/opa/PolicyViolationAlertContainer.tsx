@@ -2,8 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { PolicyViolationAlert } from './PolicyViolationAlert';
-import { getZitadelToken } from '@/lib/auth/backend-auth';
+import { getKeycloakToken } from '@/lib/auth/backend-auth';
 import apiClient from '@/lib/api/client';
+
+interface ProfilePayload {
+  id?: string;
+  user?: {
+    id?: string;
+  };
+}
 
 export function PolicyViolationAlertContainer() {
   const [userId, setUserId] = useState<string | undefined>(undefined);
@@ -14,10 +21,10 @@ export function PolicyViolationAlertContainer() {
     
     const fetchUserId = async () => {
       try {
-        const token = getZitadelToken();
+        const token = getKeycloakToken();
         if (token) {
-          const profileRes = await apiClient.get<{ id: string }>('/api/auth/profile');
-          const currentUserId = (profileRes.data as any)?.user?.id || (profileRes.data as any)?.id;
+          const profileRes = await apiClient.get<ProfilePayload>('/api/auth/profile');
+          const currentUserId = profileRes.data?.user?.id || profileRes.data?.id;
           if (currentUserId) {
             setUserId(currentUserId);
           }

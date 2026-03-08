@@ -123,7 +123,7 @@ export function KYCProgressBar({ className }: KYCProgressBarProps) {
       <Card className={className}>
         <CardHeader>
           <CardTitle>KYC Progress</CardTitle>
-          <CardDescription>You've reached the highest verification level</CardDescription>
+          <CardDescription>You&apos;ve reached the highest verification level</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 text-muted-foreground">

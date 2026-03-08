@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,23 +24,23 @@ export default function TicketDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (ticketId) {
-      loadTicket();
-    }
-  }, [ticketId]);
-
-  const loadTicket = async () => {
+  const loadTicket = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await getTicket(ticketId);
       setTicket(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load ticket');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load ticket');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [ticketId]);
+
+  useEffect(() => {
+    if (ticketId) {
+      void loadTicket();
+    }
+  }, [ticketId, loadTicket]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -70,6 +70,9 @@ export default function TicketDetailsPage() {
         return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
+
+  const metadata = (ticket?.metadata ?? {}) as Record<string, unknown>;
+  const asDisplayText = (value: unknown): string => (typeof value === 'string' ? value : String(value));
 
   if (isLoading) {
     return (
@@ -135,7 +138,7 @@ export default function TicketDetailsPage() {
       </Card>
 
       {/* Ticket Metadata */}
-      {ticket.metadata && Object.keys(ticket.metadata).length > 0 && (
+      {Object.keys(metadata).length > 0 && (
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="text-lg">Additional Information</CardTitle>
@@ -152,29 +155,29 @@ export default function TicketDetailsPage() {
                   <span className="font-medium">Issue Type:</span> {ticket.issueType}
                 </div>
               )}
-              {ticket.metadata.workflowId && (
+              {metadata.workflowId != null && (
                 <div>
                   <span className="font-medium">Workflow ID:</span>{' '}
-                  <Link href={`/workflows/${ticket.metadata.workflowId}`} className="text-primary hover:underline">
-                    {ticket.metadata.workflowId}
+                  <Link href={`/workflows/${encodeURIComponent(asDisplayText(metadata.workflowId))}`} className="text-primary hover:underline">
+                    {asDisplayText(metadata.workflowId)}
                   </Link>
                 </div>
               )}
-              {ticket.metadata.orderId && (
+              {metadata.orderId != null && (
                 <div>
-                  <span className="font-medium">Order ID:</span> {ticket.metadata.orderId}
+                  <span className="font-medium">Order ID:</span> {asDisplayText(metadata.orderId)}
                 </div>
               )}
-              {ticket.metadata.tradingPair && (
+              {metadata.tradingPair != null && (
                 <div>
-                  <span className="font-medium">Trading Pair:</span> {ticket.metadata.tradingPair}
+                  <span className="font-medium">Trading Pair:</span> {asDisplayText(metadata.tradingPair)}
                 </div>
               )}
-              {ticket.metadata.transactionHash && (
+              {metadata.transactionHash != null && (
                 <div className="col-span-2">
                   <span className="font-medium">Transaction Hash:</span>{' '}
                   <code className="text-xs bg-muted px-2 py-1 rounded">
-                    {ticket.metadata.transactionHash}
+                    {asDisplayText(metadata.transactionHash)}
                   </code>
                 </div>
               )}

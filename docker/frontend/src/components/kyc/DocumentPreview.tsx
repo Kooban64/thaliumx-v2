@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { X, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import Image from 'next/image';
 
 interface DocumentPreviewProps {
   file: File;
@@ -98,9 +99,12 @@ export function DocumentPreview({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
           onClick={() => setPreviewUrl(null)}
         >
-          <img
+          <Image
             src={previewUrl}
             alt={file.name}
+            width={1200}
+            height={1200}
+            unoptimized
             className="max-w-full max-h-full object-contain"
             onClick={(e) => e.stopPropagation()}
           />

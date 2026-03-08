@@ -2,19 +2,34 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api/client';
 import { useRBACStore } from '@/stores/rbacStore';
 
-interface Role {
+export interface Role {
   id: string;
   name: string;
   description?: string;
   permissions: string[];
 }
 
-interface UserRole {
+export interface UserRole {
   userId: string;
   roleId: string;
   roleName: string;
   isActive: boolean;
   assignedAt: string;
+}
+
+interface RolesPayload {
+  data?: Role[];
+  roles?: Role[];
+}
+
+interface UserRolesPayload {
+  data?: UserRole[];
+  roles?: UserRole[];
+}
+
+interface PermissionsPayload {
+  data?: string[];
+  permissions?: string[];
 }
 
 /**
@@ -24,9 +39,9 @@ export function useRoles() {
   return useQuery<Role[]>({
     queryKey: ['rbac', 'roles'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/rbac/roles');
+      const response = await apiClient.get<RolesPayload>('/api/rbac/roles');
       if (response.success && response.data) {
-        return response.data as Role[];
+        return response.data.data || response.data.roles || [];
       }
       throw new Error('Failed to fetch roles');
     },
@@ -42,9 +57,9 @@ export function useUserRoles(userId?: string) {
     queryKey: ['rbac', 'user-roles', userId],
     queryFn: async () => {
       const targetUserId = userId || 'current';
-      const response = await apiClient.get(`/api/rbac/user-roles/${targetUserId}`);
+      const response = await apiClient.get<UserRolesPayload>(`/api/rbac/user-roles/${targetUserId}`);
       if (response.success && response.data) {
-        return response.data as UserRole[];
+        return response.data.data || response.data.roles || [];
       }
       throw new Error('Failed to fetch user roles');
     },
@@ -83,9 +98,9 @@ export function useUserPermissions(userId?: string) {
     queryKey: ['rbac', 'user-permissions', userId],
     queryFn: async () => {
       const targetUserId = userId || 'current';
-      const response = await apiClient.get(`/api/rbac/user-permissions/${targetUserId}`);
+      const response = await apiClient.get<PermissionsPayload>(`/api/rbac/user-permissions/${targetUserId}`);
       if (response.success && response.data) {
-        const permissions = response.data as string[];
+        const permissions = response.data.data || response.data.permissions || [];
         // Update store
         useRBACStore.getState().setPermissions(permissions);
         return permissions;

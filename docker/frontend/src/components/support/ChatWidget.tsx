@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -36,7 +36,7 @@ async function getUserId(): Promise<string | undefined> {
       const user = data?.data?.user || data?.data;
       return user?.id || user?.userId;
     }
-  } catch (error) {
+  } catch {
     // Ignore errors - will create session without userId
   }
   
@@ -60,66 +60,14 @@ export function ChatWidget({ userId: propUserId, className, isPublic = false }: 
   // Get userId from prop or context
   const userId = propUserId;
 
-  // Initialize chat session
-  useEffect(() => {
-    if (isOpen && !session) {
-      if (isPublic) {
-        // Public mode: require email before starting chat
-        if (!guestEmail) {
-          setShowEmailForm(true);
-          return;
-        }
-        initializePublicChat();
-      } else {
-        // Authenticated mode: get userId if not provided
-        if (!userId) {
-          getUserId().then((id) => {
-            if (id) {
-              initializeChat();
-            } else {
-              // Fallback to guest mode if no auth
-              setShowEmailForm(true);
-            }
-          });
-        } else {
-          initializeChat();
-        }
-      }
-    }
-  }, [isOpen, session, userId, isPublic, guestEmail]);
-
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const handleEmailSubmit = async () => {
-    if (!guestEmail.trim()) {
-      setEmailError('Email is required');
-      return;
-    }
-    if (!validateEmail(guestEmail)) {
-      setEmailError('Please enter a valid email address');
-      return;
-    }
-    setEmailError('');
-    setShowEmailForm(false);
-    await initializePublicChat();
-  };
-
-  const initializeChat = async () => {
+  const initializeChat = useCallback(async () => {
     try {
       setIsLoading(true);
       const newSession = await createChatSession();
       setSession(newSession);
       setMessages(newSession.messages || []);
       setIsConnected(true);
-      
+
       // Connect to WebSocket for real-time messages
       // Note: In production, this would connect to Live Helper Chat WebSocket
       // For now, we'll simulate with polling or direct API calls
@@ -129,9 +77,9 @@ export function ChatWidget({ userId: propUserId, className, isPublic = false }: 
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const initializePublicChat = async () => {
+  const initializePublicChat = useCallback(async () => {
     try {
       setIsLoading(true);
       // Use public API endpoint
@@ -163,6 +111,58 @@ export function ChatWidget({ userId: propUserId, className, isPublic = false }: 
     } finally {
       setIsLoading(false);
     }
+  }, [guestEmail, guestName]);
+
+  // Initialize chat session
+  useEffect(() => {
+    if (isOpen && !session) {
+      if (isPublic) {
+        // Public mode: require email before starting chat
+        if (!guestEmail) {
+          setShowEmailForm(true);
+          return;
+        }
+        initializePublicChat();
+      } else {
+        // Authenticated mode: get userId if not provided
+        if (!userId) {
+          getUserId().then((id) => {
+            if (id) {
+              initializeChat();
+            } else {
+              // Fallback to guest mode if no auth
+              setShowEmailForm(true);
+            }
+          });
+        } else {
+          initializeChat();
+        }
+      }
+    }
+  }, [isOpen, session, userId, isPublic, guestEmail, initializePublicChat, initializeChat]);
+
+  // Scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleEmailSubmit = async () => {
+    if (!guestEmail.trim()) {
+      setEmailError('Email is required');
+      return;
+    }
+    if (!validateEmail(guestEmail)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+    setEmailError('');
+    setShowEmailForm(false);
+    await initializePublicChat();
   };
 
   const sendMessage = async () => {
@@ -266,20 +266,20 @@ export function ChatWidget({ userId: propUserId, className, isPublic = false }: 
 
   if (!isOpen) {
     return (
-      <div className={`fixed bottom-4 right-4 z-50 ${className}`}>
-        <Button
-          onClick={() => setIsOpen(true)}
-          size="lg"
-          className="rounded-full h-14 w-14 shadow-lg"
-        >
-          <MessageCircle className="h-6 w-6" />
-        </Button>
-      </div>
+      <Button
+        onClick={() => setIsOpen(true)}
+        variant="ghost"
+        size="sm"
+        className={`flex items-center gap-1 hover:text-foreground transition-colors ${className}`}
+      >
+        <MessageCircle className="h-4 w-4" />
+        <span className="text-xs">Chat</span>
+      </Button>
     );
   }
 
   return (
-    <div className={`fixed bottom-4 right-4 z-50 w-96 ${className}`}>
+    <div className={`fixed bottom-20 right-4 z-50 w-96 ${className}`}>
       <Card className="shadow-2xl flex flex-col h-[600px]">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg">Support Chat</CardTitle>

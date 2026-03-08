@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useAuditLogs } from '@/lib/api/hooks/useAdmin';
-import { Loader2, Search, FileText, Download } from 'lucide-react';
+import { useAuditLogs, type AuditLog } from '@/lib/api/hooks/useAdmin';
+import { Loader2, Search, FileText, Download, X } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -32,7 +32,7 @@ export function AuditLogs() {
     limit: 100,
   });
 
-  const filteredLogs = logs?.filter((log: any) => {
+  const filteredLogs = logs?.filter((log: AuditLog) => {
     if (!search) return true;
     const searchLower = search.toLowerCase();
     return (
@@ -92,16 +92,26 @@ export function AuditLogs() {
           </p>
         </div>
         <div className="flex gap-2">
-          <select
-            value={exportFormat}
-            onChange={(e) => setExportFormat(e.target.value as 'csv' | 'json' | 'pdf')}
-            className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as 'csv' | 'json' | 'pdf')}>
+            <SelectTrigger className="w-32" aria-label="Export format">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="csv">CSV</SelectItem>
+              <SelectItem value="json">JSON</SelectItem>
+              <SelectItem value="pdf">PDF</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button 
+            variant="outline" 
+            onClick={handleExport}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleExport();
+              }
+            }}
           >
-            <option value="csv">CSV</option>
-            <option value="json">JSON</option>
-            <option value="pdf">PDF</option>
-          </select>
-          <Button variant="outline" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -111,21 +121,48 @@ export function AuditLogs() {
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Filters</CardTitle>
+              <CardDescription>Filter audit logs by action, date, and search terms</CardDescription>
+            </div>
+            {(search || actionFilter || startDate || endDate) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearch('');
+                  setActionFilter('');
+                  setStartDate('');
+                  setEndDate('');
+                }}
+                className="text-muted-foreground"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear Filters
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
                 placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setSearch('');
+                  }
+                }}
                 className="pl-10"
+                aria-label="Search audit logs"
               />
             </div>
             <Select value={actionFilter} onValueChange={setActionFilter}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Filter by action">
                 <SelectValue placeholder="Filter by action" />
               </SelectTrigger>
               <SelectContent>
@@ -142,12 +179,14 @@ export function AuditLogs() {
               placeholder="Start Date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
+              aria-label="Start date filter"
             />
             <Input
               type="date"
               placeholder="End Date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
+              aria-label="End date filter"
             />
           </div>
         </CardContent>
@@ -177,7 +216,7 @@ export function AuditLogs() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredLogs.map((log: any) => (
+              {filteredLogs.map((log: AuditLog) => (
                 <div
                   key={log.id}
                   className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"

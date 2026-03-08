@@ -27,44 +27,43 @@ import { Router } from 'express';
 import {
   validateLogin,
   validateRegister,
+  validateRefreshToken,
   validateChangePassword,
   validateResetPassword,
-                validateConfirmResetPassword
+  validateConfirmResetPassword,
 } from './auth';
 import { authenticateToken } from '../middleware/error-handler';
 
 const router: Router = Router();
 
 // =============================================================================
-// ZITADEL AUTH MODE
+// PROVIDER-AWARE AUTH MODE
 // =============================================================================
-// The ThaliumX platform has standardized on Zitadel (OIDC) as the system-of-record
-// for authentication. The legacy email/password + JWT endpoints below are retained
-// only as stubs to avoid breaking old clients; they intentionally return HTTP 410.
+// Legacy MFA/password-reset paths are retained as stubs for compatibility.
+// Primary authentication is provider-driven (Keycloak/Zitadel/internal JWT fallback).
 const legacyAuthGone = (_req: any, res: any) => {
   res.status(410).json({
     success: false,
     error: {
       code: 'LEGACY_AUTH_DISABLED',
-      message: 'Legacy auth is disabled. Use Zitadel (OIDC) login.'
+      message: 'Legacy auth endpoint is disabled. Use OIDC login flow.'
     },
     timestamp: new Date()
   });
 };
 
 // Import actual handlers from auth.ts
-import { login, register } from './auth';
+import { login, register, refreshToken } from './auth';
 
-// Public routes - now using proper Zitadel-backed authentication
+// Public routes - provider-aware login/register
 router.post('/login', validateLogin, login);
 
 router.post('/register', validateRegister, register);
 
-router.post('/refresh', legacyAuthGone);
+router.post('/refresh', validateRefreshToken, refreshToken);
 
 router.post('/logout', authenticateToken, async (_req, res) => {
-  // Zitadel is stateless for bearer tokens. Client should redirect to Zitadel
-  // end-session endpoint if it wants to actively terminate the SSO session.
+  // OIDC sessions are stateless from API perspective; frontend should perform IdP logout redirect.
   res.json({ success: true, message: 'Logged out (client-side)', timestamp: new Date() });
 });
 
@@ -75,10 +74,9 @@ router.post('/confirm-reset', validateConfirmResetPassword, legacyAuthGone);
 // Protected routes
 router.get('/profile', authenticateToken, async (req, res, next) => {
   try {
-    // Keycloak-authenticated: return token-derived identity.
-    // NOTE: Keycloak `sub` is not the same as our legacy DB `users.id`, so we
-    // do not attempt DB lookups here.
+    // Return token-derived identity and normalized auth context.
     const u = (req as any).user;
+    const authContext = (req as any).authContext;
     res.json({
       success: true,
       data: {
@@ -89,7 +87,25 @@ router.get('/profile', authenticateToken, async (req, res, next) => {
           roles: u?.roles,
           tenantId: u?.tenantId,
           brokerId: u?.brokerId,
-        }
+          brokerSlug: u?.brokerSlug,
+          channel: u?.channel,
+          customerId: u?.customerId,
+          mandateScopes: u?.mandateScopes || [],
+          authProvider: u?.authProvider,
+        },
+        context: authContext || {
+          provider: u?.authProvider || 'internal-jwt',
+          channel: u?.channel || 'direct',
+          brokerId: u?.brokerId,
+          brokerSlug: u?.brokerSlug,
+          customerId: u?.customerId,
+          mandateScopes: u?.mandateScopes || [],
+          sessionType: u?.sessionType,
+          subject: u?.userId || u?.id,
+          issuer: u?.issuer,
+          audience: u?.audience || [],
+          resolvedHost: req.headers['x-resolved-host'] || req.headers.host,
+        },
       },
       timestamp: new Date()
     });

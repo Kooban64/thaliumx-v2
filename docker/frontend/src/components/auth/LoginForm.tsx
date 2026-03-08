@@ -37,6 +37,16 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
   const [showMFA, setShowMFA] = useState(false);
   const [showReset, setShowReset] = useState(false);
 
+  const getLoginErrorMessage = (error: unknown): string => {
+    if (typeof error === 'string') return error;
+    if (error && typeof error === 'object') {
+      const errObj = error as { message?: unknown; code?: unknown };
+      if (typeof errObj.message === 'string') return errObj.message;
+      if (typeof errObj.code === 'string') return errObj.code;
+    }
+    return 'Login failed';
+  };
+
   const handleResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -141,14 +151,7 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
 
       if (!result.success) {
         // Check for MFA requirement
-        let errorStr: string;
-        if (typeof result.error === 'string') {
-          errorStr = result.error;
-        } else if (result.error && typeof result.error === 'object') {
-          errorStr = (result.error as any)?.message || (result.error as any)?.code || 'Login failed';
-        } else {
-          errorStr = 'Login failed';
-        }
+        const errorStr = getLoginErrorMessage(result.error);
         
         // Ensure errorStr is always a string before calling .includes()
         if (typeof errorStr === 'string' && (errorStr.includes('MFA') || errorStr.includes('MFA_REQUIRED'))) {

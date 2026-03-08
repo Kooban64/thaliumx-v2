@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useBrokerCompliance } from '@/lib/api/hooks/useBroker';
 import { Loader2, Shield, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 /**
  * BrokerComplianceDashboard - Compliance overview with full functionality
@@ -47,7 +48,7 @@ export function BrokerComplianceDashboard() {
   };
 
   const getOverallBadge = (status: string) => {
-    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive'; icon: any }> = {
+    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive'; icon: LucideIcon }> = {
       compliant: { variant: 'default', icon: CheckCircle2 },
       'non-compliant': { variant: 'destructive', icon: XCircle },
       review: { variant: 'secondary', icon: AlertTriangle },

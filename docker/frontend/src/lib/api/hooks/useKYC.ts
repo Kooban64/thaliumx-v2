@@ -3,6 +3,31 @@ import apiClient from '@/lib/api/client';
 import { useKYCStore } from '@/stores/kycStore';
 import type { KYCLevel } from '@/stores/kycStore';
 
+interface KYCLimitsPayload {
+  maxInvestment?: number;
+  maxTrading?: number;
+  maxWithdrawal?: number;
+  maxDeposit?: number;
+  maxDailyTransactions?: number;
+}
+
+interface KYCStatusResponse {
+  level: KYCLevel | null;
+  status: 'pending' | 'approved' | 'rejected' | 'in_review' | null;
+  limits: KYCLimitsPayload | null;
+}
+
+function normalizeKYCLimits(limits: KYCLimitsPayload | null) {
+  if (!limits) return null;
+  return {
+    maxInvestment: limits.maxInvestment ?? 0,
+    maxTrading: limits.maxTrading ?? 0,
+    maxWithdrawal: limits.maxWithdrawal ?? 0,
+    maxDeposit: limits.maxDeposit ?? 0,
+    maxDailyTransactions: limits.maxDailyTransactions ?? 0,
+  };
+}
+
 /**
  * useKYC - React Query hook for KYC operations
  */
@@ -10,22 +35,16 @@ export function useKYC() {
   const { level, status, limits, setLevel, setStatus, setLimits } = useKYCStore();
   const queryClient = useQueryClient();
 
-  interface KYCStatusResponse {
-    level: KYCLevel | null;
-    status: 'pending' | 'approved' | 'rejected' | 'in_review' | null;
-    limits: any;
-  }
-
   // Get KYC status
   const { data: kycStatus, isLoading } = useQuery<KYCStatusResponse>({
     queryKey: ['kyc', 'status'],
     queryFn: async (): Promise<KYCStatusResponse> => {
-      const response = await apiClient.get('/api/kyc/status');
+      const response = await apiClient.get<KYCStatusResponse>('/api/kyc/status');
       if (response.success && response.data) {
-        const data = response.data as KYCStatusResponse;
+        const data = response.data;
         setLevel(data.level);
         setStatus(data.status);
-        setLimits(data.limits);
+        setLimits(normalizeKYCLimits(data.limits));
         return data;
       }
       throw new Error('Failed to fetch KYC status');

@@ -1,7 +1,7 @@
 'use client';
 
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,14 +20,52 @@ import { useRouter } from 'next/navigation';
 export default function Dashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('portfolio'); // Default to portfolio view
-  const [_user, setUser] = useState<any>(null);
+  const [, setUser] = useState<unknown>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [_chartData, setChartData] = useState<any[]>([]);
-  const [_currentPrice, setCurrentPrice] = useState<number | null>(null);
-  const [_priceChange, setPriceChange] = useState<number>(0);
+  const [, setChartData] = useState<Array<{ time: number; value: number }>>([]);
+  const [, setCurrentPrice] = useState<number | null>(null);
+  const [, setPriceChange] = useState<number>(0);
+
+  type HistoricalPricePoint = {
+    timestamp: number;
+    price: number;
+  };
+
+  const loadChartData = useCallback(async () => {
+    try {
+      // Fetch historical data for the chart
+      const historicalResponse = await fetch('/api/market/historical/BTC?days=7');
+      if (historicalResponse.ok) {
+        const historicalData = await historicalResponse.json();
+        if (historicalData.success && historicalData.data.prices) {
+          const formattedData = (historicalData.data.prices as HistoricalPricePoint[]).map((price) => ({
+            time: Math.floor(price.timestamp / 1000),
+            value: price.price,
+          }));
+          setChartData(formattedData);
+        }
+      }
+
+      // Fetch current price for display
+      const priceResponse = await fetch('/api/market/prices/BTC');
+      if (priceResponse.ok) {
+        const priceData = await priceResponse.json();
+        if (priceData.success && priceData.data) {
+          setCurrentPrice(priceData.data.price);
+          setPriceChange(priceData.data.changePercent24h);
+        }
+      }
+    } catch (err) {
+      logNetworkError(err, { endpoint: '/api/market', component: 'Dashboard' });
+      // Fallback to mock data if API fails
+      setChartData(Array.from({ length: 100 }, (_, i) => ({
+        time: Date.now() / 1000 - (100 - i) * 60,
+        value: 45000 + Math.sin(i / 10) * 1000 + (i * 10),
+      })));
+    }
+  }, [setChartData, setCurrentPrice, setPriceChange]);
 
   useEffect(() => {
-
     // Check authentication and load user data
     const checkAuthAndLoadUser = async () => {
       try {
@@ -37,8 +75,8 @@ export default function Dashboard() {
           return;
         }
 
-        const { getZitadelToken } = await import('@/lib/auth/backend-auth');
-        const token = getZitadelToken();
+        const { getKeycloakToken } = await import('@/lib/auth/backend-auth');
+        const token = getKeycloakToken();
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
         };
@@ -68,47 +106,13 @@ export default function Dashboard() {
         }
         
         setIsLoading(false);
-      } catch (error) {
+      } catch {
         window.location.href = '/login?next=/dashboard';
       }
     };
     checkAuthAndLoadUser();
-    loadChartData();
-  }, []);
-
-  const loadChartData = async () => {
-    try {
-      // Fetch historical data for the chart
-      const historicalResponse = await fetch('/api/market/historical/BTC?days=7');
-      if (historicalResponse.ok) {
-        const historicalData = await historicalResponse.json();
-        if (historicalData.success && historicalData.data.prices) {
-          const formattedData = historicalData.data.prices.map((price: any) => ({
-            time: Math.floor(price.timestamp / 1000) as any,
-            value: price.price,
-          }));
-          setChartData(formattedData);
-        }
-      }
-
-      // Fetch current price for display
-      const priceResponse = await fetch('/api/market/prices/BTC');
-      if (priceResponse.ok) {
-        const priceData = await priceResponse.json();
-        if (priceData.success && priceData.data) {
-          setCurrentPrice(priceData.data.price);
-          setPriceChange(priceData.data.changePercent24h);
-        }
-      }
-    } catch (err) {
-      logNetworkError(err, { endpoint: '/api/market', component: 'Dashboard' });
-      // Fallback to mock data if API fails
-      setChartData(Array.from({ length: 100 }, (_, i) => ({
-        time: (Date.now() / 1000 - (100 - i) * 60) as any,
-        value: 45000 + Math.sin(i / 10) * 1000 + (i * 10),
-      })));
-    }
-  };
+    void loadChartData();
+  }, [loadChartData]);
 
   // Logout handled by HeaderUserMenu component
 

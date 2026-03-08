@@ -21,8 +21,8 @@ export interface StartWorkflowRequest {
   userId?: string;
   tenantId?: string;
   brokerId?: string;
-  data: Record<string, any>;
-  metadata?: Record<string, any>;
+  data: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   maxRetries?: number;
   timeout?: number;
   retryDelay?: number;
@@ -39,7 +39,7 @@ export interface CancelWorkflowRequest {
 }
 
 export interface ContinueWorkflowRequest {
-  stepResult: Record<string, any>;
+  stepResult: Record<string, unknown>;
   nextStep?: string;
 }
 
@@ -102,8 +102,8 @@ export async function getWorkflowHealth(): Promise<ApiResponse<WorkflowHealth>> 
 
 export async function getWorkflowHistory(
   workflowId: string
-): Promise<ApiResponse<{ history: any[] }>> {
-  return apiClient.get<{ history: any[] }>(`/api/workflows/${workflowId}/history`);
+): Promise<ApiResponse<{ history: unknown[] }>> {
+  return apiClient.get<{ history: unknown[] }>(`/api/workflows/${workflowId}/history`);
 }
 
 export const workflowsApi = {

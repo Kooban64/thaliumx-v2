@@ -69,7 +69,7 @@ export function RequirePermission({
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            You don't have the required permission to access this content.
+            You don&apos;t have the required permission to access this content.
             {redirectTo && (
               <Button
                 variant="link"

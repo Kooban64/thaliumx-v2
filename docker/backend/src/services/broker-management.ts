@@ -1052,12 +1052,6 @@ export class BrokerManagementService {
         return sum + fees;
       }, 0);
       
-      // Financial analytics
-      const brokerWallets = await WalletModel.findAll({
-        where: { brokerId },
-        attributes: ['balance', 'currency']
-      });
-      
       const deposits = transactions
         .filter((t: any) => t.type === 'deposit' || t.dataValues?.type === 'deposit')
         .reduce((sum: number, t: any) => sum + parseFloat(t.amount || t.dataValues?.amount || '0'), 0);

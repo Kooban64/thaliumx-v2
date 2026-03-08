@@ -12,20 +12,31 @@ export function useActiveRoute() {
 
   const isActive = useMemo(
     () => (href?: string, exact = false): boolean => {
-      if (!href) return false;
+      if (!href || !pathname) return false;
+
+      // Normalize paths - remove trailing slashes for comparison
+      const normalizedHref = href.replace(/\/$/, '') || '/';
+      const normalizedPathname = pathname.replace(/\/$/, '') || '/';
 
       // Exact match
       if (exact) {
-        return pathname === href;
+        return normalizedPathname === normalizedHref;
       }
 
-      // Handle root path
-      if (href === '/') {
-        return pathname === '/';
+      // Handle root path - only match exactly
+      if (normalizedHref === '/') {
+        return normalizedPathname === '/';
       }
 
       // Check if pathname starts with href
-      return pathname?.startsWith(href) ?? false;
+      // But ensure we don't match partial segments (e.g., /dashboard shouldn't match /dashboard-trading)
+      if (normalizedPathname.startsWith(normalizedHref)) {
+        // If the next character after the href is a slash or end of string, it's a valid match
+        const nextChar = normalizedPathname[normalizedHref.length];
+        return !nextChar || nextChar === '/';
+      }
+
+      return false;
     },
     [pathname]
   );

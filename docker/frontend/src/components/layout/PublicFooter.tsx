@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ExternalLink, Github, FileText, HelpCircle, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ChatWidget } from '@/components/support/ChatWidget';
 
 /**
  * PublicFooter - Footer for public pages (landing, token presale)
@@ -50,6 +51,7 @@ export function PublicFooter() {
             <span>GitHub</span>
             <ExternalLink className="h-2 w-2" />
           </a>
+          <ChatWidget isPublic={true} />
         </div>
 
         {/* Copyright and Version */}

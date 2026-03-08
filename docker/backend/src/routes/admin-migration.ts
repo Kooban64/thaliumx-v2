@@ -31,8 +31,51 @@ import { authenticateToken, requireRole } from '../middleware/error-handler';
 import { LoggerService } from '../services/logger';
 import { PresaleService } from '../services/presale';
 import { IdempotencyService } from '../services/idempotency';
+import { BrokerChannelReconciliationService } from '../services/broker-channel-reconciliation';
 
 const router: Router = Router();
+
+// Reconciliation: dry-run or execute broker/channel compatibility backfill and invariants
+router.post(
+  '/migration/broker-channel/reconcile',
+  authenticateToken,
+  requireRole(['super_admin']),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const dryRun = req.body?.dryRun !== false;
+      const tables = Array.isArray(req.body?.tables)
+        ? req.body.tables.filter((value: unknown): value is string => typeof value === 'string')
+        : undefined;
+
+      const result = await BrokerChannelReconciliationService.reconcile({ dryRun, tables });
+      const hasViolations = result.results.some(
+        r => r.brokerChannelMissingBrokerId > 0 || r.directChannelWithBrokerId > 0,
+      );
+
+      res.status(hasViolations ? 409 : 200).json({
+        success: !hasViolations,
+        data: result,
+        error: hasViolations
+          ? {
+              code: 'BROKER_CHANNEL_INVARIANT_VIOLATION',
+              message: 'Broker/channel invariant violations detected in reconciliation report',
+            }
+          : undefined,
+      });
+    } catch (error: unknown) {
+      LoggerService.error('Broker/channel reconciliation failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'BROKER_CHANNEL_RECONCILIATION_FAILED',
+          message: 'Failed to run broker/channel reconciliation',
+        },
+      });
+    }
+  },
+);
 
 // Dry-run: preview users attributed to a broker and presale investments
 router.post('/migration/dry-run', authenticateToken, requireRole(['super_admin', 'admin']), async (req: Request, res: Response): Promise<void> => {
@@ -102,5 +145,4 @@ router.post('/migration/soft', authenticateToken, requireRole(['super_admin']), 
 });
 
 export default router;
-
 

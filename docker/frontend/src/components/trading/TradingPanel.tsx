@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,8 +16,23 @@ import {
 import { tradingOrderSchema, validateForm, rateLimitedApiCall } from '@/lib/utils';
 import apiClient from '@/lib/api/client';
 import { useUserWorkflows } from '@/lib/api/hooks/workflows';
-import { WorkflowType } from '@/lib/api/types/workflows';
+import { WorkflowType, type WorkflowState } from '@/lib/api/types/workflows';
 import { WorkflowStatusCard } from '@/components/workflows/WorkflowStatusCard';
+
+function isWorkflowState(value: unknown): value is WorkflowState {
+  if (!value || typeof value !== 'object') return false;
+  const workflow = value as Record<string, unknown>;
+  return (
+    typeof workflow.workflowId === 'string' &&
+    typeof workflow.workflowType === 'string' &&
+    typeof workflow.status === 'string' &&
+    typeof workflow.currentStep === 'string' &&
+    typeof workflow.stepIndex === 'number' &&
+    typeof workflow.retryCount === 'number' &&
+    typeof workflow.maxRetries === 'number' &&
+    typeof workflow.updatedAt !== 'undefined'
+  );
+}
 
 export function TradingPanel() {
   const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
@@ -39,16 +54,23 @@ export function TradingPanel() {
     workflowType: WorkflowType.TRADING_ORDER,
     limit: 1
   });
+  const workflowList = useMemo<WorkflowState[]>(
+    () =>
+      Array.isArray(workflowsData?.workflows)
+        ? (workflowsData.workflows as unknown[]).filter(isWorkflowState)
+        : [],
+    [workflowsData?.workflows],
+  );
   
   // Track most recent order workflow
   useEffect(() => {
-    if (workflowsData?.workflows && workflowsData.workflows.length > 0) {
-      const latest = workflowsData.workflows[0];
+    if (workflowList.length > 0) {
+      const latest = workflowList[0];
       if (latest && (latest.status === 'running' || latest.status === 'pending')) {
         setRecentOrderWorkflowId(latest.workflowId);
       }
     }
-  }, [workflowsData]);
+  }, [workflowList]);
   
   // Get user ID on mount
   useEffect(() => {
@@ -58,7 +80,7 @@ export function TradingPanel() {
         if (response.success && response.data?.id) {
           setUserId(response.data.id);
         }
-      } catch (error) {
+      } catch {
         // Ignore errors
       }
     };
@@ -166,11 +188,11 @@ export function TradingPanel() {
         )}
 
         {/* Show workflow status if order is processing */}
-        {recentOrderWorkflowId && workflowsData?.workflows && (
+        {recentOrderWorkflowId && workflowList.length > 0 && (
           <div className="mt-4">
-            {workflowsData.workflows
-              .filter((w: any) => w.workflowId === recentOrderWorkflowId)
-              .map((workflow: any) => (
+            {workflowList
+              .filter((w) => w.workflowId === recentOrderWorkflowId)
+              .map((workflow) => (
                 <WorkflowStatusCard
                   key={workflow.workflowId}
                   workflow={workflow}

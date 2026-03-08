@@ -9,8 +9,8 @@
 import { test, expect, Page } from '@playwright/test';
 import { setupTestData, teardownTestData, TEST_USERS, getAuthHeaders, waitForServices } from './test-data-setup';
 
-const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'zitadel';
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+const env = (globalThis as any).process?.env ?? {};
+const API_BASE_URL = env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
 // Test user configurations imported from test-data-setup.ts
 // Extended with expected access for test scenarios
@@ -42,8 +42,6 @@ const TEST_USERS_SCENARIOS = {
 };
 
 test.describe('Authentication and KYC Verification', () => {
-  test.skip(AUTH_MODE !== 'zitadel', 'Authentication tests only run when NEXT_PUBLIC_AUTH_MODE=zitadel');
-
   test.beforeEach(async ({ page }) => {
     // Clear all storage to start fresh
     await page.context().clearCookies();
@@ -57,25 +55,25 @@ test.describe('Authentication and KYC Verification', () => {
   // LOGIN FUNCTIONALITY TESTS
   // =============================================================================
 
-  test('✅ Login: Successful authentication flow with Zitadel', async ({ page }) => {
-    console.log('🔍 Testing successful Zitadel authentication flow...');
+  test('✅ Login: Successful authentication flow with Keycloak', async ({ page }) => {
+    console.log('🔍 Testing successful Keycloak authentication flow...');
 
     await page.goto('/auth', { waitUntil: 'domcontentloaded' });
 
-    // Verify auth page shows Zitadel CTA
+    // Verify auth page shows continue CTA
     const continueButton = page.getByRole('button', { name: /^continue$/i });
     await expect(continueButton).toBeVisible({ timeout: 15000 });
 
-    // Click continue to initiate Zitadel flow
+    // Click continue to initiate Keycloak flow
     await continueButton.click();
 
-    // Verify redirect to Zitadel
+    // Verify redirect to auth host
     await page.waitForURL(/.*auth\.thaliumx\.com.*/, { timeout: 30000 });
     const currentUrl = page.url();
     expect(currentUrl).toContain('auth.thaliumx.com');
     expect(currentUrl).toContain('authorize');
 
-    console.log('✅ Zitadel authentication flow initiated successfully');
+    console.log('✅ Keycloak authentication flow initiated successfully');
   });
 
   test('✅ Login: OIDC callback handling', async ({ page }) => {
@@ -273,7 +271,7 @@ test.describe('Authentication and KYC Verification', () => {
         'Authorization': 'Bearer mock-user-token'
       },
       data: {
-        zitadelUserId: 'test-user-id',
+        keycloakUserId: 'test-user-id',
         workflowId: 'kyc-upgrade-workflow'
       }
     }).catch(() => null);
@@ -403,16 +401,16 @@ test.describe('Authentication and KYC Verification', () => {
       await page.goto('/auth', { waitUntil: 'domcontentloaded' });
       console.log('✅ Step 1: Auth page loaded');
 
-      // Step 2: Initiate Zitadel authentication
+      // Step 2: Initiate Keycloak authentication
       const continueButton = page.getByRole('button', { name: /^continue$/i });
       await continueButton.click();
-      console.log('✅ Step 2: Zitadel authentication initiated');
+      console.log('✅ Step 2: Keycloak authentication initiated');
 
-      // Step 3: Verify redirect to Zitadel
+      // Step 3: Verify redirect to auth host
       await page.waitForURL(/.*auth\.thaliumx\.com.*/, { timeout: 30000 });
       const currentUrl = page.url();
       expect(currentUrl).toContain('auth.thaliumx.com');
-      console.log('✅ Step 3: Redirected to Zitadel');
+      console.log('✅ Step 3: Redirected to Keycloak host');
 
       authFlowCompleted = true;
 
@@ -467,7 +465,7 @@ test.describe('Test Scenarios Documentation', () => {
     console.log('======================================================');
 
     console.log('\n🔐 LOGIN FUNCTIONALITY:');
-    console.log('✅ Successful Zitadel authentication flow');
+    console.log('✅ Successful Keycloak authentication flow');
     console.log('✅ OIDC callback error handling');
     console.log('✅ Session persistence across reloads');
 
@@ -498,7 +496,7 @@ test.describe('Test Scenarios Documentation', () => {
     console.log('✅ Role-based feature access matrix');
 
     console.log('\n🎯 TEST COVERAGE:');
-    console.log('• Authentication flows with Zitadel');
+    console.log('• Authentication flows with Keycloak');
     console.log('• User role-based access controls');
     console.log('• KYC level-based feature restrictions');
     console.log('• Error handling and security');

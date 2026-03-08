@@ -84,17 +84,17 @@ services:
       NOTION_API_KEY: ""
       MAGIC_LINK_JWT_SECRET: ballerine_magic_link_jwt_secret_2025_production_secure_ThaliumX_64_chars
       MAGIC_LINK_AUTH_JWT_SECRET: ballerine_magic_link_auth_jwt_secret_2025_production_secure_ThaliumX_64_chars
-      # Zitadel OIDC Configuration (optional, enables Zitadel auth)
-      ZITADEL_ENABLED: ${ZITADEL_ENABLED:-true}
-      ZITADEL_JWKS_URI: ${ZITADEL_JWKS_URI:-http://thaliumx-zitadel:8080/oauth/v2/keys}
-      ZITADEL_ISSUER: ${ZITADEL_ISSUER:-https://auth.thaliumx.com}
-      ZITADEL_AUDIENCE: ${ZITADEL_AUDIENCE:-}
+      # Keycloak OIDC Configuration
+      KEYCLOAK_ENABLED: ${KEYCLOAK_ENABLED:-true}
+      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI:-http://keycloak:8080/auth/realms/thaliumx/protocol/openid-connect/certs}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.thaliumx.com/auth/realms/thaliumx}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-}
       DEFAULT_PROJECT_ID: ${DEFAULT_PROJECT_ID:-}
-      # Security controls for Zitadel user creation
-      ZITADEL_ALLOWED_EMAIL_DOMAINS: ${ZITADEL_ALLOWED_EMAIL_DOMAINS:-}
-      ZITADEL_REQUIRE_ADMIN_APPROVAL: ${ZITADEL_REQUIRE_ADMIN_APPROVAL:-false}
-      ZITADEL_USER_CREATION_RATE_LIMIT: ${ZITADEL_USER_CREATION_RATE_LIMIT:-5}
-      ZITADEL_ALLOWED_ROLES: ${ZITADEL_ALLOWED_ROLES:-}
+      # Security controls for Keycloak user creation
+      KEYCLOAK_ALLOWED_EMAIL_DOMAINS: ${KEYCLOAK_ALLOWED_EMAIL_DOMAINS:-}
+      KEYCLOAK_REQUIRE_ADMIN_APPROVAL: ${KEYCLOAK_REQUIRE_ADMIN_APPROVAL:-false}
+      KEYCLOAK_USER_CREATION_RATE_LIMIT: ${KEYCLOAK_USER_CREATION_RATE_LIMIT:-5}
+      KEYCLOAK_ALLOWED_ROLES: ${KEYCLOAK_ALLOWED_ROLES:-}
     secrets:
       - ballerine-db-password
       - ballerine-bcrypt-salt

@@ -1,90 +1,106 @@
-# ThaliumX Production v1 - Identity Layer (Zitadel)
-# ===============================================
-# Adds ZITADEL as the OIDC issuer for the platform.
-#
-# Notes:
-# - ZITADEL requires configuration files (runtime config + secrets + init steps) + a 32-byte masterkey.
-# - These are generated into `.secrets/generated/` by [`docker/scripts/zitadel-generate-secrets.sh`](docker/scripts/zitadel-generate-secrets.sh:1).
-# - Files in `.secrets/` are gitignored.
+# ThaliumX Production v1 - Identity Layer (Keycloak)
+# ==================================================
+# Runs Keycloak as the primary OIDC issuer for the platform.
 
 version: '3.8'
 
 services:
-  # Dedicated Postgres for ZITADEL (kept separate from the platform DB)
-  zitadel-postgres:
+  # Dedicated Postgres for Keycloak (kept separate from the platform DB)
+  keycloak-postgres:
     image: postgres:17-alpine
-    container_name: thaliumx-zitadel-postgres
-    hostname: thaliumx-zitadel-postgres
+    container_name: thaliumx-keycloak-postgres
+    hostname: thaliumx-keycloak-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD_FILE: /run/secrets/zitadel-postgres-root-password
-      POSTGRES_DB: zitadel
+      POSTGRES_USER: thaliumx
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+      POSTGRES_DB: keycloak
     secrets:
-      - zitadel-postgres-root-password
+      - postgres-password
     volumes:
-      - zitadel-postgres-data:/var/lib/postgresql/data
+      - keycloak-postgres-data:/var/lib/postgresql/data
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d zitadel"]
+      test: ["CMD-SHELL", "pg_isready -U thaliumx -d keycloak"]
       interval: 15s
       timeout: 10s
       retries: 10
       start_period: 20s
 
-  # ZITADEL (reverse-proxy TLS termination via APISIX)
-  zitadel:
-    image: ghcr.io/zitadel/zitadel:v2.43.11
-    container_name: thaliumx-zitadel
-    hostname: thaliumx-zitadel
+  # Keycloak (reverse-proxy TLS termination via APISIX)
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1.1
+    container_name: thaliumx-keycloak
+    hostname: thaliumx-keycloak
     restart: unless-stopped
     depends_on:
-      zitadel-postgres:
+      keycloak-postgres:
         condition: service_healthy
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/keycloak
+      KC_DB_USERNAME: thaliumx
+      KC_DB_PASSWORD_FILE: /run/secrets/postgres-password
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME: auth.thaliumx.com
+      KC_HOSTNAME_STRICT: "true"
+      KC_HOSTNAME_STRICT_HTTPS: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_PORT: 8080
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD_FILE: /run/secrets/keycloak-admin-password
     secrets:
-      - zitadel-masterkey
-      - zitadel-config-secrets-yaml
-      - zitadel-init-steps-yaml
-      - zitadel-postgres-root-password
+      - postgres-password
+      - keycloak-admin-password
     volumes:
-      # identity.yml is at docker/compose/prod-v1/, so ../../zitadel/... resolves to docker/zitadel/... (correct).
-      - ./../../zitadel/config/zitadel-config.yaml:/etc/zitadel/zitadel-config.yaml:ro
+      - ./../../keycloak/realm-config:/opt/keycloak/data/import:ro
+      - ./../../keycloak/themes:/opt/keycloak/themes:ro
     command:
-      - start-from-init
-      # Runtime config + secret config + init steps
-      - --config
-      - /etc/zitadel/zitadel-config.yaml
-      - --config
-      - /run/secrets/zitadel-config-secrets-yaml
-      - --steps
-      - /run/secrets/zitadel-init-steps-yaml
-      # Masterkey
-      - --masterkeyFile
-      - /run/secrets/zitadel-masterkey
-      # For local development, use disabled mode (no TLS)
-      - --tlsMode
-      - ${ZITADEL_TLS_MODE:-disabled}
-      # External URL that end-users see (OIDC issuer is derived from this)
-      # For local dev, use localhost
-      - --externalDomain
-      - ${ZITADEL_EXTERNAL_DOMAIN:-localhost}
-      - --externalPort
-      - ${ZITADEL_EXTERNAL_PORT:-8080}
-    ports:
-      # Expose Zitadel for local development access
-      - "8080:8080"
+      - start
+      - --import-realm
+      - --optimized
     networks:
       - thaliumx-net
-    # NOTE: The official zitadel container image is distroless (no shell/curl).
-    # The built-in `zitadel ready` command derives its scheme from `--tlsMode external`
-    # and attempts HTTPS against localhost, which fails because TLS is terminated at APISIX.
-    # We intentionally omit a Docker healthcheck here so the container does not stay `unhealthy`
-    # while still functioning correctly behind the gateway.
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /auth/health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3;if [ $? -eq 0 ]; then exit 0;else exit 1;fi;"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # One-shot realm hardening: enforce ThaliumX theme at realm level after import.
+  keycloak-post-import-seed:
+    image: quay.io/keycloak/keycloak:26.1.1
+    container_name: thaliumx-keycloak-post-import-seed
+    hostname: thaliumx-keycloak-post-import-seed
+    profiles: ["init-jobs"]
+    restart: "no"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080/auth
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-thaliumx}
+      KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD_FILE: /run/secrets/keycloak-admin-password
+      KEYCLOAK_THEME_NAME: ${KEYCLOAK_THEME_NAME:-thaliumx}
+    secrets:
+      - keycloak-admin-password
+    volumes:
+      - ./../../keycloak/scripts/apply-thaliumx-theme.sh:/scripts/apply-thaliumx-theme.sh:ro
+    command:
+      - sh
+      - /scripts/apply-thaliumx-theme.sh
+    networks:
+      - thaliumx-net
 
 volumes:
-  zitadel-postgres-data:
-    name: thaliumx-zitadel-postgres-data
+  keycloak-postgres-data:
+    name: thaliumx-keycloak-postgres-data
 
 networks:
   thaliumx-net:

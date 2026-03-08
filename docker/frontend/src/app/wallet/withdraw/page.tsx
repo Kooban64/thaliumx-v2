@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import apiClient from '@/lib/api/client';
 import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,11 @@ type BankAccount = {
   currency: string;
   status?: string;
   isDefault?: boolean;
+};
+
+type WithdrawalResponse = {
+  id?: string;
+  workflowId?: string;
 };
 
 export default function WithdrawPage() {
@@ -45,6 +50,22 @@ export default function WithdrawPage() {
     return bankAccounts.filter((a) => (a.currency || '').toUpperCase() === ccy);
   }, [bankAccounts, currency]);
 
+  const loadBankAccounts = useCallback(async () => {
+    setError('');
+    const res = await apiClient.get<BankAccount[]>(`/api/fiat/bank-accounts`);
+    if (!res.success) {
+      setError(res.error || res.message || 'Failed to load bank accounts');
+      return;
+    }
+
+    const accounts = res.data || [];
+    setBankAccounts(accounts);
+
+    const forCurrency = accounts.filter((a) => (a.currency || '').toUpperCase() === currency.toUpperCase());
+    const defaultAcc = forCurrency.find((a) => a.isDefault) || forCurrency[0];
+    setBankAccountId(defaultAcc?.id || '');
+  }, [currency]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -61,29 +82,13 @@ export default function WithdrawPage() {
         }
 
         await loadBankAccounts();
-      } catch (e: any) {
-        setError(e?.message || 'Failed to initialize auth');
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Failed to initialize auth');
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
-
-  const loadBankAccounts = async () => {
-    setError('');
-    const res = await apiClient.get<BankAccount[]>(`/api/fiat/bank-accounts`);
-    if (!res.success) {
-      setError(res.error || res.message || 'Failed to load bank accounts');
-      return;
-    }
-
-    const accounts = res.data || [];
-    setBankAccounts(accounts);
-
-    const forCurrency = accounts.filter((a) => (a.currency || '').toUpperCase() === currency.toUpperCase());
-    const defaultAcc = forCurrency.find((a) => a.isDefault) || forCurrency[0];
-    setBankAccountId(defaultAcc?.id || '');
-  };
+  }, [loadBankAccounts]);
 
   useEffect(() => {
     // If currency changes, adjust selection.
@@ -111,7 +116,7 @@ export default function WithdrawPage() {
 
     setSubmitting(true);
     try {
-      const res = await apiClient.post<any>(`/api/fiat/withdrawals`, {
+      const res = await apiClient.post<WithdrawalResponse>(`/api/fiat/withdrawals`, {
         currency: currency.toUpperCase(),
         amount: parsed,
         bankAccountId,

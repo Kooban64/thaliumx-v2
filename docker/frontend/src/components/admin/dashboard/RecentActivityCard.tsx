@@ -1,13 +1,13 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuditLogs } from '@/lib/api/hooks/useAdmin';
+import { useAuditLogs, type AuditLog } from '@/lib/api/hooks/useAdmin';
 import { Loader2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 
 interface RecentActivityCardProps {
-  data?: any;
+  data?: unknown;
 }
 
 /**
@@ -68,7 +68,7 @@ export function RecentActivityCard({}: RecentActivityCardProps) {
           </div>
         ) : (
           <div className="space-y-3">
-            {auditLogs.slice(0, 5).map((log: any) => (
+            {auditLogs.slice(0, 5).map((log: AuditLog) => (
               <div
                 key={log.id}
                 className="flex items-start justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"

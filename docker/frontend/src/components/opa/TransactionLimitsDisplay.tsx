@@ -38,6 +38,13 @@ interface UserLimitsData {
   appliedMultipliers: Record<string, number>;
 }
 
+interface ProfileResponse {
+  id?: string;
+  user?: {
+    id?: string;
+  };
+}
+
 interface TransactionLimitsDisplayProps {
   userId?: string;
   className?: string;
@@ -57,15 +64,15 @@ export function TransactionLimitsDisplay({
     const fetchLimits = async () => {
       if (!userId) {
         try {
-          const profileRes = await apiClient.get<{ id: string }>('/api/auth/profile');
-          const currentUserId = (profileRes.data as any)?.user?.id || (profileRes.data as any)?.id;
+          const profileRes = await apiClient.get<ProfileResponse>('/api/auth/profile');
+          const currentUserId = profileRes.data?.user?.id || profileRes.data?.id;
           if (!currentUserId) {
             setError('User not authenticated');
             setLoading(false);
             return;
           }
           await fetchUserLimits(currentUserId);
-        } catch (err: any) {
+        } catch {
           setError('Failed to fetch user limits');
           setLoading(false);
         }
@@ -79,14 +86,14 @@ export function TransactionLimitsDisplay({
       setError(null);
       
       try {
-        const res = await apiClient.get<any>(`/api/admin/user-limits/${targetUserId}`);
+        const res = await apiClient.get<UserLimitsData>(`/api/admin/user-limits/${targetUserId}`);
         if (res.success && res.data) {
           setData(res.data);
         } else {
           setError(res.error || 'Failed to fetch limits');
         }
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch transaction limits');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch transaction limits');
       } finally {
         setLoading(false);
       }

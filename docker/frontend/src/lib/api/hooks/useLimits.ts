@@ -1,6 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api/client';
 
+interface PaginationMeta {
+  page?: number;
+  limit?: number;
+  total?: number;
+  totalPages?: number;
+}
+
+interface ListPayload<T> {
+  data?: T[];
+  pagination?: PaginationMeta;
+}
+
 // Types for limit management
 export interface KYCLimits {
   maxInvestment?: number;
@@ -51,15 +63,15 @@ export interface LimitChange {
  * useKYCLimits - Fetch KYC level limits
  */
 export function useKYCLimits(level?: string) {
-  return useQuery({
+  return useQuery<Record<string, KYCLimits>>({
     queryKey: ['limits', 'kyc', level],
     queryFn: async () => {
       const endpoint = level 
         ? `/api/admin/limits/kyc/${level}`
         : '/api/admin/limits/kyc';
-      const response = await apiClient.get(endpoint);
+      const response = await apiClient.get<Record<string, KYCLimits>>(endpoint);
       if (response.success && response.data) {
-        return response.data as Record<string, KYCLimits>;
+        return response.data;
       }
       throw new Error('Failed to fetch KYC limits');
     },
@@ -91,15 +103,15 @@ export function useUpdateKYCLimits() {
  * useRoleLimits - Fetch role-based limits
  */
 export function useRoleLimits(role?: string) {
-  return useQuery({
+  return useQuery<Record<string, RoleLimits>>({
     queryKey: ['limits', 'roles', role],
     queryFn: async () => {
       const endpoint = role
         ? `/api/admin/limits/roles/${role}`
         : '/api/admin/limits/roles';
-      const response = await apiClient.get(endpoint);
+      const response = await apiClient.get<Record<string, RoleLimits>>(endpoint);
       if (response.success && response.data) {
-        return response.data as Record<string, RoleLimits>;
+        return response.data;
       }
       throw new Error('Failed to fetch role limits');
     },
@@ -131,12 +143,12 @@ export function useUpdateRoleLimits() {
  * useUserOverrides - Fetch user-specific limit overrides
  */
 export function useUserOverrides(userId: string) {
-  return useQuery({
+  return useQuery<UserOverride[]>({
     queryKey: ['limits', 'users', userId, 'overrides'],
     queryFn: async () => {
-      const response = await apiClient.get(`/api/admin/limits/users/${userId}`);
+      const response = await apiClient.get<ListPayload<UserOverride>>(`/api/admin/limits/users/${userId}`);
       if (response.success && response.data) {
-        return response.data as UserOverride[];
+        return response.data.data || [];
       }
       throw new Error('Failed to fetch user overrides');
     },
@@ -196,7 +208,7 @@ export function useLimitHistory(params?: {
   page?: number;
   limit?: number;
 }) {
-  return useQuery({
+  return useQuery<{ data: LimitChange[]; pagination?: PaginationMeta }>({
     queryKey: ['limits', 'history', params],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
@@ -207,12 +219,11 @@ export function useLimitHistory(params?: {
       if (params?.page) queryParams.append('page', params.page.toString());
       if (params?.limit) queryParams.append('limit', params.limit.toString());
       
-      const response = await apiClient.get(`/api/admin/limits/history?${queryParams.toString()}`);
+      const response = await apiClient.get<ListPayload<LimitChange>>(`/api/admin/limits/history?${queryParams.toString()}`);
       if (response.success && response.data) {
-        const data = response.data as any;
         return {
-          data: data.data || data || [],
-          pagination: data.pagination,
+          data: response.data.data || [],
+          pagination: response.data.pagination,
         };
       }
       throw new Error('Failed to fetch limit history');

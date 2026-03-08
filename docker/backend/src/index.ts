@@ -89,6 +89,7 @@ import supportRouter from './routes/support';
 import auditLogsRouter from './routes/audit-logs';
 import logAnalyticsRouter from './routes/log-analytics';
 import errorsRouter from './routes/errors';
+import configRouter from './routes/config';
 import multiPlatformLaunchRouter from './routes/multi-platform-launch';
 // import complianceRouter from './routes/compliance-router';
 // import accessReviewRouter from './routes/access-review-router';
@@ -542,7 +543,7 @@ class ThaliumXBackend {
     });
 
     // Internal health check endpoint for monitoring systems
-    this.app.get('/health/internal', (req, res) => {
+    this.app.get('/health/internal', async (req, res) => {
       // Only allow internal requests
       if (!this.isInternalRequest(req)) {
         res.status(403).json({ error: 'Access denied' });
@@ -562,6 +563,17 @@ class ThaliumXBackend {
         }
       };
 
+      // Check OPA health (async)
+      let opaStatus = 'disconnected';
+      try {
+        const { opaService } = await import('./services/opa');
+        const opaHealthy = await opaService.healthCheck();
+        opaStatus = opaHealthy ? 'connected' : 'disconnected';
+      } catch (error) {
+        LoggerService.warn('OPA health check failed:', error);
+        opaStatus = 'disconnected';
+      }
+
       const internalHealthCheck = {
         status: 'ok',
         timestamp: new Date().toISOString(),
@@ -571,6 +583,7 @@ class ThaliumXBackend {
         services: {
           database: DatabaseService.isConnected() ? 'connected' : 'disconnected',
           redis: RedisService.isConnected() ? 'connected' : 'disconnected',
+          opa: opaStatus,
           brokerManagement: checkServiceHealth(BrokerManagementService, 'BrokerManagement'),
           smartContracts: checkServiceHealth(SmartContractService, 'SmartContract'),
           blnkfinance: checkServiceHealth(BlnkFinanceService, 'BlnkFinance'),
@@ -711,6 +724,7 @@ class ThaliumXBackend {
     this.app.use('/api/audit-logs', auditLogsRouter);
     this.app.use('/api/log-analytics', logAnalyticsRouter);
     this.app.use('/api/errors', errorsRouter);
+    this.app.use('/api/config', configRouter);
 
     // API documentation endpoint
     this.app.get('/api/docs', (_req, res) => {

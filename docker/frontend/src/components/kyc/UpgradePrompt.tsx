@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { TrendingUp, AlertTriangle, ArrowRight } from 'lucide-react';
-import { getZitadelToken } from '@/lib/auth/backend-auth';
+import { getKeycloakToken } from '@/lib/auth/backend-auth';
 import { KYCCollectionFlow } from './KYCCollectionFlow';
 import { toast } from '@/components/shared/Toast';
 
@@ -41,7 +41,7 @@ export function UpgradePrompt({ limitType = 'investment', className, onUpgradeCl
 
   useEffect(() => {
     const fetchStatus = async () => {
-      const token = getZitadelToken();
+      const token = getKeycloakToken();
       if (!token) { setLoading(false); return; }
       try {
         const res = await fetch('/api/kyc/status/unified', {
@@ -52,7 +52,7 @@ export function UpgradePrompt({ limitType = 'investment', className, onUpgradeCl
           const data = await res.json();
           if (data.success && data.data) setStatus(data.data);
         }
-      } catch (err) {}
+      } catch {}
       finally { setLoading(false); }
     };
     fetchStatus();
@@ -85,7 +85,7 @@ export function UpgradePrompt({ limitType = 'investment', className, onUpgradeCl
 
     setTriggeringWorkflow(true);
     try {
-      const token = getZitadelToken();
+      const token = getKeycloakToken();
       if (!token) {
         window.location.href = '/login?next=/dashboard';
         return;
@@ -120,11 +120,12 @@ export function UpgradePrompt({ limitType = 'investment', className, onUpgradeCl
       } else {
         throw new Error('Invalid response from server');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to start KYC upgrade. Please try again.';
       toast({
         type: 'error',
         title: 'KYC upgrade failed',
-        description: error.message || 'Failed to start KYC upgrade. Please try again.',
+        description: errorMessage,
       });
     } finally {
       setTriggeringWorkflow(false);

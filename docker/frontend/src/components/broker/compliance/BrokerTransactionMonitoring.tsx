@@ -10,6 +10,33 @@ import { useBrokerTransactionMonitoring } from '@/lib/api/hooks/useBroker';
 import { Loader2, AlertTriangle, Search, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from '@/components/shared/Toast';
 
+interface SuspiciousTransactionItem {
+  id: string;
+  userId: string;
+  type: string;
+  amount: number;
+  currency: string;
+  riskScore: number;
+  flags: string[];
+  createdAt: string;
+  status: string;
+}
+
+function isSuspiciousTransactionItem(value: unknown): value is SuspiciousTransactionItem {
+  if (!value || typeof value !== 'object') return false;
+  const tx = value as Record<string, unknown>;
+  return (
+    typeof tx.id === 'string' &&
+    typeof tx.userId === 'string' &&
+    typeof tx.type === 'string' &&
+    typeof tx.amount === 'number' &&
+    typeof tx.currency === 'string' &&
+    typeof tx.riskScore === 'number' &&
+    typeof tx.createdAt === 'string' &&
+    typeof tx.status === 'string'
+  );
+}
+
 const formatDateTime = (date: string | Date) => {
   const d = new Date(date);
   return d.toLocaleString('en-US', {
@@ -45,7 +72,12 @@ export function BrokerTransactionMonitoring() {
     status: statusFilter !== 'all' ? statusFilter : undefined,
   });
 
-  const transactions = data?.data || [];
+  const transactions: SuspiciousTransactionItem[] = Array.isArray(data?.data)
+    ? (data.data as unknown[]).filter(isSuspiciousTransactionItem).map(tx => ({
+        ...tx,
+        flags: Array.isArray(tx.flags) ? tx.flags.filter((f): f is string => typeof f === 'string') : [],
+      }))
+    : [];
   const pagination = data?.pagination;
 
   const handleInvestigate = async (transactionId: string) => {
@@ -185,7 +217,7 @@ export function BrokerTransactionMonitoring() {
           ) : (
             <>
               <div className="space-y-4">
-                {transactions.map((transaction: any) => (
+                {transactions.map((transaction) => (
                   <div
                     key={transaction.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
@@ -202,7 +234,7 @@ export function BrokerTransactionMonitoring() {
                           User ID: {transaction.userId} | {formatDateTime(transaction.createdAt)}
                         </div>
                         <div className="flex gap-2 mt-2">
-                          {transaction.flags.map((flag: string, idx: number) => (
+                          {(transaction.flags || []).map((flag, idx) => (
                             <Badge key={idx} variant="outline" className="text-xs">
                               {flag}
                             </Badge>

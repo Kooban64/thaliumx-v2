@@ -122,7 +122,7 @@ export function SystemHealth() {
             </div>
           ) : healthData?.services ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(healthData.services).map(([service, status]: [string, any]) => (
+              {Object.entries(healthData.services).map(([service, status]: [string, string]) => (
                 <div
                   key={service}
                   className={`p-4 border-2 rounded-lg ${getStatusColor(status)}`}

@@ -15,7 +15,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { LoggerService } from '../services/logger';
 import { createError } from '../utils';
-import { ZitadelAttributesService } from '../services/zitadel-attributes.service';
+import { AuthAttributesService } from '../services/zitadel-attributes.service';
 
 export interface InvestmentAuthOptions {
   /** Type of limit to check ('investment' for presale/token sale investments) */
@@ -69,8 +69,8 @@ export function investmentAuth(options: InvestmentAuthOptions) {
         return;
       }
 
-      // Extract Zitadel context for OPA
-      const zitadelContext = ZitadelAttributesService.extractFromRequest(req);
+      // Extract auth context for OPA
+      const authContext = AuthAttributesService.extractFromRequest(req);
 
       // Step 0: Check if wallet is blocked (if wallet address provided)
       const walletAddress = req.body?.walletAddress || req.body?.address;
@@ -107,7 +107,7 @@ export function investmentAuth(options: InvestmentAuthOptions) {
         amount,
         TimePeriod.TOTAL,
         options.autoTriggerUpgrade !== false,
-        req // Pass request for Zitadel context
+        req // Pass request for auth context
       );
 
       // Block if limit exceeded
@@ -154,9 +154,9 @@ export function investmentAuth(options: InvestmentAuthOptions) {
               currency: req.body?.currency || 'USD'
             },
             user: {
-              organization_id: zitadelContext.organizationId,
-              zitadel_project_id: zitadelContext.projectId,
-              zitadel_roles: zitadelContext.roles
+              organization_id: authContext.organizationId,
+              client_id: authContext.clientId,
+              auth_roles: authContext.roles
             }
           }
         );

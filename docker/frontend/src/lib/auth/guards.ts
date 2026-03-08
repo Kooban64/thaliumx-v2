@@ -15,7 +15,7 @@ export async function requireAuth(): Promise<boolean> {
   try {
     const user = await getCurrentUser();
     return !!user;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -31,7 +31,7 @@ export async function requireRole(requiredRoles: string | string[]): Promise<boo
     // Use RBAC store for role checking
     const { checkRole } = useRBACStore.getState();
     return checkRole(requiredRoles);
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -46,7 +46,7 @@ export async function requirePermission(permission: string): Promise<boolean> {
 
     const { checkPermission } = useRBACStore.getState();
     return checkPermission(permission);
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -65,7 +65,7 @@ export async function requireKYCLevel(minLevel: KYCLevel): Promise<boolean> {
     const minLevelIndex = levels.indexOf(minLevel);
 
     return userLevelIndex >= minLevelIndex;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -85,7 +85,7 @@ export function getUnauthorizedRedirect(requiredRole?: string): string {
  * Note: This is a client-side guard. For server-side protection, use middleware or page-level checks.
  * Use this in client components with 'use client' directive.
  */
-export function withAuth<T extends Record<string, any>>(
+export function withAuth<T extends Record<string, unknown>>(
   Component: React.ComponentType<T>,
   options?: {
     requiredRole?: string | string[];

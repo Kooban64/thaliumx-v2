@@ -6,7 +6,28 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useBrokerKYC } from '@/lib/api/hooks/useBroker';
 import { Loader2, FileCheck, CheckCircle, XCircle, Clock } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
+
+interface KYCRecordItem {
+  userId: string;
+  email: string;
+  name?: string;
+  kycStatus: string;
+  kycLevel?: string;
+  updatedAt: string;
+}
+
+function isKYCRecordItem(value: unknown): value is KYCRecordItem {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.userId === 'string' &&
+    typeof record.email === 'string' &&
+    typeof record.kycStatus === 'string' &&
+    typeof record.updatedAt === 'string'
+  );
+}
 
 /**
  * BrokerKYCManagement - Manage KYC reviews and approvals for broker users
@@ -22,11 +43,13 @@ export function BrokerKYCManagement() {
     status: statusFilter !== 'all' ? statusFilter : undefined,
   });
 
-  const kycRecords = data?.data || [];
+  const kycRecords: KYCRecordItem[] = Array.isArray(data?.data)
+    ? (data.data as unknown[]).filter(isKYCRecordItem)
+    : [];
   const pagination = data?.pagination;
 
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: any }> = {
+    const statusConfig: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: LucideIcon }> = {
       pending_review: { variant: 'secondary', icon: Clock },
       approved: { variant: 'default', icon: CheckCircle },
       rejected: { variant: 'destructive', icon: XCircle },
@@ -79,7 +102,7 @@ export function BrokerKYCManagement() {
     );
   }
 
-  const pendingCount = kycRecords.filter((r: any) => r.kycStatus === 'pending_review').length;
+  const pendingCount = kycRecords.filter((r) => r.kycStatus === 'pending_review').length;
 
   return (
     <div className="space-y-6">
@@ -121,7 +144,7 @@ export function BrokerKYCManagement() {
               <div>
                 <div className="text-sm text-muted-foreground">Approved</div>
                 <div className="text-2xl font-bold">
-                  {kycRecords.filter((r: any) => r.kycStatus === 'approved').length}
+                  {kycRecords.filter((r) => r.kycStatus === 'approved').length}
                 </div>
               </div>
               <CheckCircle className="h-8 w-8 text-green-500" />
@@ -168,7 +191,7 @@ export function BrokerKYCManagement() {
             </div>
           ) : (
             <div className="space-y-4">
-              {kycRecords.map((record: any) => (
+              {kycRecords.map((record) => (
                 <div
                   key={record.userId}
                   className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors"

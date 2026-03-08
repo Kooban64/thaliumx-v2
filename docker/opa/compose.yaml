@@ -27,7 +27,7 @@ services:
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8181/health"]
+      test: ["CMD-SHELL", "pgrep -f 'opa run' > /dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

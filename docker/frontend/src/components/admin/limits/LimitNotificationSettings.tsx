@@ -47,12 +47,12 @@ export function LimitNotificationSettings() {
         description: 'Notification settings have been saved successfully',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       logRuntimeError(error, 'LimitNotificationSettings', { action: 'saveSettings' });
       toast({
         type: 'error',
         title: 'Failed to save settings',
-        description: error.message || 'Failed to save notification settings',
+        description: error instanceof Error ? error.message : 'Failed to save notification settings',
       });
     },
   });

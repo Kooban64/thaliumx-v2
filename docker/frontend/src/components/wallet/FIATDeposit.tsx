@@ -62,8 +62,8 @@ export function FIATDeposit({ wallet }: FIATDepositProps) {
 
       // Reset form on success
       setAmount('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to initiate deposit');
+    } catch {
+      setError('Failed to initiate deposit');
     }
   };
 

@@ -1,7 +1,7 @@
 /**
- * Zitadel Attributes Service
+ * Auth Attributes Service
  * 
- * Utility service to extract Zitadel user attributes from Express Request objects
+ * Utility service to extract runtime user attributes from Express Request objects
  * and JWT token payloads.
  */
 
@@ -10,7 +10,7 @@ import { RoleMapperService } from './role-mapper';
 
 export interface ZitadelContext {
   organizationId?: string;
-  projectId?: string;
+  clientId?: string;
   brokerId?: string;
   roles: string[];
   normalizedRoles: string[];
@@ -18,9 +18,27 @@ export interface ZitadelContext {
   customClaims?: Record<string, any>;
 }
 
-export class ZitadelAttributesService {
+export class AuthAttributesService {
+  private static extractRolesFromClaims(source: any): string[] {
+    if (!source || typeof source !== 'object') {
+      return [];
+    }
+
+    const directRoles = Array.isArray(source.roles) ? source.roles : [];
+    const realmRoles = Array.isArray(source.realm_access?.roles) ? source.realm_access.roles : [];
+
+    const resourceRoles = source.resource_access && typeof source.resource_access === 'object'
+      ? Object.values(source.resource_access)
+          .flatMap((resource: any) => (Array.isArray(resource?.roles) ? resource.roles : []))
+      : [];
+
+    const primaryRole = typeof source.role === 'string' ? [source.role] : [];
+
+    return Array.from(new Set([...directRoles, ...realmRoles, ...resourceRoles, ...primaryRole]));
+  }
+
   /**
-   * Extract Zitadel attributes from an Express Request object.
+   * Extract auth attributes from an Express Request object.
    */
   public static extractFromRequest(req: Request): ZitadelContext {
     const user = req.user as any;
@@ -28,21 +46,13 @@ export class ZitadelAttributesService {
 
     // Extract from JWT token payload (if available)
     const organizationId = decoded?.org_id || decoded?.organization_id || user?.organization_id || user?.organizationId;
-    const projectId = decoded?.project_id || decoded?.projectId || user?.project_id || user?.projectId;
+    const clientId = decoded?.azp || decoded?.client_id || user?.azp || user?.client_id || user?.clientId;
     const brokerId = decoded?.broker_id || decoded?.brokerId || user?.broker_id || user?.brokerId;
 
-    // Extract roles from Zitadel-specific claim
-    const zitadelRolesObj = decoded?.['urn:zitadel:iam:org:project:roles'] || user?.['urn:zitadel:iam:org:project:roles'];
-    const roleKeys: string[] = zitadelRolesObj && typeof zitadelRolesObj === 'object' && !Array.isArray(zitadelRolesObj)
-      ? Object.keys(zitadelRolesObj)
-      : [];
-
-    // Also check standard roles array
-    const standardRoles = Array.isArray(decoded?.roles) ? decoded.roles : 
-                         Array.isArray(user?.roles) ? user.roles : [];
-
-    // Combine all roles
-    const allRoles = Array.from(new Set([...roleKeys, ...standardRoles]));
+    // Extract roles from standard Keycloak-compatible claims
+    const decodedRoles = this.extractRolesFromClaims(decoded);
+    const userRoles = this.extractRolesFromClaims(user);
+    const allRoles = Array.from(new Set([...decodedRoles, ...userRoles]));
     const normalizedRoles = RoleMapperService.normalizeRoles(allRoles);
 
     // Extract metadata and custom claims
@@ -52,7 +62,7 @@ export class ZitadelAttributesService {
     if (decoded) {
       // Extract non-standard claims as custom claims
       Object.keys(decoded).forEach(key => {
-        if (!['sub', 'iss', 'aud', 'exp', 'iat', 'nbf', 'jti', 'email', 'preferred_username', 'roles', 'tenant_id', 'tenantId', 'broker_id', 'brokerId', 'org_id', 'organization_id', 'project_id', 'projectId', 'urn:zitadel:iam:org:project:roles'].includes(key)) {
+        if (!['sub', 'iss', 'aud', 'exp', 'iat', 'nbf', 'jti', 'email', 'preferred_username', 'role', 'roles', 'realm_access', 'resource_access', 'azp', 'client_id', 'tenant_id', 'tenantId', 'broker_id', 'brokerId', 'org_id', 'organization_id'].includes(key)) {
           customClaims[key] = decoded[key];
         }
       });
@@ -60,7 +70,7 @@ export class ZitadelAttributesService {
 
     return {
       organizationId,
-      projectId,
+      clientId,
       brokerId,
       roles: allRoles,
       normalizedRoles,
@@ -70,35 +80,27 @@ export class ZitadelAttributesService {
   }
 
   /**
-   * Extract Zitadel attributes from a JWT token payload.
+   * Extract auth attributes from a JWT token payload.
    */
   public static extractFromToken(payload: any): ZitadelContext {
     const organizationId = payload?.org_id || payload?.organization_id;
-    const projectId = payload?.project_id || payload?.projectId;
+    const clientId = payload?.azp || payload?.client_id;
     const brokerId = payload?.broker_id || payload?.brokerId;
 
-    // Extract roles from Zitadel-specific claim
-    const zitadelRolesObj = payload?.['urn:zitadel:iam:org:project:roles'];
-    const roleKeys: string[] = zitadelRolesObj && typeof zitadelRolesObj === 'object' && !Array.isArray(zitadelRolesObj)
-      ? Object.keys(zitadelRolesObj)
-      : [];
-
-    // Also check standard roles array
-    const standardRoles = Array.isArray(payload?.roles) ? payload.roles : [];
-    const allRoles = Array.from(new Set([...roleKeys, ...standardRoles]));
+    const allRoles = this.extractRolesFromClaims(payload);
     const normalizedRoles = RoleMapperService.normalizeRoles(allRoles);
 
     // Extract custom claims
     const customClaims: Record<string, any> = {};
     Object.keys(payload || {}).forEach(key => {
-      if (!['sub', 'iss', 'aud', 'exp', 'iat', 'nbf', 'jti', 'email', 'preferred_username', 'roles', 'tenant_id', 'tenantId', 'broker_id', 'brokerId', 'org_id', 'organization_id', 'project_id', 'projectId', 'urn:zitadel:iam:org:project:roles'].includes(key)) {
+      if (!['sub', 'iss', 'aud', 'exp', 'iat', 'nbf', 'jti', 'email', 'preferred_username', 'role', 'roles', 'realm_access', 'resource_access', 'azp', 'client_id', 'tenant_id', 'tenantId', 'broker_id', 'brokerId', 'org_id', 'organization_id'].includes(key)) {
         customClaims[key] = payload[key];
       }
     });
 
     return {
       organizationId,
-      projectId,
+      clientId,
       brokerId,
       roles: allRoles,
       normalizedRoles,
@@ -107,3 +109,6 @@ export class ZitadelAttributesService {
     };
   }
 }
+
+// Backward-compatible export during auth naming migration
+export const ZitadelAttributesService = AuthAttributesService;

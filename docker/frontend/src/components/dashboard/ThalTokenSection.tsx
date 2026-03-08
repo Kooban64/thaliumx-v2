@@ -25,6 +25,23 @@ interface ThalTokenData {
   liquidTokens: number; // Tokens available for trading
 }
 
+type UnknownRecord = Record<string, unknown>;
+
+const asRecord = (value: unknown): UnknownRecord =>
+  value && typeof value === 'object' ? (value as UnknownRecord) : {};
+
+const toNumber = (value: unknown): number => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
+
+const toStringValue = (value: unknown, fallback = ''): string =>
+  typeof value === 'string' ? value : fallback;
+
 /**
  * THAL Token Section Component
  * 
@@ -58,30 +75,33 @@ export function ThalTokenSection() {
 
       if (investmentsResponse.ok) {
         const investmentsData = await investmentsResponse.json();
-        const investments = investmentsData.data || [];
+        const investmentsRaw: unknown[] = Array.isArray(investmentsData?.data) ? investmentsData.data : [];
+        const investments: UnknownRecord[] = investmentsRaw.map((item: unknown) => asRecord(item));
 
         // Calculate totals
-        const totalInvested = investments.reduce((sum: number, inv: any) => {
-          return sum + (parseFloat(inv.amount) || 0);
+        const totalInvested = investments.reduce((sum: number, inv) => {
+          return sum + toNumber(inv.amount);
         }, 0);
 
-        const totalTokens = investments.reduce((sum: number, inv: any) => {
-          return sum + (parseFloat(inv.tokenAmount) || parseFloat(inv.tokens) || 0);
+        const totalTokens = investments.reduce((sum: number, inv) => {
+          return sum + (toNumber(inv.tokenAmount) || toNumber(inv.tokens));
         }, 0);
 
         // Separate vested and liquid tokens
-        const vestedTokens = investments.reduce((sum: number, inv: any) => {
-          const tokenType = inv.metadata?.tokenType || inv.tokenType || 'vested'; // Default to vested for presale
+        const vestedTokens = investments.reduce((sum: number, inv) => {
+          const metadata = asRecord(inv.metadata);
+          const tokenType = toStringValue(metadata.tokenType) || toStringValue(inv.tokenType) || 'vested'; // Default to vested for presale
           if (tokenType === 'vested') {
-            return sum + (parseFloat(inv.tokenAmount) || parseFloat(inv.tokens) || 0);
+            return sum + (toNumber(inv.tokenAmount) || toNumber(inv.tokens));
           }
           return sum;
         }, 0);
 
-        const liquidTokens = investments.reduce((sum: number, inv: any) => {
-          const tokenType = inv.metadata?.tokenType || inv.tokenType || 'vested';
+        const liquidTokens = investments.reduce((sum: number, inv) => {
+          const metadata = asRecord(inv.metadata);
+          const tokenType = toStringValue(metadata.tokenType) || toStringValue(inv.tokenType) || 'vested';
           if (tokenType === 'liquid') {
-            return sum + (parseFloat(inv.tokenAmount) || parseFloat(inv.tokens) || 0);
+            return sum + (toNumber(inv.tokenAmount) || toNumber(inv.tokens));
           }
           return sum;
         }, 0);
@@ -92,15 +112,18 @@ export function ThalTokenSection() {
             minimumFractionDigits: 2,
             maximumFractionDigits: 8,
           }),
-          investments: investments.map((inv: any) => ({
-            id: inv.id,
-            amount: parseFloat(inv.amount) || 0,
-            tokens: parseFloat(inv.tokenAmount) || parseFloat(inv.tokens) || 0,
-            status: inv.status || 'pending',
-            createdAt: inv.createdAt || inv.created_at || '',
-            tokenType: inv.metadata?.tokenType || inv.tokenType || 'vested',
-            vestingScheduleId: inv.metadata?.vestingScheduleId || inv.vestingScheduleId,
-          })),
+          investments: investments.map((inv) => {
+            const metadata = asRecord(inv.metadata);
+            return {
+              id: toStringValue(inv.id, `inv-${Math.random().toString(36).slice(2)}`),
+              amount: toNumber(inv.amount),
+              tokens: toNumber(inv.tokenAmount) || toNumber(inv.tokens),
+              status: toStringValue(inv.status, 'pending'),
+              createdAt: toStringValue(inv.createdAt) || toStringValue(inv.created_at),
+              tokenType: (toStringValue(metadata.tokenType) || toStringValue(inv.tokenType) || 'vested') as 'vested' | 'liquid',
+              vestingScheduleId: toStringValue(metadata.vestingScheduleId) || toStringValue(inv.vestingScheduleId) || undefined,
+            };
+          }),
           totalInvested,
           totalTokens,
           vestedTokens,

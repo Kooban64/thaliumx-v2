@@ -35,7 +35,7 @@ export function LimitValidator({ type, target, limits }: LimitValidatorProps) {
         target,
         limits,
       });
-      setValidationResult(result as ValidationResult);
+      setValidationResult((result as unknown as ValidationResult) || null);
     } catch (error) {
       setValidationResult({
         valid: false,

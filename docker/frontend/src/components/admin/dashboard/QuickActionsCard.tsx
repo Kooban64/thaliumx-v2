@@ -39,9 +39,16 @@ export function QuickActionsCard() {
                 size="sm"
                 className="justify-start"
                 onClick={() => router.push(action.href)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    router.push(action.href);
+                  }
+                }}
+                aria-label={`Go to ${action.label}`}
               >
                 <Icon className="h-4 w-4 mr-2" />
-                {action.label}
+                <span className="truncate">{action.label}</span>
               </Button>
             );
           })}

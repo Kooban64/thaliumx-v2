@@ -139,8 +139,8 @@ export function KYCUpgradeWizard({
           onComplete();
         }
       }, 2000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to submit upgrade request');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to submit upgrade request');
       setCurrentStep('error');
     }
   };
@@ -215,7 +215,7 @@ export function KYCUpgradeWizard({
       <Card className={className}>
         <CardHeader>
           <CardTitle>Requirements for {requirements.title}</CardTitle>
-          <CardDescription>Review what's needed to upgrade</CardDescription>
+          <CardDescription>Review what&apos;s needed to upgrade</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Progress value={getStepProgress()} className="h-2" />
@@ -367,7 +367,7 @@ export function KYCUpgradeWizard({
           <CheckCircle2 className="h-12 w-12 text-green-600 mb-4" />
           <h3 className="text-lg font-semibold mb-2">Upgrade Request Submitted</h3>
           <p className="text-sm text-muted-foreground text-center">
-            Your KYC upgrade request has been submitted successfully. You'll be notified once the review is complete.
+            Your KYC upgrade request has been submitted successfully. You&apos;ll be notified once the review is complete.
           </p>
         </CardContent>
       </Card>

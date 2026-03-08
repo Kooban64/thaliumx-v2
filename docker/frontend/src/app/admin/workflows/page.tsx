@@ -28,6 +28,18 @@ interface WorkflowAnalytics {
   workflowsByType: Record<string, number>;
 }
 
+interface WorkflowRecord {
+  status?: string;
+  startedAt?: string;
+  completedAt?: string;
+  type?: string;
+  workflowType?: string;
+}
+
+interface WorkflowListPayload {
+  workflows?: WorkflowRecord[];
+}
+
 export default function AdminWorkflowsPage() {
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<WorkflowAnalytics | null>(null);
@@ -43,27 +55,32 @@ export default function AdminWorkflowsPage() {
         }
 
         // Check if user is admin
-        const profileRes = await apiClient.get('/api/auth/profile');
+        const profileRes = await apiClient.get<{ user?: { role?: string }; data?: { role?: string }; role?: string }>('/api/auth/profile');
         if (!profileRes.success) {
+          window.location.href = '/dashboard';
+          return;
+        }
+        const profile = profileRes.data?.user || profileRes.data?.data || profileRes.data;
+        if (profile && profile.role !== 'admin' && profile.role !== 'super_admin') {
           window.location.href = '/dashboard';
           return;
         }
 
         // Load workflow analytics
         try {
-          const workflowsRes = await apiClient.get('/api/workflows');
+          const workflowsRes = await apiClient.get<WorkflowRecord[] | WorkflowListPayload>('/api/workflows');
           if (workflowsRes.success && workflowsRes.data) {
-            const data = workflowsRes.data as any;
+            const data = workflowsRes.data;
             const workflows = Array.isArray(data) ? data : (data.workflows || []);
             
             // Calculate analytics
             const total = workflows.length;
-            const active = workflows.filter((w: any) => w.status === 'active' || w.status === 'running').length;
-            const completed = workflows.filter((w: any) => w.status === 'completed' || w.status === 'success').length;
-            const failed = workflows.filter((w: any) => w.status === 'failed' || w.status === 'error').length;
+            const active = workflows.filter((w) => w.status === 'active' || w.status === 'running').length;
+            const completed = workflows.filter((w) => w.status === 'completed' || w.status === 'success').length;
+            const failed = workflows.filter((w) => w.status === 'failed' || w.status === 'error').length;
             
-            const completedWorkflows = workflows.filter((w: any) => w.status === 'completed' || w.status === 'success');
-            const totalCompletionTime = completedWorkflows.reduce((sum: number, w: any) => {
+            const completedWorkflows = workflows.filter((w) => w.status === 'completed' || w.status === 'success');
+            const totalCompletionTime = completedWorkflows.reduce((sum, w) => {
               if (w.startedAt && w.completedAt) {
                 const start = new Date(w.startedAt).getTime();
                 const end = new Date(w.completedAt).getTime();
@@ -77,7 +94,7 @@ export default function AdminWorkflowsPage() {
             
             const successRate = total > 0 ? (completed / total) * 100 : 0;
             
-            const workflowsByType = workflows.reduce((acc: Record<string, number>, w: any) => {
+            const workflowsByType = workflows.reduce((acc: Record<string, number>, w) => {
               const type = w.type || w.workflowType || 'unknown';
               acc[type] = (acc[type] || 0) + 1;
               return acc;

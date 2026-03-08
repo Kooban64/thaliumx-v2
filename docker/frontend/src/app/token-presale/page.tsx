@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,21 +25,77 @@ import { PostPurchaseTrading } from '@/components/presale/PostPurchaseTrading';
 import { logNetworkError } from '@/lib/services/errorLogger';
 import { initializeEntryDomain } from '@/lib/utils/domain-detection';
 
+interface PresaleStatus {
+  status?: string;
+  totalRaised?: number;
+  target?: number;
+  participants?: number;
+  timeRemaining?: string;
+  endDate?: string;
+}
+
+interface Web3Wallet {
+  id: string;
+  address: string;
+  walletType?: string;
+}
+
+interface Web3WalletsResponse {
+  success?: boolean;
+  data?: Web3Wallet[];
+}
+
+function toPresaleStatus(value: unknown): PresaleStatus {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+
+  const maybeWrapped = value as { data?: unknown };
+  if (maybeWrapped.data && typeof maybeWrapped.data === 'object') {
+    return maybeWrapped.data as PresaleStatus;
+  }
+
+  return value as PresaleStatus;
+}
+
 export default function TokenPresalePage() {
   const [amount, setAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'USDT' | 'BANK_TRANSFER'>('USDT');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [presaleData, setPresaleData] = useState<any>(null);
+  const [presaleData, setPresaleData] = useState<PresaleStatus | null>(null);
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [brokerCode, setBrokerCode] = useState<string>('');
   const [thalPrice, setThalPrice] = useState<number>(0.10); // Default fallback price
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [_purchaseSuccess, setPurchaseSuccess] = useState<{ amount: number; tokens: number; kycLevel: string } | null>(null);
+  const [purchaseSuccess, setPurchaseSuccess] = useState<{ amount: number; tokens: number; kycLevel: string } | null>(null);
   const [deliveryWalletType, setDeliveryWalletType] = useState<'user_web3' | 'platform_hot'>('platform_hot');
-  const [connectedWeb3Wallets, setConnectedWeb3Wallets] = useState<any[]>([]);
+  const [connectedWeb3Wallets, setConnectedWeb3Wallets] = useState<Web3Wallet[]>([]);
   const [selectedWeb3Wallet, setSelectedWeb3Wallet] = useState<string>('');
+
+  const loadConnectedWeb3Wallets = useCallback(async () => {
+    try {
+      const response = await fetch('/api/web3-wallet/wallets', {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data: Web3WalletsResponse = await response.json();
+        if (data.success && Array.isArray(data.data)) {
+          setConnectedWeb3Wallets(data.data);
+          // Auto-select first wallet if available
+          const firstWallet = data.data?.[0];
+          if (firstWallet && !selectedWeb3Wallet) {
+            setSelectedWeb3Wallet(firstWallet.address);
+            setDeliveryWalletType('user_web3');
+          }
+        }
+      }
+    } catch (err) {
+      // Silently fail - user can still use platform hot wallet
+      console.error('Failed to load Web3 wallets:', err);
+    }
+  }, [selectedWeb3Wallet]);
 
   useEffect(() => {
     // Initialize entry domain detection - mark this as presale domain entry
@@ -63,8 +119,8 @@ export default function TokenPresalePage() {
     // Only check auth if we have a token in memory (no API call if no token)
     (async () => {
       try {
-        const { getZitadelToken } = await import('@/lib/auth/backend-auth');
-        const token = getZitadelToken();
+        const { getKeycloakToken } = await import('@/lib/auth/backend-auth');
+        const token = getKeycloakToken();
         if (token) {
           // Only make API call if we have a token
           const isAuth = await checkBackendAuth();
@@ -75,11 +131,11 @@ export default function TokenPresalePage() {
         } else {
           setIsAuthenticated(false);
         }
-      } catch (error) {
+      } catch {
         setIsAuthenticated(false);
       }
     })();
-  }, []);
+  }, [loadConnectedWeb3Wallets]);
 
   // No need for authzHeaders - backend uses httpOnly cookies
   // All requests automatically include credentials via 'credentials: include'
@@ -111,7 +167,8 @@ export default function TokenPresalePage() {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const rawData: unknown = await response.json();
+        const data = toPresaleStatus(rawData);
         setPresaleData(data);
         
         // Check if presale has ended and redirect to main platform
@@ -134,28 +191,6 @@ export default function TokenPresalePage() {
       }
     } catch (err) {
       logNetworkError(err, { endpoint: '/api/presale/status', component: 'TokenPresale' });
-    }
-  };
-
-  const loadConnectedWeb3Wallets = async () => {
-    try {
-      const response = await fetch('/api/web3-wallet/wallets', {
-        credentials: 'include',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && Array.isArray(data.data)) {
-          setConnectedWeb3Wallets(data.data);
-          // Auto-select first wallet if available
-          if (data.data.length > 0 && !selectedWeb3Wallet) {
-            setSelectedWeb3Wallet(data.data[0].address);
-            setDeliveryWalletType('user_web3');
-          }
-        }
-      }
-    } catch (err) {
-      // Silently fail - user can still use platform hot wallet
-      console.error('Failed to load Web3 wallets:', err);
     }
   };
 
@@ -341,11 +376,11 @@ export default function TokenPresalePage() {
                     <AlertDescription className="text-green-600">{success}</AlertDescription>
                   </Alert>
                   {/* Show post-purchase trading CTA if we have investment data */}
-                  {presaleData && parseFloat(amount) > 0 && (
+                  {purchaseSuccess && (
                     <PostPurchaseTrading
-                      investmentAmount={parseFloat(amount)}
-                      tokenAmount={Math.floor(parseFloat(amount) / thalPrice)}
-                      kycLevel="L1" // Would be fetched from API
+                      investmentAmount={purchaseSuccess.amount}
+                      tokenAmount={purchaseSuccess.tokens}
+                      kycLevel={purchaseSuccess.kycLevel}
                     />
                   )}
                 </>
@@ -444,7 +479,7 @@ export default function TokenPresalePage() {
                               onChange={(e) => setSelectedWeb3Wallet(e.target.value)}
                               className="mt-1 w-full p-2 text-sm border rounded bg-background"
                             >
-                              {connectedWeb3Wallets.map((wallet: any) => (
+                              {connectedWeb3Wallets.map((wallet) => (
                                 <option key={wallet.id} value={wallet.address}>
                                   {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)} ({wallet.walletType})
                                 </option>

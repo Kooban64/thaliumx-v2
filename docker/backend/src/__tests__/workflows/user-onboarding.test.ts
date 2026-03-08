@@ -7,8 +7,9 @@
  * - Compensation on failure
  */
 
-import { _createUserOnboardingWorkflow } from '../../workflows/user-onboarding';
-import { _WorkflowInput, SagaContext } from '../../types/workflow';
+import { describe, expect, it, jest } from '@jest/globals';
+import { createUserOnboardingWorkflow } from '../../workflows/user-onboarding';
+import type { WorkflowInput, SagaContext } from '../../types/workflow';
 import { WorkflowType } from '../../types/workflow';
 
 // Mock services
@@ -50,9 +51,10 @@ describe('User Onboarding Workflow', () => {
     expect(steps[1].name).toBe('trigger_kyc_verification');
     expect(steps[2].name).toBe('wait_for_kyc_completion');
     expect(steps[3].name).toBe('create_user_account');
-    expect(steps[4].name).toBe('setup_wallet_infrastructure');
-    expect(steps[5].name).toBe('send_welcome_email');
-    expect(steps[6].name).toBe('mark_onboarding_complete');
+    expect(steps[4].name).toBe('create_trading_account');
+    expect(steps[5].name).toBe('setup_wallet');
+    expect(steps[6].name).toBe('send_welcome_email');
+    expect(steps[7].name).toBe('mark_onboarding_complete');
   });
 
   it('should validate user data step', async () => {

@@ -11,13 +11,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import type { UserProfile } from '@/stores/userStore';
 
 /**
  * HeaderUserMenu - User menu in header
  */
 export function HeaderUserMenu() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,11 +27,20 @@ export function HeaderUserMenu() {
         const auth = await checkBackendAuth();
         setIsAuthenticated(auth);
         if (auth) {
-          const currentUser = await getCurrentUser();
-          setUser(currentUser);
+          try {
+            const currentUser = await getCurrentUser();
+            setUser(currentUser as UserProfile);
+          } catch (userError) {
+            // If getCurrentUser fails, still mark as authenticated but without user data
+            console.warn('Failed to get current user:', userError);
+            setIsAuthenticated(auth);
+          }
         }
       } catch (error) {
+        // Silently handle auth errors - don't throw, just set state
+        console.warn('Auth check failed:', error);
         setIsAuthenticated(false);
+        setUser(null);
       } finally {
         setLoading(false);
       }

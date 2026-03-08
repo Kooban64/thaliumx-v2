@@ -39,13 +39,17 @@ export function AppHeader() {
         'border-b border-border',
         'bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60',
         'flex items-center justify-between',
-        'px-4 md:px-6'
+        'px-3 md:px-4 lg:px-6',
+        'gap-2 md:gap-3',
+        'min-w-0' // Prevent flex items from overflowing
       )}
     >
-      <HeaderLogo />
+      <div className="flex items-center gap-2 md:gap-3 flex-shrink-0 min-w-0">
+        <HeaderLogo />
+      </div>
       <HeaderNav />
-      <div className="flex items-center gap-2">
-        <div className="hidden md:block w-64">
+      <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+        <div className="hidden lg:block w-56 xl:w-64 flex-shrink-0">
           <Search placeholder="Search..." defaultSearch={defaultSearch} />
         </div>
         <ThemeToggle />

@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import { initializeEntryDomain, getPostLoginRedirectPath } from '@/lib/utils/domain-detection';
+import { initializePostLogin } from '@/lib/auth/post-login-init';
+import { getKeycloakToken } from '@/lib/auth/backend-auth';
 
 function LoginPageContent() {
   const router = useRouter();
@@ -24,13 +26,35 @@ function LoginPageContent() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Only check if we have a token (avoid unnecessary API calls)
+        const token = getKeycloakToken();
+        if (!token) {
+          return; // No token, show login form
+        }
+
         const response = await fetch('/api/auth/profile', {
           credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
         });
         if (response.ok) {
-          router.push(nextPath);
+          const json = await response.json();
+          const user = json?.data?.user || json?.data || null;
+          
+          // Initialize stores
+          await initializePostLogin();
+          
+          // Redirect based on role
+          if (user?.role === 'admin' || user?.role === 'super_admin') {
+            router.push('/admin');
+          } else if (user?.role?.startsWith('broker_')) {
+            router.push('/broker');
+          } else {
+            router.push(getPostLoginRedirectPath(nextPath, user?.role));
+          }
         }
-      } catch (error) {
+      } catch {
         // User is not authenticated, show login form
       }
     };
@@ -38,39 +62,70 @@ function LoginPageContent() {
   }, [router, nextPath]);
 
   const handleAuthSuccess = async () => {
-    // Wait a moment for token to be stored, then check user role to redirect appropriately
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Wait a moment for token to be stored
+    await new Promise(resolve => setTimeout(resolve, 200));
     
     try {
-      const response = await fetch('/api/auth/profile', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      // Initialize all stores and get user profile
+      const user = await initializePostLogin();
       
-      if (response.ok) {
-        const json = await response.json();
-        const user = json?.data?.user || json?.data || null;
+      if (!user) {
+        // Fallback: try to get user from API directly
+        const token = getKeycloakToken();
+        if (!token) {
+          router.push('/dashboard');
+          return;
+        }
+
+        const response = await fetch('/api/auth/profile', {
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
         
-        // Redirect admins to admin dashboard
-        if (user?.role === 'admin' || user?.role === 'super_admin') {
+        if (response.ok) {
+          const json = await response.json();
+          const userData = json?.data?.user || json?.data || null;
+          
+          // Redirect based on role (role takes priority over domain)
+          if (userData?.role === 'admin' || userData?.role === 'super_admin' || userData?.role === 'platform-admin') {
+            router.push('/admin');
+            return;
+          }
+          
+          if (userData?.role?.startsWith('broker_') || userData?.role === 'broker_admin') {
+            router.push('/broker');
+            return;
+          }
+          
+          // For regular users, use domain-aware redirect
+          const redirectPath = getPostLoginRedirectPath(nextPath, userData?.role);
+          router.push(redirectPath);
+        } else {
+          // Fallback to default
+          router.push(getPostLoginRedirectPath(nextPath));
+        }
+      } else {
+        // User profile loaded, redirect based on role
+        if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'platform-admin') {
           router.push('/admin');
           return;
         }
         
+        if (user.role?.startsWith('broker_') || user.role === 'broker_admin') {
+          router.push('/broker');
+          return;
+        }
+        
         // For regular users, use domain-aware redirect
-        // If from presale domain, redirect to /token-presale
-        // Otherwise, use requested path or default to /dashboard
-        const redirectPath = getPostLoginRedirectPath(nextPath);
-        router.push(redirectPath);
-      } else {
-        const redirectPath = getPostLoginRedirectPath(nextPath);
+        const redirectPath = getPostLoginRedirectPath(nextPath, user.role);
         router.push(redirectPath);
       }
-    } catch (error) {
-      const redirectPath = getPostLoginRedirectPath(nextPath);
-      router.push(redirectPath);
+    } catch {
+      // Fallback to default path
+      router.push(getPostLoginRedirectPath(nextPath));
     }
   };
 

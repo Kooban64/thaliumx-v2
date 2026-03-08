@@ -2,6 +2,36 @@ import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/lib/api/client';
 import type { TradingAnalytics } from '@/types/trading';
 
+interface TradingAnalyticsPayload {
+  data?: Partial<TradingAnalytics>;
+  totalTrades?: number;
+  totalVolume?: number;
+  totalProfit?: number;
+  totalLoss?: number;
+  winRate?: number;
+  averageProfit?: number;
+  averageLoss?: number;
+  profitFactor?: number;
+  sharpeRatio?: number;
+  maxDrawdown?: number;
+  period?: {
+    start?: string;
+    end?: string;
+  };
+}
+
+interface TradingPerformancePoint {
+  date: string;
+  pnl: number;
+  trades: number;
+  volume: number;
+}
+
+interface TradingPerformancePayload {
+  data?: TradingPerformancePoint[];
+  performance?: TradingPerformancePoint[];
+}
+
 interface TradingAnalyticsParams {
   startDate?: string;
   endDate?: string;
@@ -23,10 +53,10 @@ export function useTradingAnalytics(params?: TradingAnalyticsParams) {
       if (params?.exchange) queryParams.append('exchange', params.exchange);
 
       const endpoint = `/api/trading/analytics${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      const response = await apiClient.get(endpoint);
+      const response = await apiClient.get<TradingAnalyticsPayload>(endpoint);
 
       if (response.success && response.data) {
-        const responseData = response.data as any;
+        const responseData = response.data;
         const data = responseData.data || responseData;
         return {
           totalTrades: data.totalTrades || 0,
@@ -55,12 +85,12 @@ export function useTradingAnalytics(params?: TradingAnalyticsParams) {
  * useTradingPerformance - Get trading performance over time
  */
 export function useTradingPerformance(period: 'day' | 'week' | 'month' | 'year' = 'month') {
-  return useQuery<Array<{ date: string; pnl: number; trades: number; volume: number }>>({
+  return useQuery<TradingPerformancePoint[]>({
     queryKey: ['trading', 'performance', period],
     queryFn: async () => {
-      const response = await apiClient.get(`/api/trading/performance?period=${period}`);
+      const response = await apiClient.get<TradingPerformancePayload>(`/api/trading/performance?period=${period}`);
       if (response.success && response.data) {
-        const data = response.data as any;
+        const data = response.data;
         return data.data || data.performance || [];
       }
       throw new Error(response.error || 'Failed to fetch trading performance');

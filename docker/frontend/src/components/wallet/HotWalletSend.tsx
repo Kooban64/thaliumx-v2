@@ -79,8 +79,8 @@ export function HotWalletSend({ wallet }: HotWalletSendProps) {
       setToAddress('');
       setAmount('');
       setIsValidAddress(false);
-    } catch (err: any) {
-      setError(err.message || 'Failed to send funds');
+    } catch {
+      setError('Failed to send funds');
     }
   };
 

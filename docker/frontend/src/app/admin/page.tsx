@@ -6,11 +6,17 @@ import { checkAuth as checkBackendAuth } from '@/lib/auth/backend-auth';
 import apiClient from '@/lib/api/client';
 import { PolicyViolationAlertContainer } from '@/components/opa/PolicyViolationAlertContainer';
 import { AdminDashboard } from '@/components/admin/dashboard';
+import type { UserProfile } from '@/stores/userStore';
+
+interface AuthProfileResponse {
+  user?: UserProfile;
+  data?: UserProfile;
+}
 
 export default function PlatformAdmin() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -21,8 +27,8 @@ export default function PlatformAdmin() {
           return;
         }
 
-        const res = await apiClient.get<any>('/api/auth/profile');
-        const userProfile = (res.data as any)?.user || res.data || null;
+        const res = await apiClient.get<AuthProfileResponse>('/api/auth/profile');
+        const userProfile = res.data?.user || res.data?.data || null;
         
         // Redirect non-admins to user dashboard
         if (userProfile && userProfile.role !== 'admin' && userProfile.role !== 'super_admin') {
@@ -31,7 +37,7 @@ export default function PlatformAdmin() {
         }
         
         setProfile(userProfile);
-      } catch (error) {
+      } catch {
         router.push('/login?next=/admin');
       } finally {
         setLoading(false);

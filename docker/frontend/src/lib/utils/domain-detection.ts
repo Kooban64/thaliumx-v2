@@ -10,6 +10,8 @@
  */
 
 const ENTRY_DOMAIN_KEY = 'thaliumx_entry_domain';
+const ENTRY_CHANNEL_KEY = 'thaliumx_entry_channel';
+const ENTRY_BROKER_SLUG_KEY = 'thaliumx_entry_broker_slug';
 const PRESALE_DOMAIN = 'thal.thaliumx.com';
 const MAIN_DOMAIN = 'thaliumx.com';
 
@@ -37,6 +39,36 @@ export function isPresaleDomain(): boolean {
 export function isMainDomain(): boolean {
   const hostname = getCurrentHostname();
   return hostname === MAIN_DOMAIN || hostname === `www.${MAIN_DOMAIN}`;
+}
+
+export function resolveBrokerSlugFromHostname(hostname: string): string | null {
+  if (!hostname) return null;
+  const normalized = hostname.toLowerCase().replace(/:\d+$/, '');
+  const blocked = new Set(['thaliumx.com', 'www.thaliumx.com', 'api.thaliumx.com', 'auth.thaliumx.com', 'thal.thaliumx.com', 'localhost']);
+  if (blocked.has(normalized)) return null;
+
+  const suffix = '.thaliumx.com';
+  if (!normalized.endsWith(suffix)) return null;
+
+  const slug = normalized.slice(0, -suffix.length);
+  if (!slug || slug.includes('.')) return null;
+  if (!/^[a-z0-9-]{2,63}$/.test(slug)) return null;
+  return slug;
+}
+
+export function getEntryChannel(): 'direct' | 'broker' {
+  if (typeof window === 'undefined') return 'direct';
+  const stored = sessionStorage.getItem(ENTRY_CHANNEL_KEY);
+  if (stored === 'direct' || stored === 'broker') return stored;
+  const slug = resolveBrokerSlugFromHostname(getCurrentHostname());
+  return slug ? 'broker' : 'direct';
+}
+
+export function getEntryBrokerSlug(): string | null {
+  if (typeof window === 'undefined') return null;
+  const stored = sessionStorage.getItem(ENTRY_BROKER_SLUG_KEY);
+  if (stored && stored.trim().length > 0) return stored;
+  return resolveBrokerSlugFromHostname(getCurrentHostname());
 }
 
 /**
@@ -112,6 +144,14 @@ export function initializeEntryDomain(): 'presale' | 'main' | null {
     setEntryDomain(detected);
   }
 
+  const brokerSlug = resolveBrokerSlugFromHostname(getCurrentHostname());
+  sessionStorage.setItem(ENTRY_CHANNEL_KEY, brokerSlug ? 'broker' : 'direct');
+  if (brokerSlug) {
+    sessionStorage.setItem(ENTRY_BROKER_SLUG_KEY, brokerSlug);
+  } else {
+    sessionStorage.removeItem(ENTRY_BROKER_SLUG_KEY);
+  }
+
   return detected;
 }
 
@@ -123,6 +163,17 @@ export function clearEntryDomain(): void {
     return;
   }
   sessionStorage.removeItem(ENTRY_DOMAIN_KEY);
+  sessionStorage.removeItem(ENTRY_CHANNEL_KEY);
+  sessionStorage.removeItem(ENTRY_BROKER_SLUG_KEY);
+}
+
+export function getSafePostLoginPath(path: string | null | undefined): string {
+  if (!path || typeof path !== 'string') return '/dashboard';
+  const candidate = path.trim();
+  if (!candidate.startsWith('/')) return '/dashboard';
+  if (candidate.startsWith('//')) return '/dashboard';
+  if (candidate.includes('..')) return '/dashboard';
+  return candidate;
 }
 
 /**
@@ -140,11 +191,25 @@ export function cameFromMainDomain(): boolean {
 }
 
 /**
- * Get redirect path based on entry domain
- * - presale domain users should go to /token-presale after login
- * - main domain users should go to /dashboard after login
+ * Get redirect path based on entry domain and user role
+ * - Admins/super_admins always go to /admin (ignore domain)
+ * - Brokers always go to /broker (ignore domain)
+ * - Regular users: presale domain → /token-presale, main domain → /dashboard
+ * 
+ * @param defaultPath - Default path if no domain detected (default: '/dashboard')
+ * @param userRole - Optional user role to override domain logic for admins/brokers
  */
-export function getPostLoginRedirectPath(defaultPath: string = '/dashboard'): string {
+export function getPostLoginRedirectPath(defaultPath: string = '/dashboard', userRole?: string | null): string {
+  // Role-based redirects take priority
+  if (userRole === 'admin' || userRole === 'super_admin' || userRole === 'platform-admin') {
+    return '/admin';
+  }
+  
+  if (userRole && (userRole.startsWith('broker_') || userRole === 'broker_admin')) {
+    return '/broker';
+  }
+  
+  // For regular users, use domain detection
   const entryDomain = getEntryDomain();
   
   if (entryDomain === 'presale') {

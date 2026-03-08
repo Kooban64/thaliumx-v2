@@ -28,13 +28,17 @@ const DropdownMenuTrigger = React.forwardRef<
   if (!context) throw new Error('DropdownMenuTrigger must be used within DropdownMenu');
 
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children as React.ReactElement<any>, {
-      ...props,
+    type TriggerChildProps = {
+      onClick?: React.MouseEventHandler<Element>;
+    };
+
+    const child = children as React.ReactElement<TriggerChildProps>;
+
+    return React.cloneElement(child, {
       onClick: (e: React.MouseEvent<Element>) => {
         context.setOpen(!context.open);
-        if (props.onClick) {
-          (props.onClick as any)(e);
-        }
+        props.onClick?.(e as unknown as React.MouseEvent<HTMLButtonElement>);
+        child.props.onClick?.(e);
       },
     });
   }
@@ -67,7 +71,7 @@ const DropdownMenuContent = React.forwardRef<
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [context.open, ref]);
+  }, [context, ref]);
 
   if (!context.open) return null;
 

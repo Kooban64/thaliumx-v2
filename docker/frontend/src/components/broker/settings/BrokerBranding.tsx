@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -146,9 +147,12 @@ export function BrokerBranding() {
         <CardContent className="space-y-4">
           {logoPreview && (
             <div className="flex items-center gap-4">
-              <img
+              <Image
                 src={logoPreview}
                 alt="Logo preview"
+                width={96}
+                height={96}
+                unoptimized
                 className="h-24 w-24 object-contain border rounded-lg p-2"
               />
               <div>
@@ -178,7 +182,7 @@ export function BrokerBranding() {
         <CardHeader>
           <CardTitle>Color Scheme</CardTitle>
           <CardDescription>
-            Customize your broker's color scheme
+            Customize your broker&apos;s color scheme
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -243,7 +247,7 @@ export function BrokerBranding() {
         <CardHeader>
           <CardTitle>Custom CSS</CardTitle>
           <CardDescription>
-            Add custom CSS to further customize your broker's appearance
+            Add custom CSS to further customize your broker&apos;s appearance
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -255,7 +259,7 @@ export function BrokerBranding() {
             rows={10}
           />
           <p className="text-xs text-muted-foreground mt-2">
-            Note: Custom CSS will be applied to your broker's branded pages
+            Note: Custom CSS will be applied to your broker&apos;s branded pages
           </p>
         </CardContent>
       </Card>

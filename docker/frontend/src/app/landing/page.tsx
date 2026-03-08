@@ -28,8 +28,8 @@ export default function LandingPage() {
     (async () => {
       try {
         // Only check if we have a token in memory (no API call if no token)
-        const { getZitadelToken } = await import('@/lib/auth/backend-auth');
-        const token = getZitadelToken();
+        const { getKeycloakToken } = await import('@/lib/auth/backend-auth');
+        const token = getKeycloakToken();
         if (token) {
           // Only make API call if we have a token
           const auth = await checkBackendAuth();
@@ -37,7 +37,7 @@ export default function LandingPage() {
         } else {
           setIsAuthenticated(false);
         }
-      } catch (error) {
+      } catch {
         setIsAuthenticated(false);
       }
     })();

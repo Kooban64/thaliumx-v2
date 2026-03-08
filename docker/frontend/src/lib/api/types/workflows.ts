@@ -75,14 +75,14 @@ export interface WorkflowState {
   status: WorkflowStatus;
   currentStep: string;
   stepIndex: number;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   errorMessage?: string;
   retryCount: number;
   maxRetries: number;
   createdAt: string | Date;
   updatedAt: string | Date;
   completedAt?: string | Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface WorkflowInput {
@@ -90,15 +90,15 @@ export interface WorkflowInput {
   userId?: string;
   tenantId?: string;
   brokerId?: string;
-  data: Record<string, any>;
-  metadata?: Record<string, any>;
+  data: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface WorkflowResult {
   workflowId: string;
   workflowType: WorkflowType;
   status: WorkflowStatus;
-  result?: any;
+  result?: unknown;
   error?: string;
 }
 

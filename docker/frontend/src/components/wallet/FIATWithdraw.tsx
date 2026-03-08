@@ -79,8 +79,8 @@ export function FIATWithdraw({ wallet }: FIATWithdrawProps) {
       // Reset form on success
       setAmount('');
       setSelectedBankAccount('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to initiate withdrawal');
+    } catch {
+      setError('Failed to initiate withdrawal');
     }
   };
 

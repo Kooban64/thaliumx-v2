@@ -185,7 +185,6 @@ router.put('/roles/:roleId',
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { roleId } = req.params;
-      const roleData = req.body;
       const updatedBy = (req.user as any)?.userId || (req.user as any)?.id || 'system';
 
       LoggerService.info('Updating role', {

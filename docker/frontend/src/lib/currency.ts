@@ -98,7 +98,7 @@ export function formatCurrency(
     }
 
     return formatted;
-  } catch (error) {
+  } catch {
     // Fallback formatting
     return `${currency.symbol}${amount.toFixed(decimals)}`;
   }
@@ -170,7 +170,7 @@ if (typeof window !== 'undefined') {
   fetchCurrencyConfig().catch(console.warn);
 }
 
-export default {
+const currencyUtils = {
   fetchCurrencyConfig,
   getCurrencySymbol,
   getCurrencyCode,
@@ -180,3 +180,5 @@ export default {
   parseCurrencyString,
   useCurrencyConfig
 };
+
+export default currencyUtils;

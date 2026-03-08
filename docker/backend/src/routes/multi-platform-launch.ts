@@ -2,10 +2,11 @@
  * Multi-Platform Launch Management Routes
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { authenticateToken, requireRole } from '../middleware/error-handler';
-import { MultiPlatformLaunchService, PlatformLaunch, LaunchPlan } from '../services/multi-platform-launch';
-import { LoggerService } from '../services/logger';
+import { MultiPlatformLaunchService } from '../services/multi-platform-launch';
+import type { PlatformLaunch } from '../services/multi-platform-launch';
 import Joi from 'joi';
 
 const router: Router = Router();

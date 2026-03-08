@@ -22,8 +22,8 @@ export default function AdminBrokersPage() {
           return;
         }
 
-        const res = await apiClient.get<any>('/api/auth/profile');
-        const userProfile = (res.data as any)?.user || res.data || null;
+        const res = await apiClient.get<{ user?: { email?: string; role?: string }; data?: { email?: string; role?: string }; email?: string; role?: string }>('/api/auth/profile');
+        const userProfile = res.data?.user || res.data?.data || res.data || null;
 
         if (userProfile && userProfile.role !== 'admin' && userProfile.role !== 'super_admin') {
           router.push('/dashboard');
@@ -31,7 +31,7 @@ export default function AdminBrokersPage() {
         }
 
         setIsLoading(false);
-      } catch (error) {
+      } catch {
         router.push('/login?next=/admin/brokers');
       }
     };

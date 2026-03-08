@@ -26,6 +26,10 @@ export function LimitHistory() {
 
   const history = data?.data || [];
   const pagination = data?.pagination;
+  const currentPage = pagination?.page || page;
+  const totalPages = pagination?.totalPages || 1;
+  const hasPrev = currentPage > 1;
+  const hasNext = currentPage < totalPages;
 
   const getTypeBadge = (type: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'outline'> = {
@@ -161,17 +165,17 @@ export function LimitHistory() {
           )}
 
           {/* Pagination */}
-          {pagination && pagination.totalPages > 1 && (
+          {pagination && totalPages > 1 && (
             <div className="flex items-center justify-between mt-6">
               <div className="text-sm text-muted-foreground">
-                Page {pagination.page} of {pagination.totalPages}
+                Page {currentPage} of {totalPages}
               </div>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setPage(page - 1)}
-                  disabled={!pagination.hasPrev}
+                  disabled={!hasPrev}
                 >
                   Previous
                 </Button>
@@ -179,7 +183,7 @@ export function LimitHistory() {
                   variant="outline"
                   size="sm"
                   onClick={() => setPage(page + 1)}
-                  disabled={!pagination.hasNext}
+                  disabled={!hasNext}
                 >
                   Next
                 </Button>

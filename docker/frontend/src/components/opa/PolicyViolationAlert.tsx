@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,22 @@ interface PolicyViolation {
   userId?: string;
   transactionId?: string;
   action?: string;
+}
+
+interface PolicyDecision {
+  id: string;
+  timestamp: string;
+  policy: string;
+  ruleId?: string;
+  severity?: 'low' | 'medium' | 'high' | 'critical';
+  reason?: string;
+  userId?: string;
+  transactionId?: string;
+  action?: string;
+}
+
+interface PolicyDecisionsResponse {
+  data: PolicyDecision[];
 }
 
 interface PolicyViolationAlertProps {
@@ -37,6 +53,15 @@ export function PolicyViolationAlert({
   const [violations, setViolations] = useState<PolicyViolation[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
+  const handleDismiss = useCallback(
+    (violationId: string) => {
+      setDismissed(prev => new Set([...prev, violationId]));
+      setViolations(prev => prev.filter(v => v.id !== violationId));
+      onDismiss?.(violationId);
+    },
+    [onDismiss],
+  );
+
   useEffect(() => {
     if (!userId) return;
 
@@ -50,15 +75,15 @@ export function PolicyViolationAlert({
           limit: '5',
           allowed: 'false'
         });
-        const res = await apiClient.get<any>(`/api/admin/policies/decisions?${params.toString()}`);
+        const res = await apiClient.get<PolicyDecisionsResponse>(`/api/admin/policies/decisions?${params.toString()}`);
 
         if (res.success && res.data) {
           const newViolations: PolicyViolation[] = res.data.data
-            .filter((d: any) => 
+            .filter((d) => 
               !dismissed.has(d.id) && 
               (d.severity === 'critical' || d.severity === 'high')
             )
-            .map((d: any) => ({
+            .map((d) => ({
               id: d.id,
               timestamp: d.timestamp,
               policy: d.policy,
@@ -91,14 +116,6 @@ export function PolicyViolationAlert({
       }
     };
 
-    const handleDismiss = (violationId: string) => {
-      setDismissed(prev => new Set([...prev, violationId]));
-      setViolations(prev => prev.filter(v => v.id !== violationId));
-      if (onDismiss) {
-        onDismiss(violationId);
-      }
-    };
-
     fetchViolations();
     const pollInterval = setInterval(fetchViolations, 30000);
 
@@ -106,17 +123,13 @@ export function PolicyViolationAlert({
       clearInterval(pollInterval);
       dismissTimeouts.forEach(timeout => clearTimeout(timeout));
     };
-  }, [userId, autoDismiss, dismissAfter, dismissed]);
+  }, [userId, autoDismiss, dismissAfter, dismissed, handleDismiss]);
 
-  const getSeverityColor = (severity: string) => {
+  const getSeverityColor = (severity: string): 'default' | 'destructive' => {
     switch (severity) {
       case 'critical':
       case 'high':
         return 'destructive';
-      case 'medium':
-        return 'default';
-      case 'low':
-        return 'secondary';
       default:
         return 'default';
     }
@@ -141,7 +154,7 @@ export function PolicyViolationAlert({
       {violations.map((violation) => (
         <Alert
           key={violation.id}
-          variant={getSeverityColor(violation.severity) as any}
+          variant={getSeverityColor(violation.severity)}
           className="relative"
         >
           <div className="flex items-start gap-2">
@@ -186,16 +199,7 @@ export function PolicyViolationAlert({
               variant="ghost"
               size="sm"
               className="absolute top-2 right-2 h-6 w-6 p-0"
-              onClick={() => {
-                const handleDismissLocal = (violationId: string) => {
-                  setDismissed(prev => new Set([...prev, violationId]));
-                  setViolations(prev => prev.filter(v => v.id !== violationId));
-                  if (onDismiss) {
-                    onDismiss(violationId);
-                  }
-                };
-                handleDismissLocal(violation.id);
-              }}
+              onClick={() => handleDismiss(violation.id)}
             >
               <X className="h-4 w-4" />
             </Button>

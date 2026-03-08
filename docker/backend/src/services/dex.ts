@@ -1339,6 +1339,7 @@ export class DEXService {
       try {
         const response = await axios.get(`${apiUrl}/swap/v1/quote`, {
           params: {
+            chainId,
             sellToken: tokenIn,
             buyToken: tokenOut,
             sellAmount: amountIn,

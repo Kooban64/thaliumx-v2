@@ -8,6 +8,30 @@ import { Loader2, ArrowLeft, Mail, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
+interface BrokerUserItem {
+  id: string;
+  email: string;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  isActive?: boolean;
+  isVerified?: boolean;
+  kycLevel?: string;
+  kycStatus?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+function isBrokerUserItem(value: unknown): value is BrokerUserItem {
+  if (!value || typeof value !== 'object') return false;
+  const user = value as Record<string, unknown>;
+  return (
+    typeof user.id === 'string' &&
+    typeof user.email === 'string' &&
+    typeof user.createdAt === 'string'
+  );
+}
+
 /**
  * BrokerUserDetails - Display detailed information about a broker user
  */
@@ -18,7 +42,10 @@ export function BrokerUserDetails() {
   // For now, we'll fetch all users and find the one we need
   // In a real implementation, we'd have a useBrokerUser(userId) hook
   const { data, isLoading } = useBrokerUsers({ limit: 1000 });
-  const user = data?.data?.find((u: any) => u.id === userId);
+  const users: BrokerUserItem[] = Array.isArray(data?.data)
+    ? (data.data as unknown[]).filter(isBrokerUserItem)
+    : [];
+  const user = users.find(u => u.id === userId);
 
   if (isLoading) {
     return (
@@ -138,13 +165,13 @@ export function BrokerUserDetails() {
               </div>
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">Last Updated</div>
-              <div className="flex items-center gap-2 mt-1">
-                <Calendar className="h-4 w-4" />
-                <span>{new Date((user as any).updatedAt || user.createdAt).toLocaleString()}</span>
+                <div className="text-sm text-muted-foreground">Last Updated</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <Calendar className="h-4 w-4" />
+                  <span>{new Date(user.updatedAt || user.createdAt).toLocaleString()}</span>
+                </div>
               </div>
-            </div>
-          </CardContent>
+            </CardContent>
         </Card>
       </div>
 

@@ -159,8 +159,8 @@ services:
       - apisix-oidc-client-secret
       - redis-password
     environment:
-      # Keycloak decommissioned; Zitadel is the only supported auth provider.
-      THALIUMX_AUTH_PROVIDER: ${THALIUMX_AUTH_PROVIDER:-zitadel}
+      # Keycloak is the only supported auth provider.
+      THALIUMX_AUTH_PROVIDER: ${THALIUMX_AUTH_PROVIDER:-keycloak}
       APISIX_ENABLE_OIDC: ${APISIX_ENABLE_OIDC:-false}
     volumes:
       - /home/ubuntu/thaliumx-v1/docker/gateway/scripts/init-apisix-routes.sh:/scripts/init-apisix-routes.sh:ro
@@ -175,9 +175,10 @@ services:
         export APISIX_ADMIN_KEY="$(cat /run/secrets/api-key)";
         export FRONTEND_UPSTREAM="thaliumx-frontend:3000";
         export BACKEND_UPSTREAM="thaliumx-backend:3002";
-        # Auth provider selection (Keycloak decommissioned)
-        export AUTH_PROVIDER="zitadel";
-        export ZITADEL_UPSTREAM="zitadel:8080";
+        # Auth provider selection (Keycloak)
+        export AUTH_PROVIDER="keycloak";
+        export KEYCLOAK_UPSTREAM="keycloak:8080";
+        export KEYCLOAK_REALM="${KEYCLOAK_REALM:-thaliumx}";
 
         # Configure APISIX OIDC verification.
         export OIDC_CLIENT_ID="thaliumx-backend";

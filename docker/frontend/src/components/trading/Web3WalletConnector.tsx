@@ -16,6 +16,41 @@ import {
 } from 'lucide-react';
 import apiClient from '@/lib/api/client';
 
+interface ProfilePayload {
+  user?: {
+    brokerId?: string;
+  };
+}
+
+interface Web3WalletRow {
+  id: string;
+  address: string;
+  chainId: number;
+  walletType: string;
+  status: 'connected' | 'disconnected' | 'pending' | 'error';
+}
+
+interface BalancePayload {
+  nativeBalance?: string;
+}
+
+interface EthereumProvider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  chainId?: string;
+}
+
+function isWeb3WalletRow(value: unknown): value is Web3WalletRow {
+  if (!value || typeof value !== 'object') return false;
+  const w = value as Record<string, unknown>;
+  return (
+    typeof w.id === 'string' &&
+    typeof w.address === 'string' &&
+    typeof w.chainId === 'number' &&
+    typeof w.walletType === 'string' &&
+    (w.status === 'connected' || w.status === 'disconnected' || w.status === 'pending' || w.status === 'error')
+  );
+}
+
 interface Web3Wallet {
   id: string;
   address: string;
@@ -55,10 +90,10 @@ export function Web3WalletConnector({
   const loadUserContext = async () => {
     try {
       // Dashboard is auth-gated, so profile should be available.
-      const res = await apiClient.get<any>('/api/auth/profile');
-      const u = (res.success ? (res.data as any)?.user : null) || null;
+      const res = await apiClient.get<ProfilePayload>('/api/auth/profile');
+      const u = res.success ? res.data?.user : null;
       setBrokerId(u?.brokerId || null);
-    } catch (error) {
+    } catch {
       setBrokerId(null);
     } finally {
       setUserContextLoaded(true);
@@ -67,18 +102,18 @@ export function Web3WalletConnector({
 
   const loadConnectedWallets = async () => {
     try {
-      const response = await apiClient.get<any[]>('/api/web3-wallet/wallets');
+      const response = await apiClient.get<unknown[]>('/api/web3-wallet/wallets');
       if (!response.success) {
         throw new Error(response.error || response.message || 'Failed to load wallets');
       }
 
-      const rows = response.data || [];
+      const rows = Array.isArray(response.data) ? (response.data as unknown[]).filter(isWeb3WalletRow) : [];
 
       // Enrich with native balance (best-effort).
       const enriched: Web3Wallet[] = await Promise.all(
-        rows.map(async (w: any) => {
+        rows.map(async (w) => {
           try {
-            const balRes = await apiClient.get<any>(`/api/web3-wallet/${w.address}/balance/${w.chainId}`);
+            const balRes = await apiClient.get<BalancePayload>(`/api/web3-wallet/${w.address}/balance/${w.chainId}`);
             const native = balRes.success ? balRes.data?.nativeBalance : undefined;
             return {
               id: w.id,
@@ -88,7 +123,7 @@ export function Web3WalletConnector({
               status: w.status,
               balance: native || '—',
             };
-          } catch (error) {
+          } catch {
             return {
               id: w.id,
               address: w.address,
@@ -123,22 +158,25 @@ export function Web3WalletConnector({
       }
 
       // Check if MetaMask is available
-      const eth = (window as unknown as { ethereum?: any }).ethereum;
-      if (!eth) {
+      const eth = (window as unknown as { ethereum?: EthereumProvider }).ethereum;
+      if (!eth || typeof eth.request !== 'function') {
         throw new Error('MetaMask not detected. Please install MetaMask to continue.');
       }
 
       // Request account access
-      const accounts = await eth.request({
+      const accountsRaw = await eth.request({
         method: 'eth_requestAccounts',
       });
+      const accounts = Array.isArray(accountsRaw)
+        ? accountsRaw.filter((a): a is string => typeof a === 'string')
+        : [];
 
       if (accounts.length === 0) {
         throw new Error('No accounts found. Please connect your wallet.');
       }
 
       const address = accounts[0];
-      const chainId = parseInt(eth.chainId, 16);
+      const chainId = parseInt(eth.chainId || '0x1', 16);
 
       // Create message for signature
       const timestamp = Date.now();
@@ -146,10 +184,11 @@ export function Web3WalletConnector({
       const message = `Connect to ThaliumX\nAddress: ${address}\nChain: ${chainId}\nTimestamp: ${timestamp}\nNonce: ${nonce}`;
 
       // Request signature
-      const signature = await eth.request({
+      const signatureRaw = await eth.request({
         method: 'personal_sign',
         params: [message, address],
       });
+      const signature = typeof signatureRaw === 'string' ? signatureRaw : '';
 
       // Send to backend
       const response = await apiClient.post('/api/web3-wallet/connect', {
@@ -190,7 +229,7 @@ export function Web3WalletConnector({
       setSuccess('Wallet disconnected successfully!');
       await loadConnectedWallets();
       onWalletConnected?.();
-    } catch (_err) {
+    } catch {
       setError('Failed to disconnect wallet');
     }
   };

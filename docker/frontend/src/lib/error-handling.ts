@@ -6,11 +6,12 @@
  */
 
 import { sanitizeText } from './sanitize';
+import { ErrorCategory, ErrorSeverity, logError } from '@/lib/services/errorLogger';
 
 export interface ApiError {
   code: string;
   message: string;
-  details?: any;
+  details?: unknown;
   timestamp: string;
   requestId?: string;
 }
@@ -23,13 +24,29 @@ export interface RetryConfig {
   retryableErrors: string[];
 }
 
-export interface StructuredResponse<T = any> {
+export interface StructuredResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: ApiError;
   timestamp: string;
   requestId?: string;
 }
+
+type AbortSignalWithTimeout = {
+  timeout?: (ms: number) => AbortSignal;
+};
+
+type ApiErrorPayload = {
+  error?: {
+    code?: string;
+    message?: string;
+    details?: unknown;
+  };
+  requestId?: string;
+  timestamp?: string;
+  success?: boolean;
+  data?: unknown;
+};
 
 /**
  * Default retry configuration
@@ -85,9 +102,9 @@ export async function fetchWithRetry(
     try {
       const timeoutSignal = (() => {
         // Jest/jsdom environments may not implement AbortSignal.timeout.
-        const anyAbortSignal = AbortSignal as any;
-        if (anyAbortSignal && typeof anyAbortSignal.timeout === 'function') {
-          return anyAbortSignal.timeout(10000);
+        const abortSignalWithTimeout = AbortSignal as unknown as AbortSignalWithTimeout;
+        if (typeof abortSignalWithTimeout.timeout === 'function') {
+          return abortSignalWithTimeout.timeout(10000);
         }
         return undefined;
       })();
@@ -138,16 +155,17 @@ export async function fetchWithRetry(
 /**
  * Parse API error response
  */
-export function parseApiError(response: Response, data?: any): ApiError {
+export function parseApiError(response: Response, data?: unknown): ApiError {
   const timestamp = new Date().toISOString();
+  const payload = (data && typeof data === 'object') ? (data as ApiErrorPayload) : undefined;
 
-  if (data && data.error) {
+  if (payload?.error) {
     return {
-      code: data.error.code || 'UNKNOWN_ERROR',
-      message: sanitizeText(data.error.message || 'An unknown error occurred'),
-      details: data.error.details,
+      code: payload.error.code || 'UNKNOWN_ERROR',
+      message: sanitizeText(payload.error.message || 'An unknown error occurred'),
+      details: payload.error.details,
       timestamp,
-      requestId: data.requestId,
+      requestId: payload.requestId,
     };
   }
 
@@ -189,13 +207,15 @@ export function extractOPAErrorDetails(error: ApiError): {
 } {
   // Check if error details contain OPA decision information
   if (error.details && typeof error.details === 'object') {
-    const details = error.details as any;
+    const details = error.details as Record<string, unknown>;
     
     // Check for OPA decision structure
     if (details.complianceDecision || details.decision) {
-      const decision = details.complianceDecision || details.decision;
-      const ruleId = decision.rule_id || decision.ruleId;
-      const reason = decision.reason;
+      const decision = (details.complianceDecision || details.decision) as Record<string, unknown>;
+      const ruleId = typeof decision.rule_id === 'string'
+        ? decision.rule_id
+        : (typeof decision.ruleId === 'string' ? decision.ruleId : undefined);
+      const reason = typeof decision.reason === 'string' ? decision.reason : undefined;
       
       // Map rule IDs to actionable messages
       const actionableMessages: Record<string, string> = {
@@ -224,10 +244,13 @@ export function extractOPAErrorDetails(error: ApiError): {
       const limitType = details.limit_type;
       const limitValue = details.limit_value;
       const actualValue = details.actual_value;
+
+      const limitValueText = typeof limitValue === 'number' ? limitValue.toLocaleString() : 'unknown';
+      const actualValueText = typeof actualValue === 'number' ? actualValue.toLocaleString() : undefined;
       
-      let message = `Your ${limitType} limit is ${limitValue?.toLocaleString() || 'unknown'}`;
-      if (actualValue) {
-        message += `, but you attempted ${actualValue.toLocaleString()}`;
+      let message = `Your ${String(limitType)} limit is ${limitValueText}`;
+      if (actualValueText) {
+        message += `, but you attempted ${actualValueText}`;
       }
       
       return {
@@ -268,7 +291,7 @@ export function getUserFriendlyErrorMessage(error: ApiError): string {
 /**
  * Enhanced API call with structured error handling
  */
-export async function apiCall<T = any>(
+export async function apiCall<T = unknown>(
   url: string,
   options: RequestInit = {},
   retryConfig?: Partial<RetryConfig>
@@ -277,21 +300,21 @@ export async function apiCall<T = any>(
     const response = await fetchWithRetry(url, options, retryConfig);
 
     // Be tolerant in test environments/mocks where headers may be missing.
-    let data: any;
-    const hasJson = typeof (response as any)?.json === 'function';
+    let data: unknown;
+    const hasJson = typeof response.json === 'function';
     if (hasJson) {
       try {
-        data = await (response as any).json();
-      } catch (error) {
-        data = typeof (response as any)?.text === 'function' ? await (response as any).text() : undefined;
+        data = await response.json();
+      } catch {
+        data = typeof response.text === 'function' ? await response.text() : undefined;
       }
     } else {
-      data = typeof (response as any)?.text === 'function' ? await (response as any).text() : undefined;
+      data = typeof response.text === 'function' ? await response.text() : undefined;
     }
 
     // If backend uses { success: boolean, data, error, timestamp, requestId } shape,
     // normalize it here so callers can depend on `StructuredResponse<T>`.
-    const maybeStructured = data && typeof data === 'object' ? data : null;
+    const maybeStructured = (data && typeof data === 'object') ? (data as ApiErrorPayload) : null;
 
     if (!response.ok || maybeStructured?.success === false) {
       const error = parseApiError(response, data);
@@ -329,7 +352,7 @@ export async function apiCall<T = any>(
 /**
  * Hook for API calls with error handling and retry
  */
-export function useApiCall<T = any>() {
+export function useApiCall<T = unknown>() {
   return {
     call: apiCall<T>,
     getErrorMessage: getUserFriendlyErrorMessage,
@@ -343,7 +366,6 @@ export function useApiCall<T = any>() {
 export function setupGlobalErrorHandling() {
   // Handle unhandled promise rejections
   window.addEventListener('unhandledrejection', (event) => {
-    const { logError, ErrorSeverity } = require('@/lib/services/errorLogger');
     logError(event.reason, undefined, ErrorSeverity.HIGH, {
       type: 'unhandledRejection',
       component: 'global',
@@ -355,7 +377,6 @@ export function setupGlobalErrorHandling() {
 
   // Handle uncaught errors
   window.addEventListener('error', (event) => {
-    const { logError, ErrorSeverity } = require('@/lib/services/errorLogger');
     logError(event.error, undefined, ErrorSeverity.CRITICAL, {
       type: 'uncaughtError',
       component: 'global',
@@ -369,13 +390,14 @@ export function setupGlobalErrorHandling() {
 /**
  * Error reporting function - Reports errors to backend and external services
  */
-export function reportError(error: Error | string, context?: any) {
-  // Import error logger
-  const { logError, ErrorSeverity, ErrorCategory } = require('@/lib/services/errorLogger');
-  
+export function reportError(error: Error | string, context?: unknown) {
+  const contextObject = (context && typeof context === 'object')
+    ? (context as Record<string, unknown>)
+    : {};
+
   // Determine category from context
-  const category = context?.category || ErrorCategory.UNKNOWN;
-  const severity = context?.severity || ErrorSeverity.MEDIUM;
+  const category = (contextObject.category as ErrorCategory | undefined) || ErrorCategory.UNKNOWN;
+  const severity = (contextObject.severity as ErrorSeverity | undefined) || ErrorSeverity.MEDIUM;
 
   // Log error using error logger (which will batch and send to backend)
   logError(
@@ -383,7 +405,7 @@ export function reportError(error: Error | string, context?: any) {
     category,
     severity,
     {
-      ...context,
+      ...contextObject,
       type: 'reportedError',
       reportedAt: new Date().toISOString(),
     }

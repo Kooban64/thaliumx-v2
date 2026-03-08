@@ -5,12 +5,29 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useWorkflowStatus, useWorkflowActions } from '@/lib/api/hooks/workflows';
-import { Loader2, ArrowLeft, Workflow, CheckCircle2, XCircle, Clock, Play, X } from 'lucide-react';
+import {
+  Loader2,
+  ArrowLeft,
+  Workflow,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Play,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { toast } from '@/components/shared/Toast';
 import { WorkflowStatus } from '@/lib/api/types/workflows';
 
 interface WorkflowDetailsProps {
   workflowId: string;
+}
+
+interface WorkflowStep {
+  name?: string;
+  description?: string;
+  error?: string;
+  status?: string;
 }
 
 /**
@@ -63,7 +80,10 @@ export function WorkflowDetails({ workflowId }: WorkflowDetailsProps) {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: any }> = {
+    const variants: Record<
+      string,
+      { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: LucideIcon }
+    > = {
       [WorkflowStatus.RUNNING]: { variant: 'secondary', icon: Clock },
       [WorkflowStatus.COMPLETED]: { variant: 'default', icon: CheckCircle2 },
       [WorkflowStatus.FAILED]: { variant: 'destructive', icon: XCircle },
@@ -80,6 +100,12 @@ export function WorkflowDetails({ workflowId }: WorkflowDetailsProps) {
       </Badge>
     );
   };
+
+  const steps: WorkflowStep[] = Array.isArray(workflow?.metadata?.steps)
+    ? (workflow.metadata.steps as WorkflowStep[])
+    : [];
+
+  const errorMessage = typeof error === 'string' ? error : 'Workflow not found';
 
   const formatDateTime = (date: string) => {
     return new Date(date).toLocaleString('en-US', {
@@ -103,7 +129,7 @@ export function WorkflowDetails({ workflowId }: WorkflowDetailsProps) {
     return (
       <div className="text-center py-12">
         <p className="text-destructive mb-4">
-          {error || 'Workflow not found'}
+          {errorMessage}
         </p>
         <Button variant="outline" onClick={() => router.push('/admin/workflows')} className="mt-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -208,14 +234,14 @@ export function WorkflowDetails({ workflowId }: WorkflowDetailsProps) {
       </Card>
 
       {/* Workflow Steps */}
-      {(workflow.metadata?.steps && Array.isArray(workflow.metadata.steps) && workflow.metadata.steps.length > 0) && (
+      {steps.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Workflow Steps</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {workflow.metadata.steps.map((step: any, index: number) => (
+              {steps.map((step: WorkflowStep, index: number) => (
                 <div
                   key={index}
                   className="flex items-center justify-between p-4 border rounded-lg"

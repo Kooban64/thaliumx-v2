@@ -286,7 +286,7 @@ export function getPermissionsForRole(role: string): Permission[] {
  * Check if permission is valid
  */
 export function isValidPermission(permission: string): boolean {
-  return Object.values(AllPermissions).includes(permission as any);
+  return (Object.values(AllPermissions) as string[]).includes(permission);
 }
 
 /**

@@ -52,8 +52,8 @@ export function DocumentUploader({
         // Upload valid files
         onUpload(fileArray);
         setError(null);
-      } catch (err: any) {
-        setError(err.message || 'Failed to process files');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to process files');
       } finally {
         setIsUploading(false);
       }

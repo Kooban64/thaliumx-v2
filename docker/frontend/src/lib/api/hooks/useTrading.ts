@@ -3,6 +3,55 @@ import apiClient from '@/lib/api/client';
 import { useTradingStore } from '@/stores/tradingStore';
 import type { Order, OrderRequest, OrderBook, MarketData } from '@/types/trading';
 
+interface OrdersPayload {
+  orders?: Order[];
+}
+
+interface OrderPayload {
+  order?: Order;
+}
+
+interface OrderBookPayload {
+  orderBook?: {
+    bids?: OrderBook['bids'];
+    asks?: OrderBook['asks'];
+    timestamp?: number;
+    exchange?: string;
+  };
+  bids?: OrderBook['bids'];
+  asks?: OrderBook['asks'];
+  timestamp?: number;
+  exchange?: string;
+}
+
+interface MarketDataPayload {
+  data?: Partial<MarketData>;
+  price?: number;
+  change24h?: number;
+  changePercent24h?: number;
+  high24h?: number;
+  low24h?: number;
+  volume24h?: number;
+}
+
+interface TradingBalancePayload {
+  data?: {
+    available?: number;
+    locked?: number;
+    total?: number;
+    currency?: string;
+  };
+  available?: number;
+  locked?: number;
+  total?: number;
+  currency?: string;
+}
+
+interface ExchangeHealthPayload {
+  data?: Array<{ name: string; status: 'online' | 'offline' | 'maintenance'; responseTime: number; uptime: number; lastCheck: string }>;
+  health?: Array<{ name: string; status: 'online' | 'offline' | 'maintenance'; responseTime: number; uptime: number; lastCheck: string }>;
+}
+
 /**
  * useOrders - Get orders for current user
  */
@@ -32,9 +81,9 @@ export function useOrders(exchange?: 'cex' | 'omni' | 'dex', status?: string) {
         endpoint += `?status=${status}`;
       }
 
-      const response = await apiClient.get(endpoint);
+      const response = await apiClient.get<Order[] | OrdersPayload>(endpoint);
       if (response.success && response.data) {
-        const data = response.data as any;
+        const data = response.data;
         return Array.isArray(data) ? data : (data.orders || []);
       }
       throw new Error(response.error || 'Failed to fetch orders');
@@ -85,9 +134,9 @@ export function useOrderBook(symbol: string, exchange?: 'cex' | 'omni' | 'dex') 
           endpoint = `/api/native-cex/orderbook/${symbolFormatted}`;
       }
 
-      const response = await apiClient.get(endpoint);
+      const response = await apiClient.get<OrderBookPayload>(endpoint);
       if (response.success && response.data) {
-        const data = response.data as any;
+        const data = response.data;
         const orderBook = data.orderBook || data;
         return {
           bids: orderBook.bids || [],
@@ -111,10 +160,10 @@ export function useMarketData(symbol: string) {
     queryKey: ['trading', 'market-data', symbol],
     queryFn: async () => {
       const symbolFormatted = symbol.replace('/', '');
-      const response = await apiClient.get(`/api/market/prices/${symbolFormatted}`);
+      const response = await apiClient.get<MarketDataPayload>(`/api/market/prices/${symbolFormatted}`);
       
       if (response.success && response.data) {
-        const responseData = response.data as any;
+        const responseData = response.data;
         const data = responseData.data || responseData;
         return {
           symbol,
@@ -160,10 +209,13 @@ export function usePlaceOrder() {
           endpoint = '/api/native-cex/orders';
       }
 
-      const response = await apiClient.post(endpoint, orderRequest);
+      const response = await apiClient.post<OrderPayload | Order>(endpoint, orderRequest);
       if (response.success && response.data) {
-        const data = response.data as any;
-        const order = data.order || data;
+        const data = response.data;
+        const order = ('order' in data ? data.order : data) as Order | undefined;
+        if (!order || typeof order !== 'object' || !('id' in order)) {
+          throw new Error('Invalid order payload');
+        }
         addOrder(order);
         return order;
       }
@@ -246,9 +298,9 @@ export function useTradingBalance(exchange?: 'cex' | 'omni' | 'dex', currency?: 
         endpoint += `?currency=${currency}`;
       }
 
-      const response = await apiClient.get(endpoint);
+      const response = await apiClient.get<TradingBalancePayload>(endpoint);
       if (response.success && response.data) {
-        const responseData = response.data as any;
+        const responseData = response.data;
         const data = responseData.data || responseData;
         return {
           available: data.available || 0,
@@ -277,9 +329,9 @@ export function useExchangeHealth() {
   }>>({
     queryKey: ['trading', 'exchange-health'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/omni-exchange/exchanges/health');
+      const response = await apiClient.get<ExchangeHealthPayload>('/api/omni-exchange/exchanges/health');
       if (response.success && response.data) {
-        const data = response.data as any;
+        const data = response.data;
         return data.data || data.health || [];
       }
       throw new Error(response.error || 'Failed to fetch exchange health');

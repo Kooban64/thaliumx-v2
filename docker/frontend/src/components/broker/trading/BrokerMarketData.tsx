@@ -8,6 +8,48 @@ import { useBrokerMarketData } from '@/lib/api/hooks/useBroker';
 import { Loader2, TrendingUp, TrendingDown, Search, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/shared/Toast';
 
+interface MarketDataItem {
+  symbol: string;
+  price: number;
+  change24h: number;
+  volume24h: number;
+  high24h: number;
+  low24h: number;
+}
+
+interface TradingPairItem {
+  symbol: string;
+  status: 'active' | 'inactive' | 'maintenance';
+  minOrderSize: number;
+  maxOrderSize: number;
+  fee: number;
+}
+
+function isMarketDataItem(value: unknown): value is MarketDataItem {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Record<string, unknown>;
+  return (
+    typeof item.symbol === 'string' &&
+    typeof item.price === 'number' &&
+    typeof item.change24h === 'number' &&
+    typeof item.volume24h === 'number' &&
+    typeof item.high24h === 'number' &&
+    typeof item.low24h === 'number'
+  );
+}
+
+function isTradingPairItem(value: unknown): value is TradingPairItem {
+  if (!value || typeof value !== 'object') return false;
+  const pair = value as Record<string, unknown>;
+  return (
+    typeof pair.symbol === 'string' &&
+    (pair.status === 'active' || pair.status === 'inactive' || pair.status === 'maintenance') &&
+    typeof pair.minOrderSize === 'number' &&
+    typeof pair.maxOrderSize === 'number' &&
+    typeof pair.fee === 'number'
+  );
+}
+
 const formatCurrency = (amount: number, currency: string = 'USD') => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -31,10 +73,14 @@ export function BrokerMarketData() {
 
   const { data, isLoading, error, refetch } = useBrokerMarketData(selectedSymbol || undefined);
 
-  const marketData = data?.data || [];
-  const tradingPairs = data?.pairs || [];
+  const marketData: MarketDataItem[] = Array.isArray(data?.data)
+    ? (data.data as unknown[]).filter(isMarketDataItem)
+    : [];
+  const tradingPairs: TradingPairItem[] = Array.isArray(data?.pairs)
+    ? (data.pairs as unknown[]).filter(isTradingPairItem)
+    : [];
 
-  const filteredPairs = tradingPairs.filter((pair: any) =>
+  const filteredPairs = tradingPairs.filter((pair) =>
     pair.symbol.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -111,7 +157,7 @@ export function BrokerMarketData() {
       {/* Market Data Overview */}
       {marketData.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {marketData.slice(0, 6).map((market: any) => (
+          {marketData.slice(0, 6).map((market) => (
             <Card key={market.symbol}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg">{market.symbol}</CardTitle>
@@ -171,7 +217,7 @@ export function BrokerMarketData() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPairs.map((pair: any) => (
+                  {filteredPairs.map((pair) => (
                     <tr
                       key={pair.symbol}
                       className="border-b hover:bg-muted/50 cursor-pointer"

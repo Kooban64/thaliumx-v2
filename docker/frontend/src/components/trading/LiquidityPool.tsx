@@ -8,11 +8,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2 } from 'lucide-react';
 import { logNetworkError } from '@/lib/services/errorLogger';
 
+interface LiquidityPoolItem {
+  id: string;
+  token0: string;
+  token1: string;
+  apy: number;
+}
+
+function isLiquidityPoolItem(value: unknown): value is LiquidityPoolItem {
+  if (!value || typeof value !== 'object') return false;
+  const pool = value as Record<string, unknown>;
+  return (
+    typeof pool.id === 'string' &&
+    typeof pool.token0 === 'string' &&
+    typeof pool.token1 === 'string' &&
+    typeof pool.apy === 'number'
+  );
+}
+
 /**
  * LiquidityPool - DEX liquidity pool management
  */
 export function LiquidityPool() {
-  const [pools, setPools] = useState<any[]>([]);
+  const [pools, setPools] = useState<LiquidityPoolItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -21,7 +39,12 @@ export function LiquidityPool() {
         const response = await fetch('/api/dex/pools');
         if (response.ok) {
           const data = await response.json();
-          setPools(data.data || data.pools || []);
+          const rawPools = Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data?.pools)
+            ? data.pools
+            : [];
+          setPools((rawPools as unknown[]).filter(isLiquidityPoolItem));
         }
       } catch (error) {
         logNetworkError(error, { endpoint: '/api/dex/pools', component: 'LiquidityPool' });

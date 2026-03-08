@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs } from '@/components/navigation/Tabs';
@@ -22,7 +22,10 @@ export function HotWalletDashboard() {
   const [activeTab, setActiveTab] = useState('balance');
 
   // Filter hot wallets
-  const hotWallets = wallets?.filter((w) => w.walletType === 'crypto_hot') || [];
+  const hotWallets = useMemo(
+    () => wallets?.filter((w) => w.walletType === 'crypto_hot') || [],
+    [wallets],
+  );
 
   useEffect(() => {
     if (hotWallets.length > 0 && !selectedWallet) {

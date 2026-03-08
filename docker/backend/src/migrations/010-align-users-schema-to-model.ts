@@ -69,6 +69,26 @@ export async function up(queryInterface: any, Sequelize: any): Promise<void> {
     });
   }
 
+  // Identity provider subject mapping (currently Zitadel, legacy name in migration 012)
+  if (!columns.zitadel_id) {
+    await queryInterface.addColumn('users', 'zitadel_id', {
+      type: Sequelize.STRING,
+      allowNull: true,
+      unique: true,
+    });
+
+    try {
+      await queryInterface.addIndex('users', ['zitadel_id'], {
+        name: 'idx_users_zitadel_id',
+        unique: true,
+      });
+    } catch (error: any) {
+      if (!error?.message?.includes('already exists')) {
+        throw error;
+      }
+    }
+  }
+
   // Expand legacy enum for kycStatus to include newer values used by the model.
   // (We do not remove legacy values; removing enum values is disruptive.)
   try {
@@ -108,6 +128,7 @@ export async function down(queryInterface: any): Promise<void> {
 
   // Only remove columns that exist (idempotent rollback).
   if (columns.permissions) await queryInterface.removeColumn('users', 'permissions');
+  if (columns.zitadel_id) await queryInterface.removeColumn('users', 'zitadel_id');
   if (columns.mfaSecret) await queryInterface.removeColumn('users', 'mfaSecret');
   if (columns.mfaEnabled) await queryInterface.removeColumn('users', 'mfaEnabled');
   if (columns.lastLoginAt) await queryInterface.removeColumn('users', 'lastLoginAt');
@@ -120,4 +141,3 @@ export async function down(queryInterface: any): Promise<void> {
 
   // NOTE: We intentionally do not attempt to remove enum values from enum_users_kycStatus.
 }
-

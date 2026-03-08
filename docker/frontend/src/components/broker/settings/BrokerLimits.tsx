@@ -43,25 +43,25 @@ export function BrokerLimits() {
     if (data) {
       setLimits({
         defaultUserLimits: {
-          maxDailyVolume: data.defaultUserLimits?.maxDailyVolume ?? limits.defaultUserLimits.maxDailyVolume,
-          maxMonthlyVolume: data.defaultUserLimits?.maxMonthlyVolume ?? limits.defaultUserLimits.maxMonthlyVolume,
-          maxSingleTransaction: data.defaultUserLimits?.maxSingleTransaction ?? limits.defaultUserLimits.maxSingleTransaction,
-          maxDailyWithdrawal: data.defaultUserLimits?.maxDailyWithdrawal ?? limits.defaultUserLimits.maxDailyWithdrawal,
-          maxMonthlyWithdrawal: data.defaultUserLimits?.maxMonthlyWithdrawal ?? limits.defaultUserLimits.maxMonthlyWithdrawal,
-          maxDailyDeposit: data.defaultUserLimits?.maxDailyDeposit ?? limits.defaultUserLimits.maxDailyDeposit,
-          maxMonthlyDeposit: data.defaultUserLimits?.maxMonthlyDeposit ?? limits.defaultUserLimits.maxMonthlyDeposit,
+          maxDailyVolume: data.defaultUserLimits?.maxDailyVolume ?? 0,
+          maxMonthlyVolume: data.defaultUserLimits?.maxMonthlyVolume ?? 0,
+          maxSingleTransaction: data.defaultUserLimits?.maxSingleTransaction ?? 0,
+          maxDailyWithdrawal: data.defaultUserLimits?.maxDailyWithdrawal ?? 0,
+          maxMonthlyWithdrawal: data.defaultUserLimits?.maxMonthlyWithdrawal ?? 0,
+          maxDailyDeposit: data.defaultUserLimits?.maxDailyDeposit ?? 0,
+          maxMonthlyDeposit: data.defaultUserLimits?.maxMonthlyDeposit ?? 0,
         },
         transactionLimits: {
-          minTransaction: data.transactionLimits?.minTransaction ?? limits.transactionLimits.minTransaction,
-          maxTransaction: data.transactionLimits?.maxTransaction ?? limits.transactionLimits.maxTransaction,
+          minTransaction: data.transactionLimits?.minTransaction ?? 0,
+          maxTransaction: data.transactionLimits?.maxTransaction ?? 0,
         },
         withdrawalLimits: {
-          minWithdrawal: data.withdrawalLimits?.minWithdrawal ?? limits.withdrawalLimits.minWithdrawal,
-          maxWithdrawal: data.withdrawalLimits?.maxWithdrawal ?? limits.withdrawalLimits.maxWithdrawal,
+          minWithdrawal: data.withdrawalLimits?.minWithdrawal ?? 0,
+          maxWithdrawal: data.withdrawalLimits?.maxWithdrawal ?? 0,
         },
         depositLimits: {
-          minDeposit: data.depositLimits?.minDeposit ?? limits.depositLimits.minDeposit,
-          maxDeposit: data.depositLimits?.maxDeposit ?? limits.depositLimits.maxDeposit,
+          minDeposit: data.depositLimits?.minDeposit ?? 0,
+          maxDeposit: data.depositLimits?.maxDeposit ?? 0,
         },
       });
     }

@@ -45,7 +45,7 @@ export function WalletBalance() {
 
       setBalances(response.data?.balances || []);
       setTotalValue(response.data?.totalValue || '0.00');
-    } catch (_err) {
+    } catch {
       setError('Failed to load wallet balances');
     } finally {
       setIsLoading(false);

@@ -44,7 +44,7 @@ async function proxyRequest(
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
       try {
         body = await request.text();
-      } catch (error) {
+      } catch {
         // Body might be empty, that's okay
       }
     }

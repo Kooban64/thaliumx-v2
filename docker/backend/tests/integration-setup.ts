@@ -1,7 +1,7 @@
 import { DatabaseService } from '../src/services/database';
 import { RedisService } from '../src/services/redis';
 import { LoggerService } from '../src/services/logger';
-import { Sequelize } from 'sequelize';
+import { afterAll, beforeAll } from '@jest/globals';
 
 // Setup integration test environment
 process.env.NODE_ENV = 'test';
@@ -12,6 +12,10 @@ process.env.TEST_REDIS_URL = process.env.TEST_REDIS_URL || 'redis://localhost:16
 // Prefer TEST_* URLs for integration tests; ConfigService supports these.
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 process.env.REDIS_URL = process.env.TEST_REDIS_URL;
+process.env.KAFKA_BROKERS = process.env.KAFKA_BROKERS || 'localhost:9094';
+process.env.KAFKA_REPLICATION_FACTOR = process.env.KAFKA_REPLICATION_FACTOR || '1';
+process.env.KAFKA_MIN_INSYNC_REPLICAS = process.env.KAFKA_MIN_INSYNC_REPLICAS || '1';
+process.env.SCHEMA_REGISTRY_URL = process.env.SCHEMA_REGISTRY_URL || 'http://localhost:8085';
 
 // Ensure migrations/DB tooling that relies on DB_PASSWORD/POSTGRES_PASSWORD works in tests.
 // (See [`MigrationRunner.initialize()`](docker/backend/src/migrations/runner.ts:47)).
@@ -54,6 +58,7 @@ beforeAll(async () => {
 afterAll(async () => {
   // Cleanup
   try {
+    LoggerService.shutdown();
     await RedisService.close();
     await DatabaseService.close();
     LoggerService.info('Integration test cleanup completed');
@@ -64,6 +69,9 @@ afterAll(async () => {
 
 // Database helpers for integration tests
 export class TestDatabaseHelper {
+  private static readonly TEST_TENANT_ID = '00000000-0000-0000-0000-000000000101';
+  private static readonly TEST_BROKER_ID = '00000000-0000-0000-0000-000000000201';
+
   static async cleanDatabase(): Promise<void> {
     const sequelize = DatabaseService.getSequelize();
 
@@ -90,17 +98,29 @@ export class TestDatabaseHelper {
     const sequelize = DatabaseService.getSequelize();
 
     // Create test tenant
-    await sequelize.query(`
-      INSERT INTO tenants (id, name, domain, status, created_at, updated_at)
-      VALUES ('test-tenant', 'Test Tenant', 'test.com', 'active', NOW(), NOW())
-      ON CONFLICT (id) DO NOTHING
-    `);
+    try {
+      await sequelize.query(`
+        INSERT INTO tenants (id, name, slug, domain, "tenantType", "isActive", settings, "createdAt", "updatedAt")
+        VALUES ('${TestDatabaseHelper.TEST_TENANT_ID}', 'Test Tenant', 'test-tenant', 'test.com', 'regular', true, '{}'::jsonb, NOW(), NOW())
+        ON CONFLICT (id) DO NOTHING
+      `);
+    } catch (error) {
+      console.error('Failed to seed test tenant', error);
+      LoggerService.error('Failed to seed test tenant', error);
+      throw error;
+    }
 
     // Create test broker
-    await sequelize.query(`
-      INSERT INTO brokers (id, name, slug, domain, status, tier, created_at, updated_at)
-      VALUES ('test-broker', 'Test Broker', 'test-broker', 'test.com', 'active', 'enterprise', NOW(), NOW())
-      ON CONFLICT (id) DO NOTHING
-    `);
+    try {
+      await sequelize.query(`
+        INSERT INTO brokers (id, name, slug, domain, status, tier, "tenantId", settings, "createdAt", "updatedAt")
+        VALUES ('${TestDatabaseHelper.TEST_BROKER_ID}', 'Test Broker', 'test-broker', 'test.com', 'active', 'enterprise', '${TestDatabaseHelper.TEST_TENANT_ID}', '{}'::jsonb, NOW(), NOW())
+        ON CONFLICT (id) DO NOTHING
+      `);
+    } catch (error) {
+      console.error('Failed to seed test broker', error);
+      LoggerService.error('Failed to seed test broker', error);
+      throw error;
+    }
   }
 }

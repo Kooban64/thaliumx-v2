@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useBrokers } from '@/lib/api/hooks/useAdmin';
-import { Loader2, Search, Building2, Users } from 'lucide-react';
+import { useBrokers, type AdminBroker } from '@/lib/api/hooks/useAdmin';
+import { Loader2, Search, Building2, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 /**
@@ -17,7 +17,7 @@ export function BrokerList() {
   const [search, setSearch] = useState('');
   const { data: brokers, isLoading } = useBrokers();
 
-  const filteredBrokers = brokers?.filter((broker: any) => {
+  const filteredBrokers = brokers?.filter((broker: AdminBroker) => {
     if (!search) return true;
     const searchLower = search.toLowerCase();
     return (
@@ -40,16 +40,38 @@ export function BrokerList() {
       {/* Search */}
       <Card>
         <CardHeader>
-          <CardTitle>Search Brokers</CardTitle>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Search Brokers</CardTitle>
+              <CardDescription>Search by name, ID, or email</CardDescription>
+            </div>
+            {search && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSearch('')}
+                className="text-muted-foreground"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Search brokers by name, ID, or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setSearch('');
+                }
+              }}
               className="pl-10"
+              aria-label="Search brokers"
             />
           </div>
         </CardContent>
@@ -75,30 +97,39 @@ export function BrokerList() {
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredBrokers.map((broker: any) => (
+              {filteredBrokers.map((broker: AdminBroker) => (
                 <div
                   key={broker.id || broker.brokerId}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => router.push(`/admin/brokers/${broker.id || broker.brokerId}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      router.push(`/admin/brokers/${broker.id || broker.brokerId}`);
+                    }
+                  }}
+                  aria-label={`View details for ${broker.name || broker.brokerName || 'broker'}`}
                 >
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                       <Building2 className="h-5 w-5 text-primary" />
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium truncate">
                           {broker.name || broker.brokerName || 'Unknown Broker'}
                         </span>
                         {broker.status && (
-                          <Badge variant={broker.status === 'active' ? 'default' : 'secondary'}>
+                          <Badge variant={broker.status === 'active' ? 'default' : 'secondary'} className="flex-shrink-0">
                             {broker.status}
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1 flex-wrap">
                         {broker.id && (
-                          <div>ID: {broker.id}</div>
+                          <div className="truncate">ID: {broker.id}</div>
                         )}
                         {broker.userCount !== undefined && (
                           <div className="flex items-center gap-1">
@@ -109,7 +140,22 @@ export function BrokerList() {
                       </div>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="flex-shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/admin/brokers/${broker.id || broker.brokerId}`);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        router.push(`/admin/brokers/${broker.id || broker.brokerId}`);
+                      }
+                    }}
+                  >
                     View Details
                   </Button>
                 </div>

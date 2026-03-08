@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { useRoles } from '@/lib/api/hooks/useRBAC';
+import { useRoles, type Role } from '@/lib/api/hooks/useRBAC';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api/client';
 import { Loader2, Key, Plus, Trash2, Edit } from 'lucide-react';
@@ -51,10 +51,10 @@ export function RoleManager() {
       setNewRoleName('');
       setNewRoleDescription('');
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to create role',
+        description: error instanceof Error ? error.message : 'Failed to create role',
         type: 'error',
       });
     },
@@ -76,10 +76,10 @@ export function RoleManager() {
         description: 'Role deleted successfully',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to delete role',
+        description: error instanceof Error ? error.message : 'Failed to delete role',
         type: 'error',
       });
     },
@@ -197,7 +197,7 @@ export function RoleManager() {
             </div>
           ) : (
             <div className="space-y-4">
-              {roles.map((role: any) => (
+              {roles.map((role: Role) => (
                 <div
                   key={role.id || role.name}
                   className="flex items-center justify-between p-4 border rounded-lg"

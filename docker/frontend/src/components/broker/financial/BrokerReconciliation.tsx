@@ -8,7 +8,30 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useReconciliationJobs, useCreateReconciliationJob } from '@/lib/api/hooks/useBroker';
 import { Loader2, RefreshCw, CheckCircle2, XCircle, Clock, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { toast } from '@/components/shared/Toast';
+
+interface ReconciliationJobItem {
+  id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+  discrepancies?: number;
+  reportUrl?: string;
+}
+
+function isReconciliationJobItem(value: unknown): value is ReconciliationJobItem {
+  if (!value || typeof value !== 'object') return false;
+  const job = value as Record<string, unknown>;
+  return (
+    typeof job.id === 'string' &&
+    typeof job.status === 'string' &&
+    typeof job.startDate === 'string' &&
+    typeof job.endDate === 'string' &&
+    typeof job.createdAt === 'string'
+  );
+}
 // Date formatting utility
 const formatDate = (date: string | Date) => {
   const d = new Date(date);
@@ -45,7 +68,9 @@ export function BrokerReconciliation() {
 
   const createMutation = useCreateReconciliationJob();
 
-  const jobs = data?.data || [];
+  const jobs: ReconciliationJobItem[] = Array.isArray(data?.data)
+    ? (data.data as unknown[]).filter(isReconciliationJobItem)
+    : [];
   const pagination = data?.pagination;
 
   const handleCreateJob = async () => {
@@ -118,7 +143,7 @@ export function BrokerReconciliation() {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: any }> = {
+    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: LucideIcon }> = {
       pending: { variant: 'outline', icon: Clock },
       running: { variant: 'secondary', icon: RefreshCw },
       completed: { variant: 'default', icon: CheckCircle2 },
@@ -138,9 +163,9 @@ export function BrokerReconciliation() {
 
   const stats = {
     total: jobs.length,
-    successful: jobs.filter((j: any) => j.status === 'completed').length,
-    failed: jobs.filter((j: any) => j.status === 'failed').length,
-    pending: jobs.filter((j: any) => j.status === 'pending' || j.status === 'running').length,
+    successful: jobs.filter((j) => j.status === 'completed').length,
+    failed: jobs.filter((j) => j.status === 'failed').length,
+    pending: jobs.filter((j) => j.status === 'pending' || j.status === 'running').length,
   };
 
   if (isLoading) {
@@ -302,7 +327,7 @@ export function BrokerReconciliation() {
           ) : (
             <>
               <div className="space-y-4">
-                {jobs.map((job: any) => (
+                {jobs.map((job) => (
                   <div
                     key={job.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"

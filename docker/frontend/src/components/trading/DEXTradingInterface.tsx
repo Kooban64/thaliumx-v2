@@ -12,6 +12,21 @@ import { Globe, Wallet } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import apiClient from '@/lib/api/client';
 
+interface WalletConnectionRow {
+  status: 'connected' | 'pending' | 'disconnected' | 'error';
+}
+
+function isWalletConnectionRow(value: unknown): value is WalletConnectionRow {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as Record<string, unknown>;
+  return (
+    row.status === 'connected' ||
+    row.status === 'pending' ||
+    row.status === 'disconnected' ||
+    row.status === 'error'
+  );
+}
+
 /**
  * DEXTradingInterface - Decentralized Exchange trading interface
  * Features: Token swaps, liquidity pools, Web3 wallet required
@@ -31,15 +46,15 @@ export function DEXTradingInterface() {
     try {
       const response = await apiClient.get('/api/web3-wallet/wallets');
       if (response.success && response.data) {
-        const wallets = Array.isArray(response.data) ? response.data : [];
-        const connectedWallets = wallets.filter((w: any) => 
+        const wallets = Array.isArray(response.data) ? (response.data as unknown[]) : [];
+        const connectedWallets = wallets.filter((w): w is WalletConnectionRow => isWalletConnectionRow(w)).filter((w) => 
           w.status === 'connected' || w.status === 'pending'
         );
         setHasWallet(connectedWallets.length > 0);
       } else {
         setHasWallet(false);
       }
-    } catch (error) {
+    } catch {
       setHasWallet(false);
     } finally {
       setIsCheckingWallet(false);

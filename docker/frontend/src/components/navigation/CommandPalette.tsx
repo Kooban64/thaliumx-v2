@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -29,11 +29,6 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { profile } = useUserStore();
-  
-  // Ensure profile exists
-  if (!profile) {
-    return null;
-  }
 
   // Generate command items based on routes and user role
   const commandItems: CommandItem[] = [
@@ -107,33 +102,7 @@ export function CommandPalette() {
     }
   }, [isOpen]);
 
-  // Handle keyboard navigation
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex((prev) => Math.min(prev + 1, filteredItems.length - 1));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex((prev) => Math.max(prev - 1, 0));
-      } else if (e.key === 'Enter' && filteredItems[selectedIndex]) {
-        e.preventDefault();
-        handleSelect(filteredItems[selectedIndex]);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, filteredItems, selectedIndex]);
-
-  // Reset selected index when query changes
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
-
-  const handleSelect = (item: CommandItem) => {
+  const handleSelect = useCallback((item: CommandItem) => {
     if (item.action) {
       item.action();
     } else if (item.href) {
@@ -142,7 +111,49 @@ export function CommandPalette() {
     setIsOpen(false);
     setQuery('');
     setSelectedIndex(0);
-  };
+  }, [router]);
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex((prev) => {
+          const maxIndex = Math.max(0, filteredItems.length - 1);
+          return prev < maxIndex ? prev + 1 : 0; // Wrap to top
+        });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex((prev) => {
+          const maxIndex = Math.max(0, filteredItems.length - 1);
+          return prev > 0 ? prev - 1 : maxIndex; // Wrap to bottom
+        });
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const selectedItem = filteredItems[selectedIndex];
+        if (selectedItem) {
+          handleSelect(selectedItem);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsOpen(false);
+        setQuery('');
+        setSelectedIndex(0);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, filteredItems, selectedIndex, handleSelect]);
+
+  // Reset selected index when query changes
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [query]);
+
+  if (!profile) return null;
 
   if (!isOpen) return null;
 
@@ -171,8 +182,15 @@ export function CommandPalette() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                // Prevent arrow keys from moving cursor when navigating results
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                  e.preventDefault();
+                }
+              }}
               placeholder="Type a command or search..."
               className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+              aria-label="Command palette search"
             />
             <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
               ESC
@@ -198,11 +216,20 @@ export function CommandPalette() {
                           <button
                             key={item.id}
                             onClick={() => handleSelect(item)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleSelect(item);
+                              }
+                            }}
                             className={cn(
                               'w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
                               'hover:bg-accent hover:text-accent-foreground',
+                              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                               isSelected && 'bg-accent text-accent-foreground'
                             )}
+                            aria-selected={isSelected}
+                            role="option"
                           >
                             <div className="flex items-center gap-3">
                               <Icon className="h-4 w-4 text-muted-foreground" />

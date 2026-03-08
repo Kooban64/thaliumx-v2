@@ -9,6 +9,21 @@ import type { KYCLevel } from './kycStore';
 import { logApiError } from '@/lib/services/errorLogger';
 import apiClient from '@/lib/api/client';
 
+interface UserRoleRecord {
+  roleName?: string;
+  roleId?: string;
+}
+
+interface UserRolesPayload {
+  data?: UserRoleRecord[];
+  roles?: UserRoleRecord[];
+}
+
+interface PermissionsPayload {
+  data?: string[];
+  permissions?: string[];
+}
+
 interface RBACState {
   // User roles and permissions
   userRole: string | null;
@@ -93,12 +108,13 @@ export const useRBACStore = create<RBACState>((set, get) => ({
         return;
       }
 
-      const response = await apiClient.get(`/api/rbac/users/${user.id}/roles`);
+      const response = await apiClient.get<UserRolesPayload>(`/api/rbac/users/${user.id}/roles`);
 
       if (response.success && response.data) {
-        const data = response.data as any;
-        const userRoles = Array.isArray(data) ? data : data.roles || [];
-        const roleNames = userRoles.map((ur: any) => ur.roleName || ur.roleId);
+        const userRoles = response.data.data || response.data.roles || [];
+        const roleNames = userRoles
+          .map((ur) => ur.roleName || ur.roleId)
+          .filter((role): role is string => typeof role === 'string' && role.length > 0);
         const primaryRole = roleNames[0] || null;
 
         set({ 
@@ -119,11 +135,12 @@ export const useRBACStore = create<RBACState>((set, get) => ({
         return;
       }
 
-      const response = await apiClient.get(`/api/rbac/users/${user.id}/permissions`);
+      const response = await apiClient.get<PermissionsPayload>(`/api/rbac/users/${user.id}/permissions`);
 
       if (response.success && response.data) {
-        const data = response.data as any;
-        const permissions = data.permissions || [];
+        const permissions = (response.data.data || response.data.permissions || []).filter(
+          (permission): permission is string => typeof permission === 'string',
+        );
         set({ permissions });
       }
     } catch (error) {

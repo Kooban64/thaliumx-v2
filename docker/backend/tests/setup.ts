@@ -1,11 +1,39 @@
-import { jest } from '@jest/globals';
+import { afterAll, beforeAll, expect, jest } from '@jest/globals';
 
 // Mock environment variables
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test-jwt-secret-for-testing-only';
-process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test_db';
-process.env.REDIS_URL = 'redis://localhost:6379/1';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-for-testing-only-min-32';
+process.env.KEY_ENCRYPTION_SECRET =
+  process.env.KEY_ENCRYPTION_SECRET || 'test-key-encryption-secret-for-tests-32';
+
+// Prefer integration-test service endpoints so DB-backed suites can run deterministically.
+process.env.TEST_DATABASE_URL =
+  process.env.TEST_DATABASE_URL || 'postgresql://test:test@localhost:15432/test_db';
+process.env.TEST_REDIS_URL = process.env.TEST_REDIS_URL || 'redis://localhost:16379/1';
+
+process.env.DATABASE_URL = process.env.DATABASE_URL || process.env.TEST_DATABASE_URL;
+process.env.REDIS_URL = process.env.REDIS_URL || process.env.TEST_REDIS_URL;
 process.env.KAFKA_BROKERS = 'localhost:9092';
+
+// Ensure migration/tooling paths that require DB_* credentials are populated.
+if (!process.env.DB_PASSWORD) {
+  try {
+    const dbUrl = new URL(process.env.DATABASE_URL || process.env.TEST_DATABASE_URL || '');
+    process.env.DB_PASSWORD = decodeURIComponent(dbUrl.password || 'test');
+    process.env.DB_USER = decodeURIComponent(dbUrl.username || 'test');
+    process.env.DB_NAME = (dbUrl.pathname || '/test_db').replace(/^\//, '');
+    process.env.DB_HOST = dbUrl.hostname || 'localhost';
+    process.env.DB_PORT = dbUrl.port || '15432';
+    process.env.POSTGRES_PASSWORD = process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD;
+  } catch {
+    process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'test';
+    process.env.DB_USER = process.env.DB_USER || 'test';
+    process.env.DB_NAME = process.env.DB_NAME || 'test_db';
+    process.env.DB_HOST = process.env.DB_HOST || 'localhost';
+    process.env.DB_PORT = process.env.DB_PORT || '15432';
+    process.env.POSTGRES_PASSWORD = process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD;
+  }
+}
 
 // Global test setup
 beforeAll(async () => {

@@ -69,7 +69,7 @@ export function AddressValidator({ address, network, onValidationChange }: Addre
             onValidationChange(false);
           }
         }
-      } catch (err) {
+      } catch {
         setIsValid(false);
         setError('Validation error');
         onValidationChange(false);

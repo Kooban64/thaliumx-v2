@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs } from '@/components/navigation/Tabs';
 import { Search, DollarSign, TrendingUp, TrendingDown, Filter } from 'lucide-react';
 
@@ -46,14 +47,19 @@ export function LedgerView() {
                 className="pl-10"
               />
             </div>
-            <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-              <option value="">All Account Types</option>
-              <option value="asset">Assets</option>
-              <option value="liability">Liabilities</option>
-              <option value="equity">Equity</option>
-              <option value="revenue">Revenue</option>
-              <option value="expense">Expenses</option>
-            </select>
+            <Select defaultValue="">
+              <SelectTrigger aria-label="Filter by account type">
+                <SelectValue placeholder="All Account Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Account Types</SelectItem>
+                <SelectItem value="asset">Assets</SelectItem>
+                <SelectItem value="liability">Liabilities</SelectItem>
+                <SelectItem value="equity">Equity</SelectItem>
+                <SelectItem value="revenue">Revenue</SelectItem>
+                <SelectItem value="expense">Expenses</SelectItem>
+              </SelectContent>
+            </Select>
             <Button variant="outline">
               <Filter className="h-4 w-4 mr-2" />
               More Filters

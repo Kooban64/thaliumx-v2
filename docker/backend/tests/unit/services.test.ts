@@ -27,6 +27,7 @@ describe('ConfigService', () => {
     process.env.DATABASE_URL = 'postgresql://postgres:test@localhost:5432/thaliumx_test';
     process.env.REDIS_HOST = 'localhost';
     process.env.REDIS_PORT = '6379';
+    process.env.REDIS_URL = 'redis://localhost:6379/1';
   });
 
   it('should load configuration from environment variables', async () => {

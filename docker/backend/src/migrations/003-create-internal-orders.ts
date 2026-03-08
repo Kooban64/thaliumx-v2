@@ -99,14 +99,24 @@ export async function up(queryInterface: any, Sequelize: any): Promise<void> {
     }
   });
 
-  await queryInterface.addIndex('internal_orders', ['tenantId', 'brokerId', 'userId']);
-  await queryInterface.addIndex('internal_orders', ['status']);
-  await queryInterface.addIndex('internal_orders', ['exchangeId']);
-  await queryInterface.addIndex('internal_orders', ['externalOrderId']);
-  await queryInterface.addIndex('internal_orders', ['createdAt']);
+  // Idempotent index creation for repeated test migrations.
+  await queryInterface.sequelize.query(
+    'CREATE INDEX IF NOT EXISTS "internal_orders_tenant_id_broker_id_user_id" ON "internal_orders" ("tenantId", "brokerId", "userId")'
+  );
+  await queryInterface.sequelize.query(
+    'CREATE INDEX IF NOT EXISTS "internal_orders_status" ON "internal_orders" ("status")'
+  );
+  await queryInterface.sequelize.query(
+    'CREATE INDEX IF NOT EXISTS "internal_orders_exchange_id" ON "internal_orders" ("exchangeId")'
+  );
+  await queryInterface.sequelize.query(
+    'CREATE INDEX IF NOT EXISTS "internal_orders_external_order_id" ON "internal_orders" ("externalOrderId")'
+  );
+  await queryInterface.sequelize.query(
+    'CREATE INDEX IF NOT EXISTS "internal_orders_created_at" ON "internal_orders" ("createdAt")'
+  );
 }
 
 export async function down(queryInterface: any): Promise<void> {
   await queryInterface.dropTable('internal_orders');
 }
-

@@ -41,8 +41,8 @@ export default function SupportPage() {
       setIsLoading(true);
       const data = await getTickets();
       setTickets(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load tickets');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load tickets');
     } finally {
       setIsLoading(false);
     }
@@ -68,8 +68,8 @@ export default function SupportPage() {
       setShowCreateForm(false);
       await loadTickets();
       await loadMetrics();
-    } catch (err: any) {
-      setError(err.message || 'Failed to create ticket');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create ticket');
     } finally {
       setIsSubmitting(false);
     }
@@ -207,7 +207,7 @@ export default function SupportPage() {
                 <label className="text-sm font-medium mb-2 block">Priority</label>
                 <select
                   value={newTicket.priority}
-                  onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value as any })}
+                  onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value as 'low' | 'normal' | 'high' | 'critical' })}
                   className="w-full p-2 border rounded-md"
                 >
                   <option value="low">Low</option>

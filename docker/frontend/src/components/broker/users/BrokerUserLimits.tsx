@@ -10,6 +10,19 @@ import { Loader2, Search, User, CreditCard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { UserLimits } from '@/components/admin/users/UserLimits';
 
+interface BrokerUserLimitItem {
+  id?: string;
+  userId?: string;
+  email?: string;
+  name?: string;
+  fullName?: string;
+  kycLevel?: string;
+}
+
+function isBrokerUserLimitItem(value: unknown): value is BrokerUserLimitItem {
+  return !!value && typeof value === 'object';
+}
+
 /**
  * BrokerUserLimits - Manage transaction limits for broker users
  */
@@ -23,7 +36,9 @@ export function BrokerUserLimits() {
     limit: 100,
   });
 
-  const users = data?.data || [];
+  const users: BrokerUserLimitItem[] = Array.isArray(data?.data)
+    ? (data.data as unknown[]).filter(isBrokerUserLimitItem)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -65,15 +80,19 @@ export function BrokerUserLimits() {
               </div>
             ) : (
               <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                {users.map((user: any) => (
+                {users.map((user) => {
+                  const resolvedUserId = user.id || user.userId;
+                  if (!resolvedUserId) return null;
+
+                  return (
                   <div
-                    key={user.id || user.userId}
+                    key={resolvedUserId}
                     className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-colors ${
-                      selectedUserId === (user.id || user.userId)
+                      selectedUserId === resolvedUserId
                         ? 'bg-primary/10 border-primary'
                         : 'hover:bg-muted/50'
                     }`}
-                    onClick={() => setSelectedUserId(user.id || user.userId)}
+                    onClick={() => setSelectedUserId(resolvedUserId)}
                   >
                     <div className="flex items-center gap-4">
                       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -98,13 +117,14 @@ export function BrokerUserLimits() {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/broker/users/${user.id || user.userId}`);
+                        router.push(`/broker/users/${resolvedUserId}`);
                       }}
                     >
                       View Details
                     </Button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

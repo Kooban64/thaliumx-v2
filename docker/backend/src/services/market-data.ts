@@ -90,6 +90,22 @@ export class MarketDataService {
         return cached;
       }
 
+      // Handle THAL token with default price if not on CoinGecko
+      if (symbol.toUpperCase() === 'THAL') {
+        const defaultPrice: MarketPrice = {
+          symbol: 'THAL',
+          price: 0.10, // Default presale price
+          change24h: 0,
+          changePercent24h: 0,
+          volume24h: 0,
+          marketCap: 0,
+          lastUpdated: new Date(),
+        };
+        // Cache for shorter time (5 minutes) since it's a default value
+        await RedisService.set(cacheKey, defaultPrice, 300);
+        return defaultPrice;
+      }
+
       // Map symbol to CoinGecko ID
       const coinId = this.mapSymbolToCoinGeckoId(symbol);
       if (!coinId) {

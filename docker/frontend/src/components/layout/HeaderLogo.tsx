@@ -23,7 +23,7 @@ interface HeaderLogoProps {
 export function HeaderLogo({ className, publicOnly = false }: HeaderLogoProps) {
   const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [_isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
 
   // Public pages: landing, token-presale, login, register
   const publicPages = ['/landing', '/token-presale', '/login', '/register'];

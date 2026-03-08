@@ -1,7 +1,7 @@
 // API Configuration
 // In browser: Use relative URLs (Next.js will proxy via API routes)
 // In SSR: Use NEXT_PUBLIC_API_URL or default to backend service name
-import { getZitadelToken } from '@/lib/auth/backend-auth';
+import { getKeycloakToken } from '@/lib/auth/backend-auth';
 
 const getApiBaseUrl = (): string => {
   // Always check NEXT_PUBLIC_API_URL first (set at build time)
@@ -44,14 +44,30 @@ function getTenantId(): string {
   return DEFAULT_TENANT_ID;
 }
 
-// CSRF token management - not needed for Zitadel Bearer token auth
+// CSRF token management - not needed for OIDC Bearer token auth
 export async function getCSRFToken(): Promise<string> {
-  // Zitadel uses Bearer tokens and should not depend on backend CSRF cookies.
+  // OIDC Bearer tokens should not depend on backend CSRF cookies.
   return '';
 }
 
+function hasAuthorizationHeader(headers?: HeadersInit): boolean {
+  if (!headers) return false;
+
+  if (headers instanceof Headers) {
+    return headers.has('Authorization');
+  }
+
+  if (Array.isArray(headers)) {
+    return headers.some(([key]) => key.toLowerCase() === 'authorization');
+  }
+
+  return Object.keys(headers).some((key) => key.toLowerCase() === 'authorization');
+}
+
 // API Response Types
-export interface ApiResponse<T = any> {
+export type ApiRecord = Record<string, unknown>;
+
+export interface ApiResponse<T = ApiRecord> {
   success: boolean;
   data?: T;
   error?: string;
@@ -66,7 +82,7 @@ export interface ApiError {
   code?: string;
 }
 
-// Token refresh state management (unused - Zitadel handles refresh automatically)
+// Token refresh state management (unused - OIDC handles refresh automatically)
 // let isRefreshing = false;
 // let refreshPromise: Promise<boolean> | null = null;
 
@@ -90,19 +106,19 @@ class ApiClient {
    * Checks token expiration and refreshes before it expires
    */
   private setupTokenPreRefresh(): void {
-    // Zitadel handles token refresh automatically via OIDC flow
+    // OIDC provider handles token refresh automatically via OIDC flow
     // No need for manual pre-refresh checks
   }
 
   /**
-   * Refresh token if needed (Zitadel handles this automatically)
-   * @deprecated Zitadel manages token refresh automatically via OIDC flow
+   * Refresh token if needed (OIDC provider handles this automatically)
+   * @deprecated OIDC provider manages token refresh automatically via OIDC flow
    * Method kept for potential future use - prefixed with _ to indicate intentionally unused
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   // @ts-expect-error - Method kept for future use
   private async _refreshTokenIfNeeded(): Promise<boolean> {
-    // Zitadel manages token refresh automatically via OIDC flow
+    // OIDC provider manages token refresh automatically via OIDC flow
     return false;
   }
 
@@ -127,14 +143,13 @@ class ApiClient {
       'X-Tenant-ID': getTenantId(), // Always include tenant ID
     };
 
-    // Attach Zitadel Bearer token when available.
-    // This allows backend to authenticate using Zitadel JWTs.
-    const zitadelToken = typeof window !== 'undefined' ? getZitadelToken() : null;
-    if (zitadelToken && !('Authorization' in (options.headers as any || {}))) {
-      defaultHeaders['Authorization'] = `Bearer ${zitadelToken}`;
+    // Attach Keycloak Bearer token when available.
+    const keycloakToken = typeof window !== 'undefined' ? getKeycloakToken() : null;
+    if (keycloakToken && !hasAuthorizationHeader(options.headers)) {
+      defaultHeaders['Authorization'] = `Bearer ${keycloakToken}`;
     }
 
-    // CSRF tokens not needed for Zitadel Bearer token authentication
+    // CSRF tokens not needed for Bearer token authentication
 
     const config: RequestInit = {
       ...options,
@@ -157,8 +172,8 @@ class ApiClient {
 
       clearTimeout(timeoutId);
 
-      // Handle token expiration (401) - Zitadel handles refresh automatically
-      // No manual refresh needed as Zitadel manages token lifecycle
+      // Handle token expiration (401) - OIDC flow handles refresh automatically
+      // No manual refresh needed as provider manages token lifecycle
 
       // Extract rate limit headers and dispatch event
       const rateLimitLimit = response.headers.get('X-RateLimit-Limit');
@@ -229,16 +244,16 @@ class ApiClient {
   }
 
   // HTTP Methods
-  async get<T>(endpoint: string, headers?: Record<string, string>): Promise<ApiResponse<T>> {
+  async get<T = ApiRecord>(endpoint: string, headers?: Record<string, string>): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'GET',
       headers,
     });
   }
 
-  async post<T>(
+  async post<T = ApiRecord>(
     endpoint: string,
-    data?: any,
+    data?: unknown,
     headers?: Record<string, string>
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
@@ -248,9 +263,9 @@ class ApiClient {
     });
   }
 
-  async put<T>(
+  async put<T = ApiRecord>(
     endpoint: string,
-    data?: any,
+    data?: unknown,
     headers?: Record<string, string>
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
@@ -260,7 +275,7 @@ class ApiClient {
     });
   }
 
-  async delete<T>(endpoint: string, headers?: Record<string, string>): Promise<ApiResponse<T>> {
+  async delete<T = ApiRecord>(endpoint: string, headers?: Record<string, string>): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'DELETE',
       headers,
@@ -273,7 +288,7 @@ class ApiClient {
   }
 
   // API Documentation
-  async getApiDocs(): Promise<ApiResponse<any>> {
+  async getApiDocs(): Promise<ApiResponse<unknown>> {
     return this.get('/api/docs');
   }
 }

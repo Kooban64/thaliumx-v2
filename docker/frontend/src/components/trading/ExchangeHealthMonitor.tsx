@@ -51,7 +51,7 @@ export function ExchangeHealthMonitor() {
             }))
           );
         }
-      } catch (error) {
+      } catch {
         // Mock data on error
         setHealthData(
           exchanges.map((name) => ({

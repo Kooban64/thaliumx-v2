@@ -93,18 +93,18 @@ This uses the hardened runner and replays required init jobs (see [`docker/scrip
 - A rebuild (`./thaliumxctl.sh up-build`) is designed to be **repeatable** and will re-run init jobs.
 - If you destroy named volumes (e.g. `docker compose down -v`), data persistence is lost and you should expect to rerun bootstrap/init flows.
 
-## 3) Auth provider (Zitadel)
+## 3) Auth provider (Keycloak)
 
 ### What "auth provider" means in this stack
 
 There are **two separate concerns**:
 
 1. **Gateway routing for `/auth`** (APISIX)
-   - APISIX routes `/auth` to Zitadel
+   - APISIX routes `/auth` to Keycloak
    - This is seeded into ETCD by [`docker/gateway/scripts/init-apisix-routes.sh`](docker/gateway/scripts/init-apisix-routes.sh:1) via the one-shot service `apisix-init` in [`docker/compose/prod-v1/gateway.yml`](docker/compose/prod-v1/gateway.yml:1)
 
 2. **Backend JWT acceptance**
-   - The backend accepts Zitadel JWTs
+   - The backend accepts Keycloak JWTs
    - Implemented in [`authenticateToken()`](docker/backend/src/middleware/error-handler.ts:363)
 
 ### Reseed routes (idempotent)
@@ -117,54 +117,39 @@ Use the interactive helper:
 
 ### Auth provider status (prod-v1)
 
-- prod-v1 uses **Zitadel as the identity provider**.
-- Legacy auth is disabled by default and kept only for rollback.
-  - In Compose, legacy auth is behind profile `legacy-keycloak` (see [`keycloak`](docker/compose/prod-v1/applications.yml:15)).
-  - Enable it only when you explicitly need rollback/testing:
+- prod-v1 uses **Keycloak as the identity provider**.
+- Gateway route seeding is Keycloak-only.
+- The supported reseed path is the default command below.
 
 ```bash
-docker/scripts/prod-v1-compose.sh production --profile legacy-keycloak up -d keycloak
-```
-
-This force-recreates the one-shot `apisix-init` container and re-applies route definitions into ETCD.
-
-### Reseed to Zitadel (default)
-
-```bash
-THALIUMX_AUTH_PROVIDER=zitadel ./thaliumxctl.sh reseed-gateway
-```
-
-### Rollback: Legacy auth
-
-```bash
-THALIUMX_AUTH_PROVIDER=keycloak ./thaliumxctl.sh reseed-gateway
+./thaliumxctl.sh reseed-gateway
 ```
 
 ### Backend configuration knobs
 
-Backend OIDC/Zitadel config lives in [`docker/compose/prod-v1/applications.yml`](docker/compose/prod-v1/applications.yml:190) under the `backend:` service:
+Backend OIDC/Keycloak config lives in [`docker/compose/prod-v1/applications.yml`](docker/compose/prod-v1/applications.yml:1) under the `backend:` service:
 
-- `ZITADEL_ISSUER` (default `https://auth.thaliumx.com`)
-- `ZITADEL_JWKS_URI` (default `http://zitadel:8080/oauth/v2/keys`)
-- `OIDC_ALLOWED_ISSUERS` (optional allowlist; if unset defaults to `ZITADEL_ISSUER`)
-- `ZITADEL_AUDIENCE` (optional; if set, enforced)
+- `KEYCLOAK_URL` (default `https://auth.thaliumx.com/auth`)
+- `KEYCLOAK_REALM` (default `thaliumx`)
+- `KEYCLOAK_CLIENT_ID` (default `thaliumx-backend`)
+- `OIDC_ALLOWED_ISSUERS` (optional allowlist; default `https://auth.thaliumx.com/auth/realms/thaliumx`)
 
-Legacy auth settings remain unchanged (`KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, etc.).
+These are the active production auth settings.
 
-### Frontend (Zitadel PKCE)
+### Frontend (Keycloak PKCE)
 
-The production frontend is configured to use Zitadel (`NEXT_PUBLIC_AUTH_MODE=zitadel`) in [`docker/compose/prod-v1/applications.yml`](docker/compose/prod-v1/applications.yml:432).
+The production frontend is configured to use Keycloak (`NEXT_PUBLIC_AUTH_MODE=keycloak`) in [`docker/compose/prod-v1/applications.yml`](docker/compose/prod-v1/applications.yml:1).
 
 Important routing constraint:
 
 - In prod-v1, `/auth/*` on `thaliumx.com` is reserved for the IdP proxy (APISIX routes it to the auth provider).
-- The Zitadel OIDC redirect URI must therefore use a **non-`/auth`** path on the main site.
+- The Keycloak OIDC redirect URI must therefore use a **non-`/auth`** path on the main site.
 
 The frontend expects the OIDC redirect URI:
 
 - `https://thaliumx.com/oidc/callback`
 
-Make sure your Zitadel Application (public client, PKCE) includes:
+Make sure your Keycloak client (public client, PKCE) includes:
 
 - Redirect URIs: `https://thaliumx.com/oidc/callback`
 - Allowed origins / CORS: `https://thaliumx.com`
@@ -172,8 +157,9 @@ Make sure your Zitadel Application (public client, PKCE) includes:
 
 Client settings used by the UI are:
 
-- Issuer: `NEXT_PUBLIC_ZITADEL_ISSUER` (default `https://auth.thaliumx.com`)
-- Client ID: `NEXT_PUBLIC_ZITADEL_CLIENT_ID` (default `thaliumx-frontend`)
+- URL: `NEXT_PUBLIC_KEYCLOAK_URL` (default `https://auth.thaliumx.com/auth`)
+- Realm: `NEXT_PUBLIC_KEYCLOAK_REALM` (default `thaliumx`)
+- Client ID: `NEXT_PUBLIC_KEYCLOAK_CLIENT_ID` (default `thaliumx-frontend`)
 
 ## 4) Vault secret-format issues (common failure mode)
 
@@ -204,23 +190,23 @@ Operational guideline:
 
 The frontend includes Playwright E2E tests under [`docker/frontend/e2e/`](docker/frontend/e2e:1) with config in [`docker/frontend/playwright.config.ts`](docker/frontend/playwright.config.ts:1).
 
-### Recommended approach for Zitadel-first
+### Recommended approach for Keycloak-first
 
 1. **Small IdP UI smoke** (optional)
-   - A single login test can run against the real Zitadel UI and then persist auth state.
-   - Setup test: [`docker/frontend/e2e/zitadel-auth.setup.ts`](docker/frontend/e2e/zitadel-auth.setup.ts:1)
+   - A single login test can run against the real Keycloak UI and then persist auth state.
+   - Setup test: [`docker/frontend/e2e/keycloak-auth.setup.ts`](docker/frontend/e2e/keycloak-auth.setup.ts:1)
 
 2. **App E2E breadth** (stable)
    - Most tests should reuse the stored auth state and focus on platform flows.
-   - Smoke spec: [`docker/frontend/e2e/zitadel-smoke.spec.ts`](docker/frontend/e2e/zitadel-smoke.spec.ts:1)
+   - Smoke spec: [`docker/frontend/e2e/keycloak-smoke.spec.ts`](docker/frontend/e2e/keycloak-smoke.spec.ts:1)
 
 ### Env vars used by the E2E harness
 
-- `NEXT_PUBLIC_AUTH_MODE=zitadel`
+- `NEXT_PUBLIC_AUTH_MODE=keycloak`
 - `NEXT_PUBLIC_E2E_TOKEN_PERSIST=1`
   - Stores the access token in localStorage in addition to sessionStorage so Playwright can reuse it.
-  - See implementation in [`docker/frontend/src/lib/auth/zitadel.ts`](docker/frontend/src/lib/auth/zitadel.ts:1).
-- `E2E_ZITADEL_LOGINNAME` / `E2E_ZITADEL_PASSWORD`
+  - See implementation in [`docker/frontend/src/lib/auth/backend-auth.ts`](docker/frontend/src/lib/auth/backend-auth.ts:1).
+- `E2E_KEYCLOAK_LOGINNAME` / `E2E_KEYCLOAK_PASSWORD`
   - Enables the optional UI login setup test.
 
 ### Local run (example)
@@ -229,7 +215,7 @@ Run the stack (or your test subset), then run Playwright from `docker/`:
 
 ```bash
 cd docker
-NEXT_PUBLIC_AUTH_MODE=zitadel NEXT_PUBLIC_E2E_TOKEN_PERSIST=1 \
-E2E_ZITADEL_LOGINNAME='root' E2E_ZITADEL_PASSWORD='...' \
+NEXT_PUBLIC_AUTH_MODE=keycloak NEXT_PUBLIC_E2E_TOKEN_PERSIST=1 \
+E2E_KEYCLOAK_LOGINNAME='root' E2E_KEYCLOAK_PASSWORD='...' \
 pnpm --filter @thaliumx/frontend test:e2e
 ```

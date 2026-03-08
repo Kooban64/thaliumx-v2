@@ -16,8 +16,32 @@ import { DataTypes } from 'sequelize';
 
 export default {
   up: async (queryInterface: QueryInterface): Promise<void> => {
+    const safeCreateTable = async (name: string, schema: any): Promise<void> => {
+      try {
+        await queryInterface.createTable(name, schema);
+      } catch (error: any) {
+        if (!error?.message?.includes('already exists')) {
+          throw error;
+        }
+      }
+    };
+
+    const safeAddIndex = async (
+      tableName: string,
+      fields: string[],
+      options: { name: string; unique?: boolean },
+    ): Promise<void> => {
+      try {
+        await queryInterface.addIndex(tableName, fields, options);
+      } catch (error: any) {
+        if (!error?.message?.includes('already exists')) {
+          throw error;
+        }
+      }
+    };
+
     // Create margin_accounts table
-    await queryInterface.createTable('margin_accounts', {
+    await safeCreateTable('margin_accounts', {
       id: {
         type: DataTypes.STRING,
         primaryKey: true,
@@ -163,7 +187,7 @@ export default {
     });
 
     // Create margin_positions table
-    await queryInterface.createTable('margin_positions', {
+    await safeCreateTable('margin_positions', {
       id: {
         type: DataTypes.STRING,
         primaryKey: true,
@@ -310,7 +334,7 @@ export default {
     });
 
     // Create margin_orders table
-    await queryInterface.createTable('margin_orders', {
+    await safeCreateTable('margin_orders', {
       id: {
         type: DataTypes.STRING,
         primaryKey: true,
@@ -421,7 +445,7 @@ export default {
     });
 
     // Create liquidation_events table
-    await queryInterface.createTable('liquidation_events', {
+    await safeCreateTable('liquidation_events', {
       id: {
         type: DataTypes.STRING,
         primaryKey: true,
@@ -517,7 +541,7 @@ export default {
     });
 
     // Create margin_transfers table
-    await queryInterface.createTable('margin_transfers', {
+    await safeCreateTable('margin_transfers', {
       id: {
         type: DataTypes.STRING,
         primaryKey: true,
@@ -592,7 +616,7 @@ export default {
     });
 
     // Create risk_limits table
-    await queryInterface.createTable('risk_limits', {
+    await safeCreateTable('risk_limits', {
       id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
@@ -686,7 +710,7 @@ export default {
     });
 
     // Create funding_rates table
-    await queryInterface.createTable('funding_rates', {
+    await safeCreateTable('funding_rates', {
       symbol: {
         type: DataTypes.STRING,
         primaryKey: true,
@@ -711,63 +735,63 @@ export default {
     });
 
     // Create indexes for performance
-    await queryInterface.addIndex('margin_accounts', ['userId', 'tenantId', 'brokerId'], {
+    await safeAddIndex('margin_accounts', ['userId', 'tenantId', 'brokerId'], {
       unique: true,
       name: 'margin_accounts_user_tenant_broker_idx'
     });
-    await queryInterface.addIndex('margin_accounts', ['status'], {
+    await safeAddIndex('margin_accounts', ['status'], {
       name: 'margin_accounts_status_idx'
     });
 
-    await queryInterface.addIndex('margin_positions', ['userId', 'tenantId', 'brokerId'], {
+    await safeAddIndex('margin_positions', ['userId', 'tenantId', 'brokerId'], {
       name: 'margin_positions_user_tenant_broker_idx'
     });
-    await queryInterface.addIndex('margin_positions', ['accountId'], {
+    await safeAddIndex('margin_positions', ['accountId'], {
       name: 'margin_positions_account_idx'
     });
-    await queryInterface.addIndex('margin_positions', ['symbol'], {
+    await safeAddIndex('margin_positions', ['symbol'], {
       name: 'margin_positions_symbol_idx'
     });
-    await queryInterface.addIndex('margin_positions', ['status'], {
+    await safeAddIndex('margin_positions', ['status'], {
       name: 'margin_positions_status_idx'
     });
 
-    await queryInterface.addIndex('margin_orders', ['userId', 'tenantId', 'brokerId'], {
+    await safeAddIndex('margin_orders', ['userId', 'tenantId', 'brokerId'], {
       name: 'margin_orders_user_tenant_broker_idx'
     });
-    await queryInterface.addIndex('margin_orders', ['accountId'], {
+    await safeAddIndex('margin_orders', ['accountId'], {
       name: 'margin_orders_account_idx'
     });
-    await queryInterface.addIndex('margin_orders', ['status'], {
+    await safeAddIndex('margin_orders', ['status'], {
       name: 'margin_orders_status_idx'
     });
 
-    await queryInterface.addIndex('liquidation_events', ['userId', 'tenantId', 'brokerId'], {
+    await safeAddIndex('liquidation_events', ['userId', 'tenantId', 'brokerId'], {
       name: 'liquidation_events_user_tenant_broker_idx'
     });
-    await queryInterface.addIndex('liquidation_events', ['positionId'], {
+    await safeAddIndex('liquidation_events', ['positionId'], {
       name: 'liquidation_events_position_idx'
     });
-    await queryInterface.addIndex('liquidation_events', ['status'], {
+    await safeAddIndex('liquidation_events', ['status'], {
       name: 'liquidation_events_status_idx'
     });
 
-    await queryInterface.addIndex('margin_transfers', ['userId', 'tenantId', 'brokerId'], {
+    await safeAddIndex('margin_transfers', ['userId', 'tenantId', 'brokerId'], {
       name: 'margin_transfers_user_tenant_broker_idx'
     });
-    await queryInterface.addIndex('margin_transfers', ['status'], {
+    await safeAddIndex('margin_transfers', ['status'], {
       name: 'margin_transfers_status_idx'
     });
 
-    await queryInterface.addIndex('risk_limits', ['userId', 'tenantId', 'brokerId'], {
+    await safeAddIndex('risk_limits', ['userId', 'tenantId', 'brokerId'], {
       unique: true,
       name: 'risk_limits_user_tenant_broker_idx'
     });
-    await queryInterface.addIndex('risk_limits', ['riskTier'], {
+    await safeAddIndex('risk_limits', ['riskTier'], {
       name: 'risk_limits_tier_idx'
     });
 
-    await queryInterface.addIndex('funding_rates', ['nextFundingTime'], {
+    await safeAddIndex('funding_rates', ['nextFundingTime'], {
       name: 'funding_rates_next_time_idx'
     });
   },

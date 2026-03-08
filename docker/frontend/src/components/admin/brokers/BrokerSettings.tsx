@@ -39,10 +39,10 @@ export function BrokerSettings() {
         description: 'Broker settings have been saved successfully.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to update broker settings',
+        description: error instanceof Error ? error.message : 'Failed to update broker settings',
         type: 'error',
       });
     },

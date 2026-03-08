@@ -35,6 +35,12 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
+    // Error Boundary should only catch React rendering errors (component lifecycle, render phase)
+    // API/network errors should be handled at the component level with proper user feedback
+    
+    // Allow all errors to be caught - components should handle API errors gracefully
+    // This ensures we catch real application bugs while components handle API failures
+    
     return {
       hasError: true,
       error,
@@ -43,34 +49,39 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Always log errors for debugging - don't hide problems
     this.setState({
       error,
       errorInfo,
     });
 
-    // Log error to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error Boundary caught an error:', error, errorInfo);
-    }
+    // Log error to console for debugging
+    console.error('Error Boundary caught an error:', error, errorInfo);
 
     // Call custom error handler if provided
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
 
-    // In production, you might want to send this to an error reporting service
-    // Example: Sentry, LogRocket, etc.
+    // In production, send to error reporting service
     if (process.env.NODE_ENV === 'production') {
+      // TODO: Send to error reporting service (Sentry, LogRocket, etc.)
       // reportError(error, errorInfo);
     }
   }
 
   handleRetry = () => {
+    // Reset error state and allow component to re-render
     this.setState({
       hasError: false,
       error: null,
       errorInfo: null,
     });
+    
+    // Force a small delay to allow any pending async operations to complete
+    setTimeout(() => {
+      // Component will re-render automatically
+    }, 100);
   };
 
   handleReload = () => {
@@ -90,10 +101,15 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="max-w-md w-full">
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Something went wrong</AlertTitle>
+              <AlertTitle>Application Error</AlertTitle>
               <AlertDescription className="mt-2">
                 <p className="mb-4">
-                  We encountered an unexpected error. This has been reported to our team.
+                  A rendering error occurred. This has been logged for debugging.
+                  {this.state.error?.message && (
+                    <span className="block mt-2 text-sm font-mono text-muted-foreground">
+                      {this.state.error.message}
+                    </span>
+                  )}
                 </p>
 
                 {process.env.NODE_ENV === 'development' && this.state.error && (

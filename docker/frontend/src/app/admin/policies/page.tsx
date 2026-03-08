@@ -39,6 +39,19 @@ interface AuditLogEntry {
   changes: unknown;
 }
 
+interface HealthResponse {
+  healthy?: boolean;
+  version?: string;
+}
+
+interface PresetsResponse {
+  presets?: Preset[];
+}
+
+interface EvaluateResponse {
+  result?: unknown;
+}
+
 const POLICY_CATEGORIES: PolicyCategory[] = [
   { name: 'aml', label: 'AML/KYC', description: 'Anti-Money Laundering and Know Your Customer policies' },
   { name: 'security', label: 'Security', description: 'Authentication, session, and access security policies' },
@@ -78,7 +91,7 @@ function PolicyManagementInner() {
       }
       setParameters(res.data || {});
       setEditedParameters(res.data || {});
-    } catch (_err) {
+    } catch {
       setError('Failed to connect to API');
     } finally {
       setLoading(false);
@@ -88,15 +101,13 @@ function PolicyManagementInner() {
   // Fetch OPA status
   const fetchStatus = async () => {
     try {
-      const res = await apiClient.get<any>(`${API_BASE}/health`);
+      const res = await apiClient.get<HealthResponse>(`${API_BASE}/health`);
       if (!res.success) {
         setOpaStatus({ healthy: false });
         return;
       }
-      // backend returns `{ success, healthy, timestamp }`
-      const raw = res.data as any;
-      setOpaStatus({ healthy: !!raw?.healthy, version: raw?.version });
-    } catch (error) {
+      setOpaStatus({ healthy: !!res.data?.healthy, version: res.data?.version });
+    } catch {
       setOpaStatus({ healthy: false });
     }
   };
@@ -104,12 +115,11 @@ function PolicyManagementInner() {
   // Fetch presets
   const fetchPresets = async () => {
     try {
-      const res = await apiClient.get<any>(`${API_BASE}/presets`);
+      const res = await apiClient.get<PresetsResponse>(`${API_BASE}/presets`);
       if (res.success) {
-        const raw = res.data as any;
-        setPresets(raw?.presets || []);
+        setPresets(res.data?.presets || []);
       }
-    } catch (error) {
+    } catch {
       // Ignore preset fetch errors
     }
   };
@@ -121,7 +131,7 @@ function PolicyManagementInner() {
       if (res.success) {
         setAuditLog(res.data || []);
       }
-    } catch (error) {
+    } catch {
       // Ignore audit log fetch errors
     }
   };
@@ -165,7 +175,7 @@ function PolicyManagementInner() {
       setSuccess('Parameters saved successfully');
       setParameters(res.data || {});
       fetchAuditLog();
-    } catch (_err) {
+    } catch {
       setError('Failed to save parameters');
     } finally {
       setSaving(false);
@@ -181,7 +191,7 @@ function PolicyManagementInner() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await apiClient.post<any>(`${API_BASE}/presets/${presetName}/apply`);
+      const res = await apiClient.post<unknown>(`${API_BASE}/presets/${presetName}/apply`);
       if (!res.success) {
         setError(res.error || 'Failed to apply preset');
         return;
@@ -189,7 +199,7 @@ function PolicyManagementInner() {
       setSuccess(`Preset "${presetName}" applied successfully`);
       fetchParameters();
       fetchAuditLog();
-    } catch (_err) {
+    } catch {
       setError('Failed to apply preset');
     } finally {
       setSaving(false);
@@ -202,14 +212,13 @@ function PolicyManagementInner() {
     try {
       const input = JSON.parse(testInput);
       const policyPath = `thaliumx/${activeCategory}/allow`;
-      const res = await apiClient.post<any>(`${API_BASE}/evaluate`, { policy: policyPath, input });
+      const res = await apiClient.post<EvaluateResponse>(`${API_BASE}/evaluate`, { policy: policyPath, input });
       if (!res.success) {
         setError(res.error || 'Policy evaluation failed');
         return;
       }
-      const raw = res.data as any;
-      setTestResult(raw?.result);
-    } catch (_err) {
+      setTestResult(res.data?.result);
+    } catch {
       setError('Invalid JSON input or evaluation failed');
     }
   };
@@ -274,7 +283,7 @@ function PolicyManagementInner() {
                 try {
                   const parsed = JSON.parse(e.target.value);
                   updateParameter(currentPath, parsed);
-                } catch (error) {
+                } catch {
                   // Invalid JSON, ignore
                 }
               }}

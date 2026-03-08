@@ -8,6 +8,20 @@
 import type { QueryInterface} from 'sequelize';
 import { DataTypes } from 'sequelize';
 
+const addIndexIfMissing = async (
+  queryInterface: QueryInterface,
+  tableName: string,
+  fields: string[],
+  name: string,
+): Promise<void> => {
+  const existingIndexes = (await queryInterface.showIndex(tableName)) as Array<{ name?: string }>;
+  if (existingIndexes.some(index => index.name === name)) {
+    return;
+  }
+
+  await queryInterface.addIndex(tableName, fields, { name });
+};
+
 export const up = async (queryInterface: QueryInterface): Promise<void> => {
   await queryInterface.createTable('workflow_states', {
     workflow_id: {
@@ -23,7 +37,7 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
       type: DataTypes.UUID,
       allowNull: true,
       references: {
-        model: 'Users',
+        model: 'users',
         key: 'id'
       },
       onDelete: 'SET NULL'
@@ -32,7 +46,7 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
       type: DataTypes.UUID,
       allowNull: true,
       references: {
-        model: 'Tenants',
+        model: 'tenants',
         key: 'id'
       },
       onDelete: 'SET NULL'
@@ -96,29 +110,22 @@ export const up = async (queryInterface: QueryInterface): Promise<void> => {
   });
 
   // Create indexes for performance
-  await queryInterface.addIndex('workflow_states', ['user_id'], {
-    name: 'idx_workflow_states_user'
-  });
+  await addIndexIfMissing(queryInterface, 'workflow_states', ['user_id'], 'idx_workflow_states_user');
 
-  await queryInterface.addIndex('workflow_states', ['status'], {
-    name: 'idx_workflow_states_status'
-  });
+  await addIndexIfMissing(queryInterface, 'workflow_states', ['status'], 'idx_workflow_states_status');
 
-  await queryInterface.addIndex('workflow_states', ['workflow_type'], {
-    name: 'idx_workflow_states_type'
-  });
+  await addIndexIfMissing(queryInterface, 'workflow_states', ['workflow_type'], 'idx_workflow_states_type');
 
-  await queryInterface.addIndex('workflow_states', ['tenant_id'], {
-    name: 'idx_workflow_states_tenant'
-  });
+  await addIndexIfMissing(queryInterface, 'workflow_states', ['tenant_id'], 'idx_workflow_states_tenant');
 
-  await queryInterface.addIndex('workflow_states', ['created_at'], {
-    name: 'idx_workflow_states_created_at'
-  });
+  await addIndexIfMissing(queryInterface, 'workflow_states', ['created_at'], 'idx_workflow_states_created_at');
 
-  await queryInterface.addIndex('workflow_states', ['status', 'workflow_type'], {
-    name: 'idx_workflow_states_status_type'
-  });
+  await addIndexIfMissing(
+    queryInterface,
+    'workflow_states',
+    ['status', 'workflow_type'],
+    'idx_workflow_states_status_type',
+  );
 };
 
 export const down = async (queryInterface: QueryInterface): Promise<void> => {

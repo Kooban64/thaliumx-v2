@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api/client';
+import { getKeycloakToken } from '@/lib/auth/backend-auth';
 
 // Define types for broker-related data
 interface BrokerDashboardData {
@@ -10,7 +11,7 @@ interface BrokerDashboardData {
     totalVolume: number;
     pendingKYC: number;
   };
-  recentActivity: any[];
+  recentActivity: unknown[];
   permissions?: {
     canViewFinancials: boolean;
     canViewCompliance: boolean;
@@ -43,6 +44,20 @@ interface BrokerTransaction {
   createdAt: string;
 }
 
+interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+interface PaginatedResult<T> {
+  data: T[];
+  pagination: PaginationMeta;
+}
+
 /**
  * useBrokerDashboard - Fetches data for the broker dashboard overview
  */
@@ -50,9 +65,9 @@ export function useBrokerDashboard() {
   return useQuery<BrokerDashboardData>({
     queryKey: ['broker', 'dashboard'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/broker/dashboard');
+      const response = await apiClient.get<BrokerDashboardData>('/api/broker/dashboard');
       if (response.success && response.data) {
-        return response.data as BrokerDashboardData;
+        return response.data;
       }
       throw new Error('Failed to fetch broker dashboard data');
     },
@@ -65,10 +80,10 @@ export function useBrokerDashboard() {
  * useBrokerHealth - Fetches broker health status
  */
 export function useBrokerHealth() {
-  return useQuery({
+  return useQuery<Record<string, unknown>>({
     queryKey: ['broker', 'health'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/broker/health');
+      const response = await apiClient.get<Record<string, unknown>>('/api/broker/health');
       if (response.success && response.data) {
         return response.data;
       }
@@ -88,17 +103,7 @@ export function useBrokerUsers(params?: {
   search?: string;
   status?: string;
 }) {
-  return useQuery<{
-    data: BrokerUser[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNext: boolean;
-      hasPrev: boolean;
-    };
-  }>({
+  return useQuery<PaginatedResult<BrokerUser>>({
     queryKey: ['broker', 'users', params],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
@@ -107,13 +112,13 @@ export function useBrokerUsers(params?: {
       if (params?.search) queryParams.append('search', params.search);
       if (params?.status) queryParams.append('status', params.status);
 
-      const response = await apiClient.get(
+      const response = await apiClient.get<PaginatedResult<BrokerUser>>(
         `/api/broker/users?${queryParams.toString()}`
-      ) as any;
+      );
       if (response.success) {
-        return {
-          data: response.data || [],
-          pagination: response.pagination || {
+        return response.data || {
+          data: [],
+          pagination: {
             page: 1,
             limit: 10,
             total: 0,
@@ -139,17 +144,7 @@ export function useBrokerTransactions(params?: {
   type?: string;
   userId?: string;
 }) {
-  return useQuery<{
-    data: BrokerTransaction[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNext: boolean;
-      hasPrev: boolean;
-    };
-  }>({
+  return useQuery<PaginatedResult<BrokerTransaction>>({
     queryKey: ['broker', 'transactions', params],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
@@ -159,13 +154,13 @@ export function useBrokerTransactions(params?: {
       if (params?.type) queryParams.append('type', params.type);
       if (params?.userId) queryParams.append('userId', params.userId);
 
-      const response = await apiClient.get(
+      const response = await apiClient.get<PaginatedResult<BrokerTransaction>>(
         `/api/broker/transactions?${queryParams.toString()}`
-      ) as any;
+      );
       if (response.success) {
-        return {
-          data: response.data || [],
-          pagination: response.pagination || {
+        return response.data || {
+          data: [],
+          pagination: {
             page: 1,
             limit: 10,
             total: 0,
@@ -190,17 +185,7 @@ export function useBrokerKYC(params?: {
   status?: string;
   level?: string;
 }) {
-  return useQuery<{
-    data: any[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNext: boolean;
-      hasPrev: boolean;
-    };
-  }>({
+  return useQuery<PaginatedResult<Record<string, unknown>>>({
     queryKey: ['broker', 'kyc', params],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
@@ -209,13 +194,13 @@ export function useBrokerKYC(params?: {
       if (params?.status) queryParams.append('status', params.status);
       if (params?.level) queryParams.append('level', params.level);
 
-      const response = await apiClient.get(
+      const response = await apiClient.get<PaginatedResult<Record<string, unknown>>>(
         `/api/broker/kyc?${queryParams.toString()}`
-      ) as any;
+      );
       if (response.success) {
-        return {
-          data: response.data || [],
-          pagination: response.pagination || {
+        return response.data || {
+          data: [],
+          pagination: {
             page: 1,
             limit: 10,
             total: 0,
@@ -242,17 +227,7 @@ export function useBrokerAuditLogs(params?: {
   startDate?: string;
   endDate?: string;
 }) {
-  return useQuery<{
-    data: any[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNext: boolean;
-      hasPrev: boolean;
-    };
-  }>({
+  return useQuery<PaginatedResult<Record<string, unknown>>>({
     queryKey: ['broker', 'audit-logs', params],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
@@ -263,13 +238,13 @@ export function useBrokerAuditLogs(params?: {
       if (params?.startDate) queryParams.append('startDate', params.startDate);
       if (params?.endDate) queryParams.append('endDate', params.endDate);
 
-      const response = await apiClient.get(
+      const response = await apiClient.get<PaginatedResult<Record<string, unknown>>>(
         `/api/broker/audit-logs?${queryParams.toString()}`
-      ) as any;
+      );
       if (response.success) {
-        return {
-          data: response.data || [],
-          pagination: response.pagination || {
+        return response.data || {
+          data: [],
+          pagination: {
             page: 1,
             limit: 10,
             total: 0,
@@ -363,11 +338,11 @@ export function useBrokerLedger(params?: {
       if (params?.endDate) queryParams.append('endDate', params.endDate);
       if (params?.search) queryParams.append('search', params.search);
 
-      const response = await apiClient.get(
+      const response = await apiClient.get<BrokerLedgerData>(
         `/api/broker/financial/ledger?${queryParams.toString()}`
-      ) as any;
+      );
       if (response.success && response.data) {
-        return response.data as BrokerLedgerData;
+        return response.data;
       }
       throw new Error('Failed to fetch broker ledger');
     },
@@ -383,17 +358,7 @@ export function useReconciliationJobs(params?: {
   limit?: number;
   status?: string;
 }) {
-  return useQuery<{
-    data: ReconciliationJob[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNext: boolean;
-      hasPrev: boolean;
-    };
-  }>({
+  return useQuery<PaginatedResult<ReconciliationJob>>({
     queryKey: ['broker', 'financial', 'reconciliation', params],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
@@ -401,13 +366,13 @@ export function useReconciliationJobs(params?: {
       if (params?.limit) queryParams.append('limit', params.limit.toString());
       if (params?.status) queryParams.append('status', params.status);
 
-      const response = await apiClient.get(
+      const response = await apiClient.get<PaginatedResult<ReconciliationJob>>(
         `/api/broker/financial/reconciliation/jobs?${queryParams.toString()}`
-      ) as any;
+      );
       if (response.success) {
-        return {
-          data: response.data || [],
-          pagination: response.pagination || {
+        return response.data || {
+          data: [],
+          pagination: {
             page: 1,
             limit: 10,
             total: 0,
@@ -451,17 +416,7 @@ export function useBrokerFinancialReports(params?: {
   limit?: number;
   type?: string;
 }) {
-  return useQuery<{
-    data: BrokerFinancialReport[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNext: boolean;
-      hasPrev: boolean;
-    };
-  }>({
+  return useQuery<PaginatedResult<BrokerFinancialReport>>({
     queryKey: ['broker', 'financial', 'reports', params],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
@@ -469,13 +424,13 @@ export function useBrokerFinancialReports(params?: {
       if (params?.limit) queryParams.append('limit', params.limit.toString());
       if (params?.type) queryParams.append('type', params.type);
 
-      const response = await apiClient.get(
+      const response = await apiClient.get<PaginatedResult<BrokerFinancialReport>>(
         `/api/broker/financial/reports?${queryParams.toString()}`
-      ) as any;
+      );
       if (response.success) {
-        return {
-          data: response.data || [],
-          pagination: response.pagination || {
+        return response.data || {
+          data: [],
+          pagination: {
             page: 1,
             limit: 10,
             total: 0,
@@ -561,9 +516,9 @@ export function useBrokerCompliance() {
   return useQuery<ComplianceStatus>({
     queryKey: ['broker', 'compliance'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/broker/compliance');
+      const response = await apiClient.get<ComplianceStatus>('/api/broker/compliance');
       if (response.success && response.data) {
-        return response.data as ComplianceStatus;
+        return response.data;
       }
       throw new Error('Failed to fetch compliance status');
     },
@@ -581,17 +536,7 @@ export function useBrokerTransactionMonitoring(params?: {
   riskScore?: number;
   status?: string;
 }) {
-  return useQuery<{
-    data: SuspiciousTransaction[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNext: boolean;
-      hasPrev: boolean;
-    };
-  }>({
+  return useQuery<PaginatedResult<SuspiciousTransaction>>({
     queryKey: ['broker', 'compliance', 'monitoring', params],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
@@ -600,13 +545,13 @@ export function useBrokerTransactionMonitoring(params?: {
       if (params?.riskScore) queryParams.append('riskScore', params.riskScore.toString());
       if (params?.status) queryParams.append('status', params.status);
 
-      const response = await apiClient.get(
+      const response = await apiClient.get<PaginatedResult<SuspiciousTransaction>>(
         `/api/broker/compliance/monitoring?${queryParams.toString()}`
-      ) as any;
+      );
       if (response.success) {
-        return {
-          data: response.data || [],
-          pagination: response.pagination || {
+        return response.data || {
+          data: [],
+          pagination: {
             page: 1,
             limit: 10,
             total: 0,
@@ -636,7 +581,7 @@ export function useBrokerMarketData(symbol?: string) {
       const endpoint = symbol
         ? `/api/broker/trading/market-data?symbol=${symbol}`
         : '/api/broker/trading/market-data';
-      const response = await apiClient.get(endpoint) as any;
+      const response = await apiClient.get<{ data: MarketData[]; pairs: TradingPair[] }>(endpoint);
       if (response.success && response.data) {
         return response.data;
       }
@@ -654,11 +599,15 @@ export function useBrokerTradingConfig() {
   return useQuery<{
     pairs: TradingPair[];
     fees: Record<string, number>;
-    rules: Record<string, any>;
+    rules: Record<string, unknown>;
   }>({
     queryKey: ['broker', 'trading', 'config'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/broker/trading/config') as any;
+      const response = await apiClient.get<{
+        pairs: TradingPair[];
+        fees: Record<string, number>;
+        rules: Record<string, unknown>;
+      }>('/api/broker/trading/config');
       if (response.success && response.data) {
         return response.data;
       }
@@ -675,7 +624,7 @@ export function useUpdateBrokerTradingConfig() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (config: { pairs?: TradingPair[]; fees?: Record<string, number>; rules?: Record<string, any> }) => {
+    mutationFn: async (config: { pairs?: TradingPair[]; fees?: Record<string, number>; rules?: Record<string, unknown> }) => {
       const response = await apiClient.put('/api/broker/trading/config', config);
       if (response.success) {
         return response.data;
@@ -706,7 +655,18 @@ export function useBrokerSettings() {
   }>({
     queryKey: ['broker', 'settings'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/broker/settings') as any;
+      const response = await apiClient.get<{
+        name: string;
+        email: string;
+        contactPerson: string;
+        phone: string;
+        address: string;
+        country: string;
+        website: string;
+        apiKeys: string[];
+        webhooks: string[];
+        features: Record<string, boolean>;
+      }>('/api/broker/settings');
       if (response.success && response.data) {
         return response.data;
       }
@@ -723,7 +683,7 @@ export function useUpdateBrokerSettings() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (settings: any) => {
+    mutationFn: async (settings: unknown) => {
       const response = await apiClient.put('/api/broker/settings', settings);
       if (response.success) {
         return response.data;
@@ -748,7 +708,12 @@ export function useBrokerBranding() {
   }>({
     queryKey: ['broker', 'settings', 'branding'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/broker/settings/branding') as any;
+      const response = await apiClient.get<{
+        logo: string;
+        primaryColor: string;
+        secondaryColor: string;
+        customCSS: string;
+      }>('/api/broker/settings/branding');
       if (response.success && response.data) {
         return response.data;
       }
@@ -777,7 +742,7 @@ export function useUpdateBrokerBranding() {
         method: 'PUT',
         body: formData,
         headers: {
-          'Authorization': `Bearer ${typeof window !== 'undefined' ? (window as any).__zitadel_token || '' : ''}`,
+          'Authorization': `Bearer ${typeof window !== 'undefined' ? getKeycloakToken() || '' : ''}`,
         },
       });
 
@@ -805,7 +770,12 @@ export function useBrokerLimits() {
   }>({
     queryKey: ['broker', 'settings', 'limits'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/broker/settings/limits') as any;
+      const response = await apiClient.get<{
+        defaultUserLimits: Record<string, number>;
+        transactionLimits: Record<string, number>;
+        withdrawalLimits: Record<string, number>;
+        depositLimits: Record<string, number>;
+      }>('/api/broker/settings/limits');
       if (response.success && response.data) {
         return response.data;
       }
@@ -822,7 +792,7 @@ export function useUpdateBrokerLimits() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (limits: any) => {
+    mutationFn: async (limits: unknown) => {
       const response = await apiClient.put('/api/broker/settings/limits', limits);
       if (response.success) {
         return response.data;
@@ -872,9 +842,9 @@ export function useBrokerUserAnalytics(params?: {
       if (params?.startDate) queryParams.append('startDate', params.startDate);
       if (params?.endDate) queryParams.append('endDate', params.endDate);
 
-      const response = await apiClient.get(
+      const response = await apiClient.get<BrokerAnalytics['users']>(
         `/api/broker/analytics/users?${queryParams.toString()}`
-      ) as any;
+      );
       if (response.success && response.data) {
         return response.data;
       }
@@ -898,9 +868,9 @@ export function useBrokerTradingAnalytics(params?: {
       if (params?.startDate) queryParams.append('startDate', params.startDate);
       if (params?.endDate) queryParams.append('endDate', params.endDate);
 
-      const response = await apiClient.get(
+      const response = await apiClient.get<BrokerAnalytics['trading']>(
         `/api/broker/analytics/trading?${queryParams.toString()}`
-      ) as any;
+      );
       if (response.success && response.data) {
         return response.data;
       }
@@ -925,9 +895,9 @@ export function useBrokerFinancialAnalytics(params?: {
       if (params?.startDate) queryParams.append('startDate', params.startDate);
       if (params?.endDate) queryParams.append('endDate', params.endDate);
 
-      const response = await apiClient.get(
+      const response = await apiClient.get<BrokerAnalytics['financial']>(
         `/api/broker/analytics/financial?${queryParams.toString()}`
-      ) as any;
+      );
       if (response.success && response.data) {
         return response.data;
       }

@@ -51,8 +51,8 @@ export default function DepositPage() {
         }
 
         await refresh();
-      } catch (e: any) {
-        setError(e?.message || 'Failed to initialize auth');
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to initialize auth');
       } finally {
         setLoading(false);
       }
@@ -120,7 +120,7 @@ export default function DepositPage() {
                     .map((workflow) => (
                       <WorkflowStatusCard
                         key={workflow.workflowId}
-                        workflow={workflow as any}
+                        workflow={workflow}
                         showActions={false}
                         className="border-blue-200"
                       />

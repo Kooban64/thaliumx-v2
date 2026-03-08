@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useUsers } from '@/lib/api/hooks/useAdmin';
+import { useUsers, type AdminUser } from '@/lib/api/hooks/useAdmin';
 import { Loader2, Search, Shield, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import {
   Select,
@@ -27,7 +27,7 @@ export function KYCManagement() {
   });
 
   // Filter users by KYC status
-  const filteredUsers = users?.filter((user: any) => {
+  const filteredUsers = users?.filter((user: AdminUser) => {
     if (statusFilter === 'all') return true;
     return user.kycStatus === statusFilter;
   });
@@ -92,7 +92,7 @@ export function KYCManagement() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredUsers.map((user: any) => (
+              {filteredUsers.map((user: AdminUser) => (
                 <div
                   key={user.id || user.userId}
                   className="flex items-center justify-between p-4 border rounded-lg"

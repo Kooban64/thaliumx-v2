@@ -9,9 +9,14 @@ type OidcDiscovery = {
   end_session_endpoint?: string;
 };
 
-const ZITADEL_ISSUER = (process.env.NEXT_PUBLIC_ZITADEL_ISSUER || 'https://auth.thaliumx.com').replace(/\/+$/, '');
-const ZITADEL_CLIENT_ID = process.env.NEXT_PUBLIC_ZITADEL_CLIENT_ID || 'thaliumx-frontend';
-const ZITADEL_SCOPES = process.env.NEXT_PUBLIC_ZITADEL_SCOPES || 'openid profile email';
+const KEYCLOAK_ISSUER = (
+  process.env.NEXT_PUBLIC_KEYCLOAK_ISSUER ||
+  'https://auth.thaliumx.com'
+).replace(/\/+$/, '');
+const KEYCLOAK_CLIENT_ID =
+  process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || 'thaliumx-frontend';
+const KEYCLOAK_SCOPES =
+  process.env.NEXT_PUBLIC_KEYCLOAK_SCOPES || 'openid profile email';
 
 const STORAGE_KEYS = {
   verifier: 'thaliumx_oidc_verifier',
@@ -49,7 +54,7 @@ const randomString = (bytes: number): string => {
 
 const getDiscovery = async (): Promise<OidcDiscovery> => {
   if (discoveryCache) return discoveryCache;
-  const url = `${ZITADEL_ISSUER}/.well-known/openid-configuration`;
+  const url = `${KEYCLOAK_ISSUER}/.well-known/openid-configuration`;
   const res = await fetch(url, { credentials: 'omit' });
   if (!res.ok) {
     throw new Error(`Failed to load OIDC discovery: ${res.status}`);
@@ -75,12 +80,12 @@ const setPersistedAccessToken = (token: string, expiresInSeconds?: number): void
         localStorage.setItem(STORAGE_KEYS.accessTokenExp, String(exp));
       }
     }
-  } catch (error) {
+  } catch {
     // ignore (private mode, disabled storage)
   }
 };
 
-export const initZitadel = async (): Promise<void> => {
+export const initKeycloak = async (): Promise<void> => {
   // Restore token from this tab session if present and not expired.
   try {
     const token = sessionStorage.getItem(STORAGE_KEYS.accessToken);
@@ -91,7 +96,7 @@ export const initZitadel = async (): Promise<void> => {
       setAccessToken(token);
       return;
     }
-  } catch (error) {
+  } catch {
     // ignore
   }
 
@@ -108,14 +113,14 @@ export const initZitadel = async (): Promise<void> => {
         if (Number.isFinite(exp)) sessionStorage.setItem(STORAGE_KEYS.accessTokenExp, String(exp));
         return;
       }
-    } catch (error) {
+    } catch {
       // ignore
     }
   }
   setAccessToken(null);
 };
 
-export const loginZitadel = async (opts: { nextPath: string }): Promise<void> => {
+export const loginKeycloak = async (opts: { nextPath: string }): Promise<void> => {
   // IMPORTANT: In prod-v1, `/auth/*` on `thaliumx.com` is reserved for the IdP proxy.
   // Use a callback path that stays on the frontend origin.
   const redirectUri = `${window.location.origin}/oidc/callback`;
@@ -127,16 +132,16 @@ export const loginZitadel = async (opts: { nextPath: string }): Promise<void> =>
     sessionStorage.setItem(STORAGE_KEYS.verifier, verifier);
     sessionStorage.setItem(STORAGE_KEYS.state, state);
     sessionStorage.setItem(STORAGE_KEYS.postLoginNext, opts.nextPath);
-  } catch (error) {
-    // ignore
-  }
+    } catch {
+      // ignore
+    }
 
   const discovery = await getDiscovery();
   const authorizeUrl = new URL(discovery.authorization_endpoint);
-  authorizeUrl.searchParams.set('client_id', ZITADEL_CLIENT_ID);
+  authorizeUrl.searchParams.set('client_id', KEYCLOAK_CLIENT_ID);
   authorizeUrl.searchParams.set('response_type', 'code');
   authorizeUrl.searchParams.set('redirect_uri', redirectUri);
-  authorizeUrl.searchParams.set('scope', ZITADEL_SCOPES);
+  authorizeUrl.searchParams.set('scope', KEYCLOAK_SCOPES);
   authorizeUrl.searchParams.set('code_challenge', challenge);
   authorizeUrl.searchParams.set('code_challenge_method', 'S256');
   authorizeUrl.searchParams.set('state', state);
@@ -144,7 +149,9 @@ export const loginZitadel = async (opts: { nextPath: string }): Promise<void> =>
   window.location.href = authorizeUrl.toString();
 };
 
-export const handleZitadelCallback = async (search: string): Promise<{ nextPath: string } > => {
+export const handleKeycloakCallback = async (
+  search: string,
+): Promise<{ nextPath: string; accessToken: string; expiresIn?: number }> => {
   const params = new URLSearchParams(search.startsWith('?') ? search : `?${search}`);
   const code = params.get('code');
   const state = params.get('state');
@@ -177,7 +184,7 @@ export const handleZitadelCallback = async (search: string): Promise<{ nextPath:
     },
     body: new URLSearchParams({
       grant_type: 'authorization_code',
-      client_id: ZITADEL_CLIENT_ID,
+      client_id: KEYCLOAK_CLIENT_ID,
       code,
       redirect_uri: `${window.location.origin}/oidc/callback`,
       code_verifier: verifier,
@@ -189,7 +196,7 @@ export const handleZitadelCallback = async (search: string): Promise<{ nextPath:
     throw new Error(`Token exchange failed (${tokenRes.status}). ${text}`);
   }
 
-  const tokenJson: any = await tokenRes.json();
+  const tokenJson = (await tokenRes.json()) as { access_token?: string; expires_in?: number };
   const accessToken: string | undefined = tokenJson?.access_token;
   const expiresIn: number | undefined = typeof tokenJson?.expires_in === 'number' ? tokenJson.expires_in : undefined;
   if (!accessToken) {
@@ -200,15 +207,15 @@ export const handleZitadelCallback = async (search: string): Promise<{ nextPath:
   try {
     sessionStorage.removeItem(STORAGE_KEYS.verifier);
     sessionStorage.removeItem(STORAGE_KEYS.state);
-  } catch (error) {
+  } catch {
     // ignore
   }
 
   setPersistedAccessToken(accessToken, expiresIn);
-  return { nextPath };
+  return { nextPath, accessToken, expiresIn };
 };
 
-export const logoutZitadel = async (): Promise<void> => {
+export const logoutKeycloak = async (): Promise<void> => {
   setAccessToken(null);
   try {
     sessionStorage.removeItem(STORAGE_KEYS.accessToken);
@@ -218,7 +225,7 @@ export const logoutZitadel = async (): Promise<void> => {
       localStorage.removeItem(STORAGE_KEYS.accessToken);
       localStorage.removeItem(STORAGE_KEYS.accessTokenExp);
     }
-  } catch (error) {
+  } catch {
     // ignore
   }
 
@@ -231,7 +238,7 @@ export const logoutZitadel = async (): Promise<void> => {
       window.location.href = url.toString();
       return;
     }
-  } catch (error) {
+  } catch {
     // ignore
   }
 

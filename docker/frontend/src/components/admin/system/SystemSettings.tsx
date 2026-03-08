@@ -44,10 +44,10 @@ export function SystemSettings() {
         description: 'System settings have been saved successfully.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to update settings',
+        description: error instanceof Error ? error.message : 'Failed to update settings',
         type: 'error',
       });
     },

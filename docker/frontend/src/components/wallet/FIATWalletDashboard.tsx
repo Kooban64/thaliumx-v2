@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs } from '@/components/navigation/Tabs';
@@ -23,7 +23,10 @@ export function FIATWalletDashboard() {
   const [activeTab, setActiveTab] = useState('balance');
 
   // Filter FIAT wallets
-  const fiatWallets = wallets?.filter((w) => w.walletType === 'fiat') || [];
+  const fiatWallets = useMemo(
+    () => wallets?.filter((w) => w.walletType === 'fiat') || [],
+    [wallets],
+  );
 
   useEffect(() => {
     if (fiatWallets.length > 0 && !selectedWallet) {

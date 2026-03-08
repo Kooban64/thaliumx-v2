@@ -1,24 +1,25 @@
+/// <reference types="node" />
+
 import { test, expect } from '@playwright/test';
 
-const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'zitadel';
+const env = (globalThis as any).process?.env ?? {};
 
-// For Zitadel UI login (smoke only). If unset, this setup is skipped.
-const LOGINNAME = process.env.E2E_ZITADEL_LOGINNAME || '';
-const PASSWORD = process.env.E2E_ZITADEL_PASSWORD || '';
+// For Keycloak UI login (smoke only). If unset, this setup is skipped.
+const LOGINNAME = env.E2E_KEYCLOAK_LOGINNAME || '';
+const PASSWORD = env.E2E_KEYCLOAK_PASSWORD || '';
 
-test.describe('Zitadel auth setup (optional)', () => {
+test.describe('Keycloak auth setup (optional)', () => {
   test('login once and persist storageState (for non-brittle app E2E)', async ({ page }) => {
-    test.skip(AUTH_MODE !== 'zitadel', 'Zitadel auth setup only runs when NEXT_PUBLIC_AUTH_MODE=zitadel');
-    test.skip(!LOGINNAME || !PASSWORD, 'Set E2E_ZITADEL_LOGINNAME and E2E_ZITADEL_PASSWORD to enable Zitadel UI login in CI');
+    test.skip(!LOGINNAME || !PASSWORD, 'Set E2E_KEYCLOAK_LOGINNAME and E2E_KEYCLOAK_PASSWORD to enable Keycloak UI login in CI');
 
-    // Start at the app auth page and click the Zitadel continue button.
+    // Start at the app auth page and click the continue button.
     await page.goto('/auth', { waitUntil: 'domcontentloaded' });
 
     const continueBtn = page.getByRole('button', { name: /^continue$/i });
     await expect(continueBtn).toBeVisible({ timeout: 15_000 });
     await continueBtn.click();
 
-    // Best-effort login flow against Zitadel UI.
+    // Best-effort login flow against Keycloak UI.
     // Keep selectors flexible since IdP UI can change.
     const usernameInput = page.locator(
       'input[autocomplete="username"], input[type="email"], input[name="loginName"], input[name="loginname"], input[name="username"], input[id*="login" i]'
@@ -56,7 +57,7 @@ test.describe('Zitadel auth setup (optional)', () => {
     if (page.url().includes('/auth')) {
       // Some environments require additional steps (MFA, consent, etc.).
       // Fail with a clear message so operators know what needs to be disabled for CI.
-      throw new Error(`Zitadel login did not complete; still on ${page.url()}`);
+      throw new Error(`Keycloak login did not complete; still on ${page.url()}`);
     }
 
     // Ensure the token is available in localStorage when E2E persistence is enabled.
@@ -78,4 +79,3 @@ test.describe('Zitadel auth setup (optional)', () => {
     await page.context().storageState({ path: 'test-results/storageState.json' });
   });
 });
-

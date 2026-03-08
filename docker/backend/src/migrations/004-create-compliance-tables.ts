@@ -34,8 +34,12 @@ export async function up(queryInterface: any, Sequelize: any): Promise<void> {
     }
   });
 
-  await queryInterface.addIndex('travel_rule_messages', ['status']);
-  await queryInterface.addIndex('travel_rule_messages', ['transactionId']);
+  await queryInterface.sequelize.query(
+    'CREATE INDEX IF NOT EXISTS "travel_rule_messages_status" ON "travel_rule_messages" ("status")'
+  );
+  await queryInterface.sequelize.query(
+    'CREATE INDEX IF NOT EXISTS "travel_rule_messages_transaction_id" ON "travel_rule_messages" ("transactionId")'
+  );
 
   // CARF Reports
   await queryInterface.createTable('carf_reports', {
@@ -68,12 +72,15 @@ export async function up(queryInterface: any, Sequelize: any): Promise<void> {
     }
   });
 
-  await queryInterface.addIndex('carf_reports', ['status']);
-  await queryInterface.addIndex('carf_reports', ['transactionId']);
+  await queryInterface.sequelize.query(
+    'CREATE INDEX IF NOT EXISTS "carf_reports_status" ON "carf_reports" ("status")'
+  );
+  await queryInterface.sequelize.query(
+    'CREATE INDEX IF NOT EXISTS "carf_reports_transaction_id" ON "carf_reports" ("transactionId")'
+  );
 }
 
 export async function down(queryInterface: any): Promise<void> {
   await queryInterface.dropTable('travel_rule_messages');
   await queryInterface.dropTable('carf_reports');
 }
-

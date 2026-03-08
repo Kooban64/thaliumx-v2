@@ -26,6 +26,31 @@ interface KYCAccessInfo {
   complianceFlags?: string[];
 }
 
+interface ProfileResponse {
+  id?: string;
+  user?: {
+    id?: string;
+  };
+}
+
+interface UserLimitsResponse {
+  kycLevel: string;
+  kycStatus: string;
+  riskScore: number;
+  access: {
+    accountAccess: boolean;
+    tradingAccess: boolean;
+    withdrawalAccess: boolean;
+    depositAccess: boolean;
+    availableFeatures?: string[];
+  };
+  limits?: {
+    maxSingle: number;
+    maxDaily: number;
+    maxMonthly: number;
+  };
+}
+
 interface KYCAccessInfoProps {
   userId?: string;
   className?: string;
@@ -45,15 +70,15 @@ export function KYCAccessInfo({
     const fetchAccessInfo = async () => {
       if (!userId) {
         try {
-          const profileRes = await apiClient.get<{ id: string }>('/api/auth/profile');
-          const currentUserId = (profileRes.data as any)?.user?.id || (profileRes.data as any)?.id;
+          const profileRes = await apiClient.get<ProfileResponse>('/api/auth/profile');
+          const currentUserId = profileRes.data?.user?.id || profileRes.data?.id;
           if (!currentUserId) {
             setError('User not authenticated');
             setLoading(false);
             return;
           }
           await fetchUserAccessInfo(currentUserId);
-        } catch (err: any) {
+        } catch {
           setError('Failed to fetch KYC access info');
           setLoading(false);
         }
@@ -67,7 +92,7 @@ export function KYCAccessInfo({
       setError(null);
       
       try {
-        const res = await apiClient.get<any>(`/api/admin/user-limits/${targetUserId}`);
+        const res = await apiClient.get<UserLimitsResponse>(`/api/admin/user-limits/${targetUserId}`);
         if (res.success && res.data) {
           setAccessInfo({
             kycLevel: res.data.kycLevel,
@@ -88,8 +113,8 @@ export function KYCAccessInfo({
         } else {
           setError(res.error || 'Failed to fetch access info');
         }
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch KYC access information');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch KYC access information');
       } finally {
         setLoading(false);
       }

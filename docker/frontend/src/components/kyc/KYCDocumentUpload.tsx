@@ -53,7 +53,8 @@ export function KYCDocumentUpload({
       const files = prev[documentType] || [];
       const newFiles = files.filter((_, index) => index !== fileIndex);
       if (newFiles.length === 0) {
-        const { [documentType]: _, ...rest } = prev;
+        const rest = { ...prev };
+        delete rest[documentType];
         return rest;
       }
       return { ...prev, [documentType]: newFiles };

@@ -168,9 +168,14 @@ export class ConfigService {
 
   private static loadConfig(): AppConfig {
     const dnsOrigins = this.loadDnsOriginsFromSecrets();
+    const keycloakIssuer =
+      process.env.KEYCLOAK_ISSUER ||
+      `${(process.env.KEYCLOAK_URL || 'https://auth.thaliumx.com').replace(/\/+$/, '')}/realms/${process.env.KEYCLOAK_REALM || 'thaliumx'}`;
+
     return {
       port: parseInt(process.env.PORT || '3002', 10),
       env: (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
+      authProvider: 'keycloak',
 
       cors: {
         origin: Array.from(new Set([...(process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000','http://localhost:3001']), ...dnsOrigins])),
@@ -232,10 +237,14 @@ export class ConfigService {
         replicationFactor: parseInt(process.env.KAFKA_REPLICATION_FACTOR || '3'),
         minInSyncReplicas: parseInt(process.env.KAFKA_MIN_INSYNC_REPLICAS || '2')
       },
-      zitadel: {
-        issuer: process.env.ZITADEL_ISSUER || 'https://auth.thaliumx.com',
-        jwksUri: process.env.ZITADEL_JWKS_URI || 'https://auth.thaliumx.com/oauth/v2/keys',
-        audience: process.env.ZITADEL_AUDIENCE || 'thaliumx-backend'
+      keycloak: {
+        issuer: keycloakIssuer,
+        jwksUri:
+          process.env.KEYCLOAK_JWKS_URI ||
+          `${keycloakIssuer.replace(/\/+$/, '')}/protocol/openid-connect/certs`,
+        audience: process.env.KEYCLOAK_AUDIENCE || process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend',
+        realm: process.env.KEYCLOAK_REALM || 'thaliumx',
+        clientId: process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend',
       },
       blockchain: {
         rpcUrl: process.env.BLOCKCHAIN_RPC_URL || 'http://localhost:8545',
@@ -367,7 +376,6 @@ export class ConfigService {
       'thaliumx/twilio',
       'thaliumx/sendgrid',
       'thaliumx/kafka',
-      'thaliumx/zitadel',
       'thaliumx/blockchain',
       'thaliumx/blnk-finance',
       'thaliumx/api-keys',
@@ -585,22 +593,34 @@ export class ConfigService {
     const config = this.getConfig();
     const isProduction = process.env.NODE_ENV === 'production';
 
-    // If Zitadel is configured, treat it as the system-of-record for auth.
-    // Legacy JWT secrets may still exist in env for backward compatibility, but are not required.
-    const zitadelOnly = !!(process.env.ZITADEL_ISSUER);
-
     // Critical configuration validation
     const errors: string[] = [];
 
-    // JWT validation (legacy)
-    if (!zitadelOnly) {
-      if (!config.jwt.secret || config.jwt.secret.length < 32) {
-        if (isProduction) {
-          errors.push('JWT secret must be at least 32 characters long');
-        } else {
-          config.jwt.secret = 'development-jwt-secret-key-for-testing-purposes-only-32-chars-minimum';
-          LoggerService.warn('Using default development JWT secret');
-        }
+    // JWT validation (internal token path)
+    if (!config.jwt.secret || config.jwt.secret.length < 32) {
+      if (isProduction) {
+        errors.push('JWT secret must be at least 32 characters long');
+      } else {
+        config.jwt.secret = 'development-jwt-secret-key-for-testing-purposes-only-32-chars-minimum';
+        LoggerService.warn('Using default development JWT secret');
+      }
+    }
+
+    // Keycloak OIDC validation
+    if (!config.keycloak?.issuer) {
+      errors.push('Keycloak issuer is required');
+    }
+    if (!config.keycloak?.jwksUri) {
+      errors.push('Keycloak JWKS URI is required');
+    }
+    if (!config.keycloak?.audience) {
+      errors.push('Keycloak audience is required');
+    }
+
+    if (isProduction) {
+      const authProvider = config.authProvider || 'keycloak';
+      if (authProvider !== 'keycloak') {
+        errors.push(`Unsupported auth provider in production: ${authProvider}`);
       }
     }
 
@@ -645,11 +665,6 @@ export class ConfigService {
       }
     }
     */
-
-    // Zitadel configuration validation
-    if (!config.zitadel.issuer) {
-      errors.push('Zitadel issuer is required');
-    }
 
     // Blockchain configuration validation
     if (!config.blockchain.rpcUrl) {

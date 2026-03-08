@@ -154,7 +154,7 @@ export function containsSuspiciousPatterns(input: string): boolean {
 /**
  * Comprehensive input sanitization for forms
  */
-export function sanitizeFormInput(input: any, type: 'text' | 'email' | 'number' | 'wallet' | 'username' | 'search' | 'filename'): string {
+export function sanitizeFormInput(input: unknown, type: 'text' | 'email' | 'number' | 'wallet' | 'username' | 'search' | 'filename'): string {
   if (input === null || input === undefined) return '';
 
   const stringInput = String(input);
@@ -186,7 +186,7 @@ export function sanitizeFormInput(input: any, type: 'text' | 'email' | 'number' 
 /**
  * Sanitize object properties recursively
  */
-export function sanitizeObject(obj: any, schema?: Record<string, 'text' | 'email' | 'number' | 'wallet' | 'username' | 'search' | 'filename'>): any {
+export function sanitizeObject(obj: unknown, schema?: Record<string, 'text' | 'email' | 'number' | 'wallet' | 'username' | 'search' | 'filename'>): unknown {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj === 'string') return sanitizeText(obj);
   if (typeof obj !== 'object') return obj;
@@ -194,13 +194,13 @@ export function sanitizeObject(obj: any, schema?: Record<string, 'text' | 'email
     return obj.map(item => sanitizeObject(item, schema));
   }
 
-  const sanitized: any = {};
+  const sanitized: Record<string, unknown> = {};
 
-  for (const [key, value] of Object.entries(obj)) {
+  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
     if (schema && schema[key]) {
       try {
         sanitized[key] = sanitizeFormInput(value, schema[key]);
-      } catch (error) {
+      } catch {
         // Schema path is strict (can throw). For object-wide sanitization, prefer best-effort.
         sanitized[key] = typeof value === 'string' ? sanitizeText(value) : sanitizeObject(value, schema);
       }

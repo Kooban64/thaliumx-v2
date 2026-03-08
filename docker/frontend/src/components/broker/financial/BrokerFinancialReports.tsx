@@ -8,7 +8,29 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useBrokerFinancialReports, useGenerateBrokerReport } from '@/lib/api/hooks/useBroker';
 import { Loader2, FileText, Download, CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { toast } from '@/components/shared/Toast';
+
+interface FinancialReportItem {
+  id: string;
+  type: string;
+  period: string;
+  status: 'generating' | 'completed' | 'failed';
+  createdAt: string;
+  downloadUrl?: string;
+}
+
+function isFinancialReportItem(value: unknown): value is FinancialReportItem {
+  if (!value || typeof value !== 'object') return false;
+  const report = value as Record<string, unknown>;
+  return (
+    typeof report.id === 'string' &&
+    typeof report.type === 'string' &&
+    typeof report.period === 'string' &&
+    typeof report.status === 'string' &&
+    typeof report.createdAt === 'string'
+  );
+}
 
 // Date formatting utility
 const formatDateTime = (date: string | Date) => {
@@ -42,7 +64,9 @@ export function BrokerFinancialReports() {
 
   const generateMutation = useGenerateBrokerReport();
 
-  const reports = data?.data || [];
+  const reports: FinancialReportItem[] = Array.isArray(data?.data)
+    ? (data.data as unknown[]).filter(isFinancialReportItem)
+    : [];
   const pagination = data?.pagination;
 
   const reportTypes = [
@@ -118,7 +142,7 @@ export function BrokerFinancialReports() {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: any }> = {
+    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: LucideIcon }> = {
       generating: { variant: 'outline', icon: Clock },
       completed: { variant: 'default', icon: CheckCircle2 },
       failed: { variant: 'destructive', icon: XCircle },
@@ -301,7 +325,7 @@ export function BrokerFinancialReports() {
           ) : (
             <>
               <div className="space-y-4">
-                {reports.map((report: any) => (
+                {reports.map((report) => (
                   <div
                     key={report.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"

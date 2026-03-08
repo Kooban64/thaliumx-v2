@@ -499,10 +499,10 @@ router.get('/settings', requireRole(['super_admin']), async (req: Request, res: 
         networkId: config.blockchain.networkId,
         confirmations: config.blockchain.confirmations
       },
-      zitadel: {
-        issuer: config.zitadel.issuer,
-        jwksUri: config.zitadel.jwksUri,
-        audience: config.zitadel.audience
+      keycloak: {
+        issuer: config.keycloak?.issuer,
+        jwksUri: config.keycloak?.jwksUri,
+        audience: config.keycloak?.audience
       },
       kafka: {
         brokers: config.kafka.brokers,
@@ -655,7 +655,8 @@ router.get('/health', requireRole(['admin', 'super_admin']), async (req: Request
     const healthChecks: any = {
       database: 'unknown',
       redis: 'unknown',
-      kafka: 'unknown'
+      kafka: 'unknown',
+      opa: 'unknown'
     };
     
     // Check database
@@ -681,6 +682,15 @@ router.get('/health', requireRole(['admin', 'super_admin']), async (req: Request
       healthChecks.kafka = kafkaHealthy ? 'healthy' : 'degraded';
     } catch {
       healthChecks.kafka = 'unknown';
+    }
+    
+    // Check OPA (Open Policy Agent)
+    try {
+      const { opaService } = await import('../services/opa');
+      const opaHealthy = await opaService.healthCheck();
+      healthChecks.opa = opaHealthy ? 'healthy' : 'unhealthy';
+    } catch {
+      healthChecks.opa = 'unhealthy';
     }
     
     // Overall status

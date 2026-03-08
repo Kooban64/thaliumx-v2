@@ -127,6 +127,22 @@ export interface AuthResponse {
   tokenType: 'Bearer';
 }
 
+export type SessionChannel = 'direct' | 'broker';
+
+export interface AuthContext {
+  provider: 'keycloak' | 'internal-jwt';
+  channel: SessionChannel;
+  brokerId?: string;
+  brokerSlug?: string;
+  customerId?: string;
+  mandateScopes: string[];
+  sessionType?: string;
+  subject: string;
+  issuer?: string;
+  audience: string[];
+  resolvedHost?: string;
+}
+
 export interface JWTPayload {
   /**
    * Back-compat alias for older route handlers that expect `req.user.id`.
@@ -139,6 +155,14 @@ export interface JWTPayload {
   roles?: UserRole[]; // Support multiple roles
   tenantId: string;
   brokerId?: string; // Broker context for broker-scoped operations
+  brokerSlug?: string;
+  channel?: SessionChannel;
+  customerId?: string;
+  mandateScopes?: string[];
+  sessionType?: string;
+  authProvider?: 'keycloak' | 'internal-jwt';
+  issuer?: string;
+  audience?: string[];
   permissions: Permission[];
   iat: number;
   exp: number;
@@ -317,6 +341,7 @@ export interface SMTPConfig {
 export interface AppConfig {
   port: number;
   env: 'development' | 'staging' | 'production';
+  authProvider?: 'keycloak' | 'internal-jwt';
   cors: {
     origin: string[];
     credentials: boolean;
@@ -362,10 +387,12 @@ export interface AppConfig {
     replicationFactor?: number;
     minInSyncReplicas?: number;
   };
-    zitadel: {
-      issuer: string;
-      jwksUri: string;
+    keycloak?: {
+      issuer?: string;
+      jwksUri?: string;
       audience?: string;
+      realm?: string;
+      clientId?: string;
     };
     wazuh?: {
       managerUrl?: string;

@@ -2,7 +2,9 @@
 
 import { useMemo } from 'react';
 import type { NavItem } from '@/config/nav/types';
+import type { KYCLevel as NavKYCLevel } from '@/config/nav/types';
 import { useUserStore } from '@/stores/userStore';
+import type { UserProfile } from '@/stores/userStore';
 import { useKYCStore } from '@/stores/kycStore';
 import { useConfigStore } from '@/stores/configStore';
 import { useRBACStore } from '@/stores/rbacStore';
@@ -16,6 +18,7 @@ export function useMenuFilter() {
   const { profile } = useUserStore();
   const { level: kycLevel } = useKYCStore();
   const { features } = useConfigStore();
+  const rbacStore = useRBACStore();
 
   const filterItems = useMemo(
     () => (items: NavItem[]): NavItem[] => {
@@ -23,7 +26,7 @@ export function useMenuFilter() {
       
       for (const item of items) {
         // Check if item should be visible
-        if (!shouldShowItem(item, profile, kycLevel, features)) {
+        if (!shouldShowItem(item, profile, kycLevel, features, rbacStore)) {
           continue;
         }
 
@@ -41,7 +44,7 @@ export function useMenuFilter() {
       
       return filtered;
     },
-    [profile, kycLevel, features]
+    [profile, kycLevel, features, rbacStore]
   );
 
   return { filterItems };
@@ -52,9 +55,10 @@ export function useMenuFilter() {
  */
 function shouldShowItem(
   item: NavItem,
-  profile: any,
+  profile: UserProfile | null,
   kycLevel: string | null,
-  _features: Record<string, boolean>
+  _features: Record<string, boolean>,
+  rbacStore: ReturnType<typeof useRBACStore.getState>
 ): boolean {
   // Check if disabled
   if (item.disabled) {
@@ -63,33 +67,43 @@ function shouldShowItem(
 
   // Check role requirements
   if (item.roles && item.roles.length > 0) {
-    if (!profile?.role || !item.roles.includes(profile.role)) {
+    const userRole = profile?.role || rbacStore.userRole;
+    if (!userRole || !item.roles.includes(userRole)) {
       return false;
     }
   }
 
   // Check KYC level requirements
   if (item.kycLevels && item.kycLevels.length > 0) {
-    if (!kycLevel || !item.kycLevels.includes(kycLevel as any)) {
+    const typedKycLevel = kycLevel as NavKYCLevel | null;
+    if (!typedKycLevel || !item.kycLevels.includes(typedKycLevel)) {
       return false;
     }
   }
 
   // Check feature flags
   if (item.featureFlag) {
-    if (!isFeatureEnabled(item.featureFlag as any)) {
+    if (!isFeatureEnabled(item.featureFlag as Parameters<typeof isFeatureEnabled>[0])) {
       return false;
     }
   }
 
-  // Check permissions
+  // Check permissions (handle gracefully if RBAC not initialized)
   if (item.permissions && item.permissions.length > 0) {
-    const rbacStore = useRBACStore.getState();
-    const hasRequiredPermission = item.permissions.some((permission) =>
-      rbacStore.checkPermission(permission)
-    );
-    if (!hasRequiredPermission) {
-      return false;
+    try {
+      const hasRequiredPermission = item.permissions.some((permission) =>
+        rbacStore.checkPermission(permission)
+      );
+      if (!hasRequiredPermission) {
+        return false;
+      }
+    } catch {
+      // If permission check fails (RBAC not initialized), allow item if no role requirement
+      // This prevents menu from being empty during initialization
+      if (item.roles && item.roles.length > 0) {
+        return false; // Has role requirement, so hide if permission check fails
+      }
+      // No role requirement, allow item (will be filtered by role check above if needed)
     }
   }
 

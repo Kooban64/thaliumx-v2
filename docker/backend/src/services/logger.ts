@@ -86,13 +86,14 @@ export class LoggerService {
       });
     }
     
-    // Initialize audit queue for guaranteed delivery
-    AuditQueueService.initialize();
-    
-    // Initialize log retention policies
-    LogRetentionService.initialize();
-    if (process.env.AUDIT_LOG_RETENTION_ENABLED !== 'false') {
-      LogRetentionService.scheduleRetentionEnforcement();
+    // Initialize audit queue / retention only outside test runtime to avoid open handles.
+    if (process.env.NODE_ENV !== 'test') {
+      AuditQueueService.initialize();
+
+      LogRetentionService.initialize();
+      if (process.env.AUDIT_LOG_RETENTION_ENABLED !== 'false') {
+        LogRetentionService.scheduleRetentionEnforcement();
+      }
     }
     
     // Initialize metrics tracking

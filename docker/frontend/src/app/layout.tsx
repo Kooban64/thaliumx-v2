@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { GlobalErrorHandler } from "@/components/GlobalErrorHandler";
 import { Providers } from "./providers";
-import { ChatWidget } from "@/components/support/ChatWidget";
 import { PolicyViolationAlertContainer } from "@/components/opa/PolicyViolationAlertContainer";
 import { AppFrame } from "@/components/layout/AppFrame";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -33,17 +33,19 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <GlobalErrorHandler />
         <Providers>
           <ErrorBoundary>
             <AppFrame>
               <AppHeader />
-              <main className="flex-1 overflow-auto p-4 md:p-6">
-                {children}
+              <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8 min-h-0">
+                <div className="max-w-7xl mx-auto w-full">
+                  {children}
+                </div>
               </main>
               <AppFooter />
             </AppFrame>
             <CommandPalette />
-            <ChatWidget />
             <PolicyViolationAlertContainer />
           </ErrorBoundary>
         </Providers>

@@ -1,0 +1,684 @@
+
+> @thaliumx/workspace@1.0.0 typecheck /home/ubuntu/thaliumx-v1/docker
+> pnpm -r typecheck
+
+Scope: 3 of 4 workspace projects
+shared typecheck$ tsc --noEmit
+shared typecheck: Done
+frontend typecheck$ tsc --noEmit
+backend typecheck$ tsc --noEmit
+frontend typecheck: src/__tests__/utils/sanitize.test.ts(39,27): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+frontend typecheck: src/__tests__/utils/sanitize.test.ts(40,27): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+frontend typecheck: src/__tests__/utils/sanitize.test.ts(131,27): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+frontend typecheck: src/__tests__/utils/sanitize.test.ts(185,14): error TS18046: 'result' is of type 'unknown'.
+frontend typecheck: src/__tests__/utils/sanitize.test.ts(186,14): error TS18046: 'result' is of type 'unknown'.
+frontend typecheck: src/__tests__/utils/sanitize.test.ts(187,14): error TS18046: 'result' is of type 'unknown'.
+frontend typecheck: src/__tests__/utils/sanitize.test.ts(193,14): error TS18046: 'result' is of type 'unknown'.
+frontend typecheck: src/__tests__/utils/sanitize.test.ts(194,14): error TS18046: 'result' is of type 'unknown'.
+frontend typecheck: src/__tests__/utils/sanitize.test.ts(206,14): error TS18046: 'result' is of type 'unknown'.
+frontend typecheck: src/__tests__/utils/sanitize.test.ts(207,14): error TS18046: 'result' is of type 'unknown'.
+frontend typecheck: src/app/admin/analytics/brokers/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/analytics/platform/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/analytics/reports/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/brokers/[id]/page.tsx(28,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/brokers/onboard/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/brokers/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/brokers/settings/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/compliance/audit/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/compliance/kyc/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/compliance/page.tsx(76,58): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/app/admin/compliance/reports/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/financial/ledger/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/financial/reconciliation/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/financial/reports/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/financial/treasury/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/page.tsx(25,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/policies/page.tsx(98,38): error TS2339: Property 'healthy' does not exist on type '{}'.
+frontend typecheck: src/app/admin/policies/page.tsx(98,61): error TS2339: Property 'version' does not exist on type '{}'.
+frontend typecheck: src/app/admin/policies/page.tsx(110,25): error TS2339: Property 'presets' does not exist on type '{}'.
+frontend typecheck: src/app/admin/policies/page.tsx(211,26): error TS2339: Property 'result' does not exist on type '{}'.
+frontend typecheck: src/app/admin/rbac/assign/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/rbac/permissions/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/rbac/roles/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/security/devices/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/security/oversight/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/security/risk/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/system/health/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/system/info/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/system/settings/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/token-platform/page.tsx(57,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/token-platform/page.tsx(78,26): error TS2345: Argument of type '{}' is not assignable to parameter of type 'SetStateAction<PresaleStatus | null>'.
+frontend typecheck: src/app/admin/token-platform/page.tsx(92,59): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/admin/token-platform/page.tsx(92,89): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/admin/token-platform/page.tsx(93,57): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/admin/token-platform/page.tsx(94,56): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/admin/token-platform/page.tsx(94,83): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/admin/token-platform/page.tsx(95,92): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/admin/users/[id]/page.tsx(28,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/users/limits/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/users/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/users/roles/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/workflows/[id]/page.tsx(28,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/workflows/kyc/page.tsx(26,52): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/app/admin/workflows/page.tsx(57,61): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(61,61): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(61,86): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(62,64): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(62,92): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(63,61): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(63,86): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(65,73): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(65,101): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(67,19): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(67,34): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(68,40): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(69,38): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(81,28): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/admin/workflows/page.tsx(81,38): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(18,18): error TS18046: 'e' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(35,23): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(38,58): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(39,65): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(42,33): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(43,33): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(47,31): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(48,32): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(49,37): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(50,38): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(51,41): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(52,35): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(53,18): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/portfolio/page.tsx(54,50): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/app/support/page.tsx(45,16): error TS18046: 'err' is of type 'unknown'.
+frontend typecheck: src/app/support/page.tsx(72,16): error TS18046: 'err' is of type 'unknown'.
+frontend typecheck: src/app/support/page.tsx(210,65): error TS2322: Type 'unknown' is not assignable to type '"low" | "high" | "critical" | "normal"'.
+frontend typecheck: src/app/token-presale/page.tsx(264,36): error TS2339: Property 'totalRaised' does not exist on type '{}'.
+frontend typecheck: src/app/token-presale/page.tsx(277,36): error TS2339: Property 'target' does not exist on type '{}'.
+frontend typecheck: src/app/token-presale/page.tsx(290,35): error TS2339: Property 'participants' does not exist on type '{}'.
+frontend typecheck: src/app/token-presale/page.tsx(303,35): error TS2339: Property 'timeRemaining' does not exist on type '{}'.
+frontend typecheck: src/app/token-presale/page.tsx(448,46): error TS18046: 'wallet' is of type 'unknown'.
+frontend typecheck: src/app/token-presale/page.tsx(448,64): error TS18046: 'wallet' is of type 'unknown'.
+frontend typecheck: src/app/token-presale/page.tsx(449,36): error TS18046: 'wallet' is of type 'unknown'.
+frontend typecheck: src/app/token-presale/page.tsx(449,67): error TS18046: 'wallet' is of type 'unknown'.
+frontend typecheck: src/app/token-presale/page.tsx(449,95): error TS18046: 'wallet' is of type 'unknown'.
+frontend typecheck: src/app/vesting/page.tsx(27,18): error TS18046: 'e' is of type 'unknown'.
+frontend typecheck: src/app/vesting/page.tsx(44,23): error TS18046: 'v' is of type 'unknown'.
+frontend typecheck: src/app/vesting/page.tsx(47,59): error TS18046: 'v' is of type 'unknown'.
+frontend typecheck: src/app/vesting/page.tsx(48,71): error TS18046: 'v' is of type 'unknown'.
+frontend typecheck: src/app/vesting/page.tsx(51,32): error TS18046: 'v' is of type 'unknown'.
+frontend typecheck: src/app/vesting/page.tsx(52,35): error TS18046: 'v' is of type 'unknown'.
+frontend typecheck: src/app/vesting/page.tsx(53,37): error TS18046: 'v' is of type 'unknown'.
+frontend typecheck: src/app/vesting/page.tsx(57,30): error TS18046: 'v' is of type 'unknown'.
+frontend typecheck: src/app/vesting/page.tsx(58,32): error TS18046: 'v' is of type 'unknown'.
+frontend typecheck: src/app/vesting/page.tsx(59,35): error TS18046: 'v' is of type 'unknown'.
+frontend typecheck: src/app/vesting/page.tsx(60,35): error TS18046: 'v' is of type 'unknown'.
+frontend typecheck: src/app/wallet/deposit/page.tsx(55,21): error TS2339: Property 'message' does not exist on type '{}'.
+frontend typecheck: src/app/wallet/deposit/page.tsx(123,25): error TS2322: Type 'unknown' is not assignable to type 'WorkflowState'.
+frontend typecheck: src/components/WalletConnectButton.tsx(12,15): error TS2339: Property 'ethereum' does not exist on type 'unknown'.
+frontend typecheck: src/components/WalletConnectButton.tsx(20,16): error TS18046: 'e' is of type 'unknown'.
+frontend typecheck: src/components/WalletConnectButton.tsx(25,13): error TS2339: Property 'ethereum' does not exist on type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(24,7): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(25,7): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(26,7): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(102,24): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(102,37): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(106,64): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(106,77): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(110,53): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(110,66): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(113,51): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(113,66): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(122,28): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(122,43): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(124,26): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(125,43): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(126,30): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(131,26): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(132,58): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(134,26): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(137,30): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(149,53): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(149,66): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(155,55): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerList.tsx(155,68): error TS18046: 'broker' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerOnboarding.tsx(52,22): error TS18046: 'error' is of type 'unknown'.
+frontend typecheck: src/components/admin/brokers/BrokerSettings.tsx(45,22): error TS18046: 'error' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(39,8): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(39,22): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(40,8): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(40,22): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(41,8): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(41,24): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(42,8): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(42,38): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(221,24): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(226,65): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(227,24): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(228,75): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(232,24): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(232,49): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(236,28): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(238,20): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/AuditLogs.tsx(244,41): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/KYCManagement.tsx(32,12): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/KYCManagement.tsx(97,24): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/KYCManagement.tsx(97,35): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/KYCManagement.tsx(107,28): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/KYCManagement.tsx(107,41): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/KYCManagement.tsx(107,58): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/KYCManagement.tsx(109,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/KYCManagement.tsx(110,55): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/KYCManagement.tsx(112,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/KYCManagement.tsx(118,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/KYCManagement.tsx(124,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/KYCManagement.tsx(132,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/KYCManagement.tsx(140,22): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/RegulatoryReports.tsx(60,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/RegulatoryReports.tsx(60,31): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/RegulatoryReports.tsx(61,16): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/RegulatoryReports.tsx(90,22): error TS18046: 'error' is of type 'unknown'.
+frontend typecheck: src/components/admin/compliance/RegulatoryReports.tsx(153,10): error TS2604: JSX element type 'Icon' does not have any construct or call signatures.
+frontend typecheck: src/components/admin/compliance/RegulatoryReports.tsx(153,10): error TS2786: 'Icon' cannot be used as a JSX component.
+frontend typecheck:   Its type 'unknown' is not a valid JSX element type.
+frontend typecheck: src/components/admin/dashboard/PlatformMetricsCard.tsx(14,25): error TS2339: Property 'metrics' does not exist on type '{}'.
+frontend typecheck: src/components/admin/dashboard/RecentActivityCard.tsx(73,22): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/dashboard/RecentActivityCard.tsx(78,60): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/dashboard/RecentActivityCard.tsx(79,22): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/dashboard/RecentActivityCard.tsx(81,34): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/dashboard/RecentActivityCard.tsx(85,20): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/dashboard/RecentActivityCard.tsx(87,34): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/dashboard/RecentActivityCard.tsx(91,33): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/dashboard/RecentActivityCard.tsx(91,50): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/dashboard/RecentActivityCard.tsx(94,18): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/dashboard/RecentActivityCard.tsx(96,21): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/dashboard/RecentActivityCard.tsx(97,21): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/dashboard/RecentActivityCard.tsx(100,22): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/admin/limits/LimitNotificationSettings.tsx(55,22): error TS18046: 'error' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(59,22): error TS18046: 'error' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(110,40): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(110,51): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(110,69): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(110,80): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(111,26): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(111,39): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(161,24): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(161,35): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(163,39): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(163,50): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(167,50): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(167,61): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(176,28): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(176,41): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(176,58): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(178,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(179,53): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(183,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(187,38): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleAssignment.tsx(187,49): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleManager.tsx(57,22): error TS18046: 'error' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleManager.tsx(82,22): error TS18046: 'error' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleManager.tsx(202,24): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleManager.tsx(202,35): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleManager.tsx(208,26): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleManager.tsx(208,39): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleManager.tsx(211,26): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleManager.tsx(214,22): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleManager.tsx(216,26): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleManager.tsx(227,55): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/rbac/RoleManager.tsx(227,66): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/system/SystemSettings.tsx(50,22): error TS18046: 'error' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimits.tsx(78,33): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+frontend typecheck:   No index signature with a parameter of type 'string' was found on type '{}'.
+frontend typecheck: src/components/admin/users/UserLimits.tsx(143,35): error TS18046: 'editedLimits' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimits.tsx(164,31): error TS2698: Spread types may only be created from object types.
+frontend typecheck: src/components/admin/users/UserLimits.tsx(166,36): error TS18046: 'prev' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimits.tsx(185,31): error TS2698: Spread types may only be created from object types.
+frontend typecheck: src/components/admin/users/UserLimits.tsx(187,36): error TS18046: 'prev' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimits.tsx(229,25): error TS2698: Spread types may only be created from object types.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(68,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(68,37): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(70,43): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(70,54): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(74,54): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(74,65): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(83,30): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(83,43): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(83,60): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(85,28): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(86,57): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(90,28): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(99,53): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserLimitsManagement.tsx(99,64): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(132,24): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(132,35): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(136,62): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(136,73): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(140,51): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(140,62): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(143,51): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(143,64): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(152,28): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(152,41): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(152,58): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(154,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(155,79): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(157,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(158,81): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(162,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(165,57): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(168,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(171,30): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(183,51): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(183,62): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(189,53): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserList.tsx(189,64): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(59,22): error TS18046: 'error' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(110,40): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(110,51): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(110,69): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(110,80): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(111,26): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(111,39): error TS18046: 'role' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(161,24): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(161,35): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(163,39): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(163,50): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(167,50): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(167,61): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(176,28): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(176,41): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(176,58): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(178,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(179,53): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(183,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(187,38): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/users/UserRoleAssignment.tsx(187,49): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/admin/workflows/WorkflowDetails.tsx(78,10): error TS2604: JSX element type 'Icon' does not have any construct or call signatures.
+frontend typecheck: src/components/admin/workflows/WorkflowDetails.tsx(78,10): error TS2786: 'Icon' cannot be used as a JSX component.
+frontend typecheck:   Its type 'unknown' is not a valid JSX element type.
+frontend typecheck: src/components/admin/workflows/WorkflowDetails.tsx(172,7): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+frontend typecheck: src/components/admin/workflows/WorkflowDetails.tsx(228,51): error TS18046: 'step' is of type 'unknown'.
+frontend typecheck: src/components/admin/workflows/WorkflowDetails.tsx(229,24): error TS18046: 'step' is of type 'unknown'.
+frontend typecheck: src/components/admin/workflows/WorkflowDetails.tsx(230,71): error TS18046: 'step' is of type 'unknown'.
+frontend typecheck: src/components/admin/workflows/WorkflowDetails.tsx(232,24): error TS18046: 'step' is of type 'unknown'.
+frontend typecheck: src/components/admin/workflows/WorkflowDetails.tsx(233,78): error TS18046: 'step' is of type 'unknown'.
+frontend typecheck: src/components/admin/workflows/WorkflowDetails.tsx(238,37): error TS18046: 'step' is of type 'unknown'.
+frontend typecheck: src/components/auth/LoginForm.tsx(148,49): error TS2339: Property 'message' does not exist on type '{}'.
+frontend typecheck: src/components/auth/LoginForm.tsx(148,87): error TS2339: Property 'code' does not exist on type '{}'.
+frontend typecheck: src/components/broker/compliance/BrokerAuditLogs.tsx(51,27): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerAuditLogs.tsx(53,52): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerAuditLogs.tsx(55,33): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerAuditLogs.tsx(55,50): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerAuditLogs.tsx(58,20): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerAuditLogs.tsx(60,30): error TS18046: 'log' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerComplianceDashboard.tsx(61,10): error TS2604: JSX element type 'Icon' does not have any construct or call signatures.
+frontend typecheck: src/components/broker/compliance/BrokerComplianceDashboard.tsx(61,10): error TS2786: 'Icon' cannot be used as a JSX component.
+frontend typecheck:   Its type 'unknown' is not a valid JSX element type.
+frontend typecheck: src/components/broker/compliance/BrokerTransactionMonitoring.tsx(190,26): error TS18046: 'transaction' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerTransactionMonitoring.tsx(195,39): error TS18046: 'transaction' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerTransactionMonitoring.tsx(199,28): error TS18046: 'transaction' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerTransactionMonitoring.tsx(199,64): error TS18046: 'transaction' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerTransactionMonitoring.tsx(199,84): error TS18046: 'transaction' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerTransactionMonitoring.tsx(202,37): error TS18046: 'transaction' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerTransactionMonitoring.tsx(202,75): error TS18046: 'transaction' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerTransactionMonitoring.tsx(205,28): error TS18046: 'transaction' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerTransactionMonitoring.tsx(213,41): error TS18046: 'transaction' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerTransactionMonitoring.tsx(217,24): error TS18046: 'transaction' is of type 'unknown'.
+frontend typecheck: src/components/broker/compliance/BrokerTransactionMonitoring.tsx(221,60): error TS18046: 'transaction' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerFinancialReports.tsx(132,10): error TS2604: JSX element type 'Icon' does not have any construct or call signatures.
+frontend typecheck: src/components/broker/financial/BrokerFinancialReports.tsx(132,10): error TS2786: 'Icon' cannot be used as a JSX component.
+frontend typecheck:   Its type 'unknown' is not a valid JSX element type.
+frontend typecheck: src/components/broker/financial/BrokerFinancialReports.tsx(306,26): error TS18046: 'report' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerFinancialReports.tsx(311,41): error TS18046: 'report' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerFinancialReports.tsx(315,59): error TS18046: 'report' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerFinancialReports.tsx(315,81): error TS18046: 'report' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerFinancialReports.tsx(318,36): error TS18046: 'report' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerFinancialReports.tsx(321,52): error TS18046: 'report' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerFinancialReports.tsx(326,24): error TS18046: 'report' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerFinancialReports.tsx(326,57): error TS18046: 'report' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerFinancialReports.tsx(330,63): error TS18046: 'report' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerFinancialReports.tsx(336,24): error TS18046: 'report' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(133,10): error TS2604: JSX element type 'Icon' does not have any construct or call signatures.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(133,10): error TS2786: 'Icon' cannot be used as a JSX component.
+frontend typecheck:   Its type 'unknown' is not a valid JSX element type.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(141,45): error TS18046: 'j' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(142,41): error TS18046: 'j' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(143,42): error TS18046: 'j' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(143,68): error TS18046: 'j' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(307,26): error TS18046: 'job' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(312,41): error TS18046: 'job' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(316,39): error TS18046: 'job' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(316,69): error TS18046: 'job' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(319,52): error TS18046: 'job' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(321,26): error TS18046: 'job' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(323,45): error TS18046: 'job' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(329,24): error TS18046: 'job' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(329,54): error TS18046: 'job' is of type 'unknown'.
+frontend typecheck: src/components/broker/financial/BrokerReconciliation.tsx(333,63): error TS18046: 'job' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(38,5): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(115,24): error TS18046: 'market' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(117,49): error TS18046: 'market' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(122,37): error TS18046: 'market' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(125,21): error TS18046: 'market' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(127,22): error TS18046: 'market' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(132,36): error TS18046: 'market' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(135,49): error TS18046: 'market' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(138,43): error TS18046: 'market' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(138,83): error TS18046: 'market' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(176,28): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(178,56): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(180,64): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(184,29): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(186,33): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(191,28): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(194,63): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(195,63): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerMarketData.tsx(196,63): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerOrderManagement.tsx(53,24): error TS18046: 'tx' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerOrderManagement.tsx(57,22): error TS18046: 'tx' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerOrderManagement.tsx(64,26): error TS18046: 'tx' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerOrderManagement.tsx(64,51): error TS18046: 'tx' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerOrderManagement.tsx(64,63): error TS18046: 'tx' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerOrderManagement.tsx(67,35): error TS18046: 'tx' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerOrderManagement.tsx(71,35): error TS18046: 'tx' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerOrderManagement.tsx(72,22): error TS18046: 'tx' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(38,9): error TS18046: 'p' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(38,22): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(39,11): error TS2698: Spread types may only be created from object types.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(40,19): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(114,57): error TS18046: 'p' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(304,24): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(307,36): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(309,23): error TS2322: Type '{ pair: unknown; onSave: (pair: unknown) => Promise<void>; onCancel: () => void; isSaving: boolean; }' is not assignable to type 'IntrinsicAttributes'.
+frontend typecheck:   Property 'pair' does not exist on type 'IntrinsicAttributes'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(318,57): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(320,30): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(320,50): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(325,29): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(327,33): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(332,28): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(335,33): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(335,60): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(335,87): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(342,57): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(350,59): error TS18046: 'pair' is of type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(382,23): error TS2339: Property 'pair' does not exist on type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(382,29): error TS2339: Property 'onSave' does not exist on type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(382,37): error TS2339: Property 'onCancel' does not exist on type 'unknown'.
+frontend typecheck: src/components/broker/trading/BrokerTradingConfig.tsx(382,47): error TS2339: Property 'isSaving' does not exist on type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(41,10): error TS2604: JSX element type 'Icon' does not have any construct or call signatures.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(41,10): error TS2786: 'Icon' cannot be used as a JSX component.
+frontend typecheck:   Its type 'unknown' is not a valid JSX element type.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(82,58): error TS18046: 'r' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(124,54): error TS18046: 'r' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(173,24): error TS18046: 'record' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(180,50): error TS18046: 'record' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(183,28): error TS18046: 'record' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(183,43): error TS18046: 'record' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(185,41): error TS18046: 'record' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(186,43): error TS18046: 'record' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(189,26): error TS18046: 'record' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(192,44): error TS18046: 'record' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(197,22): error TS18046: 'record' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerKYCManagement.tsx(203,52): error TS18046: 'record' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserDetails.tsx(21,49): error TS18046: 'u' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserDetails.tsx(144,33): error TS2571: Object is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(70,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(70,37): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(72,43): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(72,54): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(76,54): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(76,65): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(85,30): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(85,43): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(85,60): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(87,28): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(88,57): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(92,28): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(101,54): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserLimits.tsx(101,65): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(32,10): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(35,9): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(141,24): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(148,50): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(151,28): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(151,46): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(152,34): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(152,52): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(153,31): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(153,48): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(156,38): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(159,26): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(162,43): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/broker/users/BrokerUserList.tsx(168,52): error TS18046: 'user' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(65,36): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(69,36): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(69,67): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(74,29): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(74,56): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(76,38): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(76,69): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(82,29): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(82,56): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(84,38): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(84,69): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(96,17): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(97,32): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(98,32): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(98,63): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(99,21): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(100,24): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(100,41): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(101,24): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(101,51): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(102,32): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/dashboard/ThalTokenSection.tsx(102,67): error TS18046: 'inv' is of type 'unknown'.
+frontend typecheck: src/components/kyc/DocumentUploader.tsx(56,18): error TS18046: 'err' is of type 'unknown'.
+frontend typecheck: src/components/kyc/KYCCollectionFlow.tsx(81,30): error TS18046: 'err' is of type 'unknown'.
+frontend typecheck: src/components/kyc/KYCUpgradeWizard.tsx(143,16): error TS18046: 'err' is of type 'unknown'.
+frontend typecheck: src/components/kyc/LimitDashboard.tsx(44,41): error TS18046: 'err' is of type 'unknown'.
+frontend typecheck: src/components/kyc/UpgradePrompt.tsx(127,22): error TS18046: 'error' is of type 'unknown'.
+frontend typecheck: src/components/layout/AppFooter.tsx(49,20): error TS2339: Property 'response' does not exist on type '{}'.
+frontend typecheck: src/components/layout/AppFooter.tsx(121,11): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+frontend typecheck: src/components/layout/AppFooter.tsx(124,45): error TS2339: Property 'status' does not exist on type '{}'.
+frontend typecheck: src/components/layout/AppFooter.tsx(125,42): error TS2339: Property 'services' does not exist on type '{}'.
+frontend typecheck: src/components/layout/AppFooter.tsx(128,45): error TS2339: Property 'services' does not exist on type '{}'.
+frontend typecheck: src/components/layout/AppFooter.tsx(129,41): error TS2339: Property 'services' does not exist on type '{}'.
+frontend typecheck: src/components/layout/AppFooter.tsx(131,29): error TS2339: Property 'uptime' does not exist on type '{}'.
+frontend typecheck: src/components/layout/AppFooter.tsx(133,52): error TS2339: Property 'uptime' does not exist on type '{}'.
+frontend typecheck: src/components/layout/AppFooter.tsx(134,45): error TS2339: Property 'uptime' does not exist on type '{}'.
+frontend typecheck: src/components/layout/HeaderNav.tsx(126,23): error TS2339: Property 'role' does not exist on type '{}'.
+frontend typecheck: src/components/layout/HeaderUserMenu.tsx(82,22): error TS2339: Property 'firstName' does not exist on type '{}'.
+frontend typecheck: src/components/layout/HeaderUserMenu.tsx(82,46): error TS2339: Property 'email' does not exist on type '{}'.
+frontend typecheck: src/components/layout/HeaderUserMenu.tsx(86,20): error TS2339: Property 'firstName' does not exist on type '{}'.
+frontend typecheck: src/components/layout/HeaderUserMenu.tsx(86,39): error TS2339: Property 'email' does not exist on type '{}'.
+frontend typecheck: src/components/layout/HeaderUserMenu.tsx(93,53): error TS2339: Property 'firstName' does not exist on type '{}'.
+frontend typecheck: src/components/layout/HeaderUserMenu.tsx(93,71): error TS2339: Property 'lastName' does not exist on type '{}'.
+frontend typecheck: src/components/layout/HeaderUserMenu.tsx(94,63): error TS2339: Property 'email' does not exist on type '{}'.
+frontend typecheck: src/components/navigation/hooks/useMenuFilter.ts(68,31): error TS2339: Property 'role' does not exist on type '{}'.
+frontend typecheck: src/components/navigation/hooks/useMenuFilter.ts(76,47): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'KYCLevel'.
+frontend typecheck: src/components/navigation/hooks/useMenuFilter.ts(83,27): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'keyof FeatureFlags'.
+frontend typecheck: src/components/onboarding/OnboardingProgress.tsx(136,9): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+frontend typecheck: src/components/onboarding/OnboardingProgress.tsx(137,9): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+frontend typecheck: src/components/onboarding/OnboardingProgress.tsx(142,15): error TS2322: Type '{}' is not assignable to type 'string'.
+frontend typecheck: src/components/opa/PolicyViolationAlertContainer.tsx(20,63): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/components/opa/PolicyViolationAlertContainer.tsx(20,105): error TS2339: Property 'id' does not exist on type '{}'.
+frontend typecheck: src/components/shared/Toast.tsx(98,29): error TS2769: No overload matches this call.
+frontend typecheck:   Overload 1 of 2, '(type: keyof WindowEventMap, listener: (this: Window, ev: Event | PromiseRejectionEvent | ErrorEvent | MessageEvent<any> | ... 27 more ... | StorageEvent) => any, options?: boolean | ... 1 more ... | undefined): void', gave the following error.
+frontend typecheck:     Argument of type 'unknown' is not assignable to parameter of type 'keyof WindowEventMap'.
+frontend typecheck:   Overload 2 of 2, '(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions | undefined): void', gave the following error.
+frontend typecheck:     Argument of type 'unknown' is not assignable to parameter of type 'string'.
+frontend typecheck: src/components/shared/Toast.tsx(100,34): error TS2769: No overload matches this call.
+frontend typecheck:   Overload 1 of 2, '(type: keyof WindowEventMap, listener: (this: Window, ev: Event | PromiseRejectionEvent | ErrorEvent | MessageEvent<any> | ... 27 more ... | StorageEvent) => any, options?: boolean | ... 1 more ... | undefined): void', gave the following error.
+frontend typecheck:     Argument of type 'unknown' is not assignable to parameter of type 'keyof WindowEventMap'.
+frontend typecheck:   Overload 2 of 2, '(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions | undefined): void', gave the following error.
+frontend typecheck:     Argument of type 'unknown' is not assignable to parameter of type 'string'.
+frontend typecheck: src/components/trading/DEXTradingInterface.tsx(36,11): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/DEXTradingInterface.tsx(36,39): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/LiquidityPool.tsx(61,29): error TS18046: 'pool' is of type 'unknown'.
+frontend typecheck: src/components/trading/LiquidityPool.tsx(64,26): error TS18046: 'pool' is of type 'unknown'.
+frontend typecheck: src/components/trading/LiquidityPool.tsx(64,40): error TS18046: 'pool' is of type 'unknown'.
+frontend typecheck: src/components/trading/LiquidityPool.tsx(67,26): error TS18046: 'pool' is of type 'unknown'.
+frontend typecheck: src/components/trading/OrderBook.tsx(71,18): error TS18046: 'err' is of type 'unknown'.
+frontend typecheck: src/components/trading/TokenSwap.tsx(47,24): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/components/trading/TokenSwap.tsx(47,54): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/components/trading/TokenSwap.tsx(48,27): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/components/trading/TokenSwap.tsx(48,48): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/components/trading/TokenSwap.tsx(102,28): error TS18046: 'err' is of type 'unknown'.
+frontend typecheck: src/components/trading/TradingPanel.tsx(172,39): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/TradingPanel.tsx(175,24): error TS18046: 'workflow' is of type 'unknown'.
+frontend typecheck: src/components/trading/TradingPanel.tsx(176,19): error TS2322: Type 'unknown' is not assignable to type 'WorkflowState'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(59,55): error TS2339: Property 'user' does not exist on type '{}'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(81,77): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(81,98): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(82,58): error TS2339: Property 'nativeBalance' does not exist on type '{}'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(84,19): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(85,24): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(86,24): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(87,27): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(88,23): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(93,19): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(94,24): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(95,24): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(96,27): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(97,23): error TS18046: 'w' is of type 'unknown'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(132,34): error TS2339: Property 'request' does not exist on type '{}'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(141,36): error TS2339: Property 'chainId' does not exist on type '{}'.
+frontend typecheck: src/components/trading/Web3WalletConnector.tsx(149,35): error TS2339: Property 'request' does not exist on type '{}'.
+frontend typecheck: src/components/wallet/BankAccountManager.tsx(55,16): error TS18046: 'err' is of type 'unknown'.
+frontend typecheck: src/components/wallet/BankAccountManager.tsx(67,16): error TS18046: 'err' is of type 'unknown'.
+frontend typecheck: src/components/wallet/FIATDeposit.tsx(66,16): error TS18046: 'err' is of type 'unknown'.
+frontend typecheck: src/components/wallet/FIATWithdraw.tsx(83,16): error TS18046: 'err' is of type 'unknown'.
+frontend typecheck: src/components/wallet/HotWalletSend.tsx(83,16): error TS18046: 'err' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useAdmin.ts(72,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useAdmin.ts(72,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useAdmin.ts(90,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useAdmin.ts(90,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useAdmin.ts(109,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useAdmin.ts(109,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useAdmin.ts(149,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useAdmin.ts(149,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useAdmin.ts(167,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useAdmin.ts(167,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useAdmin.ts(201,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useAdmin.ts(201,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBankAccount.ts(15,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBankAccount.ts(15,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBankAccount.ts(34,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBankAccount.ts(34,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(113,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(115,17): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(116,23): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(165,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(167,17): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(168,23): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(215,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(217,17): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(218,23): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(269,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(271,17): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(272,23): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(369,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(369,31): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(370,16): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(407,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(409,17): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(410,23): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(475,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(477,17): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(478,23): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(606,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(608,17): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(609,23): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(640,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(640,31): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(641,16): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(662,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(662,31): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(663,16): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(710,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(710,31): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(711,16): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(752,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(752,31): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(753,16): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(780,70): error TS2571: Object is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(809,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(809,31): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(810,16): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(878,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(878,31): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(879,16): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(904,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(904,31): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(905,16): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(931,11): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(931,31): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useBroker.ts(932,16): error TS18046: 'response' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useKYC.ts(28,19): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'KYCLimits | null'.
+frontend typecheck: src/lib/api/hooks/useLimits.ts(214,17): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useLimits.ts(215,23): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useTrading.ts(38,46): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useTrading.ts(91,27): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useTrading.ts(118,22): error TS18046: 'responseData' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useTrading.ts(166,23): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useTrading.ts(252,22): error TS18046: 'responseData' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useTrading.ts(283,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useTrading.ts(283,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useTradingAnalytics.ts(30,22): error TS18046: 'responseData' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useTradingAnalytics.ts(64,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useTradingAnalytics.ts(64,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useUser.ts(18,22): error TS2571: Object is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(16,25): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(16,38): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(36,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(36,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(55,25): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(55,38): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(80,26): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(80,39): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(106,30): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(106,43): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(129,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(129,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(155,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(155,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(184,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/hooks/useWallet.ts(184,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(93,10): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(93,25): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(110,10): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(110,26): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(119,10): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(119,25): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(128,10): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(128,26): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(140,13): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(140,28): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(141,13): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(141,28): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(142,15): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(142,32): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(143,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(143,34): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(144,16): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(144,34): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(154,10): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(154,25): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(163,10): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/api/support.ts(163,26): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/lib/rbac/permissions.ts(289,49): error TS2345: Argument of type 'unknown' is not assignable to parameter of type '"system:admin" | "system:config:read" | "system:config:write" | "system:health:read" | "user:role:assign" | "user:role:remove" | "broker:list" | "broker:read" | "broker:create" | ... 30 more ... | "audit:view"'.
+frontend typecheck: src/lib/sanitize.ts(202,9): error TS18046: 'sanitized' is of type 'unknown'.
+frontend typecheck: src/lib/sanitize.ts(205,9): error TS18046: 'sanitized' is of type 'unknown'.
+frontend typecheck: src/lib/sanitize.ts(211,33): error TS18046: 'sanitized' is of type 'unknown'.
+frontend typecheck: src/lib/sanitize.ts(212,14): error TS18046: 'sanitized' is of type 'unknown'.
+frontend typecheck: src/lib/sanitize.ts(214,9): error TS18046: 'sanitized' is of type 'unknown'.
+frontend typecheck: src/stores/rbacStore.ts(100,56): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: src/stores/rbacStore.ts(101,58): error TS18046: 'ur' is of type 'unknown'.
+frontend typecheck: src/stores/rbacStore.ts(101,73): error TS18046: 'ur' is of type 'unknown'.
+frontend typecheck: src/stores/rbacStore.ts(126,29): error TS18046: 'data' is of type 'unknown'.
+frontend typecheck: Failed
+/home/ubuntu/thaliumx-v1/docker/frontend:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @thaliumx/frontend@1.0.0 typecheck: `tsc --noEmit`
+Exit status 1
+ ELIFECYCLE  Command failed with exit code 1.

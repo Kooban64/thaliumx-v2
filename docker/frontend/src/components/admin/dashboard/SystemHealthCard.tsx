@@ -94,7 +94,7 @@ export function SystemHealthCard() {
         {healthData?.services && (
           <div className="space-y-2 pt-2 border-t">
             <div className="text-sm font-medium mb-2">Services</div>
-            {Object.entries(healthData.services).map(([service, status]: [string, any]) => (
+            {Object.entries(healthData.services).map(([service, status]: [string, string]) => (
               <div key={service} className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground capitalize">{service.replace(/_/g, ' ')}</span>
                 <Badge className={getStatusColor(status)}>

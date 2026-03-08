@@ -1,47 +1,65 @@
 'use client';
 
 import { logError, ErrorCategory, ErrorSeverity } from '@/lib/services/errorLogger';
+import { getAccessToken } from './token-store';
+import type { UserProfile } from '@/stores/userStore';
 
 /**
- * Backend Authentication Utilities with Zitadel OIDC Support
+ * Backend Authentication Utilities with Keycloak OIDC Support
  * 
- * Handles authentication through backend APIs while using Zitadel tokens.
- * Maintains clean UI abstraction - users don't see Zitadel implementation details.
+ * Handles authentication through backend APIs while using Keycloak tokens.
+ * Maintains clean UI abstraction - users don't see identity-provider implementation details.
  */
 
-// Store Zitadel token in memory (not persisted to localStorage for security)
-let zitadelToken: string | null = null;
+export type AuthProvider = 'keycloak';
+
+const resolveAuthProvider = (): AuthProvider => {
+  return 'keycloak';
+};
+
+// Store auth token in memory (not persisted to localStorage for security)
+let authToken: string | null = null;
 let tokenExpiresAt: number = 0;
 
 /**
- * Store Zitadel token securely in memory
+ * Store Keycloak token securely in memory
  */
-export function setZitadelToken(token: string, expiresIn: number): void {
-  zitadelToken = token;
+export function setAuthToken(token: string, expiresIn: number): void {
+  authToken = token;
   tokenExpiresAt = Date.now() + (expiresIn * 1000);
 }
 
 /**
- * Get current Zitadel token if valid
+ * Get current Keycloak token if valid
  */
-export function getZitadelToken(): string | null {
-  if (zitadelToken && tokenExpiresAt > Date.now() + 60000) { // 1 minute buffer
-    return zitadelToken;
+export function getAuthToken(): string | null {
+  if (authToken && tokenExpiresAt > Date.now() + 60000) { // 1 minute buffer
+    return authToken;
   }
+
+  // OIDC callback stores token via token-store. Mirror as fallback.
+  const oidcToken = getAccessToken();
+  if (oidcToken) return oidcToken;
+
   return null;
 }
 
 /**
- * Clear stored Zitadel token
+ * Clear stored Keycloak token
  */
-export function clearZitadelToken(): void {
-  zitadelToken = null;
+export function clearAuthToken(): void {
+  authToken = null;
   tokenExpiresAt = 0;
 }
 
+export const setKeycloakToken = setAuthToken;
+export const getKeycloakToken = getAuthToken;
+export const clearKeycloakToken = clearAuthToken;
+export const getAuthProvider = resolveAuthProvider;
+
 /**
  * Login user with email and password
- * Backend authenticates via Zitadel and returns Zitadel token
+ * Backend authenticates via Keycloak and returns Keycloak token
  */
 export async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
   try {
@@ -69,7 +87,7 @@ export async function login(email: string, password: string): Promise<{ success:
         } else if (errorData.message) {
           errorMessage = errorData.message;
         }
-      } catch (error) {
+      } catch {
         // If JSON parsing fails, use status text
         errorMessage = response.statusText || `HTTP ${response.status}`;
       }
@@ -80,12 +98,17 @@ export async function login(email: string, password: string): Promise<{ success:
     }
 
     // Parse successful response
-    const data = await response.json();
+    const data = (await response.json()) as {
+      data?: {
+        accessToken?: string;
+        expiresIn?: number;
+      };
+    };
 
-    // Store Zitadel token from response (backend always returns token, not in cookies)
+    // Store Keycloak token from response (backend always returns token, not in cookies)
     // Token is stored in memory and used in Authorization header for all API calls
     if (data.data?.accessToken) {
-      setZitadelToken(data.data.accessToken, data.data.expiresIn || 3600);
+      setAuthToken(data.data.accessToken, data.data.expiresIn || 3600);
     } else {
       // Token should always be in response - if missing, it's an error
       return {
@@ -95,7 +118,8 @@ export async function login(email: string, password: string): Promise<{ success:
     }
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Network error during login';
     logError(
       error,
       ErrorCategory.AUTH,
@@ -104,25 +128,30 @@ export async function login(email: string, password: string): Promise<{ success:
     );
     return {
       success: false,
-      error: error.message || 'Network error during login'
+      error: message
     };
   }
 }
 
 /**
  * Check if user is authenticated by calling backend profile endpoint
- * Uses Zitadel token in Authorization header (stored in memory)
+ * Uses Keycloak token in Authorization header (stored in memory)
  */
 export async function checkAuth(): Promise<boolean> {
   try {
-    const token = getZitadelToken();
+    const token = getAuthToken();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
-    // Add Zitadel token to Authorization header if available
+    // Add Keycloak token to Authorization header if available
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // If no token, user is not authenticated (don't make API call)
+    if (!token) {
+      return false;
     }
 
     const response = await fetch('/api/auth/profile', {
@@ -131,7 +160,7 @@ export async function checkAuth(): Promise<boolean> {
       headers,
     });
     return response.ok;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -139,9 +168,9 @@ export async function checkAuth(): Promise<boolean> {
 /**
  * Get current user profile from backend
  */
-export async function getCurrentUser(): Promise<any | null> {
+export async function getCurrentUser(): Promise<UserProfile | null> {
   try {
-    const token = getZitadelToken();
+    const token = getAuthToken();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
@@ -160,9 +189,13 @@ export async function getCurrentUser(): Promise<any | null> {
       return null;
     }
     
-    const data = await response.json();
+    const data = (await response.json()) as {
+      data?: {
+        user?: UserProfile;
+      };
+    };
     return data.data?.user || null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -172,7 +205,7 @@ export async function getCurrentUser(): Promise<any | null> {
  */
 export async function logout(): Promise<void> {
   try {
-    const token = getZitadelToken();
+    const token = getAuthToken();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
@@ -186,12 +219,12 @@ export async function logout(): Promise<void> {
       method: 'POST',
       headers,
     });
-  } catch (error) {
+  } catch {
     // Ignore errors, still redirect
   }
   
   // Clear stored token
-  clearZitadelToken();
+  clearAuthToken();
   
   // Clear any client-side storage
   if (typeof window !== 'undefined') {
@@ -199,7 +232,7 @@ export async function logout(): Promise<void> {
       sessionStorage.clear();
       localStorage.removeItem('thaliumx_oidc_access_token');
       localStorage.removeItem('thaliumx_oidc_access_token_exp');
-    } catch (error) {
+    } catch {
       // Ignore storage errors
     }
   }

@@ -36,8 +36,8 @@ describe('Input Sanitization Utilities', () => {
     });
 
     it('should handle null/undefined', () => {
-      expect(sanitizeText(null as any)).toBe('');
-      expect(sanitizeText(undefined as any)).toBe('');
+      expect(sanitizeText(null as unknown as string)).toBe('');
+      expect(sanitizeText(undefined as unknown as string)).toBe('');
     });
   });
 
@@ -128,7 +128,7 @@ describe('Input Sanitization Utilities', () => {
     });
 
     it('should handle null input', () => {
-      expect(sanitizeHtml(null as any)).toBe('');
+      expect(sanitizeHtml(null as unknown as string)).toBe('');
     });
   });
 
@@ -182,16 +182,18 @@ describe('Input Sanitization Utilities', () => {
       };
 
       const result = sanitizeObject(obj, schema);
-      expect(result.email).toBe('user@example.com');
-      expect(result.name).toBe('John Doe');
-      expect(result.age).toBe('25');
+      const typedResult = result as { email: string; name: string; age: string };
+      expect(typedResult.email).toBe('user@example.com');
+      expect(typedResult.name).toBe('John Doe');
+      expect(typedResult.age).toBe('25');
     });
 
     it('should handle arrays', () => {
       const arr = ['item1<script>', 'item2'];
       const result = sanitizeObject(arr);
-      expect(result[0]).toBe('item1');
-      expect(result[1]).toBe('item2');
+      const typedResult = result as string[];
+      expect(typedResult[0]).toBe('item1');
+      expect(typedResult[1]).toBe('item2');
     });
 
     it('should handle nested objects', () => {
@@ -203,8 +205,9 @@ describe('Input Sanitization Utilities', () => {
       };
 
       const result = sanitizeObject(obj);
-      expect(result.user.email).toBe('user@example.com');
-      expect(result.user.name).toBe('John');
+      const typedResult = result as { user: { email: string; name: string } };
+      expect(typedResult.user.email).toBe('user@example.com');
+      expect(typedResult.user.name).toBe('John');
     });
   });
 });

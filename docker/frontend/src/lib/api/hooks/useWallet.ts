@@ -3,6 +3,37 @@ import apiClient from '@/lib/api/client';
 import { useWalletStore } from '@/stores/walletStore';
 import type { Wallet, WalletBalance, Transaction, DepositRequest, WithdrawalRequest } from '@/types/wallet';
 
+interface WalletListPayload {
+  data?: Wallet[];
+  wallets?: Wallet[];
+}
+
+interface WalletPayload {
+  data?: Wallet;
+  wallet?: Wallet;
+}
+
+interface WalletBalancePayload {
+  data?: WalletBalance;
+  balance?: WalletBalance;
+}
+
+interface WalletBalancesPayload {
+  data?: WalletBalance[];
+  balances?: WalletBalance[];
+}
+
+interface WalletTransactionsPayload {
+  data?: Transaction[];
+  transactions?: Transaction[];
+}
+
+interface WalletMutationPayload {
+  data?: Transaction | Wallet;
+  transaction?: Transaction;
+  wallet?: Wallet;
+}
+
 /**
  * useWallets - Get all wallets for current user
  */
@@ -10,9 +41,9 @@ export function useWallets() {
   return useQuery<Wallet[]>({
     queryKey: ['wallet', 'wallets'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/wallet/wallets');
+      const response = await apiClient.get<WalletListPayload>('/api/wallet/wallets');
       if (response.success && response.data) {
-        const data = response.data as any;
+        const data = response.data;
         const wallets = data.data || data.wallets || [];
         useWalletStore.getState().setWallets(wallets);
         return wallets;
@@ -30,10 +61,13 @@ export function useWallet(walletId: string) {
   return useQuery<Wallet>({
     queryKey: ['wallet', 'wallets', walletId],
     queryFn: async () => {
-      const response = await apiClient.get(`/api/wallet/wallets/${walletId}`);
+      const response = await apiClient.get<WalletPayload>(`/api/wallet/wallets/${walletId}`);
       if (response.success && response.data) {
-        const data = response.data as any;
-        return data.data || data.wallet;
+        const data = response.data;
+        const wallet = data.data || data.wallet;
+        if (wallet) {
+          return wallet;
+        }
       }
       throw new Error(response.error || 'Failed to fetch wallet');
     },
@@ -49,10 +83,13 @@ export function useWalletBalance(walletId: string) {
   return useQuery<WalletBalance>({
     queryKey: ['wallet', 'balance', walletId],
     queryFn: async () => {
-      const response = await apiClient.get(`/api/wallet/wallets/${walletId}/balance`);
+      const response = await apiClient.get<WalletBalancePayload>(`/api/wallet/wallets/${walletId}/balance`);
       if (response.success && response.data) {
-        const data = response.data as any;
+        const data = response.data;
         const balance = data.data || data.balance;
+        if (!balance) {
+          throw new Error('Invalid wallet balance payload');
+        }
         // Update store
         const balances = useWalletStore.getState().balances.filter((b) => b.walletId !== walletId);
         balances.push(balance);
@@ -74,9 +111,9 @@ export function useAllBalances() {
   return useQuery<WalletBalance[]>({
     queryKey: ['wallet', 'balances'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/wallet/balances');
+      const response = await apiClient.get<WalletBalancesPayload>('/api/wallet/balances');
       if (response.success && response.data) {
-        const data = response.data as any;
+        const data = response.data;
         const balances = data.data || data.balances || [];
         useWalletStore.getState().setBalances(balances);
         return balances;
@@ -100,9 +137,9 @@ export function useTransactions(walletId?: string) {
         endpoint = `/api/wallet/wallets/${walletId}/transactions`;
       }
       
-      const response = await apiClient.get(endpoint);
+      const response = await apiClient.get<WalletTransactionsPayload>(endpoint);
       if (response.success && response.data) {
-        const data = response.data as any;
+        const data = response.data;
         const transactions = data.data || data.transactions || [];
         useWalletStore.getState().setTransactions(transactions);
         return transactions;
@@ -123,9 +160,9 @@ export function useDeposit() {
 
   return useMutation({
     mutationFn: async (request: DepositRequest) => {
-      const response = await apiClient.post(`/api/wallet/wallets/${request.walletId}/deposit`, request);
+      const response = await apiClient.post<WalletMutationPayload>(`/api/wallet/wallets/${request.walletId}/deposit`, request);
       if (response.success && response.data) {
-        const data = response.data as any;
+        const data = response.data;
         return data.data || data.transaction;
       }
       throw new Error(response.error || 'Failed to deposit funds');
@@ -149,9 +186,9 @@ export function useWithdraw() {
 
   return useMutation({
     mutationFn: async (request: WithdrawalRequest) => {
-      const response = await apiClient.post(`/api/wallet/wallets/${request.walletId}/withdraw`, request);
+      const response = await apiClient.post<WalletMutationPayload>(`/api/wallet/wallets/${request.walletId}/withdraw`, request);
       if (response.success && response.data) {
-        const data = response.data as any;
+        const data = response.data;
         return data.data || data.transaction;
       }
       throw new Error(response.error || 'Failed to withdraw funds');
@@ -175,12 +212,12 @@ export function useCreateWallet() {
 
   return useMutation({
     mutationFn: async ({ walletType, currency }: { walletType: string; currency: string }) => {
-      const response = await apiClient.post('/api/wallet/wallets', {
+      const response = await apiClient.post<WalletMutationPayload>('/api/wallet/wallets', {
         walletType,
         currency,
       });
       if (response.success && response.data) {
-        const data = response.data as any;
+        const data = response.data;
         return data.data || data.wallet;
       }
       throw new Error(response.error || 'Failed to create wallet');

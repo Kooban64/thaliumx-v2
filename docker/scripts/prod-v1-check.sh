@@ -309,15 +309,6 @@ while IFS= read -r name; do
 
   health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$name" 2>/dev/null || echo unknown)"
   if [[ "$health" == "unhealthy" ]]; then
-    # ZITADEL runs with TLS terminated at the gateway.
-    # Older containers had a healthcheck that attempted HTTPS on localhost and would remain unhealthy.
-    # Newer compose definitions intentionally omit the healthcheck.
-    # Do not hard-fail the stack check on this known incompatibility.
-    if [[ "$name" == "thaliumx-zitadel" ]]; then
-      echo "WARN: $name is unhealthy (likely due to legacy healthcheck using HTTPS on localhost while TLS is terminated at the gateway)." >&2
-      echo "      Fix: recreate the container so the updated compose (no healthcheck) takes effect." >&2
-      continue
-    fi
     echo "FAIL: $name is unhealthy" >&2
     fail=1
   fi

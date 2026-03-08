@@ -9,6 +9,24 @@ import { useBrokerUsers } from '@/lib/api/hooks/useBroker';
 import { Loader2, Search, Users } from 'lucide-react';
 import Link from 'next/link';
 
+interface BrokerUserItem {
+  id: string;
+  email: string;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  kycLevel?: string;
+  isActive?: boolean;
+  isVerified?: boolean;
+  createdAt: string;
+}
+
+function isBrokerUserItem(value: unknown): value is BrokerUserItem {
+  if (!value || typeof value !== 'object') return false;
+  const user = value as Record<string, unknown>;
+  return typeof user.id === 'string' && typeof user.email === 'string' && typeof user.createdAt === 'string';
+}
+
 /**
  * BrokerUserList - Display list of broker users with search and filters
  */
@@ -25,10 +43,12 @@ export function BrokerUserList() {
     status: statusFilter !== 'all' ? statusFilter : undefined,
   });
 
-  const users = data?.data || [];
+  const users: BrokerUserItem[] = Array.isArray(data?.data)
+    ? (data.data as unknown[]).filter(isBrokerUserItem)
+    : [];
   const pagination = data?.pagination;
 
-  const getStatusBadge = (user: any) => {
+  const getStatusBadge = (user: BrokerUserItem) => {
     if (!user.isActive) {
       return <Badge variant="destructive">Inactive</Badge>;
     }
@@ -136,7 +156,7 @@ export function BrokerUserList() {
             </div>
           ) : (
             <div className="space-y-4">
-              {users.map((user: any) => (
+              {users.map((user) => (
                 <div
                   key={user.id}
                   className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors"

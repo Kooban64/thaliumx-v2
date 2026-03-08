@@ -84,6 +84,11 @@ export function OnboardingProgress({
     w => w.workflowType === WorkflowType.USER_ONBOARDING
   );
 
+  const ballerineWorkflowId =
+    typeof workflow?.data?.ballerineWorkflowId === 'string'
+      ? workflow.data.ballerineWorkflowId
+      : null;
+
   if (loading && !workflow) {
     return (
       <Card className={className}>
@@ -136,10 +141,10 @@ export function OnboardingProgress({
         {/* KYC Collection Flow - Show when workflow needs user input */}
         {workflow.status === WorkflowStatus.RUNNING && 
          workflow.currentStep === 'wait_for_kyc_completion' && 
-         workflow.data?.ballerineWorkflowId && (
+         !!ballerineWorkflowId && (
           <div className="mt-4">
             <KYCCollectionFlow
-              workflowId={workflow.data.ballerineWorkflowId}
+              workflowId={ballerineWorkflowId}
               onComplete={() => {
                 // Refresh workflow status after completion
                 refetch();
@@ -152,7 +157,7 @@ export function OnboardingProgress({
         )}
 
         {/* KYC Status (when not showing collection flow) */}
-        {workflow.data?.ballerineWorkflowId && 
+        {!!ballerineWorkflowId && 
          !(workflow.status === WorkflowStatus.RUNNING && workflow.currentStep === 'wait_for_kyc_completion') && (
           <Alert className="mt-4">
             <Info className="h-4 w-4" />

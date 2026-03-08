@@ -1519,7 +1519,7 @@ export class WalletSystemService {
   /**
    * Get tax rate for a user based on jurisdiction and transaction type
    */
-  private getTaxRate(userId: string, fromCurrency: string, toCurrency: string): number {
+  private getTaxRate(_userId: string, _fromCurrency: string, _toCurrency: string): number {
     // Tax rates can be configured per jurisdiction
     // For now, return 0% (no taxes) - can be enhanced with:
     // 1. User jurisdiction lookup from user profile

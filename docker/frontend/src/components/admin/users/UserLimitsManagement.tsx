@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useUsers, useUserLimits } from '@/lib/api/hooks/useAdmin';
+import { useUsers, useUserLimits, type AdminUser } from '@/lib/api/hooks/useAdmin';
 import { Loader2, Search, User, CreditCard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { UserLimits } from './UserLimits';
@@ -63,15 +63,20 @@ export function UserLimitsManagement() {
               </div>
             ) : (
               <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                {users.map((user: any) => (
-                  <div
-                    key={user.id || user.userId}
+                {users.map((user: AdminUser) => {
+                  const userKey = user.id || user.userId;
+                  if (!userKey) {
+                    return null;
+                  }
+
+                  return <div
+                    key={userKey}
                     className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-colors ${
-                      selectedUserId === (user.id || user.userId)
+                      selectedUserId === userKey
                         ? 'bg-primary/10 border-primary'
                         : 'hover:bg-muted/50'
                     }`}
-                    onClick={() => setSelectedUserId(user.id || user.userId)}
+                    onClick={() => setSelectedUserId(userKey)}
                   >
                     <div className="flex items-center gap-4">
                       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -96,13 +101,13 @@ export function UserLimitsManagement() {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/admin/users/${user.id || user.userId}`);
+                        router.push(`/admin/users/${userKey}`);
                       }}
                     >
                       View Details
                     </Button>
-                  </div>
-                ))}
+                  </div>;
+                })}
               </div>
             )}
           </CardContent>

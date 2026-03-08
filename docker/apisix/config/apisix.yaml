@@ -35,7 +35,7 @@ routes:
     host: auth.thaliumx.com
     upstream:
       nodes:
-        thaliumx-zitadel:8080: 1
+        thaliumx-keycloak:8080: 1
       type: roundrobin
   - id: 3
     uri: /*
@@ -54,9 +54,9 @@ routes:
       type: roundrobin
     plugins:
       openid-connect:
-        client_id: ${ZITADEL_CLIENT_ID}
-        client_secret: ${ZITADEL_CLIENT_SECRET}
-        discovery: https://auth.thaliumx.com/.well-known/openid-configuration
+        client_id: ${KEYCLOAK_CLIENT_ID}
+        client_secret: ${KEYCLOAK_CLIENT_SECRET}
+        discovery: https://auth.thaliumx.com/realms/thaliumx/.well-known/openid-configuration
         redirect_uri: https://thaliumx.com/graphql/auth/callback
         scope: openid profile email
         session:
@@ -69,9 +69,9 @@ routes:
       type: roundrobin
     plugins:
       openid-connect:
-        client_id: ${ZITADEL_CLIENT_ID}
-        client_secret: ${ZITADEL_CLIENT_SECRET}
-        discovery: https://auth.thaliumx.com/.well-known/openid-configuration
+        client_id: ${KEYCLOAK_CLIENT_ID}
+        client_secret: ${KEYCLOAK_CLIENT_SECRET}
+        discovery: https://auth.thaliumx.com/realms/thaliumx/.well-known/openid-configuration
         redirect_uri: https://thaliumx.com/support/chat/auth/callback
         scope: openid profile email
         session:
@@ -84,9 +84,9 @@ routes:
       type: roundrobin
     plugins:
       openid-connect:
-        client_id: ${ZITADEL_CLIENT_ID}
-        client_secret: ${ZITADEL_CLIENT_SECRET}
-        discovery: https://auth.thaliumx.com/.well-known/openid-configuration
+        client_id: ${KEYCLOAK_CLIENT_ID}
+        client_secret: ${KEYCLOAK_CLIENT_SECRET}
+        discovery: https://auth.thaliumx.com/realms/thaliumx/.well-known/openid-configuration
         redirect_uri: https://thaliumx.com/support/tickets/auth/callback
         scope: openid profile email
         session:

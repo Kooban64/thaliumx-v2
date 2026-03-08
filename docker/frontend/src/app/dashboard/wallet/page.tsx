@@ -24,8 +24,8 @@ export default function WalletPage() {
           return;
         }
 
-        const { getZitadelToken } = await import('@/lib/auth/backend-auth');
-        const token = getZitadelToken();
+        const { getKeycloakToken } = await import('@/lib/auth/backend-auth');
+        const token = getKeycloakToken();
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
         };
@@ -53,7 +53,7 @@ export default function WalletPage() {
         }
 
         setIsLoading(false);
-      } catch (error) {
+      } catch {
         router.push('/login?next=/dashboard/wallet');
       }
     };

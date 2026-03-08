@@ -13,9 +13,20 @@ import { toast } from '@/components/shared/Toast';
 
 interface UserLimitsProps {
   userId: string;
-  limits?: any;
+  limits?: Record<string, unknown> | null;
   isLoading: boolean;
 }
+
+type LimitData = {
+  daily?: number;
+  dailyLimit?: number;
+  monthly?: number;
+  monthlyLimit?: number;
+  used?: number;
+  remaining?: number;
+};
+
+type LimitsMap = Record<string, LimitData>;
 
 /**
  * UserLimits - Display and manage user transaction limits
@@ -23,7 +34,7 @@ interface UserLimitsProps {
 export function UserLimits({ userId, limits, isLoading }: UserLimitsProps) {
   const updateLimitsMutation = useUpdateUserLimits();
   const [isEditing, setIsEditing] = useState(false);
-  const [editedLimits, setEditedLimits] = useState<any>(limits || {});
+  const [editedLimits, setEditedLimits] = useState<LimitsMap>((limits as LimitsMap) || {});
   const [reason, setReason] = useState('');
 
   if (isLoading) {
@@ -75,7 +86,7 @@ export function UserLimits({ userId, limits, isLoading }: UserLimitsProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {limitTypes.map((type) => {
               const Icon = type.icon;
-              const limitData = limits[type.key] || {};
+              const limitData: LimitData = limits[type.key] || {};
               const daily = limitData.daily || limitData.dailyLimit || 0;
               const monthly = limitData.monthly || limitData.monthlyLimit || 0;
               const used = limitData.used || 0;
@@ -140,7 +151,7 @@ export function UserLimits({ userId, limits, isLoading }: UserLimitsProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {limitTypes.map((type) => {
                 const Icon = type.icon;
-                const limitData = editedLimits[type.key] || {};
+                const limitData: LimitData = editedLimits[type.key] || {};
                 const daily = limitData.daily || limitData.dailyLimit || 0;
                 const monthly = limitData.monthly || limitData.monthlyLimit || 0;
 
@@ -160,7 +171,7 @@ export function UserLimits({ userId, limits, isLoading }: UserLimitsProps) {
                           min="0"
                           value={daily || ''}
                           onChange={(e) => {
-                            setEditedLimits((prev: any) => ({
+                            setEditedLimits((prev: LimitsMap) => ({
                               ...prev,
                               [type.key]: {
                                 ...prev[type.key],
@@ -181,7 +192,7 @@ export function UserLimits({ userId, limits, isLoading }: UserLimitsProps) {
                           min="0"
                           value={monthly || ''}
                           onChange={(e) => {
-                            setEditedLimits((prev: any) => ({
+                            setEditedLimits((prev: LimitsMap) => ({
                               ...prev,
                               [type.key]: {
                                 ...prev[type.key],
@@ -203,7 +214,7 @@ export function UserLimits({ userId, limits, isLoading }: UserLimitsProps) {
                 variant="outline"
                 onClick={() => {
                   setIsEditing(false);
-                  setEditedLimits(limits || {});
+                  setEditedLimits((limits as LimitsMap) || {});
                   setReason('');
                 }}
                 disabled={updateLimitsMutation.isPending}

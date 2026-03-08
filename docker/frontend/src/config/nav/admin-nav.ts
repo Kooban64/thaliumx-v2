@@ -17,42 +17,22 @@ import type { NavigationConfig } from './types';
 /**
  * Admin Dashboard Navigation Configuration
  * Based on PLATFORM_FEATURES_AND_MENU_STRUCTURE.md
+ * 
+ * Organized into categories:
+ * - Primary: Always visible items (Home, Users, Brokers, Analytics)
+ * - Management: System, RBAC, Policies (grouped in dropdown)
+ * - Operations: Finance, Security, Compliance, Workflows (grouped in dropdown)
+ * - Configuration: Limits (grouped in dropdown)
  */
 export const adminNavConfig: NavigationConfig = {
   items: [
+    // Primary Navigation (Always Visible)
     {
       id: 'admin-home',
       label: 'Home',
       href: '/admin',
       icon: Home,
       roles: ['admin', 'super_admin'],
-    },
-    {
-      id: 'admin-system',
-      label: 'System',
-      href: '/admin/system',
-      icon: Gauge,
-      roles: ['admin', 'super_admin'],
-      children: [
-        {
-          id: 'admin-system-health',
-          label: 'System Health',
-          href: '/admin/system/health',
-          description: 'Service status & metrics',
-        },
-        {
-          id: 'admin-system-info',
-          label: 'System Info',
-          href: '/admin/system/info',
-          description: 'Node.js & OS metrics',
-        },
-        {
-          id: 'admin-system-settings',
-          label: 'Settings',
-          href: '/admin/system/settings',
-          description: 'Platform configuration',
-        },
-      ],
     },
     {
       id: 'admin-users',
@@ -115,6 +95,41 @@ export const adminNavConfig: NavigationConfig = {
       ],
     },
     {
+      id: 'admin-analytics',
+      label: 'Analytics',
+      href: '/admin/analytics',
+      icon: LineChart,
+      roles: ['admin', 'super_admin'],
+    },
+    // Management (Grouped)
+    {
+      id: 'admin-system',
+      label: 'System',
+      href: '/admin/system',
+      icon: Gauge,
+      roles: ['admin', 'super_admin'],
+      children: [
+        {
+          id: 'admin-system-health',
+          label: 'System Health',
+          href: '/admin/system/health',
+          description: 'Service status & metrics',
+        },
+        {
+          id: 'admin-system-info',
+          label: 'System Info',
+          href: '/admin/system/info',
+          description: 'Node.js & OS metrics',
+        },
+        {
+          id: 'admin-system-settings',
+          label: 'Settings',
+          href: '/admin/system/settings',
+          description: 'Platform configuration',
+        },
+      ],
+    },
+    {
       id: 'admin-rbac',
       label: 'RBAC',
       href: '/admin/rbac',
@@ -168,20 +183,7 @@ export const adminNavConfig: NavigationConfig = {
         },
       ],
     },
-    {
-      id: 'admin-workflows',
-      label: 'Workflows',
-      href: '/admin/workflows',
-      icon: Workflow,
-      roles: ['admin', 'super_admin'],
-    },
-    {
-      id: 'admin-compliance',
-      label: 'Compliance',
-      href: '/admin/compliance',
-      icon: FileText,
-      roles: ['admin', 'super_admin', 'platform_compliance'],
-    },
+    // Operations (Grouped)
     {
       id: 'admin-finance',
       label: 'Finance',
@@ -243,12 +245,20 @@ export const adminNavConfig: NavigationConfig = {
       ],
     },
     {
-      id: 'admin-analytics',
-      label: 'Analytics',
-      href: '/admin/analytics',
-      icon: LineChart,
+      id: 'admin-compliance',
+      label: 'Compliance',
+      href: '/admin/compliance',
+      icon: FileText,
+      roles: ['admin', 'super_admin', 'platform_compliance'],
+    },
+    {
+      id: 'admin-workflows',
+      label: 'Workflows',
+      href: '/admin/workflows',
+      icon: Workflow,
       roles: ['admin', 'super_admin'],
     },
+    // Configuration (Grouped)
     {
       id: 'admin-limits',
       label: 'Limits',

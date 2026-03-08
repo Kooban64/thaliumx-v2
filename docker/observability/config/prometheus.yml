@@ -117,10 +117,10 @@ scrape_configs:
       - targets: ['jaeger:14269']
     metrics_path: /metrics
 
-  # Zitadel Identity Provider
-  - job_name: 'zitadel'
+  # Keycloak Identity Provider
+  - job_name: 'keycloak'
     static_configs:
-      - targets: ['zitadel:8080']
-    metrics_path: /healthz
+      - targets: ['keycloak:9000']
+    metrics_path: /metrics
     scrape_interval: 30s
     scrape_timeout: 10s

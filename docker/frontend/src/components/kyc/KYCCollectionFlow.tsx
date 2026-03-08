@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle2, AlertCircle, Shield } from 'lucide-react';
-import { getZitadelToken } from '@/lib/auth/backend-auth';
+import { getKeycloakToken } from '@/lib/auth/backend-auth';
 
 interface KYCCollectionFlowProps {
   workflowId: string;
@@ -50,7 +50,7 @@ export function KYCCollectionFlow({
   useEffect(() => {
     const fetchCollectionFlow = async () => {
       try {
-        const token = getZitadelToken();
+        const token = getKeycloakToken();
         if (!token) {
           setError('Authentication required');
           setLoading(false);
@@ -77,8 +77,8 @@ export function KYCCollectionFlow({
         } else {
           throw new Error('Invalid response from server');
         }
-      } catch (err: any) {
-        const errorMessage = err.message || 'Failed to load KYC collection flow';
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load KYC collection flow';
         setError(errorMessage);
         onError?.(errorMessage);
       } finally {
@@ -151,7 +151,7 @@ export function KYCCollectionFlow({
 
     const pollInterval = setInterval(async () => {
       try {
-        const token = getZitadelToken();
+        const token = getKeycloakToken();
         if (!token) return;
 
         const response = await fetch(`/api/workflows/${workflowId}/status`, {

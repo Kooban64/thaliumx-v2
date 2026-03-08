@@ -63,7 +63,7 @@ export function RequireRole({
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            You don't have the required role to access this content.
+            You don&apos;t have the required role to access this content.
             {redirectTo && (
               <Button
                 variant="link"

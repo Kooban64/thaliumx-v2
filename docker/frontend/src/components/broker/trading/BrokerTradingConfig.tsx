@@ -11,6 +11,26 @@ import { useBrokerTradingConfig, useUpdateBrokerTradingConfig } from '@/lib/api/
 import { Loader2, Settings, Plus, Trash2, Save, Edit2 } from 'lucide-react';
 import { toast } from '@/components/shared/Toast';
 
+type TradingPairStatus = 'active' | 'inactive' | 'maintenance';
+
+interface TradingPairConfig {
+  symbol: string;
+  baseCurrency: string;
+  quoteCurrency: string;
+  status: TradingPairStatus;
+  minOrderSize: number;
+  maxOrderSize: number;
+  tickSize: number;
+  fee: number;
+}
+
+interface PairEditorProps {
+  pair: TradingPairConfig;
+  onSave: (pair: TradingPairConfig) => Promise<void>;
+  onCancel: () => void;
+  isSaving: boolean;
+}
+
 /**
  * BrokerTradingConfig - Configure trading settings with full functionality
  */
@@ -23,23 +43,25 @@ export function BrokerTradingConfig() {
     symbol: '',
     baseCurrency: '',
     quoteCurrency: '',
-    status: 'active',
+    status: 'active' as TradingPairStatus,
     minOrderSize: '',
     maxOrderSize: '',
     tickSize: '',
     fee: '',
   });
 
-  const pairs = data?.pairs || [];
+  const pairs: TradingPairConfig[] = Array.isArray(data?.pairs)
+    ? (data.pairs as TradingPairConfig[])
+    : [];
 
-  const handleSavePair = async (pair: any) => {
+  const handleSavePair = async (pair: TradingPairConfig) => {
     try {
-      const updatedPairs = pairs.map((p: any) =>
+      const updatedPairs = pairs.map((p) =>
         p.symbol === pair.symbol ? {
           ...pair,
-          status: pair.status as 'active' | 'inactive' | 'maintenance',
+          status: pair.status,
         } : p
-      ) as typeof pairs;
+      );
       await updateMutation.mutateAsync({ pairs: updatedPairs });
       toast({
         type: 'success',
@@ -71,14 +93,14 @@ export function BrokerTradingConfig() {
         symbol: newPair.symbol,
         baseCurrency: newPair.baseCurrency,
         quoteCurrency: newPair.quoteCurrency,
-        status: newPair.status as 'active' | 'inactive' | 'maintenance',
+        status: newPair.status,
         minOrderSize: parseFloat(newPair.minOrderSize),
         maxOrderSize: parseFloat(newPair.maxOrderSize),
         tickSize: parseFloat(newPair.tickSize),
         fee: parseFloat(newPair.fee),
-      };
+      } as TradingPairConfig;
 
-      const updatedPairs = [...pairs, pair] as typeof pairs;
+      const updatedPairs = [...pairs, pair];
       await updateMutation.mutateAsync({ pairs: updatedPairs });
       toast({
         type: 'success',
@@ -86,14 +108,14 @@ export function BrokerTradingConfig() {
         description: 'New trading pair has been added',
       });
       setShowAddDialog(false);
-      setNewPair({
-        symbol: '',
-        baseCurrency: '',
-        quoteCurrency: '',
-        status: 'active',
-        minOrderSize: '',
-        maxOrderSize: '',
-        tickSize: '',
+        setNewPair({
+          symbol: '',
+          baseCurrency: '',
+          quoteCurrency: '',
+          status: 'active',
+          minOrderSize: '',
+          maxOrderSize: '',
+          tickSize: '',
         fee: '',
       });
     } catch (err) {
@@ -111,7 +133,7 @@ export function BrokerTradingConfig() {
     }
 
     try {
-      const updatedPairs = pairs.filter((p: any) => p.symbol !== symbol);
+      const updatedPairs = pairs.filter((p) => p.symbol !== symbol);
       await updateMutation.mutateAsync({ pairs: updatedPairs });
       toast({
         type: 'success',
@@ -207,7 +229,7 @@ export function BrokerTradingConfig() {
                 <select
                   id="status"
                   value={newPair.status}
-                  onChange={(e) => setNewPair({ ...newPair, status: e.target.value })}
+                  onChange={(e) => setNewPair({ ...newPair, status: e.target.value as TradingPairStatus })}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   <option value="active">Active</option>
@@ -299,7 +321,7 @@ export function BrokerTradingConfig() {
             </div>
           ) : (
             <div className="space-y-4">
-              {pairs.map((pair: any) => (
+              {pairs.map((pair) => (
                 <div
                   key={pair.symbol}
                   className="p-4 border rounded-lg hover:bg-muted/50"
@@ -379,7 +401,7 @@ export function BrokerTradingConfig() {
   );
 }
 
-function PairEditor({ pair, onSave, onCancel, isSaving }: any) {
+function PairEditor({ pair, onSave, onCancel, isSaving }: PairEditorProps) {
   const [editedPair, setEditedPair] = useState(pair);
 
   return (
@@ -424,7 +446,7 @@ function PairEditor({ pair, onSave, onCancel, isSaving }: any) {
         <Label>Status</Label>
         <select
           value={editedPair.status}
-          onChange={(e) => setEditedPair({ ...editedPair, status: e.target.value })}
+          onChange={(e) => setEditedPair({ ...editedPair, status: e.target.value as TradingPairStatus })}
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         >
           <option value="active">Active</option>

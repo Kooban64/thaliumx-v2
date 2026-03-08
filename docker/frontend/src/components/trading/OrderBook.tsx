@@ -67,8 +67,8 @@ export function OrderBook({
         };
 
         setOrderBook(book);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load order book');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load order book');
         // Set mock data for development
         setOrderBook({
           bids: generateMockOrders('bid', 20),

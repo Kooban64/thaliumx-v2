@@ -10,13 +10,42 @@ import { LoggerService } from '../../src/services/logger';
 import { v4 as uuidv4 } from 'uuid';
 
 describe('Workflow States Database Performance Tests', () => {
-  const TEST_USER_ID = 'test-user-db-perf';
-  const TEST_TENANT_ID = 'test-tenant-db-perf';
+  const TEST_USER_ID = '123e4567-e89b-12d3-a456-426614174901';
+  const TEST_TENANT_ID = '123e4567-e89b-12d3-a456-426614174902';
   let WorkflowStateModel: any;
+  let UserModel: any;
+  let TenantModel: any;
 
   beforeAll(async () => {
     await DatabaseService.initialize();
     WorkflowStateModel = DatabaseService.getModel('WorkflowState');
+    UserModel = DatabaseService.getModel('User');
+    TenantModel = DatabaseService.getModel('Tenant');
+
+    await TenantModel.upsert({
+      id: TEST_TENANT_ID,
+      name: 'DB Performance Test Tenant',
+      slug: 'db-performance-test-tenant',
+      tenantType: 'regular',
+      isActive: true,
+      settings: {}
+    });
+
+    await UserModel.upsert({
+      id: TEST_USER_ID,
+      email: 'db-performance-test-user@thaliumx.local',
+      username: 'db-performance-test-user',
+      firstName: 'Database',
+      lastName: 'Performance',
+      tenantId: TEST_TENANT_ID,
+      passwordHash: 'test-hash',
+      role: 'user',
+      kycLevel: 'L0',
+      kycStatus: 'not_started',
+      isActive: true,
+      isVerified: false,
+      permissions: []
+    });
   });
 
   afterAll(async () => {
@@ -27,6 +56,9 @@ describe('Workflow States Database Performance Tests', () => {
           userId: TEST_USER_ID
         }
       });
+
+      await UserModel.destroy({ where: { id: TEST_USER_ID } });
+      await TenantModel.destroy({ where: { id: TEST_TENANT_ID } });
     } catch (error) {
       LoggerService.error('Error cleaning up test data:', error);
     }
@@ -41,11 +73,11 @@ describe('Workflow States Database Performance Tests', () => {
       for (let i = 0; i < count; i++) {
         promises.push(
           WorkflowStateModel.create({
-            id: uuidv4(),
+            workflowId: uuidv4(),
             workflowType: 'user_onboarding',
             userId: TEST_USER_ID,
             tenantId: TEST_TENANT_ID,
-            status: 'in_progress',
+            status: 'running',
             currentStep: 'validate_user_data',
             data: {
               email: `test-${i}@example.com`,
@@ -55,7 +87,7 @@ describe('Workflow States Database Performance Tests', () => {
               test: true,
               iteration: i
             }
-          }).catch(() => null)
+          })
         );
       }
 
@@ -84,7 +116,7 @@ describe('Workflow States Database Performance Tests', () => {
         const records = [];
         for (let i = 0; i < batchSize; i++) {
           records.push({
-            id: uuidv4(),
+            workflowId: uuidv4(),
             workflowType: 'trading_order',
             userId: TEST_USER_ID,
             tenantId: TEST_TENANT_ID,
@@ -125,11 +157,11 @@ describe('Workflow States Database Performance Tests', () => {
       const records = [];
       for (let i = 0; i < 500; i++) {
         records.push({
-          id: uuidv4(),
+          workflowId: uuidv4(),
           workflowType: i % 2 === 0 ? 'payment_processing' : 'refund_processing',
           userId: TEST_USER_ID,
           tenantId: TEST_TENANT_ID,
-          status: i % 3 === 0 ? 'completed' : i % 3 === 1 ? 'in_progress' : 'failed',
+          status: i % 3 === 0 ? 'completed' : i % 3 === 1 ? 'running' : 'failed',
           currentStep: `step_${i % 10}`,
           data: { index: i }
         });
@@ -172,7 +204,7 @@ describe('Workflow States Database Performance Tests', () => {
         await WorkflowStateModel.findAll({
           where: {
             userId: TEST_USER_ID,
-            status: 'in_progress'
+            status: 'running'
           }
         });
       }
@@ -227,11 +259,11 @@ describe('Workflow States Database Performance Tests', () => {
         const id = uuidv4();
         workflowIds.push(id);
         records.push({
-          id,
+          workflowId: id,
           workflowType: 'token_issuance',
           userId: TEST_USER_ID,
           tenantId: TEST_TENANT_ID,
-          status: 'in_progress',
+          status: 'running',
           currentStep: 'validate_request',
           data: { index: i }
         });
@@ -247,7 +279,7 @@ describe('Workflow States Database Performance Tests', () => {
         const workflowId = workflowIds[i % workflowIds.length];
         await WorkflowStateModel.update(
           {
-            status: 'in_progress',
+            status: 'running',
             currentStep: `step_${i % 10}`,
             data: {
               updated: true,
@@ -256,7 +288,7 @@ describe('Workflow States Database Performance Tests', () => {
             updatedAt: new Date()
           },
           {
-            where: { id: workflowId }
+            where: { workflowId }
           }
         );
       }
@@ -297,7 +329,7 @@ describe('Workflow States Database Performance Tests', () => {
           name: 'Tenant + Status',
           where: {
             tenantId: TEST_TENANT_ID,
-            status: 'in_progress'
+            status: 'running'
           }
         }
       ];

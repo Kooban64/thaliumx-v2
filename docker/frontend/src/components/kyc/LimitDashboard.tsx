@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, Shield, TrendingUp, AlertTriangle, ArrowRight } from 'lucide-react';
-import { getZitadelToken } from '@/lib/auth/backend-auth';
+import { getKeycloakToken } from '@/lib/auth/backend-auth';
 import { UpgradePrompt } from './UpgradePrompt';
 
 interface LimitStatus {
@@ -28,7 +28,7 @@ export function LimitDashboard({ className }: { className?: string }) {
 
   useEffect(() => {
     const fetchStatus = async () => {
-      const token = getZitadelToken();
+      const token = getKeycloakToken();
       if (!token) { setError('Not authenticated'); setLoading(false); return; }
       setLoading(true); setError(null);
       try {
@@ -41,7 +41,7 @@ export function LimitDashboard({ className }: { className?: string }) {
           if (data.success && data.data) setStatus(data.data);
           else setError('Failed to fetch KYC status');
         } else setError('Failed to fetch KYC status');
-      } catch (err: any) { setError(err.message || 'Failed to fetch KYC status'); }
+      } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Failed to fetch KYC status'); }
       finally { setLoading(false); }
     };
     fetchStatus();
@@ -93,7 +93,7 @@ export function LimitDashboard({ className }: { className?: string }) {
               onClick={async () => {
                 // Trigger upgrade workflow via API (same as UpgradePrompt)
                 try {
-                  const token = getZitadelToken();
+                  const token = getKeycloakToken();
                   if (!token) {
                     window.location.href = '/login?next=/dashboard';
                     return;
@@ -125,7 +125,7 @@ export function LimitDashboard({ className }: { className?: string }) {
                   } else {
                     window.location.href = '/onboarding';
                   }
-                } catch (error) {
+                } catch {
                   window.location.href = '/onboarding';
                 }
               }}

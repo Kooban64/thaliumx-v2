@@ -227,6 +227,11 @@ export class AuthService {
           typeof p === 'string' ? p : `${p.resource}:${p.action}`
         );
         
+        const normalizedRole = String(userRole).replace(/-/g, '_');
+        const isBrokerRole = normalizedRole.startsWith('broker_');
+        const channel = isBrokerRole ? 'broker' : 'direct';
+        const brokerId = isBrokerRole ? tenantId : undefined;
+
         // Issue token pair using TokenService
         const tokenPair = await TokenService.issueTokenPair({
           id: user.id,
@@ -235,7 +240,10 @@ export class AuthService {
           role: userRole,
           roles: userRoles,
           tenantId: tenantId, // Critical: tenantId ensures strict client separation
-          brokerId: undefined, // User type doesn't have brokerId, set to undefined
+          brokerId,
+          // Provider/channel compatibility claims
+          channel,
+          authProvider: 'internal-jwt',
           permissions: permissionStrings,
           mfaEnabled: user.mfaEnabled || false,
           mfaVerified: user.mfaEnabled || false // MFA verified if we got past MFA check
@@ -392,7 +400,6 @@ export class AuthService {
    */
   static async refreshToken(refreshToken: string): Promise<AuthResponse> {
     try {
-      const { TokenService } = await import('./token-service');
       const tokenPair = await TokenService.refreshAccessToken(refreshToken);
 
       // Get user info from token metadata or database

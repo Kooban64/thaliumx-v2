@@ -37,6 +37,11 @@ interface InvestmentStats {
   totalAmount: number;
 }
 
+interface PresaleInvestment {
+  status?: string;
+  amount?: string | number;
+}
+
 export default function TokenPlatformManagement() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -53,8 +58,8 @@ export default function TokenPlatformManagement() {
           return;
         }
 
-        const res = await apiClient.get<any>('/api/auth/profile');
-        const userProfile = (res.data as any)?.user || res.data || null;
+        const res = await apiClient.get<{ user?: { email?: string; role?: string }; data?: { email?: string; role?: string }; email?: string; role?: string }>('/api/auth/profile');
+        const userProfile = res.data?.user || res.data?.data || res.data || null;
         
         if (userProfile && userProfile.role !== 'admin' && userProfile.role !== 'super_admin') {
           router.push('/dashboard');
@@ -73,7 +78,7 @@ export default function TokenPlatformManagement() {
 
   const loadPresaleData = async () => {
     try {
-      const response = await apiClient.get<any>('/api/presale/status');
+      const response = await apiClient.get<PresaleStatus>('/api/presale/status');
       if (response.success && response.data) {
         setPresaleStatus(response.data);
       }
@@ -84,15 +89,18 @@ export default function TokenPlatformManagement() {
 
   const loadInvestmentStats = async () => {
     try {
-      const response = await apiClient.get<any>('/api/presale/investments');
+      const response = await apiClient.get<PresaleInvestment[]>('/api/presale/investments');
       if (response.success && Array.isArray(response.data)) {
         const investments = response.data;
         const stats: InvestmentStats = {
           total: investments.length,
-          completed: investments.filter((inv: any) => inv.status === 'completed' || inv.status === 'confirmed').length,
-          pending: investments.filter((inv: any) => inv.status === 'pending').length,
-          failed: investments.filter((inv: any) => inv.status === 'failed' || inv.status === 'cancelled').length,
-          totalAmount: investments.reduce((sum: number, inv: any) => sum + (parseFloat(inv.amount) || 0), 0)
+          completed: investments.filter((inv) => inv.status === 'completed' || inv.status === 'confirmed').length,
+          pending: investments.filter((inv) => inv.status === 'pending').length,
+          failed: investments.filter((inv) => inv.status === 'failed' || inv.status === 'cancelled').length,
+          totalAmount: investments.reduce((sum, inv) => {
+            const amount = typeof inv.amount === 'number' ? inv.amount : parseFloat(inv.amount || '0');
+            return sum + (Number.isFinite(amount) ? amount : 0);
+          }, 0),
         };
         setInvestmentStats(stats);
       }

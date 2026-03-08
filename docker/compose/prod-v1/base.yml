@@ -131,6 +131,8 @@ secrets:
   # Authentication
   postgres-username:
     file: ../../../.secrets/generated/postgres-username
+  keycloak-admin-password:
+    file: ../../../.secrets/generated/keycloak-admin-password
 
   # Vault
   vault-role-id:
@@ -249,17 +251,7 @@ secrets:
   ballerine-magic-link-auth-jwt-secret:
     file: ../../../.secrets/generated/ballerine-magic-link-auth-jwt-secret
 
-  # Zitadel (OIDC issuer)
-  # These files are generated locally (gitignored) by [`docker/scripts/zitadel-generate-secrets.sh`](docker/scripts/zitadel-generate-secrets.sh:1).
-  zitadel-masterkey:
-    file: ../../../.secrets/generated/zitadel-masterkey
-  zitadel-postgres-root-password:
-    file: ../../../.secrets/generated/zitadel-postgres-root-password
-  # YAML files consumed directly by the zitadel binary as `--config` / `--steps`.
-  zitadel-config-secrets-yaml:
-    file: ../../../.secrets/generated/zitadel-config-secrets.yaml
-  zitadel-init-steps-yaml:
-    file: ../../../.secrets/generated/zitadel-init-steps.yaml
+  # Legacy Zitadel secrets removed; Keycloak is the only supported identity provider.
 
   # Support Services
   support-db-password:

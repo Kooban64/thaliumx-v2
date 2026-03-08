@@ -17,12 +17,8 @@ APISIX_ADMIN_KEY="${APISIX_ADMIN_KEY:?APISIX_ADMIN_KEY is required}"
 FRONTEND_UPSTREAM="${FRONTEND_UPSTREAM:-thaliumx-frontend:3000}"
 BACKEND_UPSTREAM="${BACKEND_UPSTREAM:-thaliumx-backend:3002}"
 
-# Auth provider routing
-# Keycloak has been decommissioned; Zitadel is the only supported OIDC issuer.
-AUTH_PROVIDER="${AUTH_PROVIDER:-zitadel}"
-
-# Zitadel upstream is plain HTTP behind APISIX TLS termination
-ZITADEL_UPSTREAM="${ZITADEL_UPSTREAM:-thaliumx-zitadel:8080}"
+# Identity provider upstream is plain HTTP behind APISIX TLS termination
+KEYCLOAK_UPSTREAM="${KEYCLOAK_UPSTREAM:-thaliumx-keycloak:8080}"
 
 OIDC_CLIENT_ID="${OIDC_CLIENT_ID:-thaliumx-frontend}"
 # NOTE: APISIX openid-connect plugin schema requires a client_secret even in bearer_only mode.
@@ -36,22 +32,17 @@ OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET:-}"
 #   otherwise-valid tokens (issuer mismatch).
 #
 # Default to the public hostname, but allow overrides for air-gapped/dev deployments.
-ZITADEL_PUBLIC_HOST="${ZITADEL_PUBLIC_HOST:-auth.thaliumx.com}"
+AUTH_PUBLIC_HOST="${AUTH_PUBLIC_HOST:-auth.thaliumx.com}"
+KEYCLOAK_PUBLIC_HOST="${KEYCLOAK_PUBLIC_HOST:-$AUTH_PUBLIC_HOST}"
+KEYCLOAK_REALM="${KEYCLOAK_REALM:-thaliumx}"
 
-case "$AUTH_PROVIDER" in
-  zitadel)
-    # Zitadel issuer is at the domain root.
-    OIDC_DISCOVERY="${OIDC_DISCOVERY:-https://${ZITADEL_PUBLIC_HOST}/.well-known/openid-configuration}"
-    ;;
-  keycloak)
-    echo -e "${RED}ERROR: AUTH_PROVIDER=keycloak is not supported (Keycloak decommissioned).${NC}" >&2
-    exit 1
-    ;;
-  *)
-    echo -e "${RED}ERROR: Unknown AUTH_PROVIDER='$AUTH_PROVIDER' (expected: zitadel)${NC}" >&2
-    exit 1
-    ;;
-esac
+# Optional strict audience and issuer controls for gateway OIDC route.
+OIDC_EXPECTED_AUDIENCE="${OIDC_EXPECTED_AUDIENCE:-${KEYCLOAK_CLIENT_ID:-$OIDC_CLIENT_ID}}"
+OIDC_EXPECTED_ISSUER="${OIDC_EXPECTED_ISSUER:-}"
+
+AUTH_UPSTREAM="$KEYCLOAK_UPSTREAM"
+OIDC_DISCOVERY="${OIDC_DISCOVERY:-https://${KEYCLOAK_PUBLIC_HOST}/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration}"
+OIDC_EXPECTED_ISSUER="${OIDC_EXPECTED_ISSUER:-https://${KEYCLOAK_PUBLIC_HOST}/realms/${KEYCLOAK_REALM}}"
 
 # PRODUCTION: verify Keycloak TLS using the internal CA mounted into the APISIX container.
 OIDC_SSL_VERIFY="${OIDC_SSL_VERIFY:-true}"
@@ -71,9 +62,11 @@ echo -e "${GREEN}=== APISIX Route Initialization ===${NC}"
 echo "Admin URL: $APISIX_ADMIN_URL"
 echo "Frontend: $FRONTEND_UPSTREAM"
 echo "Backend: $BACKEND_UPSTREAM"
-echo "Auth provider: $AUTH_PROVIDER"
-echo "Zitadel: $ZITADEL_UPSTREAM"
+echo "Auth provider: keycloak"
+echo "Auth upstream: $AUTH_UPSTREAM"
 echo "OIDC Discovery: $OIDC_DISCOVERY"
+echo "OIDC expected issuer: $OIDC_EXPECTED_ISSUER"
+echo "OIDC expected audience: $OIDC_EXPECTED_AUDIENCE"
 echo "APISIX_ENABLE_OIDC: $APISIX_ENABLE_OIDC"
 if [ -z "$OIDC_CLIENT_SECRET" ]; then
   echo -e "${YELLOW}WARN: OIDC_CLIENT_SECRET is empty. Routes using openid-connect will fail to configure in APISIX (plugin schema requires client_secret).${NC}"
@@ -82,7 +75,6 @@ echo ""
 echo -e "${GREEN}Route Priority Hierarchy (higher = matches first):${NC}"
 echo "  • Route 6 (auth endpoints): Priority 100 - HIGHEST (login/register/reset)"
 echo "  • Route 5 (health): Priority 100"
-echo "  • Route 12 (auth redirect): Priority 95"
 echo "  • Route 41 (OIDC /api/*): Priority 22 - EXCLUDES /api/auth/*"
 echo "  • Route 7 (financial): Priority 25"
 echo "  • Route 4 (general /api/*): Priority 20"
@@ -326,14 +318,14 @@ create_upstream "6" "{
     }
 }"
 
-# Upstream 5: Zitadel (HTTP behind APISIX)
+# Upstream 5: Keycloak identity provider behind APISIX
 create_upstream "5" "{
     \"id\": \"5\",
-    \"name\": \"zitadel-upstream\",
+    \"name\": \"auth-upstream-keycloak\",
     \"type\": \"roundrobin\",
     \"scheme\": \"http\",
     \"nodes\": {
-        \"$ZITADEL_UPSTREAM\": 1
+        \"$AUTH_UPSTREAM\": 1
     },
     \"timeout\": {
         \"connect\": 10,
@@ -345,8 +337,8 @@ create_upstream "5" "{
     \"checks\": {
         \"active\": {
             \"type\": \"http\",
-            \"http_path\": \"/.well-known/openid-configuration\",
-            \"host\": \"$ZITADEL_UPSTREAM\",
+            \"http_path\": \"/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration\",
+            \"host\": \"$AUTH_UPSTREAM\",
             \"port\": 8080,
             \"healthy\": {
                 \"interval\": 5,
@@ -504,12 +496,8 @@ create_route "30" "{
 
 # Route 4: API endpoints (with rate limiting)
 # NOTE (ThaliumX auth contract):
-# - We intentionally DO NOT enforce Keycloak OIDC at the gateway for all /api/* here.
-# - The current frontend login/register flows use the backend's native auth endpoints.
-# - Enforcing APISIX openid-connect on /api/* breaks /api/auth/login and /api/auth/register.
-# - Backend already performs authentication/authorization via middleware.
-#
-# Once the frontend is migrated to Keycloak-native OIDC, re-enable openid-connect here.
+# - Route 4 remains the baseline API route.
+# - Strict OIDC hard-deny enforcement is enabled on Route 41 when APISIX_ENABLE_OIDC=true.
 create_route "4" "{
     \"id\": \"4\",
     \"name\": \"thaliumx-api\",
@@ -718,12 +706,16 @@ if [ "$APISIX_ENABLE_OIDC" = "true" ]; then
               \"set_id_token_header\": true,
               \"set_userinfo_header\": true,
               \"set_claims_in_headers\": true,
-              \"unauth_action\": \"pass\"
+              \"unauth_action\": \"deny\"
           },
           \"proxy-rewrite\": {
               \"headers\": {
                   \"X-Tenant-ID\": \"10000000-0000-0000-0000-000000000000\",
-                  \"X-Tenant-Slug\": \"thaliumx-platform\"
+                  \"X-Tenant-Slug\": \"thaliumx-platform\",
+                  \"X-Channel\": \"$http_x_channel\",
+                  \"X-Broker-ID\": \"$http_x_broker_id\",
+                  \"X-Broker-Slug\": \"$http_x_broker_slug\",
+                  \"X-Resolved-Host\": \"$host\"
               }
           },
           \"redirect\": {
@@ -825,7 +817,7 @@ if [ "$APISIX_ENABLE_OIDC" = "true" ]; then
   }"
 fi
 
-# Route 8: auth.thaliumx.com -> Zitadel
+# Route 8: auth.thaliumx.com -> Keycloak identity provider
 # NOTE (frontend PKCE):
 # The browser performs OIDC discovery + token exchange against auth.thaliumx.com.
 # Those requests are cross-origin from https://thaliumx.com, so we must ensure CORS
@@ -834,10 +826,10 @@ fi
 # 8-pre) CORS-enabled discovery endpoints
 create_route "15" "{
     \"id\": \"15\",
-    \"name\": \"thaliumx-auth-oidc-discovery\",
-    \"desc\": \"Zitadel OIDC discovery (CORS)\",
+    \"name\": \"thaliumx-auth-oidc-discovery-keycloak\",
+    \"desc\": \"OIDC discovery (CORS)\",
     \"host\": \"auth.thaliumx.com\",
-    \"uri\": \"/.well-known/*\",
+    \"uri\": \"/realms/*/.well-known/*\",
     \"priority\": 90,
     \"status\": 1,
     \"upstream_id\": \"5\",
@@ -864,10 +856,10 @@ create_route "15" "{
 # 8-pre2) CORS-enabled OAuth endpoints (token exchange, JWKS, etc.)
 create_route "16" "{
     \"id\": \"16\",
-    \"name\": \"thaliumx-auth-oidc-oauth\",
-    \"desc\": \"Zitadel OAuth endpoints (CORS for PKCE token exchange)\",
+    \"name\": \"thaliumx-auth-oidc-oauth-keycloak\",
+    \"desc\": \"Keycloak OIDC protocol endpoints (CORS for PKCE token exchange)\",
     \"host\": \"auth.thaliumx.com\",
-    \"uri\": \"/oauth/*\",
+    \"uri\": \"/realms/*/protocol/openid-connect/*\",
     \"priority\": 90,
     \"status\": 1,
     \"upstream_id\": \"5\",
@@ -893,8 +885,8 @@ create_route "16" "{
 
 create_route "8" "{
     \"id\": \"8\",
-    \"name\": \"thaliumx-auth\",
-    \"desc\": \"Zitadel proxy - auth.thaliumx.com/*\",
+    \"name\": \"thaliumx-auth-keycloak\",
+    \"desc\": \"Keycloak proxy - auth.thaliumx.com/*\",
     \"host\": \"auth.thaliumx.com\",
     \"uri\": \"/*\",
     \"priority\": 60,
@@ -902,29 +894,6 @@ create_route "8" "{
     \"upstream_id\": \"5\",
     \"plugins\": {
         \"proxy-rewrite\": {
-            \"headers\": {
-                \"X-Forwarded-Proto\": \"https\",
-                \"X-Forwarded-Port\": \"443\",
-                \"X-Forwarded-Host\": \"auth.thaliumx.com\"
-            }
-        },
-        \"request-id\": { \"include_in_response\": true }
-    }
-}"
-
-# Compatibility: allow /auth/* on auth.thaliumx.com and rewrite away the prefix.
-create_route "11" "{
-    \"id\": \"11\",
-    \"name\": \"thaliumx-auth-compat-prefix\",
-    \"desc\": \"Zitadel compat - auth.thaliumx.com/auth/* -> /*\",
-    \"host\": \"auth.thaliumx.com\",
-    \"uri\": \"/auth/*\",
-    \"priority\": 80,
-    \"status\": 1,
-    \"upstream_id\": \"5\",
-    \"plugins\": {
-        \"proxy-rewrite\": {
-            \"regex_uri\": [\"^/auth/(.*)\", \"/$1\"],
             \"headers\": {
                 \"X-Forwarded-Proto\": \"https\",
                 \"X-Forwarded-Port\": \"443\",
@@ -1048,24 +1017,6 @@ create_route "6" "{
  }"
 
 
-# Route 12: thaliumx.com/auth/* compatibility
-# Zitadel: redirect thaliumx.com/auth/* to auth.thaliumx.com/auth/* and let the auth host rewrite.
-create_route "12" "{
-    \"id\": \"12\",
-    \"name\": \"thaliumx-auth-on-main-host\",
-    \"desc\": \"Redirect thaliumx.com/auth/* -> auth.thaliumx.com/auth/* (Zitadel)\",
-    \"host\": \"thaliumx.com\",
-    \"uri\": \"/auth/*\",
-    \"priority\": 95,
-    \"status\": 1,
-    \"plugins\": {
-        \"redirect\": {
-            \"uri\": \"https://auth.thaliumx.com\$request_uri\",
-            \"ret_code\": 302
-        }
-    }
-}"
-
 # Route 7: Financial endpoints (strict rate limiting with security and OPA)
 create_route "7" "{
     \"id\": \"7\",
@@ -1166,7 +1117,7 @@ echo "Routes configured:"
 echo "  ✅ thaliumx.com -> Main landing page (/landing)"
 echo "  ✅ www.thaliumx.com -> Redirect to thaliumx.com"
 echo "  ✅ thal.thaliumx.com -> Token presale page (/token-presale)"
-echo "  ✅ auth.thaliumx.com -> Zitadel (OIDC)"
+echo "  ✅ auth.thaliumx.com -> Keycloak (OIDC)"
 echo "  ✅ /api/* -> Backend API (60 req/s, 1000/min per IP, Redis-backed, OPA, caching)"
 echo "  ✅ /api/auth/login|register|reset* -> CRITICAL auth endpoints (Priority 100, 5 req/s, 30 per 5 min per IP, strict, NO OIDC)"
 echo "  ✅ /api/financial/* -> Financial endpoints (30 req/s, 100/min per IP, OPA, strict)"

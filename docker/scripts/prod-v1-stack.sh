@@ -78,17 +78,14 @@ wait_container() {
 
 echo "=== ThaliumX prod-v1 bring-up (mode=$MODE) ==="
 
-# Ensure zitadel local secret files exist (gitignored). Safe to re-run.
-docker/scripts/zitadel-generate-secrets.sh || true
-
 echo "1) docker compose up -d (full file set)"
 docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" up -d --remove-orphans "${UP_EXTRA_ARGS[@]}"
 
 echo "2) wait for core services"
 wait_container thaliumx-vault 300
-# Zitadel auth provider
-wait_container thaliumx-zitadel-postgres 180
-wait_container thaliumx-zitadel 180
+# Keycloak auth provider
+wait_container thaliumx-keycloak-postgres 180
+wait_container thaliumx-keycloak 180
 wait_container thaliumx-backend 420
 wait_container thaliumx-frontend 180
 wait_container thaliumx-apisix 180
@@ -110,6 +107,11 @@ echo "4) run one-shot init jobs (idempotent)"
 #
 # Vault unseal: safe to run multiple times; exits 0 if already unsealed.
 docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" --profile init-jobs run --rm vault-unseal
+
+# Keycloak realm post-import hardening:
+# - Enforces branded ThaliumX realm themes after realm import.
+# - Safe to rerun; updates are idempotent.
+docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" --profile init-jobs run --rm keycloak-post-import-seed
 
 echo "5) final status"
 docker ps --format 'table {{.Names}}\t{{.Status}}' | sed -n '1,120p'
