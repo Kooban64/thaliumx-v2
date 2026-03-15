@@ -13,8 +13,8 @@ import type {
   AggregatedTravelRule,
 } from '../../types/coordinator';
 import type {
-  AggregatedRiskAssessmentTable,
-  AggregatedTravelRuleTable,
+  AggregatedRiskAssessmentRow,
+  AggregatedTravelRuleRow,
 } from '../../types/database';
 
 const logger = createComponentLogger('aggregation-service');
@@ -184,8 +184,28 @@ export class AggregationService {
     }
 
     // Check if already aggregated
-    const existing = await db.queryOne<AggregatedRiskAssessmentTable>(`
-      SELECT * FROM aggregated_risk_assessments
+    const existing = await db.queryOne<AggregatedRiskAssessmentRow>(`
+      SELECT
+        id,
+        source_service as "sourceService",
+        source_assessment_id as "sourceAssessmentId",
+        entity_type as "entityType",
+        entity_id as "entityId",
+        transaction_hash as "transactionHash",
+        user_id as "userId",
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        risk_score as "riskScore",
+        risk_level as "riskLevel",
+        flags,
+        recommendations,
+        review_required as "reviewRequired",
+        reviewed_by as "reviewedBy",
+        reviewed_at as "reviewedAt",
+        assessment_date as "assessmentDate",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM aggregated_risk_assessments
       WHERE source_service = $1 AND source_assessment_id = $2
     `, [input.sourceService, input.sourceAssessmentId]);
 
@@ -211,7 +231,15 @@ export class AggregationService {
 
       logAggregationEvent('updated', 'risk_assessment', input.sourceService, input.sourceAssessmentId, existing.id);
 
-      return this.mapRiskAssessmentTableToData(existing);
+      return this.mapRiskAssessmentTableToData({
+        ...existing,
+        riskScore: enhancedRiskScore,
+        riskLevel: this.calculateRiskLevel(enhancedRiskScore),
+        flags: enhancedFlags,
+        recommendations: enhancedRecommendations,
+        reviewRequired: input.reviewRequired || enhancedRiskScore > 0.8,
+        updatedAt: new Date(),
+      });
     }
 
     // Create new aggregated record
@@ -281,8 +309,30 @@ export class AggregationService {
     const db = getDatabaseService();
 
     // Check if already aggregated
-    const existing = await db.queryOne<AggregatedTravelRuleTable>(`
-      SELECT * FROM aggregated_travel_rules
+    const existing = await db.queryOne<AggregatedTravelRuleRow>(`
+      SELECT
+        id,
+        source_service as "sourceService",
+        source_travel_rule_id as "sourceTravelRuleId",
+        entity_type as "entityType",
+        entity_id as "entityId",
+        transaction_hash as "transactionHash",
+        from_address as "fromAddress",
+        to_address as "toAddress",
+        amount,
+        amount_usd as "amountUsd",
+        asset,
+        status,
+        message_id as "messageId",
+        originator_info as "originatorInfo",
+        beneficiary_info as "beneficiaryInfo",
+        vasp_info as "vaspInfo",
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        user_id as "userId",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM aggregated_travel_rules
       WHERE source_service = $1 AND source_travel_rule_id = $2
     `, [input.sourceService, input.sourceTravelRuleId]);
 
@@ -296,7 +346,11 @@ export class AggregationService {
 
       logAggregationEvent('updated', 'travel_rule', input.sourceService, input.sourceTravelRuleId, existing.id);
 
-      return this.mapTravelRuleTableToData({ ...existing, status: input.status });
+       return this.mapTravelRuleTableToData({
+         ...existing,
+         status: input.status,
+         updatedAt: new Date(),
+       });
     }
 
     // Create new aggregated record
@@ -401,8 +455,28 @@ export class AggregationService {
     const limit = options?.limit ?? 100;
     const offset = options?.offset ?? 0;
 
-    const rows = await db.queryAll<AggregatedRiskAssessmentTable>(`
-      SELECT * FROM aggregated_risk_assessments
+    const rows = await db.queryAll<AggregatedRiskAssessmentRow>(`
+      SELECT
+        id,
+        source_service as "sourceService",
+        source_assessment_id as "sourceAssessmentId",
+        entity_type as "entityType",
+        entity_id as "entityId",
+        transaction_hash as "transactionHash",
+        user_id as "userId",
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        risk_score as "riskScore",
+        risk_level as "riskLevel",
+        flags,
+        recommendations,
+        review_required as "reviewRequired",
+        reviewed_by as "reviewedBy",
+        reviewed_at as "reviewedAt",
+        assessment_date as "assessmentDate",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM aggregated_risk_assessments
       ${whereClause}
       ORDER BY assessment_date DESC
       LIMIT ${limit} OFFSET ${offset}
@@ -443,8 +517,30 @@ export class AggregationService {
     const limit = options?.limit ?? 100;
     const offset = options?.offset ?? 0;
 
-    const rows = await db.queryAll<AggregatedTravelRuleTable>(`
-      SELECT * FROM aggregated_travel_rules
+    const rows = await db.queryAll<AggregatedTravelRuleRow>(`
+      SELECT
+        id,
+        source_service as "sourceService",
+        source_travel_rule_id as "sourceTravelRuleId",
+        entity_type as "entityType",
+        entity_id as "entityId",
+        transaction_hash as "transactionHash",
+        from_address as "fromAddress",
+        to_address as "toAddress",
+        amount,
+        amount_usd as "amountUsd",
+        asset,
+        status,
+        message_id as "messageId",
+        originator_info as "originatorInfo",
+        beneficiary_info as "beneficiaryInfo",
+        vasp_info as "vaspInfo",
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        user_id as "userId",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM aggregated_travel_rules
       ${whereClause}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${offset}
@@ -478,15 +574,15 @@ export class AggregationService {
     // Get assessment stats
     const assessmentStats = await db.queryOne<{
       total: string;
-      high_risk: string;
-      critical_risk: string;
-      pending_reviews: string;
+      highRisk: string;
+      criticalRisk: string;
+      pendingReviews: string;
     }>(`
       SELECT
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE risk_level = 'high') as high_risk,
-        COUNT(*) FILTER (WHERE risk_level = 'critical') as critical_risk,
-        COUNT(*) FILTER (WHERE review_required = true AND reviewed_at IS NULL) as pending_reviews
+        COUNT(*) FILTER (WHERE risk_level = 'high') as "highRisk",
+        COUNT(*) FILTER (WHERE risk_level = 'critical') as "criticalRisk",
+        COUNT(*) FILTER (WHERE review_required = true AND reviewed_at IS NULL) as "pendingReviews"
       FROM aggregated_risk_assessments
       WHERE tenant_id = $1
         AND assessment_date >= $2
@@ -509,14 +605,14 @@ export class AggregationService {
 
     // Get stats by service
     const serviceStats = await db.queryAll<{
-      source_service: string;
+      sourceService: string;
       assessments: string;
-      high_risk: string;
+      highRisk: string;
     }>(`
       SELECT
-        source_service,
+        source_service as "sourceService",
         COUNT(*) as assessments,
-        COUNT(*) FILTER (WHERE risk_level IN ('high', 'critical')) as high_risk
+        COUNT(*) FILTER (WHERE risk_level IN ('high', 'critical')) as "highRisk"
       FROM aggregated_risk_assessments
       WHERE tenant_id = $1
         AND assessment_date >= $2
@@ -525,10 +621,10 @@ export class AggregationService {
     `, [tenantId, periodStart, periodEnd]);
 
     const travelRuleByService = await db.queryAll<{
-      source_service: string;
+      sourceService: string;
       count: string;
     }>(`
-      SELECT source_service, COUNT(*) as count
+      SELECT source_service as "sourceService", COUNT(*) as count
       FROM aggregated_travel_rules
       WHERE tenant_id = $1
         AND created_at >= $2
@@ -546,15 +642,15 @@ export class AggregationService {
     };
 
     for (const stat of serviceStats) {
-      const service = stat.source_service as ComplianceServiceType;
+      const service = stat.sourceService as ComplianceServiceType;
       if (byService[service]) {
         byService[service].assessments = parseInt(stat.assessments, 10);
-        byService[service].highRisk = parseInt(stat.high_risk, 10);
+        byService[service].highRisk = parseInt(stat.highRisk, 10);
       }
     }
 
     for (const stat of travelRuleByService) {
-      const service = stat.source_service as ComplianceServiceType;
+      const service = stat.sourceService as ComplianceServiceType;
       if (byService[service]) {
         byService[service].travelRule = parseInt(stat.count, 10);
       }
@@ -565,9 +661,9 @@ export class AggregationService {
 
     return {
       totalAssessments: parseInt(assessmentStats?.total ?? '0', 10),
-      highRiskCount: parseInt(assessmentStats?.high_risk ?? '0', 10),
-      criticalRiskCount: parseInt(assessmentStats?.critical_risk ?? '0', 10),
-      pendingReviews: parseInt(assessmentStats?.pending_reviews ?? '0', 10),
+      highRiskCount: parseInt(assessmentStats?.highRisk ?? '0', 10),
+      criticalRiskCount: parseInt(assessmentStats?.criticalRisk ?? '0', 10),
+      pendingReviews: parseInt(assessmentStats?.pendingReviews ?? '0', 10),
       travelRuleMessages: totalTravelRule,
       travelRuleCompliance: totalTravelRule > 0 ? (acknowledgedTravelRule / totalTravelRule) * 100 : 100,
       byService,
@@ -587,56 +683,56 @@ export class AggregationService {
   /**
    * Map risk assessment table to data
    */
-  private mapRiskAssessmentTableToData(row: AggregatedRiskAssessmentTable): AggregatedRiskAssessment {
+  private mapRiskAssessmentTableToData(row: AggregatedRiskAssessmentRow): AggregatedRiskAssessment {
     return {
       id: row.id,
-      sourceService: row.source_service as ComplianceServiceType,
-      sourceAssessmentId: row.source_assessment_id,
-      entityType: row.entity_type as AggregatedRiskAssessment['entityType'],
-      entityId: row.entity_id,
-      transactionHash: row.transaction_hash ?? undefined,
-      userId: row.user_id ?? undefined,
-      tenantId: row.tenant_id,
-      brokerId: row.broker_id ?? undefined,
-      riskScore: row.risk_score,
-      riskLevel: row.risk_level,
+      sourceService: row.sourceService as ComplianceServiceType,
+      sourceAssessmentId: row.sourceAssessmentId,
+      entityType: row.entityType as AggregatedRiskAssessment['entityType'],
+      entityId: row.entityId,
+      transactionHash: row.transactionHash ?? undefined,
+      userId: row.userId ?? undefined,
+      tenantId: row.tenantId,
+      brokerId: row.brokerId ?? undefined,
+      riskScore: row.riskScore,
+      riskLevel: row.riskLevel,
       flags: row.flags,
       recommendations: row.recommendations,
-      reviewRequired: row.review_required,
-      reviewedBy: row.reviewed_by ?? undefined,
-      reviewedAt: row.reviewed_at ?? undefined,
-      assessmentDate: row.assessment_date,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      reviewRequired: row.reviewRequired,
+      reviewedBy: row.reviewedBy ?? undefined,
+      reviewedAt: row.reviewedAt ?? undefined,
+      assessmentDate: row.assessmentDate,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
   /**
    * Map travel rule table to data
    */
-  private mapTravelRuleTableToData(row: AggregatedTravelRuleTable): AggregatedTravelRule {
+  private mapTravelRuleTableToData(row: AggregatedTravelRuleRow): AggregatedTravelRule {
     return {
       id: row.id,
-      sourceService: row.source_service as ComplianceServiceType,
-      sourceTravelRuleId: row.source_travel_rule_id,
-      entityType: row.entity_type as AggregatedTravelRule['entityType'],
-      entityId: row.entity_id,
-      transactionHash: row.transaction_hash ?? undefined,
-      fromAddress: row.from_address,
-      toAddress: row.to_address,
+      sourceService: row.sourceService as ComplianceServiceType,
+      sourceTravelRuleId: row.sourceTravelRuleId,
+      entityType: row.entityType as AggregatedTravelRule['entityType'],
+      entityId: row.entityId,
+      transactionHash: row.transactionHash ?? undefined,
+      fromAddress: row.fromAddress,
+      toAddress: row.toAddress,
       amount: row.amount,
-      amountUSD: row.amount_usd,
+      amountUSD: row.amountUsd,
       asset: row.asset,
       status: row.status,
-      messageId: row.message_id,
-      originatorInfo: row.originator_info ?? undefined,
-      beneficiaryInfo: row.beneficiary_info ?? undefined,
-      vaspInfo: row.vasp_info ?? undefined,
-      tenantId: row.tenant_id,
-      brokerId: row.broker_id ?? undefined,
-      userId: row.user_id ?? undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      messageId: row.messageId,
+      originatorInfo: row.originatorInfo ?? undefined,
+      beneficiaryInfo: row.beneficiaryInfo ?? undefined,
+      vaspInfo: row.vaspInfo ?? undefined,
+      tenantId: row.tenantId,
+      brokerId: row.brokerId ?? undefined,
+      userId: row.userId ?? undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 }

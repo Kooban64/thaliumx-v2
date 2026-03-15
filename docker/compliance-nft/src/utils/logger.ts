@@ -6,6 +6,10 @@
 import winston from 'winston';
 import { getConfig } from '../config';
 
+function stringifyLogPart(value: unknown): string {
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
 /**
  * Log levels
  */
@@ -47,7 +51,7 @@ function createLogger(): winston.Logger {
       winston.format.colorize(),
       winston.format.printf(({ timestamp, level, message, ...meta }) => {
         const metaStr = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : '';
-        return `${timestamp} [${level}] ${message}${metaStr}`;
+        return `${stringifyLogPart(timestamp)} [${stringifyLogPart(level)}] ${stringifyLogPart(message)}${metaStr}`;
       })
     );
   }

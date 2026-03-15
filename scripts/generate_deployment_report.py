@@ -14,7 +14,7 @@ def generate_report():
     report = {
         "timestamp": datetime.utcnow().isoformat(),
         "deployment_type": "production",
-        "auth_provider": "zitadel",
+        "auth_provider": "Authentik",
         "services": [
             "vault", "postgres", "redis", "citus-coordinator", "citus-worker-1", "citus-worker-2",
             "timescaledb", "mongodb", "backend", "frontend", "kafka", "kafka-init", "kafka-ui",
@@ -24,7 +24,7 @@ def generate_report():
             "dingir-matchengine", "dingir-restapi", "liquibook", "quantlib", "ballerine-postgres",
             "ballerine-workflow", "ballerine-backoffice", "blnkfinance-migrate", "blnkfinance",
             "compliance-cex", "compliance-dex", "compliance-nft", "compliance-token",
-            "compliance-coordinator", "zitadel-postgres", "zitadel", "wazuh-manager",
+            "compliance-coordinator", "Authentik-postgres", "Authentik", "wazuh-manager",
             "wazuh-indexer", "wazuh-dashboard"
         ],
         "verification_results": {

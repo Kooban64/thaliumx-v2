@@ -219,7 +219,7 @@ REDIS_PASSWORD_FILE=/run/secrets/redis-password
 MONGODB_PASSWORD_FILE=/run/secrets/mongodb-password
 
 # Authentication
-KEYCLOAK_ADMIN_PASSWORD_FILE=/run/secrets/keycloak-admin-password
+AUTHENTIK_ADMIN_PASSWORD_FILE=/run/secrets/Authentik-admin-password
 JWT_SECRET_FILE=/run/secrets/jwt-secret
 ENCRYPTION_KEY_FILE=/run/secrets/encryption-key
 

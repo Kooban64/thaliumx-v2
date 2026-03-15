@@ -107,12 +107,12 @@ All OPA (Open Policy Agent) rules and queries have been tested and verified to b
 
 1. **Fixed `normalize_role` function** in `thaliumx.rego`:
    - Added proper function definition to handle role name normalization
-   - Supports both legacy and Zitadel role formats
+   - Supports both legacy and Authentik role formats
    - Handles platform-admin, broker-admin, and other role variations
 
 2. **Fixed `normalized_user_roles` set definition**:
    - Properly defined as set comprehension
-   - Supports both `input.user.zitadel_roles` and `input.user.roles` arrays
+   - Supports both `input.user.Authentik_roles` and `input.user.roles` arrays
 
 ## Query Endpoints Verified
 

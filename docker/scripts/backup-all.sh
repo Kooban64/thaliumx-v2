@@ -52,7 +52,7 @@ if docker ps --format '{{.Names}}' | grep -q "thaliumx-postgres"; then
     docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" thaliumx-postgres pg_dumpall -U "${POSTGRES_USER}" > "${BACKUP_DIR}/postgres_all.sql" 2>/dev/null
     
     # Individual database backups
-    for db in thaliumx keycloak ballerine exchange; do
+    for db in thaliumx Authentik ballerine exchange; do
         if docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" thaliumx-postgres psql -U "${POSTGRES_USER}" -lqt | cut -d \| -f 1 | grep -qw "$db"; then
             docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" thaliumx-postgres pg_dump -U "${POSTGRES_USER}" -Fc "$db" > "${BACKUP_DIR}/postgres_${db}.dump" 2>/dev/null
             echo -e "  ${GREEN}✓ ${db} database backed up${NC}"

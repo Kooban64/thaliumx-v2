@@ -91,8 +91,8 @@ jest.mock('../src/services/secrets', () => ({
   },
 }));
 
-jest.mock('../src/services/keycloak', () => ({
-  KeycloakService: {
+jest.mock('../src/services/Authentik', () => ({
+  AuthentikService: {
     initialize: jest.fn(),
     isHealthy: jest.fn(() => true),
     validateToken: jest.fn(async () => ({ sub: 'test-user' })),

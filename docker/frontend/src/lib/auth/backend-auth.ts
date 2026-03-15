@@ -2,27 +2,26 @@
 
 import { logError, ErrorCategory, ErrorSeverity } from '@/lib/services/errorLogger';
 import { getAccessToken } from './token-store';
+import { clearEntryDomain } from '@/lib/utils/domain-detection';
 import type { UserProfile } from '@/stores/userStore';
 
 /**
- * Backend Authentication Utilities with Keycloak OIDC Support
- * 
- * Handles authentication through backend APIs while using Keycloak tokens.
+ * Backend Authentication Utilities with OIDC Support
+ *
+ * Handles authentication through backend APIs while using OIDC tokens.
  * Maintains clean UI abstraction - users don't see identity-provider implementation details.
  */
 
-export type AuthProvider = 'keycloak';
+export type AuthProvider = 'oidc';
 
-const resolveAuthProvider = (): AuthProvider => {
-  return 'keycloak';
-};
+const resolveAuthProvider = (): AuthProvider => 'oidc';
 
 // Store auth token in memory (not persisted to localStorage for security)
 let authToken: string | null = null;
 let tokenExpiresAt: number = 0;
 
 /**
- * Store Keycloak token securely in memory
+ * Store OIDC token securely in memory
  */
 export function setAuthToken(token: string, expiresIn: number): void {
   authToken = token;
@@ -30,7 +29,7 @@ export function setAuthToken(token: string, expiresIn: number): void {
 }
 
 /**
- * Get current Keycloak token if valid
+ * Get current OIDC token if valid
  */
 export function getAuthToken(): string | null {
   if (authToken && tokenExpiresAt > Date.now() + 60000) { // 1 minute buffer
@@ -45,21 +44,21 @@ export function getAuthToken(): string | null {
 }
 
 /**
- * Clear stored Keycloak token
+ * Clear stored OIDC token
  */
 export function clearAuthToken(): void {
   authToken = null;
   tokenExpiresAt = 0;
 }
 
-export const setKeycloakToken = setAuthToken;
-export const getKeycloakToken = getAuthToken;
-export const clearKeycloakToken = clearAuthToken;
+export const setOidcToken = setAuthToken;
+export const getOidcToken = getAuthToken;
+export const clearOidcToken = clearAuthToken;
 export const getAuthProvider = resolveAuthProvider;
 
 /**
  * Login user with email and password
- * Backend authenticates via Keycloak and returns Keycloak token
+ * Backend authenticates via OIDC and returns OIDC token
  */
 export async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
   try {
@@ -105,7 +104,7 @@ export async function login(email: string, password: string): Promise<{ success:
       };
     };
 
-    // Store Keycloak token from response (backend always returns token, not in cookies)
+    // Store OIDC token from response (backend always returns token, not in cookies)
     // Token is stored in memory and used in Authorization header for all API calls
     if (data.data?.accessToken) {
       setAuthToken(data.data.accessToken, data.data.expiresIn || 3600);
@@ -135,7 +134,7 @@ export async function login(email: string, password: string): Promise<{ success:
 
 /**
  * Check if user is authenticated by calling backend profile endpoint
- * Uses Keycloak token in Authorization header (stored in memory)
+ * Uses OIDC token in Authorization header (stored in memory)
  */
 export async function checkAuth(): Promise<boolean> {
   try {
@@ -144,7 +143,7 @@ export async function checkAuth(): Promise<boolean> {
       'Content-Type': 'application/json',
     };
 
-    // Add Keycloak token to Authorization header if available
+    // Add OIDC token to Authorization header if available
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -229,6 +228,7 @@ export async function logout(): Promise<void> {
   // Clear any client-side storage
   if (typeof window !== 'undefined') {
     try {
+      clearEntryDomain();
       sessionStorage.clear();
       localStorage.removeItem('thaliumx_oidc_access_token');
       localStorage.removeItem('thaliumx_oidc_access_token_exp');

@@ -12,7 +12,7 @@ export default function AuthCallbackClient() {
       try {
         // Backward-compatible path.
         // In prod-v1, `/auth/*` on `thaliumx.com` is reserved for the IdP proxy,
-        // so Zitadel redirects should use `/oidc/callback` instead.
+        // so Authentik redirects should use `/oidc/callback` instead.
         const qs = searchParams.toString();
         window.location.href = `/oidc/callback${qs ? `?${qs}` : ''}`;
       } catch (e) {

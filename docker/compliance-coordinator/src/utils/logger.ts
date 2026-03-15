@@ -7,6 +7,10 @@ import winston from 'winston';
 import { getConfig } from '../config';
 import type { ComplianceServiceType } from '../types/coordinator';
 
+function stringifyLogPart(value: unknown): string {
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
 /**
  * Create base logger
  */
@@ -22,8 +26,8 @@ function createBaseLogger(): winston.Logger {
     formats.push(winston.format.colorize());
     formats.push(winston.format.printf(({ level, message, timestamp, component, ...meta }) => {
       const metaStr = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : '';
-      const componentStr = component ? `[${component as string}]` : '';
-      return `${timestamp as string} ${level} ${componentStr} ${message as string}${metaStr}`;
+      const componentStr = typeof component === 'string' && component.length > 0 ? `[${component}]` : '';
+      return `${stringifyLogPart(timestamp)} ${stringifyLogPart(level)} ${componentStr} ${stringifyLogPart(message)}${metaStr}`;
     }));
   } else {
     formats.push(winston.format.json());

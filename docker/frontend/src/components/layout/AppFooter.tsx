@@ -49,8 +49,8 @@ export function AppFooter() {
     const fetchHealth = async () => {
       try {
         // Only fetch health if user is authenticated (has token)
-        const { getKeycloakToken } = await import('@/lib/auth/backend-auth');
-        const token = getKeycloakToken();
+        const { getAuthToken } = await import('@/lib/auth/backend-auth');
+        const token = getAuthToken();
         if (!token) {
           return; // No token, skip health check
         }

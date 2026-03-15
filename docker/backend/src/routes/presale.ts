@@ -347,7 +347,11 @@ router.post('/investments',
   try {
     const { presaleId, amount, paymentMethod, tier, referralCode, walletAddress, deliveryWalletType } = req.body;
     const userId = (req as any).user?.id;
-    const tenantId = (req as any).tenantId || (req as any).user?.tenantId || process.env.ZITADEL_DEFAULT_TENANT_ID || '10000000-0000-0000-0000-000000000000';
+    const tenantId =
+      (req as any).tenantId ||
+      (req as any).user?.tenantId ||
+      process.env.KEYCLOAK_DEFAULT_TENANT_ID ||
+      '10000000-0000-0000-0000-000000000000';
     if (!tenantId) {
       res.status(401).json({ success: false, error: { code: 'TENANT_REQUIRED', message: 'Tenant context is required' } });
       return;

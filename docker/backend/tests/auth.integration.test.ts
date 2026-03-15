@@ -29,7 +29,7 @@ describe('Authentication Integration Tests', () => {
   }, 10000);
 
   describe('POST /api/auth/register', () => {
-    it('should register a new user successfully', async () => {
+    it('should return 410 for legacy registration', async () => {
       const userData = {
         email: 'test@example.com',
         password: 'password123',
@@ -41,46 +41,10 @@ describe('Authentication Integration Tests', () => {
       const response = await request(app)
         .post('/api/auth/register')
         .send(userData)
-        .expect(201);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.user).toBeDefined();
-      expect(response.body.data.user.email).toBe(userData.email);
-      expect(response.body.data.user.username).toBe(userData.username);
-    });
-
-    it('should return 400 for invalid email', async () => {
-      const userData = {
-        email: 'invalid-email',
-        password: 'password123',
-        username: 'testuser2',
-        firstName: 'Test',
-        lastName: 'User'
-      };
-
-      const response = await request(app)
-        .post('/api/auth/register')
-        .send(userData)
-        .expect(400);
+        .expect(410);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Invalid email format');
-    });
-
-    it('should return 400 for missing required fields', async () => {
-      const userData = {
-        email: 'test2@example.com',
-        password: 'password123'
-        // missing username, firstName, lastName
-      };
-
-      const response = await request(app)
-        .post('/api/auth/register')
-        .send(userData)
-        .expect(400);
-
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Email, password, first name, and last name are required');
+      expect(response.body.error?.code).toBe('LEGACY_AUTH_DISABLED');
     });
   });
 
@@ -113,18 +77,14 @@ describe('Authentication Integration Tests', () => {
   });
 
   describe('POST /api/auth/refresh', () => {
-    it('should return 400 for missing refresh token', async () => {
+    it('should return 410 for legacy refresh', async () => {
       const response = await request(app)
         .post('/api/auth/refresh')
         .send({})
-        .expect(400);
+        .expect(410);
 
       expect(response.body.success).toBe(false);
-      if (typeof response.body.error === 'string') {
-        expect(response.body.error.length).toBeGreaterThan(0);
-      } else {
-        expect(response.body.error?.code).toBeDefined();
-      }
+      expect(response.body.error?.code).toBe('LEGACY_AUTH_DISABLED');
     });
   });
 });

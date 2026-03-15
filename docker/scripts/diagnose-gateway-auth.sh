@@ -3,20 +3,20 @@ set -euo pipefail
 
 # ThaliumX Gateway/Auth Diagnostics
 # =================================
-# Purpose: Collect evidence about the current APISIX/ETCD/Keycloak routing + auth wiring.
+# Purpose: Collect evidence about the current APISIX/ETCD/Authentik routing + auth wiring.
 # This script is read-only: it does not mutate routes, consumers, or etcd keys.
 #
 # Expected container names (from compose):
 # - thaliumx-apisix
 # - thaliumx-etcd
-# - thaliumx-keycloak
+# - thaliumx-Authentik
 
 APISIX_CONTAINER="${APISIX_CONTAINER:-thaliumx-apisix}"
 ETCD_CONTAINER="${ETCD_CONTAINER:-thaliumx-etcd}"
-KEYCLOAK_CONTAINER="${KEYCLOAK_CONTAINER:-thaliumx-keycloak}"
+AUTHENTIK_CONTAINER="${AUTHENTIK_CONTAINER:-thaliumx-Authentik}"
 
 # Single-realm mode default
-KEYCLOAK_REALM="${KEYCLOAK_REALM:-thaliumx-platform}"
+AUTHENTIK_REALM="${AUTHENTIK_REALM:-thaliumx-platform}"
 
 CONF_PATH="${CONF_PATH:-/usr/local/apisix/conf/config.yaml}"
 
@@ -83,10 +83,10 @@ require_docker
 section "Docker/Containers"
 echo "APISIX_CONTAINER=$APISIX_CONTAINER"
 echo "ETCD_CONTAINER=$ETCD_CONTAINER"
-echo "KEYCLOAK_CONTAINER=$KEYCLOAK_CONTAINER"
+echo "AUTHENTIK_CONTAINER=$AUTHENTIK_CONTAINER"
 echo
 
-for c in "$APISIX_CONTAINER" "$ETCD_CONTAINER" "$KEYCLOAK_CONTAINER"; do
+for c in "$APISIX_CONTAINER" "$ETCD_CONTAINER" "$AUTHENTIK_CONTAINER"; do
   if container_running "$c"; then
     echo "OK: container running: $c"
   else
@@ -164,30 +164,30 @@ else
   echo "SKIP: ETCD container not running"
 fi
 
-section "Keycloak readiness + base path check"
-if container_running "$KEYCLOAK_CONTAINER"; then
-  echo "# Keycloak readiness (HTTPS)"
-  # Keycloak in prod-v1 is started with --http-relative-path=/auth and HTTP disabled.
-  KEYCLOAK_IP="$(container_ip "$KEYCLOAK_CONTAINER")"
-  if [ -n "$KEYCLOAK_IP" ]; then
-    # NOTE: In this stack Keycloak's management interface listens on :9000 (HTTPS)
+section "Authentik readiness + base path check"
+if container_running "$AUTHENTIK_CONTAINER"; then
+  echo "# Authentik readiness (HTTPS)"
+  # Authentik in prod-v1 is started with --http-relative-path=/auth and HTTP disabled.
+  AUTHENTIK_IP="$(container_ip "$AUTHENTIK_CONTAINER")"
+  if [ -n "$AUTHENTIK_IP" ]; then
+    # NOTE: In this stack Authentik's management interface listens on :9000 (HTTPS)
     # and health endpoints are exposed under the relative path too: /auth/health/ready.
-    curl_host -k "https://${KEYCLOAK_IP}:9000/auth/health/ready"
+    curl_host -k "https://${AUTHENTIK_IP}:9000/auth/health/ready"
   else
-    echo "WARN: could not determine Keycloak container IP; skipping readiness probe"
+    echo "WARN: could not determine Authentik container IP; skipping readiness probe"
   fi
   echo
-  echo "# Keycloak realm discovery (${KEYCLOAK_REALM})"
-  if [ -n "$KEYCLOAK_IP" ]; then
-    curl_host -k "https://${KEYCLOAK_IP}:8443/auth/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration"
+  echo "# Authentik realm discovery (${AUTHENTIK_REALM})"
+  if [ -n "$AUTHENTIK_IP" ]; then
+    curl_host -k "https://${AUTHENTIK_IP}:8443/auth/realms/${AUTHENTIK_REALM}/.well-known/openid-configuration"
   fi
 else
-  echo "SKIP: Keycloak container not running"
+  echo "SKIP: Authentik container not running"
 fi
 
-section "APISIX -> Keycloak upstream test (via APISIX public endpoint)"
-echo "# auth.thaliumx.com -> should proxy to Keycloak /auth/... (OIDC discovery)"
-curl_host -k -H 'Host: auth.thaliumx.com' "https://localhost/auth/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration"
+section "APISIX -> Authentik upstream test (via APISIX public endpoint)"
+echo "# auth.thaliumx.com -> should proxy to Authentik /auth/... (OIDC discovery)"
+curl_host -k -H 'Host: auth.thaliumx.com' "https://localhost/auth/realms/${AUTHENTIK_REALM}/.well-known/openid-configuration"
 
 section "Public routing probes via APISIX (Host header simulation)"
 echo "# thaliumx.com -> should usually be Frontend (HTML), not Backend JSON"

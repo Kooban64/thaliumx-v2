@@ -62,7 +62,7 @@ const upload = multer({
 router.post('/verify',
   authenticateToken,
   validateRequest(Joi.object({
-    zitadelUserId: Joi.string().required(),
+    userId: Joi.string().required(),
     brokerId: Joi.string().required(),
     email: Joi.string().email().required(),
     phoneNumber: Joi.string().optional(),
@@ -73,7 +73,7 @@ router.post('/verify',
     try {
       const tenantId = (req.user as any)?.tenantId;
       const {
-        zitadelUserId: userId,
+        userId,
         brokerId,
         email,
         phoneNumber,
@@ -451,7 +451,7 @@ router.post('/documents/upload',
   authenticateToken,
   upload.array('documents', 5),
   validateRequest(Joi.object({
-    zitadelUserId: Joi.string().required(),
+    userId: Joi.string().required(),
     documentType: Joi.string().valid(
       'PASSPORT',
       'NATIONAL_ID',
@@ -480,7 +480,7 @@ router.post('/documents/upload',
       const tenantId = (req.user as any)?.tenantId;
       const files = req.files as Express.Multer.File[];
       const {
-        zitadelUserId: userId,
+        userId,
         documentType,
         country,
         documentNumber,
@@ -940,13 +940,13 @@ router.get('/reports/export',
 router.post('/collection-flow/create',
   authenticateToken,
   validateRequest(Joi.object({
-    zitadelUserId: Joi.string().required(),
+    userId: Joi.string().required(),
     workflowId: Joi.string().optional(),
     redirectUrl: Joi.string().uri().optional()
   })),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { zitadelUserId: userId, workflowId, redirectUrl } = req.body;
+      const { userId, workflowId, redirectUrl } = req.body;
       const tenantId = (req.user as any)?.tenantId;
 
       LoggerService.info('Creating collection flow URL', {

@@ -196,12 +196,12 @@ run_init_jobs() {
   banner
   echo "Running one-shot init jobs (idempotent):"
   echo " - vault-unseal"
-  echo " - keycloak-post-import-seed (applies ThaliumX realm theme)"
+  echo " - Authentik-post-import-seed (applies ThaliumX realm theme)"
   echo
   # These jobs are intentionally NOT part of the default `up` set.
   # They live behind the compose profile `init-jobs` to avoid showing up as “exited” containers.
   compose_with_extra_profile init-jobs run --rm vault-unseal
-  compose_with_extra_profile init-jobs run --rm keycloak-post-import-seed
+  compose_with_extra_profile init-jobs run --rm Authentik-post-import-seed
   pause
 }
 
@@ -213,7 +213,7 @@ reseed_gateway_routes() {
   echo "Auth provider is set to Keycloak."
   echo
 
-  local provider="keycloak"
+  local provider="Authentik"
 
   local enable_oidc
   read -r -p "Enable APISIX OIDC enforcement? [true/false] (default: true): " enable_oidc

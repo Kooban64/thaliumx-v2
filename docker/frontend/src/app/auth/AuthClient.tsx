@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { loginKeycloak } from '@/lib/auth/zitadel';
+import { loginOidc } from '@/lib/auth/oidc';
+import { initializeEntryDomain } from '@/lib/utils/domain-detection';
 
 export default function AuthClient() {
   const searchParams = useSearchParams();
@@ -12,11 +13,15 @@ export default function AuthClient() {
   const nextPath = searchParams.get('next') || '/dashboard';
   const incomingError = searchParams.get('error');
 
+  useEffect(() => {
+    initializeEntryDomain();
+  }, []);
+
   const handleContinue = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      await loginKeycloak({ nextPath });
+      await loginOidc({ nextPath });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to start authentication');
       setIsLoading(false);
@@ -27,7 +32,7 @@ export default function AuthClient() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
       <div className="w-full max-w-md rounded-lg border bg-background p-6 shadow-sm text-center space-y-3">
         <h1 className="text-xl font-semibold">Sign in</h1>
-        <p className="text-sm text-muted-foreground">Continue to authenticate via Keycloak.</p>
+        <p className="text-sm text-muted-foreground">Continue to authenticate via the identity provider.</p>
         {(incomingError || error) && (
           <p className="text-sm text-red-600 break-words">
             {incomingError || error}

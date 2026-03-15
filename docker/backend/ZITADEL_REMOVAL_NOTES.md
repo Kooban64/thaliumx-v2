@@ -1,22 +1,22 @@
-# Zitadel Integration Removal - Notes
+# Authentik Integration Removal - Notes
 
-## Status: Zitadel Integration Removed
+## Status: Authentik Integration Removed
 
 **Date**: January 10, 2026  
-**Reason**: Zitadel v2 removed password grant support, causing authentication blockers. We've switched to our own auth system.
+**Reason**: Authentik v2 removed password grant support, causing authentication blockers. We've switched to our own auth system.
 
 ## What Was Changed
 
 ### 1. Authentication Service (`docker/backend/src/services/auth.ts`)
-- ✅ Removed Zitadel password grant token requests
-- ✅ Removed Zitadel user creation in registration
+- ✅ Removed Authentik password grant token requests
+- ✅ Removed Authentik user creation in registration
 - ✅ Now uses our own JWT token system via `TokenService`
 - ✅ Password verification uses bcrypt (our database)
 - ✅ MFA/TOTP continues to work (our own implementation)
 
 ### 2. Token Middleware (`docker/backend/src/middleware/error-handler.ts`)
 - ✅ Updated to support our own JWT tokens (primary)
-- ✅ Still supports Zitadel tokens if configured (for future SSO)
+- ✅ Still supports Authentik tokens if configured (for future SSO)
 - ✅ Validates tokens using `TokenService.verifyAccessToken()`
 
 ### 3. Token Service
@@ -51,24 +51,24 @@ User Login:
 - ✅ Backup codes supported
 - ✅ MFA status included in JWT tokens
 
-## Future: Zitadel Re-integration
+## Future: Authentik Re-integration
 
-Zitadel may be re-added later for:
+Authentik may be re-added later for:
 - SSO/SAML support (enterprise customers)
 - Social logins (Google, GitHub, etc.)
 - OIDC compliance requirements
 
-**Note**: The middleware still supports Zitadel tokens if configured, so re-integration should be straightforward.
+**Note**: The middleware still supports Authentik tokens if configured, so re-integration should be straightforward.
 
 ## Environment Variables
 
-The following Zitadel environment variables are no longer required:
-- `ZITADEL_ISSUER`
-- `ZITADEL_JWKS_URI`
-- `ZITADEL_SERVICE_ACCOUNT_ID`
-- `ZITADEL_SERVICE_ACCOUNT_KEY`
-- `ZITADEL_OIDC_CLIENT_ID`
-- `ZITADEL_OIDC_CLIENT_SECRET`
+The following Authentik environment variables are no longer required:
+- `AUTHENTIK_ISSUER`
+- `AUTHENTIK_JWKS_URI`
+- `AUTHENTIK_SERVICE_ACCOUNT_ID`
+- `AUTHENTIK_SERVICE_ACCOUNT_KEY`
+- `AUTHENTIK_OIDC_CLIENT_ID`
+- `AUTHENTIK_OIDC_CLIENT_SECRET`
 
 **Required** JWT environment variables:
 - `JWT_SECRET` (required for token signing)
@@ -91,9 +91,9 @@ The following Zitadel environment variables are no longer required:
 
 ## Files Modified
 
-1. `docker/backend/src/services/auth.ts` - Removed Zitadel integration
+1. `docker/backend/src/services/auth.ts` - Removed Authentik integration
 2. `docker/backend/src/middleware/error-handler.ts` - Updated token validation
-3. `docker/backend/ZITADEL_REMOVAL_NOTES.md` - This file
+3. `docker/backend/AUTHENTIK_REMOVAL_NOTES.md` - This file
 
 ## Benefits
 
@@ -101,11 +101,11 @@ The following Zitadel environment variables are no longer required:
 - ✅ Full control over auth flow
 - ✅ MFA/TOTP working from day 0
 - ✅ Simpler architecture
-- ✅ Faster development (no Zitadel setup blockers)
+- ✅ Faster development (no Authentik setup blockers)
 - ✅ Strict tenant isolation via tenantId
 
 ## Migration Notes
 
-- Existing users with `zitadelId` will continue to work (password verified in our DB)
+- Existing users with `AuthentikId` will continue to work (password verified in our DB)
 - No data migration needed
-- Zitadel service can be stopped/removed from docker-compose
+- Authentik service can be stopped/removed from docker-compose

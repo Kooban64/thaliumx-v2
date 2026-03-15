@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Authentication Flow Test Script
-Tests the authentication flows with Zitadel
+Tests the authentication flows with Authentik
 """
 
 import requests

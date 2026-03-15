@@ -499,10 +499,10 @@ router.get('/settings', requireRole(['super_admin']), async (req: Request, res: 
         networkId: config.blockchain.networkId,
         confirmations: config.blockchain.confirmations
       },
-      keycloak: {
-        issuer: config.keycloak?.issuer,
-        jwksUri: config.keycloak?.jwksUri,
-        audience: config.keycloak?.audience
+      Authentik: {
+        issuer: config.Authentik?.issuer,
+        jwksUri: config.Authentik?.jwksUri,
+        audience: config.Authentik?.audience
       },
       kafka: {
         brokers: config.kafka.brokers,

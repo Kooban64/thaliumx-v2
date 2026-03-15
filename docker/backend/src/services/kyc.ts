@@ -8,7 +8,7 @@
  * - Sanctions screening and PEP checks
  * - Ongoing monitoring and re-verification
  * - Compliance reporting and audit trails
- * - Integration with Keycloak and broker management
+ * - Integration with Authentik and broker management
  * 
  * Built on Ballerine's advanced identity verification platform
  */
@@ -16,7 +16,7 @@
 import { LoggerService } from './logger';
 // ConfigService, BrokerManagementService, crypto, KYCLevelConfig, KYCLevelLimits imported but not used in this file
 import { EventStreamingService } from './event-streaming';
-// import { KeycloakService } from './keycloak'; // Removed - using Zitadel now
+// import { AuthentikService } from './Authentik'; // Removed - using Authentik now
 import { getBallerineService } from './ballerine';
 import { createError } from '../utils';
 // AppError imported but not used in this file
@@ -32,7 +32,7 @@ import { UserService } from './user';
 export interface KYCUser {
   id: string;
   tenantId: string;
-  userId: string; // Zitadel user ID (previously keycloakUserId)
+  userId: string; // Authentik user ID (legacy AuthentikUserId name)
   brokerId: string;
   email: string;
   phoneNumber?: string;
@@ -598,7 +598,7 @@ export class KYCService {
    */
   public static async startKYCVerification(
     tenantId: string,
-    userId: string, // Zitadel user ID (previously keycloakUserId)
+    userId: string, // Authentik user ID (legacy AuthentikUserId name)
     brokerId: string,
     email: string,
     phoneNumber?: string,

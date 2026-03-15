@@ -116,11 +116,17 @@ export function requiresAuth(path: string): boolean {
  * Check if a route requires a specific role
  */
 export function requiresRole(path: string, role: string): boolean {
+  const normalizedRole = role?.toLowerCase().replace(/-/g, '_');
   if (path.startsWith('/admin')) {
-    return role === 'admin' || role === 'super_admin';
+    return (
+      normalizedRole === 'admin' ||
+      normalizedRole === 'super_admin' ||
+      normalizedRole === 'platform_admin' ||
+      normalizedRole === 'master_system_admin'
+    );
   }
   if (path.startsWith('/broker')) {
-    return role.startsWith('broker_');
+    return normalizedRole === 'broker_admin' || normalizedRole?.startsWith('broker_') || false;
   }
   return true;
 }
@@ -129,10 +135,16 @@ export function requiresRole(path: string, role: string): boolean {
  * Get redirect path based on user role
  */
 export function getRedirectPath(role?: string): string {
-  if (role === 'admin' || role === 'super_admin') {
+  const normalizedRole = role?.toLowerCase().replace(/-/g, '_');
+  if (
+    normalizedRole === 'admin' ||
+    normalizedRole === 'super_admin' ||
+    normalizedRole === 'platform_admin' ||
+    normalizedRole === 'master_system_admin'
+  ) {
     return routes.admin.home;
   }
-  if (role?.startsWith('broker_')) {
+  if (normalizedRole === 'broker_admin' || normalizedRole?.startsWith('broker_')) {
     return routes.broker.home;
   }
   return routes.dashboard.home;

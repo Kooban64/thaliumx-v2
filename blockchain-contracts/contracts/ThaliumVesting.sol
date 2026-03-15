@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title ThaliumVesting
@@ -28,21 +28,6 @@ contract ThaliumVesting is AccessControl, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
-    // ========================================
-    // CONSTANTS
-    // ========================================
-
-    bytes32 public constant VESTING_MANAGER_ROLE = keccak256("VESTING_MANAGER_ROLE");
-    bytes32 public constant COMPLIANCE_ROLE = keccak256("COMPLIANCE_ROLE");
-
-    uint256 public constant MAX_VESTING_DURATION = 4 * 365 days;
-    uint256 public constant MIN_VESTING_DURATION = 30 days;
-    uint256 public constant CLAIM_COOLDOWN = 24 hours;
-
-    // ========================================
-    // STRUCTS
-    // ========================================
-
     struct VestingSchedule {
         address beneficiary;
         uint256 totalAmount;
@@ -56,11 +41,44 @@ contract ThaliumVesting is AccessControl, Pausable, ReentrancyGuard {
         bytes32 category; // Category identifier
     }
 
+    error InvalidTokenAddress();
+    error InvalidDefaultAdmin();
+    error InvalidVestingManager();
+    error InvalidComplianceOfficer();
+    error InvalidBeneficiary();
+    error AmountMustBePositive();
+    error VestingDurationTooShort();
+    error VestingDurationTooLong();
+    error CliffExceedsDuration();
+    error CannotBackdateSchedule();
+    error StartTimeTooFarInFuture();
+    error InsufficientContractBalance();
+    error ScheduleIdCollision();
+    error NotAuthorized();
+    error ScheduleRevoked();
+    error AllTokensReleased();
+    error ClaimCooldownActive();
+    error ScheduleNotFound();
+    error ScheduleNotRevocable();
+    error ScheduleAlreadyRevoked();
+    error NoTokensToRelease();
+
+    bytes32 public constant VESTING_MANAGER_ROLE = keccak256("VESTING_MANAGER_ROLE");
+    bytes32 public constant COMPLIANCE_ROLE = keccak256("COMPLIANCE_ROLE");
+
+    uint256 public constant MAX_VESTING_DURATION = 4 * 365 days;
+    uint256 public constant MIN_VESTING_DURATION = 30 days;
+    uint256 public constant CLAIM_COOLDOWN = 24 hours;
+
+    // ========================================
+    // CONSTANTS
+    // ========================================
+
     // ========================================
     // STATE VARIABLES
     // ========================================
 
-    IERC20 public immutable thalToken;
+    IERC20 public immutable THAL_TOKEN;
 
     mapping(bytes32 => VestingSchedule) public vestingSchedules;
     mapping(address => bytes32[]) public beneficiarySchedules;
@@ -111,12 +129,12 @@ contract ThaliumVesting is AccessControl, Pausable, ReentrancyGuard {
         address vestingManager,
         address complianceOfficer
     ) {
-        require(thalTokenAddress != address(0), "ThaliumVesting: Invalid token address");
-        require(defaultAdmin != address(0), "ThaliumVesting: Invalid default admin");
-        require(vestingManager != address(0), "ThaliumVesting: Invalid vesting manager");
-        require(complianceOfficer != address(0), "ThaliumVesting: Invalid compliance officer");
+        if (thalTokenAddress == address(0)) revert InvalidTokenAddress();
+        if (defaultAdmin == address(0)) revert InvalidDefaultAdmin();
+        if (vestingManager == address(0)) revert InvalidVestingManager();
+        if (complianceOfficer == address(0)) revert InvalidComplianceOfficer();
 
-        thalToken = IERC20(thalTokenAddress);
+        THAL_TOKEN = IERC20(thalTokenAddress);
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(VESTING_MANAGER_ROLE, vestingManager);
@@ -153,22 +171,21 @@ contract ThaliumVesting is AccessControl, Pausable, ReentrancyGuard {
         returns (bytes32)
     {
         // Basic validation
-        require(beneficiary != address(0), "ThaliumVesting: Invalid beneficiary");
-        require(totalAmount > 0, "ThaliumVesting: Amount must be positive");
-        require(vestingDuration >= MIN_VESTING_DURATION, "ThaliumVesting: Duration too short");
-        require(vestingDuration <= MAX_VESTING_DURATION, "ThaliumVesting: Duration too long");
-        require(vestingDuration >= cliffDuration, "ThaliumVesting: Cliff cannot exceed duration");
+        if (beneficiary == address(0)) revert InvalidBeneficiary();
+        if (totalAmount == 0) revert AmountMustBePositive();
+        if (vestingDuration < MIN_VESTING_DURATION) revert VestingDurationTooShort();
+        if (vestingDuration > MAX_VESTING_DURATION) revert VestingDurationTooLong();
+        if (vestingDuration < cliffDuration) revert CliffExceedsDuration();
 
         // Start time validation
         uint256 actualStartTime = startTime == 0 ? block.timestamp : startTime;
-        require(actualStartTime >= block.timestamp, "ThaliumVesting: Cannot backdate");
-        require(actualStartTime <= block.timestamp + 365 days, "ThaliumVesting: Start time too far");
+        if (actualStartTime < block.timestamp) revert CannotBackdateSchedule();
+        if (actualStartTime > block.timestamp + 365 days) revert StartTimeTooFarInFuture();
 
         // Contract balance check
-        require(
-            thalToken.balanceOf(address(this)) >= totalCommittedTokens + totalAmount,
-            "ThaliumVesting: Insufficient contract balance"
-        );
+        if (THAL_TOKEN.balanceOf(address(this)) < totalCommittedTokens + totalAmount) {
+            revert InsufficientContractBalance();
+        }
 
         // Generate unique schedule ID
         bytes32 scheduleId = keccak256(
@@ -181,10 +198,9 @@ contract ThaliumVesting is AccessControl, Pausable, ReentrancyGuard {
             )
         );
 
-        require(
-            vestingSchedules[scheduleId].beneficiary == address(0),
-            "ThaliumVesting: Schedule ID collision"
-        );
+        if (vestingSchedules[scheduleId].beneficiary != address(0)) {
+            revert ScheduleIdCollision();
+        }
 
         // Create vesting schedule
         vestingSchedules[scheduleId] = VestingSchedule({
@@ -221,26 +237,25 @@ contract ThaliumVesting is AccessControl, Pausable, ReentrancyGuard {
         VestingSchedule storage schedule = vestingSchedules[scheduleId];
 
         // Basic validation
-        require(schedule.beneficiary == msg.sender, "ThaliumVesting: Not authorized");
-        require(!schedule.revoked, "ThaliumVesting: Schedule revoked");
-        require(schedule.totalAmount > schedule.releasedAmount, "ThaliumVesting: All tokens released");
+        if (schedule.beneficiary != msg.sender) revert NotAuthorized();
+        if (schedule.revoked) revert ScheduleRevoked();
+        if (schedule.totalAmount <= schedule.releasedAmount) revert AllTokensReleased();
 
         // Cooldown check
-        require(
-            block.timestamp >= schedule.lastClaimTime + CLAIM_COOLDOWN,
-            "ThaliumVesting: Claim cooldown active"
-        );
+        if (block.timestamp < schedule.lastClaimTime + CLAIM_COOLDOWN) {
+            revert ClaimCooldownActive();
+        }
 
         // Calculate releasable amount
         uint256 releasableAmount = _calculateReleasableAmount(scheduleId);
-        require(releasableAmount > 0, "ThaliumVesting: No tokens to release");
+        if (releasableAmount == 0) revert NoTokensToRelease();
 
         // Update schedule
         schedule.releasedAmount += releasableAmount;
         schedule.lastClaimTime = block.timestamp;
 
         // Transfer tokens
-        thalToken.safeTransfer(msg.sender, releasableAmount);
+        THAL_TOKEN.safeTransfer(msg.sender, releasableAmount);
 
         emit TokensReleased(scheduleId, msg.sender, releasableAmount);
     }
@@ -257,9 +272,9 @@ contract ThaliumVesting is AccessControl, Pausable, ReentrancyGuard {
     {
         VestingSchedule storage schedule = vestingSchedules[scheduleId];
 
-        require(schedule.beneficiary != address(0), "ThaliumVesting: Schedule not found");
-        require(schedule.revocable, "ThaliumVesting: Not revocable");
-        require(!schedule.revoked, "ThaliumVesting: Already revoked");
+        if (schedule.beneficiary == address(0)) revert ScheduleNotFound();
+        if (!schedule.revocable) revert ScheduleNotRevocable();
+        if (schedule.revoked) revert ScheduleAlreadyRevoked();
 
         // Calculate unvested amount
         uint256 timeElapsed = block.timestamp - schedule.startTime;

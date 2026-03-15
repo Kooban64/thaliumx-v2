@@ -51,7 +51,7 @@ export function kycUpgradeMiddleware(options: KYCUpgradeMiddlewareOptions) {
         amount,
         TimePeriod.TOTAL,
         options.autoTrigger !== false,
-        req // Pass request for Zitadel context
+        req // Pass request for Keycloak context
       );
 
       if (upgradeCheck.shouldUpgrade && !upgradeCheck.limitStatus.canProceed) {

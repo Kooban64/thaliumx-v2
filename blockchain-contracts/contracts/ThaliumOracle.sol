@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title ThaliumOracle
@@ -25,17 +25,6 @@ contract ThaliumOracle is AccessControl, Pausable {
     // CONSTANTS
     // ========================================
 
-    bytes32 public constant ORACLE_ADMIN_ROLE = keccak256("ORACLE_ADMIN_ROLE");
-    bytes32 public constant PRICE_UPDATER_ROLE = keccak256("PRICE_UPDATER_ROLE");
-
-    uint256 public constant MAX_PRICE_AGE = 24 hours;
-    uint256 public constant CIRCUIT_BREAKER_THRESHOLD = 50; // 50% price change threshold
-    uint256 public constant EMERGENCY_PRICE_VALIDITY = 7 days;
-
-    // ========================================
-    // STRUCTS
-    // ========================================
-
     struct PriceData {
         uint256 price;        // Price in USD with 8 decimals (e.g., 100000000 = $1.00)
         uint256 timestamp;    // When price was last updated
@@ -52,6 +41,13 @@ contract ThaliumOracle is AccessControl, Pausable {
         uint256 lastEmergencyUpdate; // When emergency price was set
         bool circuitBreaker;  // Whether circuit breaker is active
     }
+
+    bytes32 public constant ORACLE_ADMIN_ROLE = keccak256("ORACLE_ADMIN_ROLE");
+    bytes32 public constant PRICE_UPDATER_ROLE = keccak256("PRICE_UPDATER_ROLE");
+
+    uint256 public constant MAX_PRICE_AGE = 24 hours;
+    uint256 public constant CIRCUIT_BREAKER_THRESHOLD = 50; // 50% price change threshold
+    uint256 public constant EMERGENCY_PRICE_VALIDITY = 7 days;
 
     // ========================================
     // STATE VARIABLES
@@ -79,6 +75,14 @@ contract ThaliumOracle is AccessControl, Pausable {
     event EmergencyPaused(address indexed pauser);
     event EmergencyUnpaused(address indexed unpauser);
 
+    error InvalidAddress();
+    error InvalidPrice();
+    error SymbolNotSupported();
+    error CircuitBreakerNotActive();
+    error SymbolAlreadyExists();
+    error InvalidSymbol();
+    error NoValidPriceAvailable();
+
     // ========================================
     // CONSTRUCTOR
     // ========================================
@@ -94,9 +98,9 @@ contract ThaliumOracle is AccessControl, Pausable {
         address oracleAdmin,
         address priceUpdater
     ) {
-        require(defaultAdmin != address(0), "ThaliumOracle: Invalid default admin");
-        require(oracleAdmin != address(0), "ThaliumOracle: Invalid oracle admin");
-        require(priceUpdater != address(0), "ThaliumOracle: Invalid price updater");
+        if (defaultAdmin == address(0) || oracleAdmin == address(0) || priceUpdater == address(0)) {
+            revert InvalidAddress();
+        }
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(ORACLE_ADMIN_ROLE, oracleAdmin);
@@ -127,8 +131,8 @@ contract ThaliumOracle is AccessControl, Pausable {
         onlyRole(PRICE_UPDATER_ROLE)
         whenNotPaused
     {
-        require(price > 0, "ThaliumOracle: Invalid price");
-        require(_symbolExists(symbol), "ThaliumOracle: Symbol not supported");
+        if (price == 0) revert InvalidPrice();
+        if (!_symbolExists(symbol)) revert SymbolNotSupported();
 
         PriceFeed storage feed = priceFeeds[symbol];
 
@@ -165,8 +169,8 @@ contract ThaliumOracle is AccessControl, Pausable {
         external
         onlyRole(ORACLE_ADMIN_ROLE)
     {
-        require(price > 0, "ThaliumOracle: Invalid emergency price");
-        require(_symbolExists(symbol), "ThaliumOracle: Symbol not supported");
+        if (price == 0) revert InvalidPrice();
+        if (!_symbolExists(symbol)) revert SymbolNotSupported();
 
         PriceFeed storage feed = priceFeeds[symbol];
         feed.emergencyPrice = price;
@@ -183,10 +187,10 @@ contract ThaliumOracle is AccessControl, Pausable {
         external
         onlyRole(ORACLE_ADMIN_ROLE)
     {
-        require(_symbolExists(symbol), "ThaliumOracle: Symbol not supported");
+        if (!_symbolExists(symbol)) revert SymbolNotSupported();
 
         PriceFeed storage feed = priceFeeds[symbol];
-        require(feed.circuitBreaker, "ThaliumOracle: Circuit breaker not active");
+        if (!feed.circuitBreaker) revert CircuitBreakerNotActive();
 
         feed.circuitBreaker = false;
         emit CircuitBreakerReset(symbol);
@@ -200,8 +204,8 @@ contract ThaliumOracle is AccessControl, Pausable {
         external
         onlyRole(ORACLE_ADMIN_ROLE)
     {
-        require(!_symbolExists(symbol), "ThaliumOracle: Symbol already exists");
-        require(symbol != bytes32(0), "ThaliumOracle: Invalid symbol");
+        if (_symbolExists(symbol)) revert SymbolAlreadyExists();
+        if (symbol == bytes32(0)) revert InvalidSymbol();
 
         _addSymbol(symbol);
     }
@@ -214,7 +218,7 @@ contract ThaliumOracle is AccessControl, Pausable {
         external
         onlyRole(ORACLE_ADMIN_ROLE)
     {
-        require(_symbolExists(symbol), "ThaliumOracle: Symbol not supported");
+        if (!_symbolExists(symbol)) revert SymbolNotSupported();
 
         _removeSymbol(symbol);
     }
@@ -244,7 +248,7 @@ contract ThaliumOracle is AccessControl, Pausable {
      * @param symbol Price symbol
      */
     function getPrice(bytes32 symbol) external view returns (uint256) {
-        require(_symbolExists(symbol), "ThaliumOracle: Symbol not supported");
+        if (!_symbolExists(symbol)) revert SymbolNotSupported();
 
         PriceFeed storage feed = priceFeeds[symbol];
 
@@ -254,7 +258,7 @@ contract ThaliumOracle is AccessControl, Pausable {
         }
 
         uint256 effectivePrice = _getEffectivePrice(feed);
-        require(effectivePrice > 0, "ThaliumOracle: No valid price available");
+        if (effectivePrice == 0) revert NoValidPriceAvailable();
 
         return effectivePrice;
     }
@@ -275,7 +279,7 @@ contract ThaliumOracle is AccessControl, Pausable {
             bool circuitBreakerActive
         )
     {
-        require(_symbolExists(symbol), "ThaliumOracle: Symbol not supported");
+        if (!_symbolExists(symbol)) revert SymbolNotSupported();
 
         PriceFeed storage feed = priceFeeds[symbol];
         PriceData storage priceData = _getEffectivePriceData(feed);
@@ -339,7 +343,7 @@ contract ThaliumOracle is AccessControl, Pausable {
         view
         returns (uint256 emergencyPrice, uint256 lastUpdate, bool isValid)
     {
-        require(_symbolExists(symbol), "ThaliumOracle: Symbol not supported");
+        if (!_symbolExists(symbol)) revert SymbolNotSupported();
 
         PriceFeed storage feed = priceFeeds[symbol];
         bool valid = block.timestamp <= feed.lastEmergencyUpdate + EMERGENCY_PRICE_VALIDITY;
@@ -399,6 +403,17 @@ contract ThaliumOracle is AccessControl, Pausable {
     }
 
     /**
+     * @dev Add symbol to supported list
+     */
+    function _addSymbol(bytes32 symbol) internal {
+        supportedSymbols.push(symbol);
+        priceFeeds[symbol].emergencyPrice = 100000000; // Default $1.00
+        priceFeeds[symbol].lastEmergencyUpdate = block.timestamp;
+
+        emit SymbolAdded(symbol);
+    }
+
+    /**
      * @dev Check if price data is valid
      */
     function _isPriceValid(PriceData storage priceData)
@@ -409,43 +424,6 @@ contract ThaliumOracle is AccessControl, Pausable {
         return priceData.timestamp > 0 &&
                block.timestamp <= priceData.timestamp + MAX_PRICE_AGE &&
                !priceData.isEmergency;
-    }
-
-    /**
-     * @dev Calculate price change percentage
-     */
-    function _calculatePriceChange(uint256 oldPrice, uint256 newPrice)
-        internal
-        pure
-        returns (uint256)
-    {
-        if (oldPrice == 0) return 0;
-
-        uint256 diff = oldPrice > newPrice ? oldPrice - newPrice : newPrice - oldPrice;
-        return (diff * 100) / oldPrice;
-    }
-
-    /**
-     * @dev Check if symbol exists
-     */
-    function _symbolExists(bytes32 symbol) internal view returns (bool) {
-        for (uint256 i = 0; i < supportedSymbols.length; i++) {
-            if (supportedSymbols[i] == symbol) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * @dev Add symbol to supported list
-     */
-    function _addSymbol(bytes32 symbol) internal {
-        supportedSymbols.push(symbol);
-        priceFeeds[symbol].emergencyPrice = 100000000; // Default $1.00
-        priceFeeds[symbol].lastEmergencyUpdate = block.timestamp;
-
-        emit SymbolAdded(symbol);
     }
 
     /**
@@ -462,5 +440,31 @@ contract ThaliumOracle is AccessControl, Pausable {
 
         delete priceFeeds[symbol];
         emit SymbolRemoved(symbol);
+    }
+
+    /**
+     * @dev Check if symbol exists
+     */
+    function _symbolExists(bytes32 symbol) internal view returns (bool) {
+        for (uint256 i = 0; i < supportedSymbols.length; i++) {
+            if (supportedSymbols[i] == symbol) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @dev Calculate price change percentage
+     */
+    function _calculatePriceChange(uint256 oldPrice, uint256 newPrice)
+        internal
+        pure
+        returns (uint256)
+    {
+        if (oldPrice == 0) return 0;
+
+        uint256 diff = oldPrice > newPrice ? oldPrice - newPrice : newPrice - oldPrice;
+        return (diff * 100) / oldPrice;
     }
 }

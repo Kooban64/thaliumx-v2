@@ -10,7 +10,7 @@ import { LoggerService } from './logger';
 import { TransactionVolumeTrackerService, TimePeriod } from './transaction-volume-tracker.service';
 import { KYCService } from './kyc';
 import { RoleMapperService } from './role-mapper';
-import { AuthAttributesService } from './zitadel-attributes.service';
+import { AuthAttributesService } from './authentik-attributes.service';
 import { RedisService } from './redis';
 
 export interface OPAInput {

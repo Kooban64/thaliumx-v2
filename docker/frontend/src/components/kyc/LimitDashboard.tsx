@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, Shield, TrendingUp, AlertTriangle, ArrowRight } from 'lucide-react';
-import { getKeycloakToken } from '@/lib/auth/backend-auth';
+import { getAuthToken } from '@/lib/auth/backend-auth';
 import { UpgradePrompt } from './UpgradePrompt';
 
 interface LimitStatus {
@@ -28,7 +28,7 @@ export function LimitDashboard({ className }: { className?: string }) {
 
   useEffect(() => {
     const fetchStatus = async () => {
-      const token = getKeycloakToken();
+      const token = getAuthToken();
       if (!token) { setError('Not authenticated'); setLoading(false); return; }
       setLoading(true); setError(null);
       try {
@@ -93,7 +93,7 @@ export function LimitDashboard({ className }: { className?: string }) {
               onClick={async () => {
                 // Trigger upgrade workflow via API (same as UpgradePrompt)
                 try {
-                  const token = getKeycloakToken();
+                  const token = getAuthToken();
                   if (!token) {
                     window.location.href = '/login?next=/dashboard';
                     return;

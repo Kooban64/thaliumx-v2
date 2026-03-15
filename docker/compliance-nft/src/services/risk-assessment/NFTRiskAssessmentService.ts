@@ -16,7 +16,7 @@ import {
   NFTRiskFlag,
   NFTRiskRecommendation,
 } from '../../types/compliance';
-import { NFTRiskAssessmentTable } from '../../types/database';
+import { NftRiskAssessmentRow } from '../../types/database';
 
 const logger = createComponentLogger('nft-risk-assessment-service');
 
@@ -184,7 +184,7 @@ export class NFTRiskAssessmentService {
     const db = getDatabaseService();
 
     // Check seller's transaction history
-    const history = await db.queryOne<{ sale_count: string; avg_risk: string }>(`
+    const history = await db.queryOne<{ saleCount: string; avgRisk: string }>(`
       SELECT COUNT(*) as sale_count, AVG(risk_score) as avg_risk
       FROM nft_sales
       WHERE seller_address = $1
@@ -192,12 +192,12 @@ export class NFTRiskAssessmentService {
         AND tenant_id = $3
     `, [sellerAddress, chainId, tenantId]);
 
-    if (!history || parseInt(history.sale_count) === 0) {
+    if (!history || parseInt(history.saleCount, 10) === 0) {
       // New seller - moderate risk
       return 40;
     }
 
-    const avgRisk = parseFloat(history.avg_risk) || 0;
+    const avgRisk = parseFloat(history.avgRisk) || 0;
     return Math.min(100, avgRisk);
   }
 
@@ -212,7 +212,7 @@ export class NFTRiskAssessmentService {
     const db = getDatabaseService();
 
     // Check buyer's transaction history
-    const history = await db.queryOne<{ purchase_count: string; avg_risk: string }>(`
+    const history = await db.queryOne<{ purchaseCount: string; avgRisk: string }>(`
       SELECT COUNT(*) as purchase_count, AVG(risk_score) as avg_risk
       FROM nft_sales
       WHERE buyer_address = $1
@@ -220,12 +220,12 @@ export class NFTRiskAssessmentService {
         AND tenant_id = $3
     `, [buyerAddress, chainId, tenantId]);
 
-    if (!history || parseInt(history.purchase_count) === 0) {
+    if (!history || parseInt(history.purchaseCount, 10) === 0) {
       // New buyer - moderate risk
       return 40;
     }
 
-    const avgRisk = parseFloat(history.avg_risk) || 0;
+    const avgRisk = parseFloat(history.avgRisk) || 0;
     return Math.min(100, avgRisk);
   }
 
@@ -240,7 +240,7 @@ export class NFTRiskAssessmentService {
     const db = getDatabaseService();
 
     // Check collection risk score
-    const collection = await db.queryOne<{ risk_score: number; verified: boolean }>(`
+    const collection = await db.queryOne<{ riskScore: number | null; verified: boolean }>(`
       SELECT risk_score, verified
       FROM nft_collections
       WHERE contract_address = $1
@@ -255,10 +255,10 @@ export class NFTRiskAssessmentService {
 
     // Verified collections get lower risk
     if (collection.verified) {
-      return Math.max(0, (collection.risk_score || 20) - 20);
+      return Math.max(0, (collection.riskScore || 20) - 20);
     }
 
-    return collection.risk_score ?? 40;
+    return collection.riskScore ?? 40;
   }
 
   /**
@@ -274,7 +274,7 @@ export class NFTRiskAssessmentService {
     const db = getDatabaseService();
 
     // Get average price for this token
-    const avgPrice = await db.queryOne<{ avg_price: string }>(`
+    const avgPrice = await db.queryOne<{ avgPrice: string | null }>(`
       SELECT AVG(CAST(price_usd AS DECIMAL)) as avg_price
       FROM nft_sales
       WHERE contract_address = $1
@@ -283,12 +283,12 @@ export class NFTRiskAssessmentService {
         AND tenant_id = $4
     `, [contractAddress, tokenId, chainId, tenantId]);
 
-    if (!avgPrice || !avgPrice.avg_price) {
+    if (!avgPrice || !avgPrice.avgPrice) {
       // No price history - moderate risk
       return 30;
     }
 
-    const avg = parseFloat(avgPrice.avg_price);
+    const avg = parseFloat(avgPrice.avgPrice);
     if (avg === 0) return 30;
 
     // Calculate price deviation
@@ -671,7 +671,7 @@ export class NFTRiskAssessmentService {
     `, [reviewedBy, reviewNotes, overrideReason, newRiskLevel, assessmentId]);
 
     // Get updated assessment
-    const row = await db.queryOne<NFTRiskAssessmentTable>(`
+    const row = await db.queryOne<NftRiskAssessmentRow>(`
       SELECT * FROM nft_risk_assessments WHERE id = $1
     `, [assessmentId]);
 
@@ -718,7 +718,7 @@ export class NFTRiskAssessmentService {
   async getAssessment(assessmentId: string): Promise<NFTRiskAssessmentData | null> {
     const db = getDatabaseService();
 
-    const row = await db.queryOne<NFTRiskAssessmentTable>(`
+    const row = await db.queryOne<NftRiskAssessmentRow>(`
       SELECT * FROM nft_risk_assessments WHERE id = $1
     `, [assessmentId]);
 
@@ -738,7 +738,7 @@ export class NFTRiskAssessmentService {
   ): Promise<NFTRiskAssessmentData[]> {
     const db = getDatabaseService();
 
-    const rows = await db.queryAll<NFTRiskAssessmentTable>(`
+    const rows = await db.queryAll<NftRiskAssessmentRow>(`
       SELECT * FROM nft_risk_assessments
       WHERE transaction_id = $1 AND tenant_id = $2
       ORDER BY assessment_date DESC
@@ -753,7 +753,7 @@ export class NFTRiskAssessmentService {
   async getPendingReviews(tenantId: string, limit = 100): Promise<NFTRiskAssessmentData[]> {
     const db = getDatabaseService();
 
-    const rows = await db.queryAll<NFTRiskAssessmentTable>(`
+    const rows = await db.queryAll<NftRiskAssessmentRow>(`
       SELECT * FROM nft_risk_assessments
       WHERE tenant_id = $1
         AND review_required = true
@@ -768,39 +768,39 @@ export class NFTRiskAssessmentService {
   /**
    * Map database table to assessment type
    */
-  private mapTableToAssessment(row: NFTRiskAssessmentTable): NFTRiskAssessmentData {
+  private mapTableToAssessment(row: NftRiskAssessmentRow): NFTRiskAssessmentData {
     return {
       id: row.id,
-      transactionId: row.transaction_id,
-      transactionHash: row.transaction_hash,
-      contractAddress: row.contract_address,
-      tokenId: row.token_id,
-      sellerAddress: row.seller_address,
-      buyerAddress: row.buyer_address,
-      userId: row.user_id ?? undefined,
-      tenantId: row.tenant_id,
-      brokerId: row.broker_id ?? undefined,
-      riskScore: row.risk_score,
-      riskLevel: row.risk_level,
+      transactionId: row.transactionId,
+      transactionHash: row.transactionHash,
+      contractAddress: row.contractAddress,
+      tokenId: row.tokenId,
+      sellerAddress: row.sellerAddress,
+      buyerAddress: row.buyerAddress,
+      userId: row.userId ?? undefined,
+      tenantId: row.tenantId,
+      brokerId: row.brokerId ?? undefined,
+      riskScore: row.riskScore,
+      riskLevel: row.riskLevel,
       factors: {
-        sellerRisk: row.factor_seller_risk,
-        buyerRisk: row.factor_buyer_risk,
-        collectionRisk: row.factor_collection_risk,
-        priceRisk: row.factor_price_risk,
-        contentRisk: row.factor_content_risk,
-        washTradingRisk: row.factor_wash_trading_risk,
-        marketplaceRisk: row.factor_marketplace_risk,
-        geographyRisk: row.factor_geography_risk,
+        sellerRisk: row.factorSellerRisk,
+        buyerRisk: row.factorBuyerRisk,
+        collectionRisk: row.factorCollectionRisk,
+        priceRisk: row.factorPriceRisk,
+        contentRisk: row.factorContentRisk,
+        washTradingRisk: row.factorWashTradingRisk,
+        marketplaceRisk: row.factorMarketplaceRisk,
+        geographyRisk: row.factorGeographyRisk,
       },
       flags: row.flags as NFTRiskFlag[],
       recommendations: row.recommendations as NFTRiskRecommendation[],
-      assessmentDate: row.assessment_date,
+      assessmentDate: row.assessmentDate,
       assessor: row.assessor,
-      reviewRequired: row.review_required,
-      reviewedBy: row.reviewed_by ?? undefined,
-      reviewedAt: row.reviewed_at ?? undefined,
-      reviewNotes: row.review_notes ?? undefined,
-      overrideReason: row.override_reason ?? undefined,
+      reviewRequired: row.reviewRequired,
+      reviewedBy: row.reviewedBy ?? undefined,
+      reviewedAt: row.reviewedAt ?? undefined,
+      reviewNotes: row.reviewNotes ?? undefined,
+      overrideReason: row.overrideReason ?? undefined,
     };
   }
 }

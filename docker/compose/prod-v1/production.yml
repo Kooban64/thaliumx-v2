@@ -249,19 +249,11 @@ services:
       file: compliance.yml
       service: compliance-coordinator
 
-  # Identity Layer - Keycloak OIDC Provider
-  keycloak-postgres:
-    extends:
-      file: identity.yml
-      service: keycloak-postgres
-
-  keycloak:
-    extends:
-      file: identity.yml
-      service: keycloak
-
-  # Wazuh SIEM/XDR
-  wazuh-manager:
+volumes:
+  etcd_data:
+    name: thaliumx-etcd-data
+  apisix_logs:
+    name: thaliumx-apisix-logs
     extends:
       file: wazuh.yml
       service: wazuh-manager
@@ -302,5 +294,5 @@ volumes:
     name: thaliumx-etcd-data
   apisix_logs:
     name: thaliumx-apisix-logs
-  keycloak-postgres-data:
-    name: thaliumx-keycloak-postgres-data
+    name: thaliumx-Authentik-postgres-data
+    name: thaliumx-authentik-postgres-data

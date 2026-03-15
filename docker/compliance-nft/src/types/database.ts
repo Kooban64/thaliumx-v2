@@ -3,404 +3,345 @@
  * PostgreSQL table definitions for NFT compliance data
  */
 
-// ==================== NFT COLLECTION TABLE ====================
-
-/**
- * NFT collections table
- */
-export interface NFTCollectionTable {
+export interface NftCollectionRow {
   id: string;
-  contract_address: string;
-  chain_id: number;
+  contractAddress: string;
+  chainId: number;
   name: string;
   symbol: string;
   description: string | null;
-  image_url: string | null;
-  banner_url: string | null;
-  external_url: string | null;
-  creator_address: string;
-  creator_fee: number;
-  total_supply: number;
-  floor_price: string | null;
-  total_volume: string | null;
+  imageUrl: string | null;
+  bannerUrl: string | null;
+  externalUrl: string | null;
+  creatorAddress: string;
+  creatorFee: number;
+  totalSupply: number;
+  floorPrice: string | null;
+  totalVolume: string | null;
   verified: boolean;
-  risk_score: number | null;
-  risk_level: 'low' | 'medium' | 'high' | 'critical' | null;
-  tenant_id: string;
-  created_at: Date;
-  updated_at: Date;
+  riskScore: number | null;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical' | null;
+  tenantId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== NFT TOKEN TABLE ====================
-
-/**
- * NFT tokens table
- */
-export interface NFTTokenTable {
+export interface NftTokenRow {
   id: string;
-  token_id: string;
-  contract_address: string;
-  chain_id: number;
-  collection_id: string;
-  owner_address: string;
-  creator_address: string;
+  tokenId: string;
+  contractAddress: string;
+  chainId: number;
+  collectionId: string;
+  ownerAddress: string;
+  creatorAddress: string;
   metadata: Record<string, unknown>;
-  token_uri: string;
-  token_standard: 'ERC721' | 'ERC1155';
+  tokenUri: string;
+  tokenStandard: 'ERC721' | 'ERC1155';
   supply: number | null;
-  last_sale_price: string | null;
-  last_sale_currency: string | null;
-  last_sale_date: Date | null;
-  risk_score: number | null;
-  risk_level: 'low' | 'medium' | 'high' | 'critical' | null;
+  lastSalePrice: string | null;
+  lastSaleCurrency: string | null;
+  lastSaleDate: Date | null;
+  riskScore: number | null;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical' | null;
   flagged: boolean;
-  flag_reason: string | null;
-  tenant_id: string;
-  created_at: Date;
-  updated_at: Date;
+  flagReason: string | null;
+  tenantId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== NFT SALE TABLE ====================
-
-/**
- * NFT sales table
- */
-export interface NFTSaleTable {
+export interface NftSaleRow {
   id: string;
-  transaction_hash: string;
-  block_number: number;
+  transactionHash: string;
+  blockNumber: number;
   timestamp: Date;
-  chain_id: number;
-  contract_address: string;
-  token_id: string;
-  collection_id: string;
-  seller_address: string;
-  buyer_address: string;
+  chainId: number;
+  contractAddress: string;
+  tokenId: string;
+  collectionId: string;
+  sellerAddress: string;
+  buyerAddress: string;
   price: string;
   currency: string;
-  price_usd: string;
+  priceUsd: string;
   marketplace: string;
-  sale_type: 'fixed' | 'auction' | 'offer' | 'bundle';
-  royalty_amount: string | null;
-  royalty_recipient: string | null;
-  platform_fee: string | null;
-  gas_used: string;
-  gas_price: string;
-  gas_cost_usd: string;
-  risk_score: number | null;
-  risk_level: 'low' | 'medium' | 'high' | 'critical' | null;
-  user_id: string | null;
-  tenant_id: string;
-  broker_id: string | null;
-  created_at: Date;
-  updated_at: Date;
+  saleType: 'fixed' | 'auction' | 'offer' | 'bundle';
+  royaltyAmount: string | null;
+  royaltyRecipient: string | null;
+  platformFee: string | null;
+  gasUsed: string;
+  gasPrice: string;
+  gasCostUsd: string;
+  riskScore: number | null;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical' | null;
+  userId: string | null;
+  tenantId: string;
+  brokerId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== NFT LISTING TABLE ====================
-
-/**
- * NFT listings table
- */
-export interface NFTListingTable {
+export interface NftListingRow {
   id: string;
-  contract_address: string;
-  token_id: string;
-  chain_id: number;
-  collection_id: string;
-  seller_address: string;
+  contractAddress: string;
+  tokenId: string;
+  chainId: number;
+  collectionId: string;
+  sellerAddress: string;
   price: string;
   currency: string;
-  price_usd: string;
+  priceUsd: string;
   marketplace: string;
-  listing_type: 'fixed' | 'auction' | 'dutch_auction';
-  start_time: Date;
-  end_time: Date | null;
+  listingType: 'fixed' | 'auction' | 'dutch_auction';
+  startTime: Date;
+  endTime: Date | null;
   status: 'active' | 'sold' | 'cancelled' | 'expired';
-  user_id: string | null;
-  tenant_id: string;
-  broker_id: string | null;
-  created_at: Date;
-  updated_at: Date;
+  userId: string | null;
+  tenantId: string;
+  brokerId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== NFT BID TABLE ====================
-
-/**
- * NFT bids table
- */
-export interface NFTBidTable {
+export interface NftBidRow {
   id: string;
-  contract_address: string;
-  token_id: string;
-  chain_id: number;
-  collection_id: string;
-  bidder_address: string;
+  contractAddress: string;
+  tokenId: string;
+  chainId: number;
+  collectionId: string;
+  bidderAddress: string;
   amount: string;
   currency: string;
-  amount_usd: string;
+  amountUsd: string;
   marketplace: string;
-  bid_type: 'token' | 'collection' | 'trait';
-  expiration_time: Date | null;
+  bidType: 'token' | 'collection' | 'trait';
+  expirationTime: Date | null;
   status: 'active' | 'accepted' | 'cancelled' | 'expired' | 'outbid';
-  user_id: string | null;
-  tenant_id: string;
-  broker_id: string | null;
-  created_at: Date;
-  updated_at: Date;
+  userId: string | null;
+  tenantId: string;
+  brokerId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== WASH TRADING TABLE ====================
-
-/**
- * Wash trading detection results table
- */
-export interface WashTradingTable {
+export interface WashTradingRow {
   id: string;
-  contract_address: string;
-  token_id: string;
-  chain_id: number;
-  detection_date: Date;
-  is_wash_trading: boolean;
+  contractAddress: string;
+  tokenId: string;
+  chainId: number;
+  detectionDate: Date;
+  isWashTrading: boolean;
   confidence: number;
   indicators: string[];
-  related_transactions: string[];
-  related_addresses: string[];
-  volume_inflation: string | null;
-  price_manipulation: boolean | null;
-  tenant_id: string;
-  created_at: Date;
-  updated_at: Date;
+  relatedTransactions: string[];
+  relatedAddresses: string[];
+  volumeInflation: string | null;
+  priceManipulation: boolean | null;
+  tenantId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== CONTENT SCREENING TABLE ====================
-
-/**
- * Content screening results table
- */
-export interface ContentScreeningTable {
+export interface ContentScreeningRow {
   id: string;
-  contract_address: string;
-  token_id: string;
-  chain_id: number;
-  screening_date: Date;
-  content_type: 'image' | 'video' | 'audio' | '3d_model' | 'other';
-  content_url: string;
-  is_flagged: boolean;
-  flag_reasons: string[];
-  moderation_score: number;
+  contractAddress: string;
+  tokenId: string;
+  chainId: number;
+  screeningDate: Date;
+  contentType: 'image' | 'video' | 'audio' | '3d_model' | 'other';
+  contentUrl: string;
+  isFlagged: boolean;
+  flagReasons: string[];
+  moderationScore: number;
   categories: string[];
-  manual_review_required: boolean;
-  reviewed_by: string | null;
-  reviewed_at: Date | null;
-  review_notes: string | null;
-  tenant_id: string;
-  created_at: Date;
-  updated_at: Date;
+  manualReviewRequired: boolean;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  reviewNotes: string | null;
+  tenantId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== ROYALTY COMPLIANCE TABLE ====================
-
-/**
- * Royalty compliance table
- */
-export interface RoyaltyComplianceTable {
+export interface RoyaltyComplianceRow {
   id: string;
-  contract_address: string;
-  chain_id: number;
-  collection_id: string;
-  royalty_percentage: number;
-  royalty_recipient: string;
-  enforcement_type: 'on_chain' | 'marketplace' | 'none';
-  is_compliant: boolean;
-  total_royalties_paid: string;
-  total_royalties_owed: string;
-  unpaid_royalties: string;
-  last_checked: Date;
-  tenant_id: string;
-  created_at: Date;
-  updated_at: Date;
+  contractAddress: string;
+  chainId: number;
+  collectionId: string;
+  royaltyPercentage: number;
+  royaltyRecipient: string;
+  enforcementType: 'on_chain' | 'marketplace' | 'none';
+  isCompliant: boolean;
+  totalRoyaltiesPaid: string;
+  totalRoyaltiesOwed: string;
+  unpaidRoyalties: string;
+  lastChecked: Date;
+  tenantId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== NFT RISK ASSESSMENT TABLE ====================
-
-/**
- * NFT risk assessments table
- */
-export interface NFTRiskAssessmentTable {
+export interface NftRiskAssessmentRow {
   id: string;
-  transaction_id: string;
-  transaction_hash: string;
-  contract_address: string;
-  token_id: string;
-  seller_address: string;
-  buyer_address: string;
-  user_id: string | null;
-  tenant_id: string;
-  broker_id: string | null;
-  risk_score: number;
-  risk_level: 'low' | 'medium' | 'high' | 'critical';
-  factor_seller_risk: number;
-  factor_buyer_risk: number;
-  factor_collection_risk: number;
-  factor_price_risk: number;
-  factor_content_risk: number;
-  factor_wash_trading_risk: number;
-  factor_marketplace_risk: number;
-  factor_geography_risk: number;
+  transactionId: string;
+  transactionHash: string;
+  contractAddress: string;
+  tokenId: string;
+  sellerAddress: string;
+  buyerAddress: string;
+  userId: string | null;
+  tenantId: string;
+  brokerId: string | null;
+  riskScore: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  factorSellerRisk: number;
+  factorBuyerRisk: number;
+  factorCollectionRisk: number;
+  factorPriceRisk: number;
+  factorContentRisk: number;
+  factorWashTradingRisk: number;
+  factorMarketplaceRisk: number;
+  factorGeographyRisk: number;
   flags: string[];
   recommendations: string[];
-  assessment_date: Date;
+  assessmentDate: Date;
   assessor: string;
-  review_required: boolean;
-  reviewed_by: string | null;
-  reviewed_at: Date | null;
-  review_notes: string | null;
-  override_reason: string | null;
-  valid_until: Date | null;
-  created_at: Date;
-  updated_at: Date;
+  reviewRequired: boolean;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  reviewNotes: string | null;
+  overrideReason: string | null;
+  validUntil: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== NFT TRAVEL RULE TABLE ====================
-
-/**
- * NFT Travel Rule messages table
- */
-export interface NFTTravelRuleTable {
+export interface NftTravelRuleRow {
   id: string;
-  sale_id: string;
-  contract_address: string;
-  token_id: string;
-  chain_id: number;
-  seller_address: string;
-  buyer_address: string;
+  saleId: string;
+  contractAddress: string;
+  tokenId: string;
+  chainId: number;
+  sellerAddress: string;
+  buyerAddress: string;
   price: string;
-  price_usd: string;
+  priceUsd: string;
   currency: string;
   timestamp: Date;
   status: 'pending' | 'sent' | 'received' | 'acknowledged' | 'failed';
-  message_id: string;
-  originator_name: string | null;
-  originator_address: string | null;
-  originator_country: string | null;
-  originator_account_number: string | null;
-  beneficiary_name: string | null;
-  beneficiary_address: string | null;
-  beneficiary_country: string | null;
-  beneficiary_account_number: string | null;
-  originator_vasp: string | null;
-  beneficiary_vasp: string | null;
-  error_message: string | null;
-  retry_count: number;
-  max_retries: number;
-  next_retry_at: Date | null;
-  tenant_id: string;
-  broker_id: string | null;
-  user_id: string | null;
-  created_at: Date;
-  updated_at: Date;
+  messageId: string;
+  originatorName: string | null;
+  originatorAddress: string | null;
+  originatorCountry: string | null;
+  originatorAccountNumber: string | null;
+  beneficiaryName: string | null;
+  beneficiaryAddress: string | null;
+  beneficiaryCountry: string | null;
+  beneficiaryAccountNumber: string | null;
+  originatorVasp: string | null;
+  beneficiaryVasp: string | null;
+  errorMessage: string | null;
+  retryCount: number;
+  maxRetries: number;
+  nextRetryAt: Date | null;
+  tenantId: string;
+  brokerId: string | null;
+  userId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== NFT CARF TABLE ====================
-
-/**
- * NFT CARF reports table
- */
-export interface NFTCARFTable {
+export interface NftCarfRow {
   id: string;
-  report_id: string;
-  wallet_address: string;
-  user_id: string | null;
-  tenant_id: string;
-  broker_id: string | null;
-  reporting_period_start_date: Date;
-  reporting_period_end_date: Date;
-  reporting_period_fiscal_year: string | null;
-  total_sales_volume_usd: string;
-  total_purchases_volume_usd: string;
-  total_royalties_received_usd: string;
-  total_royalties_paid_usd: string;
-  net_gain_loss_usd: string;
-  transaction_count: number;
+  reportId: string;
+  walletAddress: string;
+  userId: string | null;
+  tenantId: string;
+  brokerId: string | null;
+  reportingPeriodStartDate: Date;
+  reportingPeriodEndDate: Date;
+  reportingPeriodFiscalYear: string | null;
+  totalSalesVolumeUsd: string;
+  totalPurchasesVolumeUsd: string;
+  totalRoyaltiesReceivedUsd: string;
+  totalRoyaltiesPaidUsd: string;
+  netGainLossUsd: string;
+  transactionCount: number;
   status: 'draft' | 'pending' | 'submitted' | 'acknowledged' | 'rejected';
-  submission_date: Date | null;
-  acknowledgment_date: Date | null;
-  rejection_reason: string | null;
+  submissionDate: Date | null;
+  acknowledgmentDate: Date | null;
+  rejectionReason: string | null;
   version: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== NFT CARF TRANSACTIONS TABLE ====================
-
-/**
- * NFT CARF report transactions table
- */
-export interface NFTCARFTransactionTable {
+export interface NftCarfTransactionRow {
   id: string;
-  carf_report_id: string;
-  transaction_type: 'sale' | 'purchase' | 'mint' | 'transfer' | 'burn';
-  transaction_date: Date;
-  contract_address: string;
-  token_id: string;
-  collection_name: string;
+  carfReportId: string;
+  transactionType: 'sale' | 'purchase' | 'mint' | 'transfer' | 'burn';
+  transactionDate: Date;
+  contractAddress: string;
+  tokenId: string;
+  collectionName: string;
   price: string;
   currency: string;
-  price_usd: string;
-  transaction_hash: string;
-  chain_id: number;
+  priceUsd: string;
+  transactionHash: string;
+  chainId: number;
   marketplace: string;
   counterparty: string;
-  gain_loss: string | null;
-  created_at: Date;
+  gainLoss: string | null;
+  createdAt: Date;
 }
 
-// ==================== COMPLIANCE EVENTS TABLE ====================
-
-/**
- * Compliance events log table
- */
-export interface NFTComplianceEventTable {
+export interface NftComplianceEventRow {
   id: string;
-  event_type: string;
-  entity_type: 'collection' | 'token' | 'sale' | 'listing' | 'bid' | 'wash_trading' | 'content' | 'assessment' | 'travel_rule' | 'carf';
-  entity_id: string;
+  eventType: string;
+  entityType: 'collection' | 'token' | 'sale' | 'listing' | 'bid' | 'wash_trading' | 'content' | 'assessment' | 'travel_rule' | 'carf';
+  entityId: string;
   action: string;
   actor: string;
   details: Record<string, unknown>;
-  tenant_id: string;
-  broker_id: string | null;
-  user_id: string | null;
-  created_at: Date;
+  tenantId: string;
+  brokerId: string | null;
+  userId: string | null;
+  createdAt: Date;
 }
 
-// ==================== AUDIT LOG TABLE ====================
-
-/**
- * Audit log table
- */
-export interface NFTAuditLogTable {
+export interface NftAuditLogRow {
   id: string;
   action: string;
-  resource_type: string;
-  resource_id: string;
-  actor_id: string;
-  actor_type: 'user' | 'system' | 'admin';
-  old_value: Record<string, unknown> | null;
-  new_value: Record<string, unknown> | null;
-  ip_address: string | null;
-  user_agent: string | null;
-  tenant_id: string;
-  created_at: Date;
+  resourceType: string;
+  resourceId: string;
+  actorId: string;
+  actorType: 'user' | 'system' | 'admin';
+  oldValue: Record<string, unknown> | null;
+  newValue: Record<string, unknown> | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  tenantId: string;
+  createdAt: Date;
 }
 
-// ==================== MIGRATIONS TABLE ====================
-
-/**
- * Migrations tracking table
- */
-export interface NFTMigrationsTable {
+export interface NftMigrationRow {
   id: number;
   name: string;
-  executed_at: Date;
+  executedAt: Date;
 }
+
+export type NFTCollectionTable = NftCollectionRow;
+export type NFTTokenTable = NftTokenRow;
+export type NFTSaleTable = NftSaleRow;
+export type NFTListingTable = NftListingRow;
+export type NFTBidTable = NftBidRow;
+export type WashTradingTable = WashTradingRow;
+export type ContentScreeningTable = ContentScreeningRow;
+export type RoyaltyComplianceTable = RoyaltyComplianceRow;
+export type NFTRiskAssessmentTable = NftRiskAssessmentRow;
+export type NFTTravelRuleTable = NftTravelRuleRow;
+export type NFTCARFTable = NftCarfRow;
+export type NFTCARFTransactionTable = NftCarfTransactionRow;
+export type NFTComplianceEventTable = NftComplianceEventRow;
+export type NFTAuditLogTable = NftAuditLogRow;
+export type NFTMigrationsTable = NftMigrationRow;

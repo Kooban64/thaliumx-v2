@@ -9,7 +9,7 @@ import { getEventProducer } from '../events';
 import { createComponentLogger } from '../../utils/logger';
 import { getConfig } from '../../config';
 import { NFTCARFData } from '../../types/compliance';
-import { NFTCARFTable, NFTSaleTable } from '../../types/database';
+import { NftCarfRow, NftCarfTransactionRow, NftSaleRow } from '../../types/database';
 
 const logger = createComponentLogger('nft-carf-service');
 
@@ -66,7 +66,7 @@ export class NFTCARFService {
       const db = getDatabaseService();
 
       // Get all sales where wallet is seller
-      const sales = await db.queryAll<NFTSaleTable>(`
+      const sales = await db.queryAll<NftSaleRow>(`
         SELECT * FROM nft_sales
         WHERE seller_address = $1
           AND tenant_id = $2
@@ -76,7 +76,7 @@ export class NFTCARFService {
       `, [options.walletAddress, options.tenantId, options.startDate, options.endDate]);
 
       // Get all purchases where wallet is buyer
-      const purchases = await db.queryAll<NFTSaleTable>(`
+      const purchases = await db.queryAll<NftSaleRow>(`
         SELECT * FROM nft_sales
         WHERE buyer_address = $1
           AND tenant_id = $2
@@ -96,57 +96,57 @@ export class NFTCARFService {
 
       // Process sales
       for (const sale of sales) {
-        const priceUSD = parseFloat(sale.price_usd);
+        const priceUSD = parseFloat(sale.priceUsd);
         totalSalesVolumeUSD += priceUSD;
 
         // Get collection name
         const collection = await db.queryOne<{ name: string }>(`
           SELECT name FROM nft_collections WHERE id = $1
-        `, [sale.collection_id]);
+        `, [sale.collectionId]);
 
         transactions.push({
           type: 'sale',
           date: sale.timestamp,
-          contractAddress: sale.contract_address,
-          tokenId: sale.token_id,
+          contractAddress: sale.contractAddress,
+          tokenId: sale.tokenId,
           collectionName: collection?.name || 'Unknown',
           price: sale.price,
           currency: sale.currency,
-          priceUSD: sale.price_usd,
-          transactionHash: sale.transaction_hash,
-          chainId: sale.chain_id,
+          priceUSD: sale.priceUsd,
+          transactionHash: sale.transactionHash,
+          chainId: sale.chainId,
           marketplace: sale.marketplace,
-          counterparty: sale.buyer_address,
+          counterparty: sale.buyerAddress,
         });
       }
 
       // Process purchases
       for (const purchase of purchases) {
-        const priceUSD = parseFloat(purchase.price_usd);
+        const priceUSD = parseFloat(purchase.priceUsd);
         totalPurchasesVolumeUSD += priceUSD;
 
-        if (purchase.royalty_amount) {
-          totalRoyaltiesPaidUSD += parseFloat(purchase.royalty_amount);
+        if (purchase.royaltyAmount) {
+          totalRoyaltiesPaidUSD += parseFloat(purchase.royaltyAmount);
         }
 
         // Get collection name
         const collection = await db.queryOne<{ name: string }>(`
           SELECT name FROM nft_collections WHERE id = $1
-        `, [purchase.collection_id]);
+        `, [purchase.collectionId]);
 
         transactions.push({
           type: 'purchase',
           date: purchase.timestamp,
-          contractAddress: purchase.contract_address,
-          tokenId: purchase.token_id,
+          contractAddress: purchase.contractAddress,
+          tokenId: purchase.tokenId,
           collectionName: collection?.name || 'Unknown',
           price: purchase.price,
           currency: purchase.currency,
-          priceUSD: purchase.price_usd,
-          transactionHash: purchase.transaction_hash,
-          chainId: purchase.chain_id,
+          priceUSD: purchase.priceUsd,
+          transactionHash: purchase.transactionHash,
+          chainId: purchase.chainId,
           marketplace: purchase.marketplace,
-          counterparty: purchase.seller_address,
+          counterparty: purchase.sellerAddress,
         });
       }
 
@@ -461,7 +461,7 @@ export class NFTCARFService {
   async getReport(reportId: string): Promise<NFTCARFData | null> {
     const db = getDatabaseService();
 
-    const row = await db.queryOne<NFTCARFTable>(`
+    const row = await db.queryOne<NftCarfRow>(`
       SELECT * FROM nft_carf_reports WHERE id = $1
     `, [reportId]);
 
@@ -470,21 +470,7 @@ export class NFTCARFService {
     }
 
     // Get transactions
-    const transactions = await db.queryAll<{
-      transaction_type: string;
-      transaction_date: Date;
-      contract_address: string;
-      token_id: string;
-      collection_name: string;
-      price: string;
-      currency: string;
-      price_usd: string;
-      transaction_hash: string;
-      chain_id: number;
-      marketplace: string;
-      counterparty: string;
-      gain_loss: string | null;
-    }>(`
+    const transactions = await db.queryAll<NftCarfTransactionRow>(`
       SELECT * FROM nft_carf_transactions WHERE carf_report_id = $1
       ORDER BY transaction_date ASC
     `, [reportId]);
@@ -501,7 +487,7 @@ export class NFTCARFService {
   ): Promise<NFTCARFData[]> {
     const db = getDatabaseService();
 
-    const rows = await db.queryAll<NFTCARFTable>(`
+    const rows = await db.queryAll<NftCarfRow>(`
       SELECT * FROM nft_carf_reports
       WHERE wallet_address = $1 AND tenant_id = $2
       ORDER BY created_at DESC
@@ -509,21 +495,7 @@ export class NFTCARFService {
 
     const reports: NFTCARFData[] = [];
     for (const row of rows) {
-      const transactions = await db.queryAll<{
-        transaction_type: string;
-        transaction_date: Date;
-        contract_address: string;
-        token_id: string;
-        collection_name: string;
-        price: string;
-        currency: string;
-        price_usd: string;
-        transaction_hash: string;
-        chain_id: number;
-        marketplace: string;
-        counterparty: string;
-        gain_loss: string | null;
-      }>(`
+      const transactions = await db.queryAll<NftCarfTransactionRow>(`
         SELECT * FROM nft_carf_transactions WHERE carf_report_id = $1
         ORDER BY transaction_date ASC
       `, [row.id]);
@@ -540,7 +512,7 @@ export class NFTCARFService {
   async getPendingReports(tenantId: string, limit = 100): Promise<NFTCARFData[]> {
     const db = getDatabaseService();
 
-    const rows = await db.queryAll<NFTCARFTable>(`
+    const rows = await db.queryAll<NftCarfRow>(`
       SELECT * FROM nft_carf_reports
       WHERE tenant_id = $1 AND status = 'pending'
       ORDER BY created_at ASC
@@ -549,21 +521,7 @@ export class NFTCARFService {
 
     const reports: NFTCARFData[] = [];
     for (const row of rows) {
-      const transactions = await db.queryAll<{
-        transaction_type: string;
-        transaction_date: Date;
-        contract_address: string;
-        token_id: string;
-        collection_name: string;
-        price: string;
-        currency: string;
-        price_usd: string;
-        transaction_hash: string;
-        chain_id: number;
-        marketplace: string;
-        counterparty: string;
-        gain_loss: string | null;
-      }>(`
+      const transactions = await db.queryAll<NftCarfTransactionRow>(`
         SELECT * FROM nft_carf_transactions WHERE carf_report_id = $1
         ORDER BY transaction_date ASC
       `, [row.id]);
@@ -578,62 +536,48 @@ export class NFTCARFService {
    * Map database table to data type
    */
   private mapTableToData(
-    row: NFTCARFTable,
-    transactions: Array<{
-      transaction_type: string;
-      transaction_date: Date;
-      contract_address: string;
-      token_id: string;
-      collection_name: string;
-      price: string;
-      currency: string;
-      price_usd: string;
-      transaction_hash: string;
-      chain_id: number;
-      marketplace: string;
-      counterparty: string;
-      gain_loss: string | null;
-    }>
+    row: NftCarfRow,
+    transactions: NftCarfTransactionRow[]
   ): NFTCARFData {
     return {
       id: row.id,
-      reportId: row.report_id,
-      walletAddress: row.wallet_address,
-      userId: row.user_id ?? undefined,
-      tenantId: row.tenant_id,
+      reportId: row.reportId,
+      walletAddress: row.walletAddress,
+      userId: row.userId ?? undefined,
+      tenantId: row.tenantId,
       reportingPeriod: {
-        startDate: row.reporting_period_start_date,
-        endDate: row.reporting_period_end_date,
-        fiscalYear: row.reporting_period_fiscal_year ?? undefined,
+        startDate: row.reportingPeriodStartDate,
+        endDate: row.reportingPeriodEndDate,
+        fiscalYear: row.reportingPeriodFiscalYear ?? undefined,
       },
       transactions: transactions.map((tx) => ({
-        type: tx.transaction_type as 'sale' | 'purchase' | 'mint' | 'transfer' | 'burn',
-        date: tx.transaction_date,
-        contractAddress: tx.contract_address,
-        tokenId: tx.token_id,
-        collectionName: tx.collection_name,
+        type: tx.transactionType,
+        date: tx.transactionDate,
+        contractAddress: tx.contractAddress,
+        tokenId: tx.tokenId,
+        collectionName: tx.collectionName,
         price: tx.price,
         currency: tx.currency,
-        priceUSD: tx.price_usd,
-        transactionHash: tx.transaction_hash,
-        chainId: tx.chain_id,
+        priceUSD: tx.priceUsd,
+        transactionHash: tx.transactionHash,
+        chainId: tx.chainId,
         marketplace: tx.marketplace,
         counterparty: tx.counterparty,
-        gainLoss: tx.gain_loss ?? undefined,
+        gainLoss: tx.gainLoss ?? undefined,
       })),
-      totalSalesVolumeUSD: row.total_sales_volume_usd,
-      totalPurchasesVolumeUSD: row.total_purchases_volume_usd,
-      totalRoyaltiesReceivedUSD: row.total_royalties_received_usd,
-      totalRoyaltiesPaidUSD: row.total_royalties_paid_usd,
-      netGainLossUSD: row.net_gain_loss_usd,
-      transactionCount: row.transaction_count,
+      totalSalesVolumeUSD: row.totalSalesVolumeUsd,
+      totalPurchasesVolumeUSD: row.totalPurchasesVolumeUsd,
+      totalRoyaltiesReceivedUSD: row.totalRoyaltiesReceivedUsd,
+      totalRoyaltiesPaidUSD: row.totalRoyaltiesPaidUsd,
+      netGainLossUSD: row.netGainLossUsd,
+      transactionCount: row.transactionCount,
       status: row.status,
-      submissionDate: row.submission_date ?? undefined,
-      acknowledgmentDate: row.acknowledgment_date ?? undefined,
-      rejectionReason: row.rejection_reason ?? undefined,
+      submissionDate: row.submissionDate ?? undefined,
+      acknowledgmentDate: row.acknowledgmentDate ?? undefined,
+      rejectionReason: row.rejectionReason ?? undefined,
       version: row.version,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 }

@@ -64,7 +64,7 @@ assert_http 200 -H 'Host: thal.thaliumx.com' "$BASE_URL/token-presale" || fail "
 echo "[7/8] Presale status API (public) should be 200"
 assert_http 200 -H 'Host: thal.thaliumx.com' -H 'X-Tenant-ID: 10000000-0000-0000-0000-000000000000' "$BASE_URL/api/presale/status" || fail "/api/presale/status should be 200"
 
-echo "[8/8] Keycloak OIDC discovery should be reachable via gateway"
+echo "[8/8] Authentik OIDC discovery should be reachable via gateway"
 assert_http 200 -H 'Host: auth.thaliumx.com' "$BASE_URL/auth/realms/thaliumx-platform/.well-known/openid-configuration" || fail "OIDC discovery should be 200"
 
 echo "PASS: gateway smoke checks succeeded"

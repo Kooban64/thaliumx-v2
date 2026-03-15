@@ -25,7 +25,7 @@ MAX_CONCURRENT_USERS=50
 POSTGRES_PASSWORD=staging_password_123
 REDIS_PASSWORD=staging_redis_123
 MONGODB_PASSWORD=staging_mongo_123
-KEYCLOAK_ADMIN_PASSWORD=staging_keycloak_123
+AUTHENTIK_ADMIN_PASSWORD=staging_Authentik_123
 JWT_SECRET=staging_jwt_secret_very_long_and_secure_key_for_testing
 ENCRYPTION_KEY=staging_encryption_key_32_chars_long
 GRAFANA_ADMIN_PASSWORD=staging_grafana_123
@@ -63,13 +63,13 @@ docker run -d --name thaliumx-grafana-staging \
   -p 3001:3000 \
   grafana/grafana:10.2.2
 
-# Start Keycloak
-docker run -d --name thaliumx-keycloak-staging \
+# Start Authentik
+docker run -d --name thaliumx-Authentik-staging \
   --network thaliumx-staging-net \
-  -e KEYCLOAK_ADMIN=admin \
-  -e KEYCLOAK_ADMIN_PASSWORD=staging_keycloak_123 \
+  -e AUTHENTIK_ADMIN=admin \
+  -e AUTHENTIK_ADMIN_PASSWORD=staging_Authentik_123 \
   -p 8081:8080 \
-  quay.io/keycloak/keycloak:23.0 \
+  quay.io/Authentik/Authentik:23.0 \
   start-dev
 
 echo "⏳ Waiting for services to start..."
@@ -83,7 +83,7 @@ docker ps --filter "name=thaliumx-*-staging" --format "table {{.Names}}\t{{.Stat
 echo ""
 echo "🔍 Service Status:"
 curl -s http://localhost:3001 >/dev/null && echo "✅ Grafana: http://localhost:3001 (admin/staging_grafana_123)" || echo "⚠️ Grafana not ready"
-curl -s http://localhost:8081 >/dev/null && echo "✅ Keycloak: http://localhost:8081 (admin/staging_keycloak_123)" || echo "⚠️ Keycloak not ready"
+curl -s http://localhost:8081 >/dev/null && echo "✅ Authentik: http://localhost:8081 (admin/staging_Authentik_123)" || echo "⚠️ Authentik not ready"
 
 echo ""
 echo "🎉 Core infrastructure deployed!"
@@ -91,7 +91,7 @@ echo "================================="
 echo ""
 echo "🌐 Staging URLs:"
 echo "   Grafana: http://localhost:3001"
-echo "   Keycloak: http://localhost:8081"
+echo "   Authentik: http://localhost:8081"
 echo "   PostgreSQL: localhost:5433"
 echo "   Redis: localhost:6380"
 echo ""

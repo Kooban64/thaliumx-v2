@@ -240,11 +240,11 @@ export class DatabaseService {
         type: DataTypes.STRING,
         allowNull: false
       },
-      zitadelId: {
+      authentikId: {
         type: DataTypes.STRING,
         allowNull: true,
         unique: true,
-        field: 'zitadel_id'
+        field: 'authentik_id'
       }
     }, {
       tableName: 'users',
@@ -254,7 +254,7 @@ export class DatabaseService {
         { fields: ['username'] },
         { fields: ['tenantId'] },
         { fields: ['role'] },
-        { fields: ['zitadelId'], name: 'idx_users_zitadel_id' },
+        { fields: ['AuthentikId'], name: 'idx_users_authentik_id' },
         { fields: ['kycStatus'] }
       ]
     });
@@ -467,7 +467,7 @@ export class DatabaseService {
     // =============================================================================
     // PRESALE (TOKEN SALE) PERSISTENCE MODELS
     // =============================================================================
-    // NOTE: `userId` is STRING for Keycloak subject (`sub`).
+    // NOTE: `userId` is STRING for Authentik subject (`sub`).
     const PresaleModel = this.sequelize.define('Presale', {
       id: { type: DataTypes.STRING, primaryKey: true },
       tenantId: { type: DataTypes.UUID, allowNull: true },
@@ -1690,6 +1690,101 @@ export class DatabaseService {
 
     this.models.set('ChatMessage', ChatMessageModel);
 
+    // =============================================================================
+    // API KEY MODEL
+    // =============================================================================
+    const ApiKeyModel = this.sequelize.define('ApiKey', {
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+      },
+      keyHash: {
+        type: DataTypes.STRING(64),
+        allowNull: false,
+        unique: true,
+        comment: 'SHA-256 hash of the API key'
+      },
+      keyPrefix: {
+        type: DataTypes.STRING(8),
+        allowNull: false,
+        comment: 'First 8 characters of the key for display purposes'
+      },
+      name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        comment: 'Descriptive name for the API key'
+      },
+      userId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: { model: 'users', key: 'id' },
+        comment: 'User who owns this API key'
+      },
+      tenantId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: { model: 'tenants', key: 'id' },
+        comment: 'Tenant this key belongs to (for multi-tenant setups)'
+      },
+      brokerId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Broker ID for broker-level API keys'
+      },
+      scopes: {
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: [],
+        comment: 'Array of permission scopes for this key'
+      },
+      status: {
+        type: DataTypes.ENUM('active', 'revoked', 'expired'),
+        allowNull: false,
+        defaultValue: 'active'
+      },
+      expiresAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'Expiration date for the API key'
+      },
+      lastUsedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'Last time this key was used'
+      },
+      lastUsedIp: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'IP address of last usage'
+      },
+      rateLimit: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 100,
+        comment: 'Rate limit per minute for this key'
+      },
+      metadata: {
+        type: DataTypes.JSONB,
+        allowNull: true,
+        defaultValue: {},
+        comment: 'Additional metadata for the key'
+      }
+    }, {
+      tableName: 'api_keys',
+      timestamps: true,
+      indexes: [
+        { fields: ['keyHash'], unique: true },
+        { fields: ['userId'] },
+        { fields: ['tenantId'] },
+        { fields: ['brokerId'] },
+        { fields: ['status'] },
+        { fields: ['expiresAt'] }
+      ]
+    });
+
+    this.models.set('ApiKey', ApiKeyModel);
+
     // Define associations
     this.defineAssociations();
   }
@@ -1829,6 +1924,16 @@ export class DatabaseService {
       
       // Approved by user association
       UserLimitOverrideModel.belongsTo(UserModel, { foreignKey: 'approvedBy', as: 'approver' });
+    }
+
+    // API Key associations
+    const ApiKeyModel = this.models.get('ApiKey');
+    if (ApiKeyModel) {
+      UserModel.hasMany(ApiKeyModel, { foreignKey: 'userId', as: 'apiKeys' });
+      ApiKeyModel.belongsTo(UserModel, { foreignKey: 'userId', as: 'user' });
+      
+      TenantModel.hasMany(ApiKeyModel, { foreignKey: 'tenantId', as: 'apiKeys' });
+      ApiKeyModel.belongsTo(TenantModel, { foreignKey: 'tenantId', as: 'tenant' });
     }
   }
 

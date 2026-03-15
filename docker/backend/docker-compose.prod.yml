@@ -58,7 +58,7 @@ services:
 
 
 volumes:
-  # Keycloak data volume removed - migrated to Zitadel
+  # Keycloak data volume removed - migrated to Keycloak
 
 networks:
   thaliumx-network:

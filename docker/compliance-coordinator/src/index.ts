@@ -21,6 +21,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import { v4 as uuidv4 } from 'uuid';
+import { z } from 'zod';
 
 import { getConfig, validateConfig } from './config';
 import { createComponentLogger } from './utils/logger';
@@ -35,6 +36,314 @@ import {
 } from './services';
 
 const appLogger = createComponentLogger('app');
+
+const riskLevelSchema = z.enum(['low', 'medium', 'high', 'critical']);
+const sourceServiceSchema = z.enum(['cex', 'dex', 'nft', 'token']);
+const alertStatusSchema = z.enum(['new', 'acknowledged', 'investigating', 'resolved', 'dismissed']);
+const alertSeveritySchema = z.enum(['low', 'medium', 'high', 'critical']);
+const alertTypeSchema = z.enum([
+  'high_risk',
+  'sanctions_match',
+  'travel_rule_failure',
+  'threshold_breach',
+  'pattern_detected',
+  'system_error',
+]);
+const submissionTypeSchema = z.enum(['carf', 'sar', 'ctr', 'str', 'custom']);
+const submissionStatusSchema = z.enum(['draft', 'pending', 'submitted', 'acknowledged', 'rejected', 'accepted']);
+const adminRoleSchema = z.enum(['admin', 'compliance_officer', 'analyst', 'viewer']);
+const platformReportTypeSchema = z.enum(['daily', 'weekly', 'monthly', 'quarterly', 'annual', 'custom']);
+const reportFormatSchema = z.enum(['json', 'pdf', 'csv']).optional();
+const requiredStringSchema = z.string().min(1);
+const optionalStringSchema = z.string().min(1).optional();
+const booleanStringSchema = z.enum(['true', 'false']).transform((value) => value === 'true');
+const integerStringSchema = z.string().regex(/^\d+$/).transform((value) => Number.parseInt(value, 10));
+const dateStringSchema = z.string().datetime({ offset: true }).or(z.string().datetime({ local: true }));
+
+type InputSchema<TOutput, TInput = TOutput> = z.ZodType<TOutput, z.ZodTypeDef, TInput>;
+
+function withDefinedProperties<T extends Record<string, unknown>>(value: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  ) as Partial<T>;
+}
+
+function buildRiskAssessmentOptions(query: z.infer<typeof riskAssessmentsQuerySchema>): {
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical';
+  reviewRequired?: boolean;
+  sourceService?: 'cex' | 'dex' | 'nft' | 'token';
+  limit?: number;
+  offset?: number;
+} {
+  const options: {
+    riskLevel?: 'low' | 'medium' | 'high' | 'critical';
+    reviewRequired?: boolean;
+    sourceService?: 'cex' | 'dex' | 'nft' | 'token';
+    limit?: number;
+    offset?: number;
+  } = {};
+
+  if (query.riskLevel !== undefined) {
+    options.riskLevel = query.riskLevel;
+  }
+  if (query.reviewRequired !== undefined) {
+    options.reviewRequired = query.reviewRequired;
+  }
+  if (query.sourceService !== undefined) {
+    options.sourceService = query.sourceService;
+  }
+  if (query.limit !== undefined) {
+    options.limit = query.limit;
+  }
+  if (query.offset !== undefined) {
+    options.offset = query.offset;
+  }
+
+  return options;
+}
+
+function buildTravelRuleOptions(query: z.infer<typeof travelRulesQuerySchema>): {
+  status?: string;
+  sourceService?: 'cex' | 'dex' | 'nft' | 'token';
+  limit?: number;
+  offset?: number;
+} {
+  const options: {
+    status?: string;
+    sourceService?: 'cex' | 'dex' | 'nft' | 'token';
+    limit?: number;
+    offset?: number;
+  } = {};
+
+  if (query.status !== undefined) {
+    options.status = query.status;
+  }
+  if (query.sourceService !== undefined) {
+    options.sourceService = query.sourceService;
+  }
+  if (query.limit !== undefined) {
+    options.limit = query.limit;
+  }
+  if (query.offset !== undefined) {
+    options.offset = query.offset;
+  }
+
+  return options;
+}
+
+function sendValidationError(res: Response, error: z.ZodError): void {
+  const issue = error.issues[0];
+  res.status(400).json({
+    error: issue?.message ?? 'Invalid request',
+  });
+}
+
+function parseRequestPart<TOutput, TInput = TOutput>(
+  res: Response,
+  schema: InputSchema<TOutput, TInput>,
+  input: unknown,
+): TOutput | null {
+  const result = schema.safeParse(input);
+  if (!result.success) {
+    sendValidationError(res, result.error);
+    return null;
+  }
+
+  return result.data;
+}
+
+function requiredPathIdSchema(fieldName: string): z.ZodObject<{ id: z.ZodString }> {
+  return z.object({
+    id: z.string().min(1, `Missing required parameter: ${fieldName}`),
+  });
+}
+
+const riskAssessmentsQuerySchema = z.object({
+  tenantId: requiredStringSchema,
+  riskLevel: riskLevelSchema.optional(),
+  reviewRequired: booleanStringSchema.optional(),
+  sourceService: sourceServiceSchema.optional(),
+  limit: integerStringSchema.optional(),
+  offset: integerStringSchema.optional(),
+});
+
+const travelRulesQuerySchema = z.object({
+  tenantId: requiredStringSchema,
+  status: optionalStringSchema,
+  sourceService: sourceServiceSchema.optional(),
+  limit: integerStringSchema.optional(),
+  offset: integerStringSchema.optional(),
+});
+
+const periodQuerySchema = z.object({
+  tenantId: requiredStringSchema,
+  periodStart: dateStringSchema,
+  periodEnd: dateStringSchema,
+});
+
+const platformReportBodySchema = z.object({
+  reportType: platformReportTypeSchema,
+  tenantId: requiredStringSchema,
+  brokerId: optionalStringSchema,
+  periodStart: dateStringSchema,
+  periodEnd: dateStringSchema,
+  format: reportFormatSchema,
+  generatedBy: optionalStringSchema,
+});
+
+const userReportBodySchema = z.object({
+  userId: requiredStringSchema,
+  tenantId: requiredStringSchema,
+  brokerId: optionalStringSchema,
+  periodStart: dateStringSchema,
+  periodEnd: dateStringSchema,
+  format: reportFormatSchema,
+});
+
+const alertsQuerySchema = z.object({
+  tenantId: requiredStringSchema,
+  status: alertStatusSchema.optional(),
+  severity: alertSeveritySchema.optional(),
+  alertType: alertTypeSchema.optional(),
+  sourceService: sourceServiceSchema.optional(),
+  assignedTo: optionalStringSchema,
+  limit: integerStringSchema.optional(),
+  offset: integerStringSchema.optional(),
+});
+
+const acknowledgeAlertBodySchema = z.object({
+  acknowledgedBy: requiredStringSchema,
+});
+
+const investigateAlertBodySchema = z.object({
+  assignedTo: requiredStringSchema,
+});
+
+const resolveAlertBodySchema = z.object({
+  resolvedBy: requiredStringSchema,
+  resolution: requiredStringSchema,
+});
+
+const dismissAlertBodySchema = z.object({
+  dismissedBy: requiredStringSchema,
+  reason: requiredStringSchema,
+});
+
+const submissionsQuerySchema = z.object({
+  tenantId: requiredStringSchema,
+  submissionType: submissionTypeSchema.optional(),
+  jurisdiction: optionalStringSchema,
+  status: submissionStatusSchema.optional(),
+  limit: integerStringSchema.optional(),
+  offset: integerStringSchema.optional(),
+});
+
+const reportingPeriodSchema = z.object({
+  startDate: dateStringSchema,
+  endDate: dateStringSchema,
+});
+
+const createSubmissionBodySchema = z.object({
+  submissionType: submissionTypeSchema,
+  jurisdiction: requiredStringSchema,
+  authority: requiredStringSchema,
+  tenantId: requiredStringSchema,
+  brokerId: optionalStringSchema,
+  reportingPeriod: reportingPeriodSchema.optional(),
+  data: z.record(z.unknown()),
+  submittedBy: optionalStringSchema,
+});
+
+const acknowledgeSubmissionBodySchema = z.object({
+  responseCode: requiredStringSchema,
+  responseMessage: requiredStringSchema,
+});
+
+const adminUsersQuerySchema = z.object({
+  tenantId: requiredStringSchema,
+  role: adminRoleSchema.optional(),
+  active: booleanStringSchema.optional(),
+  brokerId: optionalStringSchema,
+  limit: integerStringSchema.optional(),
+  offset: integerStringSchema.optional(),
+});
+
+const createAdminBodySchema = z.object({
+  email: requiredStringSchema,
+  name: requiredStringSchema,
+  role: adminRoleSchema,
+  permissions: z.array(z.string().min(1)).min(1),
+  tenantId: requiredStringSchema,
+  brokerId: optionalStringSchema,
+});
+
+const updateAdminBodySchema = z.object({
+  name: optionalStringSchema,
+  role: adminRoleSchema.optional(),
+  permissions: z.array(z.string().min(1)).min(1).optional(),
+  active: z.boolean().optional(),
+}).refine((value) => Object.values(value).some((entry) => entry !== undefined), {
+  message: 'At least one field must be provided',
+});
+
+const actionLogsQuerySchema = z.object({
+  tenantId: requiredStringSchema,
+  adminId: optionalStringSchema,
+  action: optionalStringSchema,
+  entityType: optionalStringSchema,
+  startDate: dateStringSchema.optional(),
+  endDate: dateStringSchema.optional(),
+  limit: integerStringSchema.optional(),
+  offset: integerStringSchema.optional(),
+});
+
+const tenantQuerySchema = z.object({
+  tenantId: requiredStringSchema,
+});
+
+function buildActionLogsOptions(query: z.infer<typeof actionLogsQuerySchema>): {
+  adminId?: string;
+  action?: string;
+  entityType?: string;
+  startDate?: Date;
+  endDate?: Date;
+  limit?: number;
+  offset?: number;
+} {
+  const options: {
+    adminId?: string;
+    action?: string;
+    entityType?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  } = {};
+
+  if (query.adminId !== undefined) {
+    options.adminId = query.adminId;
+  }
+  if (query.action !== undefined) {
+    options.action = query.action;
+  }
+  if (query.entityType !== undefined) {
+    options.entityType = query.entityType;
+  }
+  if (query.startDate !== undefined) {
+    options.startDate = new Date(query.startDate);
+  }
+  if (query.endDate !== undefined) {
+    options.endDate = new Date(query.endDate);
+  }
+  if (query.limit !== undefined) {
+    options.limit = query.limit;
+  }
+  if (query.offset !== undefined) {
+    options.offset = query.offset;
+  }
+
+  return options;
+}
 
 /**
  * Application state
@@ -214,41 +523,17 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/risk-assessments', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { tenantId, riskLevel, reviewRequired, sourceService, limit, offset } = req.query;
-
-      if (!tenantId) {
-        res.status(400).json({ error: 'Missing required query parameter: tenantId' });
+      const query = parseRequestPart(res, riskAssessmentsQuerySchema, req.query);
+      if (!query) {
         return;
       }
 
       const aggregationService = getAggregationService();
-      
-      // Build options object, only including defined values
-      const options: {
-        riskLevel?: 'low' | 'medium' | 'high' | 'critical';
-        reviewRequired?: boolean;
-        sourceService?: 'cex' | 'dex' | 'nft' | 'token';
-        limit?: number;
-        offset?: number;
-      } = {};
 
-      if (riskLevel) {
-        options.riskLevel = riskLevel as 'low' | 'medium' | 'high' | 'critical';
-      }
-      if (reviewRequired !== undefined) {
-        options.reviewRequired = reviewRequired === 'true';
-      }
-      if (sourceService) {
-        options.sourceService = sourceService as 'cex' | 'dex' | 'nft' | 'token';
-      }
-      if (limit) {
-        options.limit = parseInt(limit as string, 10);
-      }
-      if (offset) {
-        options.offset = parseInt(offset as string, 10);
-      }
-
-      const results = await aggregationService.getRiskAssessments(tenantId as string, options);
+      const results = await aggregationService.getRiskAssessments(
+        query.tenantId,
+        buildRiskAssessmentOptions(query),
+      );
       res.json(results);
     } catch (error) {
       next(error);
@@ -257,36 +542,17 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/travel-rules', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { tenantId, status, sourceService, limit, offset } = req.query;
-
-      if (!tenantId) {
-        res.status(400).json({ error: 'Missing required query parameter: tenantId' });
+      const query = parseRequestPart(res, travelRulesQuerySchema, req.query);
+      if (!query) {
         return;
       }
 
       const aggregationService = getAggregationService();
-      
-      const options: {
-        status?: string;
-        sourceService?: 'cex' | 'dex' | 'nft' | 'token';
-        limit?: number;
-        offset?: number;
-      } = {};
 
-      if (status) {
-        options.status = status as string;
-      }
-      if (sourceService) {
-        options.sourceService = sourceService as 'cex' | 'dex' | 'nft' | 'token';
-      }
-      if (limit) {
-        options.limit = parseInt(limit as string, 10);
-      }
-      if (offset) {
-        options.offset = parseInt(offset as string, 10);
-      }
-
-      const results = await aggregationService.getTravelRules(tenantId as string, options);
+      const results = await aggregationService.getTravelRules(
+        query.tenantId,
+        buildTravelRuleOptions(query),
+      );
       res.json(results);
     } catch (error) {
       next(error);
@@ -295,20 +561,16 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/statistics', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { tenantId, periodStart, periodEnd } = req.query;
-
-      if (!tenantId || !periodStart || !periodEnd) {
-        res.status(400).json({
-          error: 'Missing required query parameters: tenantId, periodStart, periodEnd',
-        });
+      const query = parseRequestPart(res, periodQuerySchema, req.query);
+      if (!query) {
         return;
       }
 
       const aggregationService = getAggregationService();
       const stats = await aggregationService.getPlatformStatistics(
-        tenantId as string,
-        new Date(periodStart as string),
-        new Date(periodEnd as string)
+        query.tenantId,
+        new Date(query.periodStart),
+        new Date(query.periodEnd)
       );
 
       res.json(stats);
@@ -321,33 +583,21 @@ function setupRoutes(app: express.Application): void {
 
   router.post('/reports/platform', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const {
-        reportType,
-        tenantId,
-        brokerId,
-        periodStart,
-        periodEnd,
-        format,
-        generatedBy,
-      } = req.body;
-
-      if (!reportType || !tenantId || !periodStart || !periodEnd) {
-        res.status(400).json({
-          error: 'Missing required fields: reportType, tenantId, periodStart, periodEnd',
-        });
+      const body = parseRequestPart(res, platformReportBodySchema, req.body);
+      if (!body) {
         return;
       }
 
       const reportingService = getReportingService();
       const report = await reportingService.generatePlatformReport(
-        reportType,
+        body.reportType,
         {
-          tenantId,
-          brokerId,
-          periodStart: new Date(periodStart),
-          periodEnd: new Date(periodEnd),
-          format,
-          generatedBy,
+          tenantId: body.tenantId,
+          brokerId: body.brokerId,
+          periodStart: new Date(body.periodStart),
+          periodEnd: new Date(body.periodEnd),
+          format: body.format,
+          generatedBy: body.generatedBy,
         }
       );
 
@@ -359,15 +609,13 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/reports/platform/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
         return;
       }
 
       const reportingService = getReportingService();
-      const report = await reportingService.getPlatformReport(id);
+      const report = await reportingService.getPlatformReport(params.id);
 
       if (!report) {
         res.status(404).json({ error: 'Report not found' });
@@ -382,30 +630,19 @@ function setupRoutes(app: express.Application): void {
 
   router.post('/reports/user', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const {
-        userId,
-        tenantId,
-        brokerId,
-        periodStart,
-        periodEnd,
-        format,
-      } = req.body;
-
-      if (!userId || !tenantId || !periodStart || !periodEnd) {
-        res.status(400).json({
-          error: 'Missing required fields: userId, tenantId, periodStart, periodEnd',
-        });
+      const body = parseRequestPart(res, userReportBodySchema, req.body);
+      if (!body) {
         return;
       }
 
       const reportingService = getReportingService();
       const report = await reportingService.generateUserReport({
-        userId,
-        tenantId,
-        brokerId,
-        periodStart: new Date(periodStart),
-        periodEnd: new Date(periodEnd),
-        format,
+        userId: body.userId,
+        tenantId: body.tenantId,
+        brokerId: body.brokerId,
+        periodStart: new Date(body.periodStart),
+        periodEnd: new Date(body.periodEnd),
+        format: body.format,
       });
 
       res.json(report);
@@ -416,15 +653,13 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/reports/user/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
         return;
       }
 
       const reportingService = getReportingService();
-      const report = await reportingService.getUserReport(id);
+      const report = await reportingService.getUserReport(params.id);
 
       if (!report) {
         res.status(404).json({ error: 'Report not found' });
@@ -441,23 +676,14 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/alerts', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { tenantId, status, severity, alertType, sourceService, assignedTo, limit, offset } = req.query;
-
-      if (!tenantId) {
-        res.status(400).json({ error: 'Missing required query parameter: tenantId' });
+      const query = parseRequestPart(res, alertsQuerySchema, req.query);
+      if (!query) {
         return;
       }
 
       const alertsService = getAlertsService();
-      const alerts = await alertsService.getAlerts(tenantId as string, {
-        status: status as 'new' | 'acknowledged' | 'investigating' | 'resolved' | 'dismissed' | undefined,
-        severity: severity as 'low' | 'medium' | 'high' | 'critical' | undefined,
-        alertType: alertType as 'high_risk' | 'sanctions_match' | 'travel_rule_failure' | 'threshold_breach' | 'pattern_detected' | 'system_error' | undefined,
-        sourceService: sourceService as 'cex' | 'dex' | 'nft' | 'token' | undefined,
-        assignedTo: assignedTo as string | undefined,
-        limit: limit ? parseInt(limit as string, 10) : undefined,
-        offset: offset ? parseInt(offset as string, 10) : undefined,
-      });
+      const { tenantId, ...options } = query;
+      const alerts = await alertsService.getAlerts(tenantId, withDefinedProperties(options));
 
       res.json(alerts);
     } catch (error) {
@@ -467,15 +693,13 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/alerts/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
         return;
       }
 
       const alertsService = getAlertsService();
-      const alert = await alertsService.getAlert(id);
+      const alert = await alertsService.getAlert(params.id);
 
       if (!alert) {
         res.status(404).json({ error: 'Alert not found' });
@@ -490,21 +714,18 @@ function setupRoutes(app: express.Application): void {
 
   router.post('/alerts/:id/acknowledge', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-      const { acknowledgedBy } = req.body;
-
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
         return;
       }
 
-      if (!acknowledgedBy) {
-        res.status(400).json({ error: 'Missing required field: acknowledgedBy' });
+      const body = parseRequestPart(res, acknowledgeAlertBodySchema, req.body);
+      if (!body) {
         return;
       }
 
       const alertsService = getAlertsService();
-      const alert = await alertsService.acknowledgeAlert(id, acknowledgedBy);
+      const alert = await alertsService.acknowledgeAlert(params.id, body.acknowledgedBy);
 
       if (!alert) {
         res.status(404).json({ error: 'Alert not found' });
@@ -519,21 +740,18 @@ function setupRoutes(app: express.Application): void {
 
   router.post('/alerts/:id/investigate', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-      const { assignedTo } = req.body;
-
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
         return;
       }
 
-      if (!assignedTo) {
-        res.status(400).json({ error: 'Missing required field: assignedTo' });
+      const body = parseRequestPart(res, investigateAlertBodySchema, req.body);
+      if (!body) {
         return;
       }
 
       const alertsService = getAlertsService();
-      const alert = await alertsService.investigateAlert(id, assignedTo);
+      const alert = await alertsService.investigateAlert(params.id, body.assignedTo);
 
       if (!alert) {
         res.status(404).json({ error: 'Alert not found' });
@@ -548,21 +766,18 @@ function setupRoutes(app: express.Application): void {
 
   router.post('/alerts/:id/resolve', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-      const { resolvedBy, resolution } = req.body;
-
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
         return;
       }
 
-      if (!resolvedBy || !resolution) {
-        res.status(400).json({ error: 'Missing required fields: resolvedBy, resolution' });
+      const body = parseRequestPart(res, resolveAlertBodySchema, req.body);
+      if (!body) {
         return;
       }
 
       const alertsService = getAlertsService();
-      const alert = await alertsService.resolveAlert(id, resolvedBy, resolution);
+      const alert = await alertsService.resolveAlert(params.id, body.resolvedBy, body.resolution);
 
       if (!alert) {
         res.status(404).json({ error: 'Alert not found' });
@@ -577,21 +792,18 @@ function setupRoutes(app: express.Application): void {
 
   router.post('/alerts/:id/dismiss', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-      const { dismissedBy, reason } = req.body;
-
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
         return;
       }
 
-      if (!dismissedBy || !reason) {
-        res.status(400).json({ error: 'Missing required fields: dismissedBy, reason' });
+      const body = parseRequestPart(res, dismissAlertBodySchema, req.body);
+      if (!body) {
         return;
       }
 
       const alertsService = getAlertsService();
-      const alert = await alertsService.dismissAlert(id, dismissedBy, reason);
+      const alert = await alertsService.dismissAlert(params.id, body.dismissedBy, body.reason);
 
       if (!alert) {
         res.status(404).json({ error: 'Alert not found' });
@@ -606,20 +818,16 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/alerts/statistics', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { tenantId, periodStart, periodEnd } = req.query;
-
-      if (!tenantId || !periodStart || !periodEnd) {
-        res.status(400).json({
-          error: 'Missing required query parameters: tenantId, periodStart, periodEnd',
-        });
+      const query = parseRequestPart(res, periodQuerySchema, req.query);
+      if (!query) {
         return;
       }
 
       const alertsService = getAlertsService();
       const stats = await alertsService.getAlertStatistics(
-        tenantId as string,
-        new Date(periodStart as string),
-        new Date(periodEnd as string)
+        query.tenantId,
+        new Date(query.periodStart),
+        new Date(query.periodEnd)
       );
 
       res.json(stats);
@@ -632,21 +840,14 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/regulatory/submissions', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { tenantId, submissionType, jurisdiction, status, limit, offset } = req.query;
-
-      if (!tenantId) {
-        res.status(400).json({ error: 'Missing required query parameter: tenantId' });
+      const query = parseRequestPart(res, submissionsQuerySchema, req.query);
+      if (!query) {
         return;
       }
 
       const regulatoryService = getRegulatoryService();
-      const submissions = await regulatoryService.getSubmissions(tenantId as string, {
-        submissionType: submissionType as 'carf' | 'sar' | 'ctr' | 'str' | 'custom' | undefined,
-        jurisdiction: jurisdiction as string | undefined,
-        status: status as 'draft' | 'pending' | 'submitted' | 'acknowledged' | 'rejected' | 'accepted' | undefined,
-        limit: limit ? parseInt(limit as string, 10) : undefined,
-        offset: offset ? parseInt(offset as string, 10) : undefined,
-      });
+      const { tenantId, ...options } = query;
+      const submissions = await regulatoryService.getSubmissions(tenantId, withDefinedProperties(options));
 
       res.json(submissions);
     } catch (error) {
@@ -656,15 +857,13 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/regulatory/submissions/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
         return;
       }
 
       const regulatoryService = getRegulatoryService();
-      const submission = await regulatoryService.getSubmission(id);
+      const submission = await regulatoryService.getSubmission(params.id);
 
       if (!submission) {
         res.status(404).json({ error: 'Submission not found' });
@@ -679,37 +878,24 @@ function setupRoutes(app: express.Application): void {
 
   router.post('/regulatory/submissions', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const {
-        submissionType,
-        jurisdiction,
-        authority,
-        tenantId,
-        brokerId,
-        reportingPeriod,
-        data,
-        submittedBy,
-      } = req.body;
-
-      if (!submissionType || !jurisdiction || !authority || !tenantId || !data) {
-        res.status(400).json({
-          error: 'Missing required fields: submissionType, jurisdiction, authority, tenantId, data',
-        });
+      const body = parseRequestPart(res, createSubmissionBodySchema, req.body);
+      if (!body) {
         return;
       }
 
       const regulatoryService = getRegulatoryService();
       const submission = await regulatoryService.createSubmission({
-        submissionType,
-        jurisdiction,
-        authority,
-        tenantId,
-        brokerId,
-        reportingPeriod: reportingPeriod ? {
-          startDate: new Date(reportingPeriod.startDate),
-          endDate: new Date(reportingPeriod.endDate),
+        submissionType: body.submissionType,
+        jurisdiction: body.jurisdiction,
+        authority: body.authority,
+        tenantId: body.tenantId,
+        brokerId: body.brokerId,
+        reportingPeriod: body.reportingPeriod ? {
+          startDate: new Date(body.reportingPeriod.startDate),
+          endDate: new Date(body.reportingPeriod.endDate),
         } : undefined,
-        data,
-        submittedBy,
+        data: body.data,
+        submittedBy: body.submittedBy,
       });
 
       res.status(201).json(submission);
@@ -720,15 +906,13 @@ function setupRoutes(app: express.Application): void {
 
   router.post('/regulatory/submissions/:id/submit', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
         return;
       }
 
       const regulatoryService = getRegulatoryService();
-      const submission = await regulatoryService.submitToAuthority(id);
+      const submission = await regulatoryService.submitToAuthority(params.id);
 
       if (!submission) {
         res.status(404).json({ error: 'Submission not found' });
@@ -743,21 +927,22 @@ function setupRoutes(app: express.Application): void {
 
   router.post('/regulatory/submissions/:id/acknowledge', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-      const { responseCode, responseMessage } = req.body;
-
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
         return;
       }
 
-      if (!responseCode || !responseMessage) {
-        res.status(400).json({ error: 'Missing required fields: responseCode, responseMessage' });
+      const body = parseRequestPart(res, acknowledgeSubmissionBodySchema, req.body);
+      if (!body) {
         return;
       }
 
       const regulatoryService = getRegulatoryService();
-      const submission = await regulatoryService.acknowledgeSubmission(id, responseCode, responseMessage);
+      const submission = await regulatoryService.acknowledgeSubmission(
+        params.id,
+        body.responseCode,
+        body.responseMessage,
+      );
 
       if (!submission) {
         res.status(404).json({ error: 'Submission not found' });
@@ -772,20 +957,16 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/regulatory/statistics', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { tenantId, periodStart, periodEnd } = req.query;
-
-      if (!tenantId || !periodStart || !periodEnd) {
-        res.status(400).json({
-          error: 'Missing required query parameters: tenantId, periodStart, periodEnd',
-        });
+      const query = parseRequestPart(res, periodQuerySchema, req.query);
+      if (!query) {
         return;
       }
 
       const regulatoryService = getRegulatoryService();
       const stats = await regulatoryService.getSubmissionStatistics(
-        tenantId as string,
-        new Date(periodStart as string),
-        new Date(periodEnd as string)
+        query.tenantId,
+        new Date(query.periodStart),
+        new Date(query.periodEnd)
       );
 
       res.json(stats);
@@ -798,21 +979,14 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/admin/users', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { tenantId, role, active, brokerId, limit, offset } = req.query;
-
-      if (!tenantId) {
-        res.status(400).json({ error: 'Missing required query parameter: tenantId' });
+      const query = parseRequestPart(res, adminUsersQuerySchema, req.query);
+      if (!query) {
         return;
       }
 
       const adminService = getAdminService();
-      const admins = await adminService.getAdmins(tenantId as string, {
-        role: role as 'admin' | 'compliance_officer' | 'analyst' | 'viewer' | undefined,
-        active: active !== undefined ? active === 'true' : undefined,
-        brokerId: brokerId as string | undefined,
-        limit: limit ? parseInt(limit as string, 10) : undefined,
-        offset: offset ? parseInt(offset as string, 10) : undefined,
-      });
+      const { tenantId, ...options } = query;
+      const admins = await adminService.getAdmins(tenantId, withDefinedProperties(options));
 
       res.json(admins);
     } catch (error) {
@@ -822,15 +996,13 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/admin/users/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
         return;
       }
 
       const adminService = getAdminService();
-      const admin = await adminService.getAdmin(id);
+      const admin = await adminService.getAdmin(params.id);
 
       if (!admin) {
         res.status(404).json({ error: 'Admin user not found' });
@@ -845,23 +1017,19 @@ function setupRoutes(app: express.Application): void {
 
   router.post('/admin/users', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { email, name, role, permissions, tenantId, brokerId } = req.body;
-
-      if (!email || !name || !role || !permissions || !tenantId) {
-        res.status(400).json({
-          error: 'Missing required fields: email, name, role, permissions, tenantId',
-        });
+      const body = parseRequestPart(res, createAdminBodySchema, req.body);
+      if (!body) {
         return;
       }
 
       const adminService = getAdminService();
       const admin = await adminService.createAdmin({
-        email,
-        name,
-        role,
-        permissions,
-        tenantId,
-        brokerId,
+        email: body.email,
+        name: body.name,
+        role: body.role,
+        permissions: body.permissions,
+        tenantId: body.tenantId,
+        brokerId: body.brokerId,
       });
 
       res.status(201).json(admin);
@@ -872,21 +1040,18 @@ function setupRoutes(app: express.Application): void {
 
   router.patch('/admin/users/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-      const { name, role, permissions, active } = req.body;
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
+        return;
+      }
 
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const body = parseRequestPart(res, updateAdminBodySchema, req.body);
+      if (!body) {
         return;
       }
 
       const adminService = getAdminService();
-      const admin = await adminService.updateAdmin(id, {
-        name,
-        role,
-        permissions,
-        active,
-      });
+      const admin = await adminService.updateAdmin(params.id, body);
 
       if (!admin) {
         res.status(404).json({ error: 'Admin user not found' });
@@ -901,15 +1066,13 @@ function setupRoutes(app: express.Application): void {
 
   router.post('/admin/users/:id/deactivate', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
         return;
       }
 
       const adminService = getAdminService();
-      const admin = await adminService.deactivateAdmin(id);
+      const admin = await adminService.deactivateAdmin(params.id);
 
       if (!admin) {
         res.status(404).json({ error: 'Admin user not found' });
@@ -924,15 +1087,13 @@ function setupRoutes(app: express.Application): void {
 
   router.post('/admin/users/:id/activate', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = req.params['id'];
-
-      if (!id) {
-        res.status(400).json({ error: 'Missing required parameter: id' });
+      const params = parseRequestPart(res, requiredPathIdSchema('id'), req.params);
+      if (!params) {
         return;
       }
 
       const adminService = getAdminService();
-      const admin = await adminService.activateAdmin(id);
+      const admin = await adminService.activateAdmin(params.id);
 
       if (!admin) {
         res.status(404).json({ error: 'Admin user not found' });
@@ -947,23 +1108,13 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/admin/action-logs', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { tenantId, adminId, action, entityType, startDate, endDate, limit, offset } = req.query;
-
-      if (!tenantId) {
-        res.status(400).json({ error: 'Missing required query parameter: tenantId' });
+      const query = parseRequestPart(res, actionLogsQuerySchema, req.query);
+      if (!query) {
         return;
       }
 
       const adminService = getAdminService();
-      const logs = await adminService.getActionLogs(tenantId as string, {
-        adminId: adminId as string | undefined,
-        action: action as string | undefined,
-        entityType: entityType as string | undefined,
-        startDate: startDate ? new Date(startDate as string) : undefined,
-        endDate: endDate ? new Date(endDate as string) : undefined,
-        limit: limit ? parseInt(limit as string, 10) : undefined,
-        offset: offset ? parseInt(offset as string, 10) : undefined,
-      });
+      const logs = await adminService.getActionLogs(query.tenantId, buildActionLogsOptions(query));
 
       res.json(logs);
     } catch (error) {
@@ -973,15 +1124,13 @@ function setupRoutes(app: express.Application): void {
 
   router.get('/admin/statistics', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { tenantId } = req.query;
-
-      if (!tenantId) {
-        res.status(400).json({ error: 'Missing required query parameter: tenantId' });
+      const query = parseRequestPart(res, tenantQuerySchema, req.query);
+      if (!query) {
         return;
       }
 
       const adminService = getAdminService();
-      const stats = await adminService.getAdminStatistics(tenantId as string);
+      const stats = await adminService.getAdminStatistics(query.tenantId);
 
       res.json(stats);
     } catch (error) {

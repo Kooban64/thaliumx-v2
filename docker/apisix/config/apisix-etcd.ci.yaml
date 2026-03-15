@@ -50,11 +50,16 @@ deployment:
 
 plugins:
   - cors
+  - response-rewrite
   - proxy-rewrite
   - redirect
   - request-id
+  - api-breaker
+  - zipkin
   - prometheus
+  - uri-blocker
   - limit-req
+  - limit-conn
   - limit-count
   - jwt-auth
   - key-auth

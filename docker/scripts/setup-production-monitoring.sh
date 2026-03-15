@@ -142,23 +142,23 @@ groups:
           description: "CPU usage is {{ $value }}%."
 
       # Identity Provider alerts
-      - alert: ZitadelDown
-        expr: up{job="zitadel"} == 0
+      - alert: AuthentikDown
+        expr: up{job="Authentik"} == 0
         for: 2m
         labels:
           severity: critical
         annotations:
-          summary: "Zitadel Identity Provider is down"
-          description: "Zitadel has been down for more than 2 minutes."
+          summary: "Authentik Identity Provider is down"
+          description: "Authentik has been down for more than 2 minutes."
 
-      - alert: ZitadelHighLatency
-        expr: probe_duration_seconds{job="zitadel"} > 2
+      - alert: AuthentikHighLatency
+        expr: probe_duration_seconds{job="Authentik"} > 2
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Zitadel high response latency"
-          description: "Zitadel health check latency is above 2 seconds."
+          summary: "Authentik high response latency"
+          description: "Authentik health check latency is above 2 seconds."
 
       # Database alerts
       - alert: DatabaseConnectionHigh
@@ -195,7 +195,7 @@ echo "  • Alertmanager: http://localhost:9093"
 echo ""
 echo "📈 Available Dashboards:"
 echo "  • ThaliumX System Overview"
-echo "  • Zitadel Identity Management"
+echo "  • Authentik Identity Management"
 echo "  • Redis Cache & Sessions"
 echo "  • PostgreSQL Database"
 echo ""

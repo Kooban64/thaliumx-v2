@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle2, AlertCircle, Shield } from 'lucide-react';
-import { getKeycloakToken } from '@/lib/auth/backend-auth';
+import { getAuthToken } from '@/lib/auth/backend-auth';
 
 interface KYCCollectionFlowProps {
   workflowId: string;
@@ -50,7 +50,7 @@ export function KYCCollectionFlow({
   useEffect(() => {
     const fetchCollectionFlow = async () => {
       try {
-        const token = getKeycloakToken();
+        const token = getAuthToken();
         if (!token) {
           setError('Authentication required');
           setLoading(false);
@@ -151,7 +151,7 @@ export function KYCCollectionFlow({
 
     const pollInterval = setInterval(async () => {
       try {
-        const token = getKeycloakToken();
+        const token = getAuthToken();
         if (!token) return;
 
         const response = await fetch(`/api/workflows/${workflowId}/status`, {

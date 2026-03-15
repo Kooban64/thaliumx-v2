@@ -270,8 +270,8 @@ export class WashTradingService {
     const transactionIds: string[] = [];
 
     for (const tx of transactions) {
-      const seller = tx.seller_address.toLowerCase();
-      const buyer = tx.buyer_address.toLowerCase();
+      const seller = tx.sellerAddress.toLowerCase();
+      const buyer = tx.buyerAddress.toLowerCase();
 
       if (!addressGraph.has(seller)) {
         addressGraph.set(seller, new Set());
@@ -383,7 +383,7 @@ export class WashTradingService {
     lookbackDate.setDate(lookbackDate.getDate() - this.config.lookbackDays);
 
     // Get average price for this token
-    const result = await db.queryOne<{ avg_price: string }>(`
+    const result = await db.queryOne<{ avgPrice: string | null }>(`
       SELECT AVG(CAST(price_usd AS DECIMAL)) as avg_price
       FROM nft_sales
       WHERE contract_address = $1
@@ -393,11 +393,11 @@ export class WashTradingService {
         AND timestamp >= $5
     `, [contractAddress, tokenId, chainId, tenantId, lookbackDate]);
 
-    if (!result || !result.avg_price) {
+    if (!result || !result.avgPrice) {
       return { isManipulated: false };
     }
 
-    const avgPrice = parseFloat(result.avg_price);
+    const avgPrice = parseFloat(result.avgPrice);
     if (avgPrice === 0) {
       return { isManipulated: false };
     }
@@ -422,7 +422,7 @@ export class WashTradingService {
     lookbackDate.setDate(lookbackDate.getDate() - this.config.lookbackDays);
 
     // Get collection volume
-    const collectionVolume = await db.queryOne<{ total_volume: string }>(`
+    const collectionVolume = await db.queryOne<{ totalVolume: string | null }>(`
       SELECT SUM(CAST(price_usd AS DECIMAL)) as total_volume
       FROM nft_sales
       WHERE contract_address = $1
@@ -432,7 +432,7 @@ export class WashTradingService {
     `, [contractAddress, chainId, tenantId, lookbackDate]);
 
     // Get average collection volume across all collections
-    const avgVolume = await db.queryOne<{ avg_volume: string }>(`
+    const avgVolume = await db.queryOne<{ avgVolume: string | null }>(`
       SELECT AVG(collection_volume) as avg_volume
       FROM (
         SELECT SUM(CAST(price_usd AS DECIMAL)) as collection_volume
@@ -444,12 +444,12 @@ export class WashTradingService {
       ) as volumes
     `, [chainId, tenantId, lookbackDate]);
 
-    if (!collectionVolume?.total_volume || !avgVolume?.avg_volume) {
+    if (!collectionVolume?.totalVolume || !avgVolume?.avgVolume) {
       return { isInflated: false, inflationPercentage: 0 };
     }
 
-    const totalVolume = parseFloat(collectionVolume.total_volume);
-    const averageVolume = parseFloat(avgVolume.avg_volume);
+    const totalVolume = parseFloat(collectionVolume.totalVolume);
+    const averageVolume = parseFloat(avgVolume.avgVolume);
 
     if (averageVolume === 0) {
       return { isInflated: false, inflationPercentage: 0 };
@@ -705,18 +705,18 @@ export class WashTradingService {
   private mapTableToResult(row: WashTradingTable): WashTradingResult {
     return {
       id: row.id,
-      contractAddress: row.contract_address,
-      tokenId: row.token_id,
-      chainId: row.chain_id,
-      detectionDate: row.detection_date,
-      isWashTrading: row.is_wash_trading,
+      contractAddress: row.contractAddress,
+      tokenId: row.tokenId,
+      chainId: row.chainId,
+      detectionDate: row.detectionDate,
+      isWashTrading: row.isWashTrading,
       confidence: row.confidence,
       indicators: row.indicators as WashTradingIndicator[],
-      relatedTransactions: row.related_transactions,
-      relatedAddresses: row.related_addresses,
-      volumeInflation: row.volume_inflation ?? undefined,
-      priceManipulation: row.price_manipulation ?? undefined,
-      tenantId: row.tenant_id,
+      relatedTransactions: row.relatedTransactions,
+      relatedAddresses: row.relatedAddresses,
+      volumeInflation: row.volumeInflation ?? undefined,
+      priceManipulation: row.priceManipulation ?? undefined,
+      tenantId: row.tenantId,
     };
   }
 }

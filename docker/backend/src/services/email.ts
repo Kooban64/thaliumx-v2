@@ -153,4 +153,45 @@ export class EmailService {
   }
 
   // Add other email methods as needed, e.g., verification email, notifications, etc.
+
+  public static async sendVerificationEmail(params: {
+    email: string;
+    firstName: string;
+    userId: string;
+    verificationUrl: string;
+  }): Promise<void> {
+    if (!this.transporter) {
+      throw new Error('Email service not initialized');
+    }
+
+    const config = await ConfigService.getConfig();
+
+    const mailOptions = {
+      from: config.smtp.from,
+      to: params.email,
+      subject: 'Verify your ThaliumX email address',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Welcome to ThaliumX, ${params.firstName || 'there'}!</h2>
+          <p>Thank you for registering with ThaliumX. Please verify your email address to get started.</p>
+          <p>Click the button below to verify your email:</p>
+          <a href="${params.verificationUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Verify Email Address</a>
+          <p>Or copy and paste this link in your browser:</p>
+          <p style="word-break: break-all;">${params.verificationUrl}</p>
+          <p>This link will expire in 24 hours.</p>
+          <p>If you didn't create an account with ThaliumX, please ignore this email.</p>
+          <p>Best regards,<br>ThaliumX Team</p>
+        </div>
+      `,
+      text: `Welcome to ThaliumX! Please verify your email address by visiting: ${params.verificationUrl}. This link expires in 24 hours. If you didn't create an account, please ignore this email.`
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      LoggerService.info('Verification email sent', { userId: params.userId, email: params.email });
+    } catch (error) {
+      LoggerService.error('Failed to send verification email', { error, userId: params.userId });
+      throw error;
+    }
+  }
 }

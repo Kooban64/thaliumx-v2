@@ -1,106 +1,104 @@
-# ThaliumX Production v1 - Identity Layer (Keycloak)
+# ThaliumX Production v1 - Identity Layer (Authentik)
 # ==================================================
-# Runs Keycloak as the primary OIDC issuer for the platform.
+# Authentik is the primary OIDC issuer for the platform.
 
 version: '3.8'
 
 services:
-  # Dedicated Postgres for Keycloak (kept separate from the platform DB)
-  keycloak-postgres:
+  # ================================================
+  # Authentik OIDC Provider (Primary Identity Provider)
+  # ================================================
+
+  # Dedicated Postgres for Authentik
+  authentik-postgres:
     image: postgres:17-alpine
-    container_name: thaliumx-keycloak-postgres
-    hostname: thaliumx-keycloak-postgres
+    container_name: thaliumx-authentik-postgres
+    hostname: thaliumx-authentik-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: thaliumx
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
-      POSTGRES_DB: keycloak
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD_FILE: /run/secrets/authentik-postgres-password
+      POSTGRES_DB: authentik
     secrets:
-      - postgres-password
+      - authentik-postgres-password
     volumes:
-      - keycloak-postgres-data:/var/lib/postgresql/data
+      - authentik-postgres-data:/var/lib/postgresql/data
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U thaliumx -d keycloak"]
+      test: ["CMD-SHELL", "pg_isready -U authentik -d authentik"]
       interval: 15s
       timeout: 10s
       retries: 10
       start_period: 20s
 
-  # Keycloak (reverse-proxy TLS termination via APISIX)
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.1.1
-    container_name: thaliumx-keycloak
-    hostname: thaliumx-keycloak
+  # Authentik Server
+  authentik:
+    image: authentik/server:2024.10.2
+    container_name: thaliumx-authentik
+    hostname: thaliumx-authentik
     restart: unless-stopped
     depends_on:
-      keycloak-postgres:
+      authentik-postgres:
         condition: service_healthy
     environment:
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/keycloak
-      KC_DB_USERNAME: thaliumx
-      KC_DB_PASSWORD_FILE: /run/secrets/postgres-password
-      KC_PROXY_HEADERS: xforwarded
-      KC_HOSTNAME: auth.thaliumx.com
-      KC_HOSTNAME_STRICT: "true"
-      KC_HOSTNAME_STRICT_HTTPS: "true"
-      KC_HTTP_ENABLED: "true"
-      KC_HTTP_PORT: 8080
-      KC_HTTP_RELATIVE_PATH: /auth
-      KC_HEALTH_ENABLED: "true"
-      KC_METRICS_ENABLED: "true"
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD_FILE: /run/secrets/keycloak-admin-password
+      # Authentik requires a secret key
+      AUTHENTIK_SECRET_KEY_FILE: /run/secrets/authentik-secret-key
+      # PostgreSQL configuration
+      AUTHENTIK_DB_ENGINE: postgresql
+      AUTHENTIK_DB_HOST: authentik-postgres
+      AUTHENTIK_DB_NAME: authentik
+      AUTHENTIK_DB_USER: authentik
+      AUTHENTIK_DB_PASSWORD_FILE: /run/secrets/authentik-postgres-password
+      # Redis configuration (optional but recommended for performance)
+      AUTHENTIK_REDIS: redis://:@thaliumx-redis:6379/0
+      # Server settings
+      AUTHENTIK_PORT: 9000
+      AUTHENTIK_LISTEN: 0.0.0.0:9000
+      # Security
+      AUTHENTIK_ALLOWED_HOSTS: ${AUTHENTIK_ALLOWED_HOSTS:-auth.thaliumx.com}
     secrets:
-      - postgres-password
-      - keycloak-admin-password
+      - authentik-postgres-password
+      - authentik-secret-key
     volumes:
-      - ./../../keycloak/realm-config:/opt/keycloak/data/import:ro
-      - ./../../keycloak/themes:/opt/keycloak/themes:ro
-    command:
-      - start
-      - --import-realm
-      - --optimized
+      - ./../../authentik/media:/media
+      - ./../../authentik/custom-templates:/templates
     networks:
       - thaliumx-net
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /auth/health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3;if [ $? -eq 0 ]; then exit 0;else exit 1;fi;"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/health/ready/"]
       interval: 30s
       timeout: 10s
       retries: 10
       start_period: 60s
 
-  # One-shot realm hardening: enforce ThaliumX theme at realm level after import.
-  keycloak-post-import-seed:
-    image: quay.io/keycloak/keycloak:26.1.1
-    container_name: thaliumx-keycloak-post-import-seed
-    hostname: thaliumx-keycloak-post-import-seed
-    profiles: ["init-jobs"]
-    restart: "no"
+  # Authentik Worker (for background tasks)
+  authentik-worker:
+    image: authentik/server:2024.10.2
+    container_name: thaliumx-authentik-worker
+    hostname: thaliumx-authentik-worker
+    restart: unless-stopped
     depends_on:
-      keycloak:
+      authentik-postgres:
         condition: service_healthy
     environment:
-      KEYCLOAK_URL: http://keycloak:8080/auth
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-thaliumx}
-      KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD_FILE: /run/secrets/keycloak-admin-password
-      KEYCLOAK_THEME_NAME: ${KEYCLOAK_THEME_NAME:-thaliumx}
-    secrets:
-      - keycloak-admin-password
-    volumes:
-      - ./../../keycloak/scripts/apply-thaliumx-theme.sh:/scripts/apply-thaliumx-theme.sh:ro
+      AUTHENTIK_SECRET_KEY_FILE: /run/secrets/authentik-secret-key
+      AUTHENTIK_DB_ENGINE: postgresql
+      AUTHENTIK_DB_HOST: authentik-postgres
+      AUTHENTIK_DB_NAME: authentik
+      AUTHENTIK_DB_USER: authentik
+      AUTHENTIK_DB_PASSWORD_FILE: /run/secrets/authentik-postgres-password
+      AUTHENTIK_REDIS: redis://:@thaliumx-redis:6379/0
     command:
-      - sh
-      - /scripts/apply-thaliumx-theme.sh
+      - worker
+    secrets:
+      - authentik-postgres-password
+      - authentik-secret-key
     networks:
       - thaliumx-net
 
 volumes:
-  keycloak-postgres-data:
-    name: thaliumx-keycloak-postgres-data
+  authentik-postgres-data:
 
 networks:
   thaliumx-net:

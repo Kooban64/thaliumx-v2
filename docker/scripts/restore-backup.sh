@@ -87,7 +87,7 @@ fi
 echo ""
 echo "Stopping services..."
 cd "${SCRIPT_DIR}/.."
-docker compose stop keycloak ballerine-api ballerine-worker 2>/dev/null || true
+docker compose stop Authentik ballerine-api ballerine-worker 2>/dev/null || true
 
 # ===========================================
 # PostgreSQL Restore
@@ -215,7 +215,7 @@ fi
 # ===========================================
 echo ""
 echo "Restarting services..."
-docker compose start keycloak ballerine-api ballerine-worker 2>/dev/null || true
+docker compose start Authentik ballerine-api ballerine-worker 2>/dev/null || true
 
 # ===========================================
 # Summary

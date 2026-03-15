@@ -8,7 +8,7 @@ services:
   # ===================
   # FRONTEND SERVICE
   # ===================
-  # Next.js application with Keycloak authentication
+  # Next.js application with Authentik
   frontend:
     build:
       context: ..
@@ -135,20 +135,14 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=thaliumx-redis-password-2025
       - REDIS_DB=0
-      # Keycloak Configuration - REMOVED: Migrated to Zitadel
-      # - KEYCLOAK_URL=http://thaliumx-keycloak:8080
-      # - KEYCLOAK_REALM=thaliumx
-      # - KEYCLOAK_CLIENT_ID=thaliumx-backend
-      # - KEYCLOAK_CLIENT_SECRET=thaliumx-keycloak-secret-2025
-      # Zitadel Configuration - REMOVED
-      # Note: Zitadel integration removed - using our own auth system
-      # Zitadel may be re-added later for SSO/social login support
-      # - ZITADEL_ISSUER=http://thaliumx-zitadel:8080
-      # - ZITADEL_JWKS_URI=http://thaliumx-zitadel:8080/oauth/v2/keys
-      # - ZITADEL_SERVICE_ACCOUNT_ID=${ZITADEL_SERVICE_ACCOUNT_ID:-}
-      # - ZITADEL_SERVICE_ACCOUNT_KEY=${ZITADEL_SERVICE_ACCOUNT_KEY:-}
-      # - ZITADEL_OIDC_CLIENT_ID=${ZITADEL_OIDC_CLIENT_ID:-}
-      # - ZITADEL_OIDC_CLIENT_SECRET=${ZITADEL_OIDC_CLIENT_SECRET:-}
+      # Authentik Configuration (canonical IdP)
+      - AUTHENTIK_URL=http://thaliumx-8080
+      - AUTHENTIK_REALM=thaliumx
+      - AUTHENTIK_CLIENT_ID=thaliumx-backend
+      - AUTHENTIK_CLIENT_SECRET=${AUTHENTIK_CLIENT_SECRET:-thaliumx-Authentik-secret-2025}
+      - AUTHENTIK_ISSUER=${AUTHENTIK_ISSUER:-https://auth.thaliumx.com/realms/thaliumx}
+      - AUTHENTIK_JWKS_URI=${AUTHENTIK_JWKS_URI:-https://auth.thaliumx.com/realms/thaliumx/protocol/openid-connect/certs}
+      - AUTHENTIK_DEFAULT_TENANT_ID=${AUTHENTIK_DEFAULT_TENANT_ID:-10000000-0000-0000-0000-000000000000}
       
       # JWT Token Configuration (required)
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}

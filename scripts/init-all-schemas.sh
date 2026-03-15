@@ -474,7 +474,7 @@ main() {
     echo "Next steps:"
     echo "1. Run ./scripts/verify-schemas.sh to verify all schemas"
     echo "2. Start all services with docker compose"
-    echo "3. Import Keycloak realm configuration"
+    echo "3. Import Authentik realm configuration"
 }
 
 # Run main

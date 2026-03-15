@@ -4,6 +4,159 @@ import { LoggerService } from '../services/logger';
 import { MetricsService } from '../services/metrics';
 
 /**
+ * Rate Limiting Middleware for Authentication Endpoints
+ * 
+ * Provides specialized rate limiting for:
+ * - Login attempts (X attempts per minute per IP)
+ * - API key validation attempts
+ * - Token refresh endpoints
+ * 
+ * Uses Redis for distributed rate limiting across multiple instances.
+ */
+
+// Configuration for rate limiting
+const RATE_LIMIT_CONFIG = {
+  // Login attempts: 5 per minute per IP (stricter for brute-force protection)
+  LOGIN: {
+    MAX_ATTEMPTS: parseInt(process.env.RATE_LIMIT_LOGIN_MAX_ATTEMPTS || '5'),
+    WINDOW_SECONDS: parseInt(process.env.RATE_LIMIT_LOGIN_WINDOW_SECONDS || '60'),
+    KEY_PREFIX: 'ratelimit:login'
+  },
+  // API key validation: 10 per minute per IP
+  API_KEY: {
+    MAX_ATTEMPTS: parseInt(process.env.RATE_LIMIT_API_KEY_MAX_ATTEMPTS || '10'),
+    WINDOW_SECONDS: parseInt(process.env.RATE_LIMIT_API_KEY_WINDOW_SECONDS || '60'),
+    KEY_PREFIX: 'ratelimit:apikey'
+  },
+  // Token refresh: 10 per minute per IP
+  TOKEN_REFRESH: {
+    MAX_ATTEMPTS: parseInt(process.env.RATE_LIMIT_TOKEN_REFRESH_MAX_ATTEMPTS || '10'),
+    WINDOW_SECONDS: parseInt(process.env.RATE_LIMIT_TOKEN_REFRESH_WINDOW_SECONDS || '60'),
+    KEY_PREFIX: 'ratelimit:token_refresh'
+  },
+  // Password reset: 3 per hour per IP
+  PASSWORD_RESET: {
+    MAX_ATTEMPTS: parseInt(process.env.RATE_LIMIT_PASSWORD_RESET_MAX_ATTEMPTS || '3'),
+    WINDOW_SECONDS: parseInt(process.env.RATE_LIMIT_PASSWORD_RESET_WINDOW_SECONDS || '3600'),
+    KEY_PREFIX: 'ratelimit:password_reset'
+  },
+  // Email verification resend: 3 per hour per IP
+  EMAIL_VERIFICATION: {
+    MAX_ATTEMPTS: parseInt(process.env.RATE_LIMIT_EMAIL_VERIFICATION_MAX_ATTEMPTS || '3'),
+    WINDOW_SECONDS: parseInt(process.env.RATE_LIMIT_EMAIL_VERIFICATION_WINDOW_SECONDS || '3600'),
+    KEY_PREFIX: 'ratelimit:email_verification'
+  }
+};
+
+/**
+ * Generic rate limiter factory for creating custom rate limiters
+ */
+const createRateLimiter = (
+  config: typeof RATE_LIMIT_CONFIG.LOGIN,
+  limitType: string,
+  skipTestEnv: boolean = true
+) => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      // Skip rate limiting in test environment
+      if (skipTestEnv && (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true')) {
+        return next();
+      }
+      
+      const ip = req.ip || (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 'unknown';
+      const tenantId = (req.headers['x-tenant-id'] as string) || 'global';
+      
+      // Use minute-level granularity for the key
+      const bucket = new Date().toISOString().slice(0, 16); // minute bucket
+      const key = `${config.KEY_PREFIX}:${tenantId}:${ip}:${bucket}`;
+      
+      // If Redis not ready yet, fail-open (allow request through)
+      if (!RedisService.isConnected()) {
+        LoggerService.warn('Redis not connected, skipping rate limit', { limitType, key });
+        return next();
+      }
+
+      const current = await RedisService.increment(key);
+      if (current === 1) {
+        await RedisService.expire(key, config.WINDOW_SECONDS);
+      }
+      
+      if (current > config.MAX_ATTEMPTS) {
+        LoggerService.logSecurity('rate_limit_exceeded', {
+          limitType,
+          ip,
+          tenantId,
+          path: req.path,
+          method: req.method,
+          current,
+          maxAttempts: config.MAX_ATTEMPTS,
+          windowSeconds: config.WINDOW_SECONDS,
+          userAgent: req.get('User-Agent')
+        });
+
+        // Record security metric
+        MetricsService.recordRateLimitExceeded(req.path || req.originalUrl, limitType);
+
+        res.status(429).json({
+          success: false,
+          error: 'Too many requests',
+          message: `Rate limit exceeded for ${limitType}. Please try again later.`,
+          code: 'RATE_LIMIT_EXCEEDED',
+          timestamp: new Date(),
+          requestId: req.headers['x-request-id'] || 'rate_limited',
+          retryAfter: config.WINDOW_SECONDS
+        });
+        return;
+      }
+
+      // Add rate limit headers
+      res.set({
+        'X-RateLimit-Limit': config.MAX_ATTEMPTS.toString(),
+        'X-RateLimit-Remaining': Math.max(0, config.MAX_ATTEMPTS - current).toString(),
+        'X-RateLimit-Reset': new Date(Date.now() + config.WINDOW_SECONDS * 1000).toISOString(),
+        'X-RateLimit-Type': limitType
+      });
+
+      return next();
+    } catch (error: any) {
+      LoggerService.error(`Rate limiter (${limitType}) failed (allowing request)`, { error: error.message });
+      return next(); // Fail-open
+    }
+  };
+};
+
+/**
+ * Rate limiter for login attempts
+ * Strict: 5 attempts per minute per IP
+ * Tracks by IP to prevent brute-force attacks
+ */
+export const loginRateLimiter = createRateLimiter(RATE_LIMIT_CONFIG.LOGIN, 'login');
+
+/**
+ * Rate limiter for API key validation attempts
+ * Tracks by IP to prevent API key brute-force attacks
+ */
+export const apiKeyRateLimiter = createRateLimiter(RATE_LIMIT_CONFIG.API_KEY, 'api_key_validation');
+
+/**
+ * Rate limiter for token refresh attempts
+ * Tracks by IP to prevent token refresh abuse
+ */
+export const tokenRefreshRateLimiter = createRateLimiter(RATE_LIMIT_CONFIG.TOKEN_REFRESH, 'token_refresh');
+
+/**
+ * Rate limiter for password reset requests
+ * Tracks by IP with longer window (1 hour) to prevent abuse
+ */
+export const passwordResetRateLimiter = createRateLimiter(RATE_LIMIT_CONFIG.PASSWORD_RESET, 'password_reset');
+
+/**
+ * Rate limiter for email verification resend
+ * Tracks by IP with longer window (1 hour) to prevent abuse
+ */
+export const emailVerificationRateLimiter = createRateLimiter(RATE_LIMIT_CONFIG.EMAIL_VERIFICATION, 'email_verification');
+
+/**
  * Redis-backed rate limiting middleware following thaliumx patterns
  * Based on the original financial-svc implementation
  */

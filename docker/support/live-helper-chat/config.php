@@ -1,6 +1,6 @@
 <?php
 // Live Helper Chat Configuration for ThaliumX
-// Integrated with Zitadel OIDC
+// Integrated with Keycloak OIDC
 
 // Database configuration
 define('DB_HOST', getenv('DB_HOST') ?: 'thaliumx-support-postgres');
@@ -13,11 +13,11 @@ define('DB_PORT', 5432);
 define('SITE_NAME', 'ThaliumX Support Chat');
 define('SITE_URL', 'https://support.thaliumx.com');
 
-// Zitadel OIDC Configuration
+// Keycloak OIDC Configuration
 define('OIDC_ENABLED', true);
 define('OIDC_PROVIDER_URL', 'https://auth.thaliumx.com');
-define('OIDC_CLIENT_ID', getenv('ZITADEL_CLIENT_ID') ?: '');
-define('OIDC_CLIENT_SECRET', getenv('ZITADEL_CLIENT_SECRET') ?: '');
+define('OIDC_CLIENT_ID', getenv('KEYCLOAK_CLIENT_ID') ?: '');
+define('OIDC_CLIENT_SECRET', getenv('KEYCLOAK_CLIENT_SECRET') ?: '');
 define('OIDC_REDIRECT_URI', 'https://support.thaliumx.com/lhc/index.php/site_admin/user/loginoidc');
 
 // OIDC Scopes

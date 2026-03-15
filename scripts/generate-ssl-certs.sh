@@ -42,7 +42,7 @@ mkdir -p "$CERTS_DIR/services/postgres"
 mkdir -p "$CERTS_DIR/services/redis"
 mkdir -p "$CERTS_DIR/services/mongodb"
 mkdir -p "$CERTS_DIR/services/vault"
-mkdir -p "$CERTS_DIR/services/keycloak"
+mkdir -p "$CERTS_DIR/services/Authentik"
 mkdir -p "$CERTS_DIR/services/apisix"
 mkdir -p "$CERTS_DIR/client/backend-service"
 
@@ -138,8 +138,8 @@ generate_service_cert "mongodb" "thaliumx-mongodb" \
 generate_service_cert "vault" "thaliumx-vault" \
     "DNS:thaliumx-vault,DNS:localhost,IP:127.0.0.1"
 
-generate_service_cert "keycloak" "thaliumx-keycloak" \
-    "DNS:thaliumx-keycloak,DNS:localhost,IP:127.0.0.1"
+generate_service_cert "Authentik" "thaliumx-Authentik" \
+    "DNS:thaliumx-Authentik,DNS:localhost,IP:127.0.0.1"
 
 generate_service_cert "apisix" "thaliumx-apisix" \
     "DNS:thaliumx-apisix,DNS:localhost,DNS:*.thaliumx.com,IP:127.0.0.1"
@@ -197,7 +197,7 @@ chmod 644 "$CLIENT_DIR/client.crt"
 rm -f "$CLIENT_DIR/csr.conf" "$CLIENT_DIR/ext.conf" "$CLIENT_DIR/client.csr"
 
 # Copy CA cert to all service directories for convenience
-for service in postgres redis mongodb vault keycloak apisix; do
+for service in postgres redis mongodb vault Authentik apisix; do
     cp "$CERTS_DIR/ca/ca.crt" "$CERTS_DIR/services/$service/"
 done
 cp "$CERTS_DIR/ca/ca.crt" "$CLIENT_DIR/"

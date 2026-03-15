@@ -117,10 +117,10 @@ scrape_configs:
       - targets: ['jaeger:14269']
     metrics_path: /metrics
 
-  # Keycloak Identity Provider
-  - job_name: 'keycloak'
+  # Authentik Identity Provider
+  - job_name: 'Authentik'
     static_configs:
-      - targets: ['keycloak:9000']
+      - targets: ['Authentik:9000']
     metrics_path: /metrics
     scrape_interval: 30s
     scrape_timeout: 10s

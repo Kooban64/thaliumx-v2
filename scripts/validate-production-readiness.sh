@@ -164,7 +164,7 @@ main() {
     check_docker_service "PostgreSQL" "thaliumx-postgres" || true
     check_docker_service "Redis" "thaliumx-redis" || true
     check_docker_service "Kafka" "thaliumx-kafka" || true
-    check_docker_service "Zitadel" "thaliumx-zitadel" || true
+    check_docker_service "Authentik" "thaliumx-Authentik" || true
     check_docker_service "APISIX" "thaliumx-apisix" || true
 
     check_database_connectivity "thaliumx" "postgres" "thaliumx-postgres" || true
@@ -180,7 +180,7 @@ main() {
 
     check_service_health "Backend API" "http://localhost:3002/health" || true
     check_service_health "Frontend" "http://localhost:3000" || true
-    check_service_health "Zitadel" "http://localhost:8080/healthz" || true
+    check_service_health "Authentik" "http://localhost:8080/healthz" || true
 
     # Additional Components Checks
     print_header "ADDITIONAL COMPONENTS VALIDATION"

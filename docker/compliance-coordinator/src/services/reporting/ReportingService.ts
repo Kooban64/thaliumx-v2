@@ -13,8 +13,8 @@ import type {
   UserComplianceReport,
 } from '../../types/coordinator';
 import type {
-  PlatformComplianceReportTable,
-  UserComplianceReportTable,
+  PlatformComplianceReportRow,
+  UserComplianceReportRow,
 } from '../../types/database';
 
 const logger = createComponentLogger('reporting-service');
@@ -172,18 +172,18 @@ export class ReportingService {
     // Get user's risk assessments
     const userStats = await db.queryOne<{
       total: string;
-      avg_risk: string;
-      max_risk_level: string;
+      avgRisk: string;
+      maxRiskLevel: string;
     }>(`
       SELECT
         COUNT(*) as total,
-        AVG(risk_score) as avg_risk,
+        AVG(risk_score) as "avgRisk",
         MAX(CASE
           WHEN risk_level = 'critical' THEN 4
           WHEN risk_level = 'high' THEN 3
           WHEN risk_level = 'medium' THEN 2
           ELSE 1
-        END) as max_risk_level
+        END) as "maxRiskLevel"
       FROM aggregated_risk_assessments
       WHERE user_id = $1
         AND tenant_id = $2
@@ -203,14 +203,14 @@ export class ReportingService {
 
     // Get activity by service
     const activityByService = await db.queryAll<{
-      source_service: string;
+      sourceService: string;
       count: string;
-      last_activity: Date;
+      lastActivity: Date;
     }>(`
       SELECT
-        source_service,
+        source_service as "sourceService",
         COUNT(*) as count,
-        MAX(assessment_date) as last_activity
+        MAX(assessment_date) as "lastActivity"
       FROM aggregated_risk_assessments
       WHERE user_id = $1
         AND tenant_id = $2
@@ -222,13 +222,13 @@ export class ReportingService {
     // Get risk history
     const riskHistory = await db.queryAll<{
       date: Date;
-      risk_score: number;
-      risk_level: string;
+      riskScore: number;
+      riskLevel: string;
     }>(`
       SELECT
         DATE(assessment_date) as date,
-        AVG(risk_score)::integer as risk_score,
-        MAX(risk_level) as risk_level
+        AVG(risk_score)::integer as "riskScore",
+        MAX(risk_level) as "riskLevel"
       FROM aggregated_risk_assessments
       WHERE user_id = $1
         AND tenant_id = $2
@@ -249,7 +249,7 @@ export class ReportingService {
     `, [options.userId, options.tenantId, options.periodStart, options.periodEnd]);
 
     // Determine risk level
-    const maxRiskLevel = parseInt(userStats?.max_risk_level ?? '1', 10);
+    const maxRiskLevel = parseInt(userStats?.maxRiskLevel ?? '1', 10);
     const riskLevel = maxRiskLevel >= 4 ? 'critical' :
                       maxRiskLevel >= 3 ? 'high' :
                       maxRiskLevel >= 2 ? 'medium' : 'low';
@@ -269,21 +269,21 @@ export class ReportingService {
       summary: {
         totalTransactions: parseInt(userStats?.total ?? '0', 10),
         totalVolumeUSD: '0', // Would need to aggregate
-        averageRiskScore: parseFloat(userStats?.avg_risk ?? '0'),
+        averageRiskScore: parseFloat(userStats?.avgRisk ?? '0'),
         riskLevel,
         travelRuleMessages: parseInt(travelRuleCount?.count ?? '0', 10),
         carfReports: 0, // Would need to count
       },
       activityByService: activityByService.map((a) => ({
-        service: a.source_service as ComplianceServiceType,
+        service: a.sourceService as ComplianceServiceType,
         transactions: parseInt(a.count, 10),
         volumeUSD: '0',
-        lastActivity: a.last_activity,
+        lastActivity: a.lastActivity,
       })),
-      riskHistory: riskHistory.map((r) => ({
-        date: r.date,
-        riskScore: r.risk_score,
-        riskLevel: r.risk_level as 'low' | 'medium' | 'high' | 'critical',
+      riskHistory: riskHistory.map((riskEntry) => ({
+        date: riskEntry.date,
+        riskScore: riskEntry.riskScore,
+        riskLevel: riskEntry.riskLevel as 'low' | 'medium' | 'high' | 'critical',
       })),
       flags: flagsResult.map((f) => f.flag),
       recommendations: this.generateUserRecommendations(riskLevel, flagsResult.map((f) => f.flag)),
@@ -328,8 +328,25 @@ export class ReportingService {
    */
   async getPlatformReport(reportId: string): Promise<PlatformComplianceReport | null> {
     const db = getDatabaseService();
-    const row = await db.queryOne<PlatformComplianceReportTable>(`
-      SELECT * FROM platform_compliance_reports WHERE id = $1 OR report_id = $1
+    const row = await db.queryOne<PlatformComplianceReportRow>(`
+      SELECT
+        id,
+        report_id as "reportId",
+        report_type as "reportType",
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        reporting_period_start_date as "reportingPeriodStartDate",
+        reporting_period_end_date as "reportingPeriodEndDate",
+        summary,
+        service_breakdown as "serviceBreakdown",
+        risk_distribution as "riskDistribution",
+        top_risk_flags as "topRiskFlags",
+        generated_at as "generatedAt",
+        generated_by as "generatedBy",
+        format,
+        file_url as "fileUrl",
+        created_at as "createdAt"
+      FROM platform_compliance_reports WHERE id = $1 OR report_id = $1
     `, [reportId]);
 
     if (!row) {
@@ -344,8 +361,25 @@ export class ReportingService {
    */
   async getUserReport(reportId: string): Promise<UserComplianceReport | null> {
     const db = getDatabaseService();
-    const row = await db.queryOne<UserComplianceReportTable>(`
-      SELECT * FROM user_compliance_reports WHERE id = $1 OR report_id = $1
+    const row = await db.queryOne<UserComplianceReportRow>(`
+      SELECT
+        id,
+        report_id as "reportId",
+        user_id as "userId",
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        reporting_period_start_date as "reportingPeriodStartDate",
+        reporting_period_end_date as "reportingPeriodEndDate",
+        summary,
+        activity_by_service as "activityByService",
+        risk_history as "riskHistory",
+        flags,
+        recommendations,
+        generated_at as "generatedAt",
+        format,
+        file_url as "fileUrl",
+        created_at as "createdAt"
+      FROM user_compliance_reports WHERE id = $1 OR report_id = $1
     `, [reportId]);
 
     if (!row) {
@@ -460,50 +494,50 @@ export class ReportingService {
   /**
    * Map platform report table to data
    */
-  private mapPlatformReportTableToData(row: PlatformComplianceReportTable): PlatformComplianceReport {
+  private mapPlatformReportTableToData(row: PlatformComplianceReportRow): PlatformComplianceReport {
     return {
       id: row.id,
-      reportId: row.report_id,
-      reportType: row.report_type as PlatformComplianceReport['reportType'],
-      tenantId: row.tenant_id,
-      brokerId: row.broker_id ?? undefined,
+      reportId: row.reportId,
+      reportType: row.reportType as PlatformComplianceReport['reportType'],
+      tenantId: row.tenantId,
+      brokerId: row.brokerId ?? undefined,
       reportingPeriod: {
-        startDate: row.reporting_period_start_date,
-        endDate: row.reporting_period_end_date,
+        startDate: row.reportingPeriodStartDate,
+        endDate: row.reportingPeriodEndDate,
       },
       summary: row.summary as PlatformComplianceReport['summary'],
-      serviceBreakdown: row.service_breakdown as PlatformComplianceReport['serviceBreakdown'],
-      riskDistribution: row.risk_distribution as PlatformComplianceReport['riskDistribution'],
-      topRiskFlags: row.top_risk_flags as PlatformComplianceReport['topRiskFlags'],
-      generatedAt: row.generated_at,
-      generatedBy: row.generated_by,
+      serviceBreakdown: row.serviceBreakdown as PlatformComplianceReport['serviceBreakdown'],
+      riskDistribution: row.riskDistribution as PlatformComplianceReport['riskDistribution'],
+      topRiskFlags: row.topRiskFlags as PlatformComplianceReport['topRiskFlags'],
+      generatedAt: row.generatedAt,
+      generatedBy: row.generatedBy,
       format: row.format as PlatformComplianceReport['format'],
-      fileUrl: row.file_url ?? undefined,
+      fileUrl: row.fileUrl ?? undefined,
     };
   }
 
   /**
    * Map user report table to data
    */
-  private mapUserReportTableToData(row: UserComplianceReportTable): UserComplianceReport {
+  private mapUserReportTableToData(row: UserComplianceReportRow): UserComplianceReport {
     return {
       id: row.id,
-      reportId: row.report_id,
-      userId: row.user_id,
-      tenantId: row.tenant_id,
-      brokerId: row.broker_id ?? undefined,
+      reportId: row.reportId,
+      userId: row.userId,
+      tenantId: row.tenantId,
+      brokerId: row.brokerId ?? undefined,
       reportingPeriod: {
-        startDate: row.reporting_period_start_date,
-        endDate: row.reporting_period_end_date,
+        startDate: row.reportingPeriodStartDate,
+        endDate: row.reportingPeriodEndDate,
       },
       summary: row.summary as UserComplianceReport['summary'],
-      activityByService: row.activity_by_service as UserComplianceReport['activityByService'],
-      riskHistory: row.risk_history as UserComplianceReport['riskHistory'],
+      activityByService: row.activityByService as UserComplianceReport['activityByService'],
+      riskHistory: row.riskHistory as UserComplianceReport['riskHistory'],
       flags: row.flags,
       recommendations: row.recommendations,
-      generatedAt: row.generated_at,
+      generatedAt: row.generatedAt,
       format: row.format as UserComplianceReport['format'],
-      fileUrl: row.file_url ?? undefined,
+      fileUrl: row.fileUrl ?? undefined,
     };
   }
 }

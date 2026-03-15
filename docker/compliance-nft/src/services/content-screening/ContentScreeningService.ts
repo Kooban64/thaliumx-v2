@@ -13,7 +13,7 @@ import {
   ContentFlag,
   ContentCategory,
 } from '../../types/compliance';
-import { ContentScreeningTable } from '../../types/database';
+import { ContentScreeningRow } from '../../types/database';
 
 const logger = createComponentLogger('content-screening-service');
 
@@ -444,7 +444,7 @@ export class ContentScreeningService {
     `, [reviewedBy, reviewNotes, !approved, screeningId]);
 
     // Get updated record
-    const row = await db.queryOne<ContentScreeningTable>(`
+    const row = await db.queryOne<ContentScreeningRow>(`
       SELECT * FROM content_screenings WHERE id = $1
     `, [screeningId]);
 
@@ -498,7 +498,7 @@ export class ContentScreeningService {
   ): Promise<ContentScreeningResult[]> {
     const db = getDatabaseService();
 
-    const rows = await db.queryAll<ContentScreeningTable>(`
+    const rows = await db.queryAll<ContentScreeningRow>(`
       SELECT * FROM content_screenings
       WHERE contract_address = $1
         AND token_id = $2
@@ -519,7 +519,7 @@ export class ContentScreeningService {
   ): Promise<ContentScreeningResult[]> {
     const db = getDatabaseService();
 
-    const rows = await db.queryAll<ContentScreeningTable>(`
+    const rows = await db.queryAll<ContentScreeningRow>(`
       SELECT * FROM content_screenings
       WHERE tenant_id = $1
         AND manual_review_required = true
@@ -540,7 +540,7 @@ export class ContentScreeningService {
   ): Promise<ContentScreeningResult[]> {
     const db = getDatabaseService();
 
-    const rows = await db.queryAll<ContentScreeningTable>(`
+    const rows = await db.queryAll<ContentScreeningRow>(`
       SELECT * FROM content_screenings
       WHERE tenant_id = $1
         AND is_flagged = true
@@ -554,24 +554,24 @@ export class ContentScreeningService {
   /**
    * Map database table to result type
    */
-  private mapTableToResult(row: ContentScreeningTable): ContentScreeningResult {
+  private mapTableToResult(row: ContentScreeningRow): ContentScreeningResult {
     return {
       id: row.id,
-      contractAddress: row.contract_address,
-      tokenId: row.token_id,
-      chainId: row.chain_id,
-      screeningDate: row.screening_date,
-      contentType: row.content_type,
-      contentUrl: row.content_url,
-      isFlagged: row.is_flagged,
-      flagReasons: row.flag_reasons as ContentFlag[],
-      moderationScore: row.moderation_score,
+      contractAddress: row.contractAddress,
+      tokenId: row.tokenId,
+      chainId: row.chainId,
+      screeningDate: row.screeningDate,
+      contentType: row.contentType,
+      contentUrl: row.contentUrl,
+      isFlagged: row.isFlagged,
+      flagReasons: row.flagReasons as ContentFlag[],
+      moderationScore: row.moderationScore,
       categories: row.categories as ContentCategory[],
-      manualReviewRequired: row.manual_review_required,
-      reviewedBy: row.reviewed_by ?? undefined,
-      reviewedAt: row.reviewed_at ?? undefined,
-      reviewNotes: row.review_notes ?? undefined,
-      tenantId: row.tenant_id,
+      manualReviewRequired: row.manualReviewRequired,
+      reviewedBy: row.reviewedBy ?? undefined,
+      reviewedAt: row.reviewedAt ?? undefined,
+      reviewNotes: row.reviewNotes ?? undefined,
+      tenantId: row.tenantId,
     };
   }
 }

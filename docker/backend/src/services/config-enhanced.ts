@@ -644,9 +644,9 @@ export class ConfigService {
    */
   private static async loadConfig(): Promise<AppConfig> {
     const dnsOrigins = this.loadDnsOriginsFromSecrets();
-    const keycloakIssuer =
-      process.env.KEYCLOAK_ISSUER ||
-      `${(process.env.KEYCLOAK_URL || 'https://auth.thaliumx.com').replace(/\/+$/, '')}/realms/${process.env.KEYCLOAK_REALM || 'thaliumx'}`;
+    const authentikIssuer =
+      process.env.AUTHENTIK_ISSUER ||
+      `${(process.env.AUTHENTIK_URL || 'https://auth.thaliumx.com').replace(/\/+$/, '')}/realms/${process.env.AUTHENTIK_REALM || 'thaliumx'}`;
     
     // Load secrets from Vault or fallback
     const dbSecret = await this.getVaultSecret(VAULT_SECRET_PATHS.database);
@@ -662,7 +662,7 @@ export class ConfigService {
     return {
       port: parseInt(process.env.PORT || '3002', 10),
       env: (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
-      authProvider: 'keycloak',
+      authProvider: (process.env.AUTH_PROVIDER || 'internal-jwt') as 'authentik' | 'internal-jwt',
 
       cors: {
         origin: Array.from(new Set([
@@ -723,14 +723,13 @@ export class ConfigService {
         } : undefined
       },
 
-      keycloak: {
-        issuer: keycloakIssuer,
+      authentik: {
+        issuer: authentikIssuer,
         jwksUri:
-          process.env.KEYCLOAK_JWKS_URI ||
-          `${keycloakIssuer.replace(/\/+$/, '')}/protocol/openid-connect/certs`,
-        audience: process.env.KEYCLOAK_AUDIENCE || process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend',
-        realm: process.env.KEYCLOAK_REALM || 'thaliumx',
-        clientId: process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend',
+          process.env.AUTHENTIK_JWKS_URI ||
+          `${authentikIssuer.replace(/\/+$/, '')}/api/v3/core/jwks/`,
+        audience: process.env.AUTHENTIK_AUDIENCE || process.env.AUTHENTIK_CLIENT_ID || 'thaliumx-backend',
+        clientId: process.env.AUTHENTIK_CLIENT_ID || 'thaliumx-backend',
       },
 
       blockchain: {
@@ -750,14 +749,14 @@ export class ConfigService {
    */
   private static loadConfigSync(): AppConfig {
     const dnsOrigins = this.loadDnsOriginsFromSecrets();
-    const keycloakIssuer =
-      process.env.KEYCLOAK_ISSUER ||
-      `${(process.env.KEYCLOAK_URL || 'https://auth.thaliumx.com').replace(/\/+$/, '')}/realms/${process.env.KEYCLOAK_REALM || 'thaliumx'}`;
+    const authentikIssuer =
+      process.env.AUTHENTIK_ISSUER ||
+      `${(process.env.AUTHENTIK_URL || 'https://auth.thaliumx.com').replace(/\/+$/, '')}/realms/${process.env.AUTHENTIK_REALM || 'thaliumx'}`;
     
     return {
       port: parseInt(process.env.PORT || '3002', 10),
       env: (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
-      authProvider: 'keycloak',
+      authProvider: (process.env.AUTH_PROVIDER || 'internal-jwt') as 'authentik' | 'internal-jwt',
 
       cors: {
         origin: Array.from(new Set([
@@ -818,14 +817,13 @@ export class ConfigService {
         } : undefined
       },
 
-      keycloak: {
-        issuer: keycloakIssuer,
+      authentik: {
+        issuer: authentikIssuer,
         jwksUri:
-          process.env.KEYCLOAK_JWKS_URI ||
-          `${keycloakIssuer.replace(/\/+$/, '')}/protocol/openid-connect/certs`,
-        audience: process.env.KEYCLOAK_AUDIENCE || process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend',
-        realm: process.env.KEYCLOAK_REALM || 'thaliumx',
-        clientId: process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend',
+          process.env.AUTHENTIK_JWKS_URI ||
+          `${authentikIssuer.replace(/\/+$/, '')}/api/v3/core/jwks/`,
+        audience: process.env.AUTHENTIK_AUDIENCE || process.env.AUTHENTIK_CLIENT_ID || 'thaliumx-backend',
+        clientId: process.env.AUTHENTIK_CLIENT_ID || 'thaliumx-backend',
       },
 
       blockchain: {
@@ -1037,10 +1035,10 @@ export class ConfigService {
     const config = this.getConfig();
     const errors: string[] = [];
 
-    // Identity provider selection (Keycloak-only OIDC runtime).
-    const authProvider = config.authProvider || 'keycloak';
+    // Identity provider selection - internal-jwt is default, authentik supported for backward compat
+    const authProvider = (config.authProvider || 'internal-jwt') as string;
 
-    if (!['keycloak', 'internal-jwt'].includes(authProvider)) {
+    if (!['Authentik', 'authentik', 'internal-jwt'].includes(authProvider)) {
       errors.push(`Unsupported auth provider: ${authProvider}`);
     }
 
@@ -1065,11 +1063,11 @@ export class ConfigService {
         errors.push('Database SSL must be enabled in production');
       }
 
-      if (authProvider === 'keycloak' && !config.keycloak?.issuer) {
-        errors.push('Keycloak issuer is required when auth provider is keycloak');
+      if ((authProvider === 'authentik' || authProvider === 'Authentik') && !config.authentik?.issuer) {
+        errors.push('Authentik issuer is required when auth provider is authentik');
       }
-      if (authProvider === 'keycloak' && !config.keycloak?.jwksUri) {
-        errors.push('Keycloak JWKS URI is required when auth provider is keycloak');
+      if ((authProvider === 'authentik' || authProvider === 'Authentik') && !config.authentik?.jwksUri) {
+        errors.push('Authentik JWKS URI is required when auth provider is authentik');
       }
 
       if (!this.isVaultConnected()) {

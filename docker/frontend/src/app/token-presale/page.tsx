@@ -119,8 +119,8 @@ export default function TokenPresalePage() {
     // Only check auth if we have a token in memory (no API call if no token)
     (async () => {
       try {
-        const { getKeycloakToken } = await import('@/lib/auth/backend-auth');
-        const token = getKeycloakToken();
+        const { getAuthToken } = await import('@/lib/auth/backend-auth');
+        const token = getAuthToken();
         if (token) {
           // Only make API call if we have a token
           const isAuth = await checkBackendAuth();

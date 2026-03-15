@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title ThaliumSecurity
@@ -25,17 +25,6 @@ contract ThaliumSecurity is AccessControl, Pausable, ReentrancyGuard {
     // CONSTANTS
     // ========================================
 
-    bytes32 public constant SECURITY_ADMIN_ROLE = keccak256("SECURITY_ADMIN_ROLE");
-    bytes32 public constant COMPLIANCE_ROLE = keccak256("COMPLIANCE_ROLE");
-
-    // ========================================
-    // STATE VARIABLES
-    // ========================================
-
-    bool public emergencyMode;
-    uint256 public emergencyActivatedAt;
-
-    // Security event log
     struct SecurityEvent {
         address actor;
         uint256 timestamp;
@@ -44,8 +33,20 @@ contract ThaliumSecurity is AccessControl, Pausable, ReentrancyGuard {
         uint256 severity; // 1=Low, 2=Medium, 3=High, 4=Critical
     }
 
+    bytes32 public constant SECURITY_ADMIN_ROLE = keccak256("SECURITY_ADMIN_ROLE");
+    bytes32 public constant COMPLIANCE_ROLE = keccak256("COMPLIANCE_ROLE");
+
+    // ========================================
+    // STATE VARIABLES
+    // ========================================
+
+    // Security event log
+
     SecurityEvent[] public securityEvents;
     uint256 public nextEventId;
+
+    bool public emergencyMode;
+    uint256 public emergencyActivatedAt;
 
     // ========================================
     // EVENTS
@@ -59,6 +60,14 @@ contract ThaliumSecurity is AccessControl, Pausable, ReentrancyGuard {
         bytes32 indexed eventType,
         uint256 severity
     );
+
+    error InvalidAddress();
+    error AlreadyInEmergencyMode();
+    error ReasonRequired();
+    error NotInEmergencyMode();
+    error InvalidSeverity();
+    error DetailsRequired();
+    error IndexOutOfBounds();
 
     // ========================================
     // CONSTRUCTOR
@@ -75,9 +84,9 @@ contract ThaliumSecurity is AccessControl, Pausable, ReentrancyGuard {
         address securityAdmin,
         address complianceOfficer
     ) {
-        require(defaultAdmin != address(0), "ThaliumSecurity: Invalid default admin");
-        require(securityAdmin != address(0), "ThaliumSecurity: Invalid security admin");
-        require(complianceOfficer != address(0), "ThaliumSecurity: Invalid compliance officer");
+        if (defaultAdmin == address(0) || securityAdmin == address(0) || complianceOfficer == address(0)) {
+            revert InvalidAddress();
+        }
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(SECURITY_ADMIN_ROLE, securityAdmin);
@@ -96,8 +105,8 @@ contract ThaliumSecurity is AccessControl, Pausable, ReentrancyGuard {
         external
         onlyRole(SECURITY_ADMIN_ROLE)
     {
-        require(!emergencyMode, "ThaliumSecurity: Already in emergency mode");
-        require(bytes(reason).length > 0, "ThaliumSecurity: Reason required");
+        if (emergencyMode) revert AlreadyInEmergencyMode();
+        if (bytes(reason).length == 0) revert ReasonRequired();
 
         emergencyMode = true;
         emergencyActivatedAt = block.timestamp;
@@ -119,7 +128,7 @@ contract ThaliumSecurity is AccessControl, Pausable, ReentrancyGuard {
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        require(emergencyMode, "ThaliumSecurity: Not in emergency mode");
+        if (!emergencyMode) revert NotInEmergencyMode();
 
         emergencyMode = false;
 
@@ -146,8 +155,8 @@ contract ThaliumSecurity is AccessControl, Pausable, ReentrancyGuard {
         string memory details,
         uint256 severity
     ) external onlyRole(COMPLIANCE_ROLE) {
-        require(severity >= 1 && severity <= 4, "ThaliumSecurity: Invalid severity");
-        require(bytes(details).length > 0, "ThaliumSecurity: Details required");
+        if (severity < 1 || severity > 4) revert InvalidSeverity();
+        if (bytes(details).length == 0) revert DetailsRequired();
 
         _logSecurityEvent(actor, eventType, details, severity);
     }
@@ -191,7 +200,7 @@ contract ThaliumSecurity is AccessControl, Pausable, ReentrancyGuard {
         string memory details,
         uint256 severity
     ) {
-        require(index < securityEvents.length, "ThaliumSecurity: Index out of bounds");
+        if (index >= securityEvents.length) revert IndexOutOfBounds();
 
         SecurityEvent memory eventData = securityEvents[index];
         return (

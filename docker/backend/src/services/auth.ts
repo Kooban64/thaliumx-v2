@@ -35,15 +35,16 @@ import { RedisService } from '../services/redis';
 import { LoggerService } from '../services/logger';
 // authenticator, AuthRequest, ConfigService imported but not used in this file
 import { EmailService } from './email';
-// Zitadel integration removed - using our own auth system
-// Note: Zitadel may be re-added later for SSO/social login support
-// import { zitadelApiService } from './zitadel-api.service';
+// Our own auth system
+// Note: 
+// import { AuthentikApiService } from './Authentik-api.service';
 import { createError } from '../utils';
 import { UserService } from './user';
 import { MFAService } from './mfa';
 import { wazuhApiService } from './wazuh-api.service';
 import { TokenService } from './token-service';
 import type { Response } from 'express';
+import { UniqueConstraintError } from 'sequelize';
 import type { Model, ModelCtor } from 'sequelize';
 
 type TenantModelInstance = Model & {
@@ -99,6 +100,15 @@ export class AuthService {
         throw createError('Account is inactive', 403, 'ACCOUNT_INACTIVE');
       }
 
+      // Check if user has verified their email
+      if (!user.isVerified) {
+        LoggerService.logAuth('login_attempt', user.id, false);
+        LoggerService.info('Login attempt failed - email not verified', { email, reason: 'EMAIL_NOT_VERIFIED' });
+        const { MetricsService } = await import('./metrics');
+        MetricsService.recordAuthLoginFailure('email_not_verified');
+        throw createError('Please verify your email address before logging in', 403, 'EMAIL_NOT_VERIFIED');
+      }
+
       // Check account lockout
       const lockoutKey = `login_lockout:${user.id}`;
       const isLockedOut = await RedisService.getString(lockoutKey);
@@ -111,8 +121,8 @@ export class AuthService {
       }
 
       // Authenticate user using bcrypt password verification
-      // Note: Zitadel integration removed - using our own auth system
-      // Zitadel may be re-added later for SSO/social login support
+      // Note: Our own auth system
+      // 
       let isPasswordValid = false;
 
       if (!user.passwordHash) {
@@ -211,8 +221,8 @@ export class AuthService {
       }
 
       // Issue our own JWT tokens using TokenService
-      // Note: Zitadel integration removed - using our own token system
-      // Zitadel may be re-added later for SSO/social login support
+      // Note: Authentik direct integration removed - using our own token system
+      // 
       try {
         // Get user's role (User type has single role, not roles array)
         const userRole = user.role || 'user';
@@ -295,8 +305,10 @@ export class AuthService {
    */
   static async register(userData: { email: string; password: string; firstName?: string; lastName?: string; brokerCode?: string; tenantId?: string; [key: string]: any }): Promise<User> {
     try {
+      const normalizedEmail = String(userData.email || '').trim().toLowerCase();
+
       // Validate email
-      const existingUser = await UserService.getUserByEmail(userData.email);
+      const existingUser = await UserService.getUserByEmail(normalizedEmail);
       if (existingUser) {
         throw createError('Email already registered', 400, 'EMAIL_EXISTS');
       }
@@ -356,14 +368,35 @@ export class AuthService {
         }
       }
 
-      // Note: Zitadel integration removed - using our own auth system
-      // Zitadel may be re-added later for SSO/social login support
+      // Note: Our own auth system
+      // 
       // User is created directly in our database
+
+      // Resolve username (frontend does not provide username).
+      // Ensure uniqueness to avoid DB unique-constraint 500 errors.
+      const emailLocalPart = normalizedEmail.split('@')[0] || 'user';
+      const baseUsername = String(userData.username || emailLocalPart)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 40) || 'user';
+
+      let resolvedUsername = baseUsername;
+      let usernameCollisionAttempts = 0;
+      while (usernameCollisionAttempts < 5) {
+        const existingByUsername = await UserService.getUserByUsername(resolvedUsername);
+        if (!existingByUsername) break;
+
+        usernameCollisionAttempts += 1;
+        resolvedUsername = `${baseUsername}-${Math.floor(Math.random() * 10000)}`;
+      }
 
       // Create user in database
       const newUser = await UserService.createUser({
-        email: userData.email,
-        username: userData.username || userData.email.split('@')[0],
+        email: normalizedEmail,
+        username: resolvedUsername,
         firstName: userData.firstName || '',
         lastName: userData.lastName || '',
         passwordHash, // Keep password hash for backward compatibility
@@ -375,18 +408,58 @@ export class AuthService {
         isVerified: false,
         mfaEnabled: false,
         permissions: []
-        // zitadelId removed - Zitadel integration disabled
+        // legacy provider id removed - Authentik-only runtime
       });
+
+      // Generate verification token and send verification email
+      try {
+        const crypto = await import('crypto');
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        
+        // Store token in Redis with 24 hour expiry
+        const verificationKey = `email_verify:${verificationToken}`;
+        await RedisService.setString(verificationKey, newUser.id, 24 * 60 * 60);
+
+        // Generate verification URL
+        const baseUrl = process.env.FRONTEND_URL || 'https://thaliumx.com';
+        const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
+
+        // Send verification email
+        const { EmailService } = await import('./email');
+        await EmailService.sendVerificationEmail({
+          email: newUser.email,
+          firstName: newUser.firstName,
+          userId: newUser.id,
+          verificationUrl
+        });
+      } catch (emailError) {
+        // Log but don't fail registration if email fails
+        LoggerService.error('Failed to send verification email', { 
+          error: emailError instanceof Error ? emailError.message : String(emailError),
+          userId: newUser.id 
+        });
+      }
 
       LoggerService.logAuth('user_registered', newUser.id, true);
       LoggerService.info('User registered successfully', {
         email: newUser.email,
         userId: newUser.id,
-        // zitadelId removed
+        // legacy provider id removed
       });
 
       return newUser;
     } catch (error: any) {
+      if (error instanceof UniqueConstraintError) {
+        const fieldNames = (error.errors || []).map((e: any) => e?.path).filter(Boolean);
+        if (fieldNames.includes('email')) {
+          throw createError('Email already registered', 400, 'EMAIL_EXISTS');
+        }
+        if (fieldNames.includes('username')) {
+          throw createError('Username already taken', 400, 'USERNAME_EXISTS');
+        }
+        throw createError('Registration conflict', 400, 'REGISTRATION_CONFLICT');
+      }
+
       LoggerService.logAuth('user_registered', 'unknown', false);
       LoggerService.info('User registration failed', { email: userData.email, error: error.message });
       LoggerService.error('Registration failed:', error);
@@ -396,7 +469,7 @@ export class AuthService {
 
   /**
    * Refresh access token using refresh token
-   * Uses our own JWT token system (Zitadel integration removed)
+   * Uses our own JWT token system (legacy provider integration removed)
    */
   static async refreshToken(refreshToken: string): Promise<AuthResponse> {
     try {

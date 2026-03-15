@@ -1,4 +1,25 @@
-import { ethers } from 'hardhat';
+import { ethers } from 'ethers';
+
+declare const hre: {
+  ethers: typeof import('ethers') & {
+    getSigners: () => Promise<Array<{ address: string; provider: { getBalance: (address: string) => Promise<bigint> } }>>;
+    getContractFactory: (name: string) => Promise<{
+      deploy: (...args: unknown[]) => Promise<{
+        waitForDeployment: () => Promise<void>;
+        getAddress: () => Promise<string>;
+        setVestingContract: (address: string) => Promise<{ wait: () => Promise<void> }>;
+        usdtToken: () => Promise<string>;
+        thalToken: () => Promise<string>;
+        vestingContract: () => Promise<string>;
+        MIN_PURCHASE: () => Promise<bigint>;
+        MAX_PURCHASE: () => Promise<bigint>;
+        PRESALE_DURATION: () => Promise<bigint>;
+      }>;
+    }>;
+  };
+};
+
+const { ethers: hardhatEthers } = hre;
 
 async function main() {
   console.log('Deploying ThaliumPresale contract...');
@@ -9,12 +30,12 @@ async function main() {
   const ADMIN_WALLET = '0x310Ff4fE76974DF5977a1a269F60F7B0a83d835A';
 
   // Get deployer
-  const [deployer] = await ethers.getSigners();
+  const [deployer] = await hardhatEthers.getSigners();
   console.log('Deploying with account:', deployer.address);
   console.log('Account balance:', (await deployer.provider.getBalance(deployer.address)).toString());
 
   // Deploy contract
-  const ThaliumPresale = await ethers.getContractFactory('ThaliumPresale');
+  const ThaliumPresale = await hardhatEthers.getContractFactory('ThaliumPresale');
   const presale = await ThaliumPresale.deploy(
     USDT_TESTNET,      // usdtTokenAddress
     THAL_TOKEN,        // thalTokenAddress

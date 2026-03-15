@@ -151,7 +151,7 @@ async function seedAllRoles(): Promise<void> {
           continue;
         }
 
-        // Register user using AuthService (handles password hashing, Zitadel, etc.)
+        // Register user using AuthService (handles password hashing, Keycloak, etc.)
         await AuthService.register({
           email: userData.email,
           password: userData.password,

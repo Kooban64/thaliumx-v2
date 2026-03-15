@@ -25,7 +25,7 @@ allow if {
     input.user.id == input.resource.owner_id
 }
 
-# Normalize role names (handles both legacy and Zitadel role formats)
+# Normalize role names (handles both legacy and OIDC role formats)
 normalize_role(role) := "platform_admin" if {
     role == "platform-admin"
 } else := "platform_admin" if {
@@ -70,8 +70,8 @@ normalize_role(role) := "platform_admin" if {
     role == "broker_finance"
 } else := role
 
-# Compute normalized user roles from Zitadel roles array
-normalized_user_roles := {normalize_role(role) | some role in input.user.zitadel_roles} | {normalize_role(role) | some role in input.user.roles}
+# Compute normalized user roles from auth roles array
+normalized_user_roles := {normalize_role(role) | some role in input.user.auth_roles} | {normalize_role(role) | some role in input.user.roles}
 
 # Role-based access control (with normalization)
 allow if {
@@ -81,7 +81,7 @@ allow if {
     normalized_user_role in required_roles
 }
 
-# Role-based access control using normalized Zitadel roles
+# Role-based access control using normalized auth roles
 allow if {
     input.user.authenticated == true
     required_roles := role_permissions[input.action][input.resource.type]
@@ -91,7 +91,7 @@ allow if {
 
 # Define role permissions
 # Format: action -> resource_type -> allowed_roles
-# Supports both legacy roles and Zitadel roles
+# Supports both legacy roles and auth roles
 role_permissions := {
     "read": {
         "account": ["admin", "trader", "viewer", "platform-admin", "broker-admin", "broker-trading"],
@@ -134,7 +134,7 @@ role_permissions := {
     },
 }
 
-# Admin users have full access (legacy and Zitadel - with normalization)
+# Admin users have full access (legacy and auth roles - with normalization)
 allow if {
     input.user.authenticated == true
     normalized_role := normalize_role(input.user.role)

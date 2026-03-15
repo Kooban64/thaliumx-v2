@@ -1,6 +1,6 @@
 /**
  * JWT Authentication Middleware
- * Zitadel JWT token validation for ThaliumX Compliance Service
+ * Authentik JWT token validation for ThaliumX Compliance Service
  */
 
 import { Request, Response, NextFunction } from 'express';
@@ -46,7 +46,7 @@ declare global {
 
 /**
  * JWT Authentication Middleware
- * Validates Zitadel JWT tokens from Authorization header
+ * Validates Authentik JWT tokens from Authorization header
  */
 export const authenticateJWT = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -100,8 +100,10 @@ export const authenticateJWT = async (req: Request, res: Response, next: NextFun
       return;
     }
 
-    // Only allow Zitadel tokens
-    const allowedIssuers = [process.env.ZITADEL_ISSUER || 'https://auth.thaliumx.com'].map(iss => iss.replace(/\/+$/, ''));
+    // Only allow Authentik tokens
+    const allowedIssuers = [
+      process.env.AUTHENTIK_ISSUER || 'https://thaliumx.com/application/o/thaliumx/',
+    ].map(iss => iss.replace(/\/+$/, ''));
     if (!allowedIssuers.includes(issuerNorm)) {
       logger.warn('Invalid token issuer', {
         issuer: issuerNorm,
@@ -118,7 +120,7 @@ export const authenticateJWT = async (req: Request, res: Response, next: NextFun
     }
 
     // Get JWKS URI and verify token
-    const jwksUri = process.env.ZITADEL_JWKS_URI || 'http://zitadel:8080/oauth/v2/keys';
+    const jwksUri = process.env.AUTHENTIK_JWKS_URI || 'https://thaliumx.com/application/o/thaliumx/jwks/';
     const client = getJwksClient(jwksUri);
     const getKey: jwt.GetPublicKeyOrSecret = (header, callback) => {
       const kid = header.kid;
@@ -242,7 +244,7 @@ export const requireRoles = (...requiredRoles: string[]) => {
 
 /**
  * Optional authentication middleware
- * Sets user info if Zitadel token is present, but doesn't fail if missing
+ * Sets user info if Authentik token is present, but doesn't fail if missing
  */
 export const optionalAuth = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -264,7 +266,7 @@ export const optionalAuth = async (req: Request, _res: Response, next: NextFunct
       return;
     }
 
-    // Decode and verify Zitadel JWT token
+    // Decode and verify Authentik JWT token
     const decodedToken: any = jwt.decode(token) || {};
     const issuerRaw: string | undefined = typeof decodedToken.iss === 'string' ? decodedToken.iss : undefined;
     const issuerNorm = issuerRaw ? issuerRaw.replace(/\/+$/, '') : undefined;
@@ -275,8 +277,10 @@ export const optionalAuth = async (req: Request, _res: Response, next: NextFunct
       return;
     }
 
-    // Only allow Zitadel tokens
-    const allowedIssuers = [process.env.ZITADEL_ISSUER || 'https://auth.thaliumx.com'].map(iss => iss.replace(/\/+$/, ''));
+    // Only allow Authentik tokens
+    const allowedIssuers = [
+      process.env.AUTHENTIK_ISSUER || 'https://thaliumx.com/application/o/thaliumx/',
+    ].map(iss => iss.replace(/\/+$/, ''));
     if (!allowedIssuers.includes(issuerNorm)) {
       // Invalid issuer, continue without user info
       next();
@@ -284,7 +288,7 @@ export const optionalAuth = async (req: Request, _res: Response, next: NextFunct
     }
 
     // Get JWKS URI and verify token
-    const jwksUri = process.env.ZITADEL_JWKS_URI || 'http://zitadel:8080/oauth/v2/keys';
+    const jwksUri = process.env.AUTHENTIK_JWKS_URI || 'https://thaliumx.com/application/o/thaliumx/jwks/';
     const client = getJwksClient(jwksUri);
     const getKey: jwt.GetPublicKeyOrSecret = (header, callback) => {
       const kid = header.kid;

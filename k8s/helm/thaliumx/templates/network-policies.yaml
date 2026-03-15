@@ -108,14 +108,22 @@ spec:
       ports:
         - protocol: TCP
           port: 9092
-    # Allow to Keycloak
+    # Allow to Authentik
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: keycloak
+              app.kubernetes.io/name: Authentik
       ports:
         - protocol: TCP
           port: 8080
+    # Allow to Authentik
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: authentik
+      ports:
+        - protocol: TCP
+          port: 9000
     # Allow to Vault
     - to:
         - namespaceSelector:
@@ -349,11 +357,19 @@ spec:
       ports:
         - protocol: TCP
           port: 5432
-    # Allow from Keycloak
+    # Allow from Authentik
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: keycloak
+              app.kubernetes.io/name: Authentik
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow from Authentik
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: authentik
       ports:
         - protocol: TCP
           port: 5432
@@ -385,6 +401,10 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/component: fintech
+        # Allow from Authentik
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: authentik
       ports:
         - protocol: TCP
           port: 6379

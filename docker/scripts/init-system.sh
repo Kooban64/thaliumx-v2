@@ -244,7 +244,7 @@ backup_all() {
     backup_volume "thaliumx-redis-data"
     backup_volume "thaliumx-mongodb-data"
     backup_volume "thaliumx-vault-data"
-    backup_volume "thaliumx-keycloak-data"
+    backup_volume "thaliumx-Authentik-data"
     backup_volume "thaliumx-ballerine-postgres-data"
     backup_volume "blnkfinance-data"
 
@@ -296,7 +296,7 @@ case "${1:-init}" in
         check_volume_data "thaliumx-redis-data" "/data"
         check_volume_data "thaliumx-mongodb-data" "/data/db"
         check_volume_data "thaliumx-vault-data" "/vault/data"
-        check_volume_data "thaliumx-keycloak-data" "/opt/keycloak/data"
+        check_volume_data "thaliumx-Authentik-data" "/opt/Authentik/data"
         check_volume_data "thaliumx-ballerine-postgres-data" "/var/lib/postgresql/data"
         check_volume_data "blnkfinance-data" "/app/data"
 
@@ -336,7 +336,7 @@ case "${1:-init}" in
         check_volume_data "thaliumx-redis-data" "/data"
         check_volume_data "thaliumx-mongodb-data" "/data/db"
         check_volume_data "thaliumx-vault-data" "/vault/data"
-        check_volume_data "thaliumx-keycloak-data" "/opt/keycloak/data"
+        check_volume_data "thaliumx-Authentik-data" "/opt/Authentik/data"
 
         # Check running services
         echo -e "${BLUE}Checking running services...${NC}"

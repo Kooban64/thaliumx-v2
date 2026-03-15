@@ -15,7 +15,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { LoggerService } from '../services/logger';
 import { createError } from '../utils';
-import { AuthAttributesService } from '../services/zitadel-attributes.service';
+import { AuthAttributesService } from '../services/authentik-attributes.service';
 
 export interface InvestmentAuthOptions {
   /** Type of limit to check ('investment' for presale/token sale investments) */

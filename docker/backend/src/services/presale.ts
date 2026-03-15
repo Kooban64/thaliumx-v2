@@ -764,7 +764,7 @@ export class PresaleService {
         try {
           await (PresaleModel as any).upsert({
             id: presale.id,
-            tenantId: (process.env.ZITADEL_DEFAULT_TENANT_ID || null),
+            tenantId: (process.env.AUTHENTIK_DEFAULT_TENANT_ID || null),
             name: presale.name,
             symbol: presale.symbol,
             description: presale.description,
@@ -1145,7 +1145,7 @@ export class PresaleService {
         const PresaleModel = DatabaseService.getModel('Presale');
         await (PresaleModel as any).create({
           id: presale.id,
-          tenantId: (process.env.ZITADEL_DEFAULT_TENANT_ID || null),
+          tenantId: (process.env.AUTHENTIK_DEFAULT_TENANT_ID || null),
           name: presale.name,
           symbol: presale.symbol,
           description: presale.description,
@@ -1322,7 +1322,7 @@ export class PresaleService {
         investmentAmount,
         TimePeriod.TOTAL,
         true, // Auto-trigger workflow if upgrade required
-        req // Pass request for Zitadel context
+        req // Pass request for Authentik context
       );
 
       // Real-time transaction monitoring (CRITICAL SECURITY)

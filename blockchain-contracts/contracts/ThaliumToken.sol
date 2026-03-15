@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {ERC20Votes} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title ThaliumToken
@@ -52,6 +53,14 @@ contract ThaliumToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Pausable
     event EmergencyPaused(address indexed pauser);
     event EmergencyUnpaused(address indexed unpauser);
 
+    error InvalidAddress();
+    error InitialSupplyExceedsMaxSupply();
+    error CannotMintToZeroAddress();
+    error AmountMustBePositive();
+    error MaxSupplyExceeded();
+    error CannotBurnFromZeroAddress();
+    error InsufficientBalance();
+
     // ========================================
     // CONSTRUCTOR
     // ========================================
@@ -71,10 +80,9 @@ contract ThaliumToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Pausable
         address burner,
         uint256 initialSupply
     ) ERC20("Thalium", "THAL") ERC20Permit("Thalium") {
-        require(defaultAdmin != address(0), "ThaliumToken: Invalid default admin");
-        require(minter != address(0), "ThaliumToken: Invalid minter");
-        require(pauser != address(0), "ThaliumToken: Invalid pauser");
-        require(burner != address(0), "ThaliumToken: Invalid burner");
+        if (defaultAdmin == address(0) || minter == address(0) || pauser == address(0) || burner == address(0)) {
+            revert InvalidAddress();
+        }
 
         // Grant roles
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
@@ -84,7 +92,7 @@ contract ThaliumToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Pausable
 
         // Mint initial supply if specified
         if (initialSupply > 0) {
-            require(initialSupply <= MAX_SUPPLY, "ThaliumToken: Initial supply exceeds max");
+            if (initialSupply > MAX_SUPPLY) revert InitialSupplyExceedsMaxSupply();
             _mint(defaultAdmin, initialSupply);
             _totalMinted = initialSupply;
         }
@@ -105,9 +113,9 @@ contract ThaliumToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Pausable
         whenNotPaused
         nonReentrant
     {
-        require(to != address(0), "ThaliumToken: Cannot mint to zero address");
-        require(amount > 0, "ThaliumToken: Amount must be positive");
-        require(_totalMinted + amount <= MAX_SUPPLY, "ThaliumToken: Would exceed max supply");
+        if (to == address(0)) revert CannotMintToZeroAddress();
+        if (amount == 0) revert AmountMustBePositive();
+        if (_totalMinted + amount > MAX_SUPPLY) revert MaxSupplyExceeded();
 
         _totalMinted += amount;
         _mint(to, amount);
@@ -126,9 +134,9 @@ contract ThaliumToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Pausable
         whenNotPaused
         nonReentrant
     {
-        require(from != address(0), "ThaliumToken: Cannot burn from zero address");
-        require(amount > 0, "ThaliumToken: Amount must be positive");
-        require(balanceOf(from) >= amount, "ThaliumToken: Insufficient balance");
+        if (from == address(0)) revert CannotBurnFromZeroAddress();
+        if (amount == 0) revert AmountMustBePositive();
+        if (balanceOf(from) < amount) revert InsufficientBalance();
 
         _burn(from, amount);
 
@@ -150,28 +158,6 @@ contract ThaliumToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Pausable
         _unpause();
         emit EmergencyUnpaused(msg.sender);
     }
-
-    // ========================================
-    // PUBLIC VIEW FUNCTIONS
-    // ========================================
-
-    /**
-     * @dev Get total minted tokens
-     */
-    function totalMinted() external view returns (uint256) {
-        return _totalMinted;
-    }
-
-    /**
-     * @dev Get remaining mintable supply
-     */
-    function remainingSupply() external view returns (uint256) {
-        return MAX_SUPPLY - _totalMinted;
-    }
-
-    // ========================================
-    // INTERNAL FUNCTIONS
-    // ========================================
 
     /**
      * @dev Override transfer with pause check
@@ -198,6 +184,18 @@ contract ThaliumToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Pausable
     }
 
     /**
+     * @dev Override nonces for ERC20Permit
+     */
+    function nonces(address owner)
+        public
+        view
+        override(ERC20Permit, Nonces)
+        returns (uint256)
+    {
+        return super.nonces(owner);
+    }
+
+    /**
      * @dev Override _update for ERC20Votes
      */
     function _update(address from, address to, uint256 value)
@@ -208,15 +206,17 @@ contract ThaliumToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Pausable
     }
 
     /**
-     * @dev Override nonces for ERC20Permit
+     * @dev Total minted supply so far
      */
-    function nonces(address owner)
-        public
-        view
-        override(ERC20Permit, Nonces)
-        returns (uint256)
-    {
-        return super.nonces(owner);
+    function totalMinted() external view returns (uint256) {
+        return _totalMinted;
+    }
+
+    /**
+     * @dev Get remaining mintable supply
+     */
+    function remainingSupply() external view returns (uint256) {
+        return MAX_SUPPLY - _totalMinted;
     }
 
 }

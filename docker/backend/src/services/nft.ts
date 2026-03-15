@@ -9,7 +9,7 @@
  * - Compliance & Security (KYC/AML, Sanctions screening)
  * - Real-time Indexing & Event Processing
  * 
- * Built on existing Smart Contract, BlnkFinance, and Keycloak infrastructure
+ * Built on existing Smart Contract, BlnkFinance, and Authentik infrastructure
  */
 
 import { LoggerService } from './logger';
@@ -714,7 +714,7 @@ export class NFTService {
     _collectionId: string
   ): Promise<void> {
     try {
-      // This would integrate with Keycloak for user validation
+      // This would integrate with Authentik for user validation
       // and implement KYC/AML checks
       LoggerService.info('Order creation validation passed', { tenantId, maker });
     } catch (error) {
@@ -729,7 +729,7 @@ export class NFTService {
     _order: NFTOrder
   ): Promise<void> {
     try {
-      // This would integrate with Keycloak for user validation
+      // This would integrate with Authentik for user validation
       // and implement KYC/AML checks
       LoggerService.info('Order fulfillment validation passed', { tenantId, taker });
     } catch (error) {

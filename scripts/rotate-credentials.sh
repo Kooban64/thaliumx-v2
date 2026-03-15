@@ -42,7 +42,7 @@ POSTGRES_PASSWORD=$(generate_alphanum_password 32)
 MONGO_PASSWORD=$(generate_alphanum_password 32)
 MONGO_APP_PASSWORD=$(generate_alphanum_password 32)
 REDIS_PASSWORD=$(generate_alphanum_password 32)
-KEYCLOAK_ADMIN_PASSWORD=$(generate_password 24)
+AUTHENTIK_ADMIN_PASSWORD=$(generate_password 24)
 VAULT_TOKEN=$(generate_hex_token 32)
 TYPESENSE_API_KEY=$(generate_alphanum_password 32)
 GRAFANA_ADMIN_PASSWORD=$(generate_password 24)
@@ -52,9 +52,9 @@ MAGIC_LINK_SECRET=$(generate_hex_token 64)
 HASHING_KEY=$(generate_alphanum_password 32)
 ENCRYPTION_KEY=$(generate_hex_token 64)
 BLNK_SECRET_KEY=$(generate_hex_token 32)
-KEYCLOAK_BACKEND_SECRET=$(generate_hex_token 32)
-KEYCLOAK_TRADING_SECRET=$(generate_hex_token 32)
-KEYCLOAK_FINTECH_SECRET=$(generate_hex_token 32)
+AUTHENTIK_BACKEND_SECRET=$(generate_hex_token 32)
+AUTHENTIK_TRADING_SECRET=$(generate_hex_token 32)
+AUTHENTIK_FINTECH_SECRET=$(generate_hex_token 32)
 APISIX_ADMIN_KEY=$(generate_hex_token 32)
 
 # Backup existing .env file
@@ -87,11 +87,11 @@ REDIS_PASSWORD=${REDIS_PASSWORD}
 # ===========================================
 # AUTHENTICATION & IDENTITY
 # ===========================================
-KEYCLOAK_ADMIN=admin
-KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
-KEYCLOAK_BACKEND_CLIENT_SECRET=${KEYCLOAK_BACKEND_SECRET}
-KEYCLOAK_TRADING_CLIENT_SECRET=${KEYCLOAK_TRADING_SECRET}
-KEYCLOAK_FINTECH_CLIENT_SECRET=${KEYCLOAK_FINTECH_SECRET}
+AUTHENTIK_ADMIN=admin
+AUTHENTIK_ADMIN_PASSWORD=${AUTHENTIK_ADMIN_PASSWORD}
+AUTHENTIK_BACKEND_CLIENT_SECRET=${AUTHENTIK_BACKEND_SECRET}
+AUTHENTIK_TRADING_CLIENT_SECRET=${AUTHENTIK_TRADING_SECRET}
+AUTHENTIK_FINTECH_CLIENT_SECRET=${AUTHENTIK_FINTECH_SECRET}
 
 # ===========================================
 # SECRETS MANAGEMENT
@@ -196,7 +196,7 @@ TYPESENSE_API_KEY=${TYPESENSE_API_KEY}
 EOF
 
 # Compose v2 "include" uses per-subproject directories; ensure each has a .env for interpolation.
-for d in core databases security gateway observability trading fintech compliance wazuh apisix kafka keycloak mongodb postgres redis timescaledb citus; do
+for d in core databases security gateway observability trading fintech compliance wazuh apisix kafka Authentik mongodb postgres redis timescaledb citus; do
   if [ -d "docker/$d" ]; then
     cp -f "$ENV_FILE" "docker/$d/.env" || true
   fi
@@ -215,7 +215,7 @@ PostgreSQL Password: ${POSTGRES_PASSWORD}
 MongoDB Password: ${MONGO_PASSWORD}
 MongoDB App Password: ${MONGO_APP_PASSWORD}
 Redis Password: ${REDIS_PASSWORD}
-Keycloak Admin Password: ${KEYCLOAK_ADMIN_PASSWORD}
+Authentik Admin Password: ${AUTHENTIK_ADMIN_PASSWORD}
 Vault Token: ${VAULT_TOKEN}
 APISIX Admin Key: ${APISIX_ADMIN_KEY}
 Typesense API Key: ${TYPESENSE_API_KEY}
@@ -226,9 +226,9 @@ Magic Link Secret: ${MAGIC_LINK_SECRET}
 Hashing Key: ${HASHING_KEY}
 Encryption Key: ${ENCRYPTION_KEY}
 BLNK Secret Key: ${BLNK_SECRET_KEY}
-Keycloak Backend Client Secret: ${KEYCLOAK_BACKEND_SECRET}
-Keycloak Trading Client Secret: ${KEYCLOAK_TRADING_SECRET}
-Keycloak Fintech Client Secret: ${KEYCLOAK_FINTECH_SECRET}
+Authentik Backend Client Secret: ${AUTHENTIK_BACKEND_SECRET}
+Authentik Trading Client Secret: ${AUTHENTIK_TRADING_SECRET}
+Authentik Fintech Client Secret: ${AUTHENTIK_FINTECH_SECRET}
 EOF
 
 chmod 600 "$CREDS_FILE"

@@ -1,20 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logApiProxyError } from '@/lib/services/serverErrorLogger';
 
+const PROXY_TIMEOUT_MS = 8000;
+const RETRY_DELAY_MS = 200;
+const RETRYABLE_STATUS = new Set([502, 503, 504]);
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const resolveBackendBaseUrls = (): string[] => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || '';
+  const candidates = [
+    envUrl,
+    'http://thaliumx-backend:3002',
+    'http://localhost:3002',
+    'http://127.0.0.1:3002',
+  ]
+    .map((v) => v.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+
+  return [...new Set(candidates)];
+};
+
+const proxyProfileRequest = async (apiUrls: string[], headers: Record<string, string>): Promise<Response> => {
+  let lastError: unknown = null;
+
+  for (const apiUrl of apiUrls) {
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers,
+          credentials: 'include',
+          signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
+        });
+
+        if (RETRYABLE_STATUS.has(response.status) && attempt < 2) {
+          await sleep(RETRY_DELAY_MS);
+          continue;
+        }
+
+        if (response.status >= 500 && response.status < 600 && apiUrl !== apiUrls[apiUrls.length - 1]) {
+          await sleep(RETRY_DELAY_MS);
+          break;
+        }
+
+        return response;
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) {
+          await sleep(RETRY_DELAY_MS);
+          continue;
+        }
+        continue;
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Auth profile proxy request failed');
+};
+
 /**
  * Next.js API route to proxy /api/auth/profile requests to the backend
  * This maintains same-origin policy while forwarding to the backend service
  */
 export async function GET(request: NextRequest) {
   try {
-    // In Next.js API routes (server-side), always use Docker service name
-    // Never use localhost or IP addresses - always use the Docker service name
-    let backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://thaliumx-backend:3002';
-    backendUrl = backendUrl.replace(/https?:\/\/(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)(:\d+)?/, 'http://thaliumx-backend:3002');
-    if (!backendUrl.includes('thaliumx-backend')) {
-      backendUrl = 'http://thaliumx-backend:3002';
-    }
-    const apiUrl = `${backendUrl}/api/auth/profile`;
+    // In Next.js API routes (server-side), always use Docker service name.
+    // Never use localhost or IP addresses.
+    const apiUrls = resolveBackendBaseUrls().map((backendUrl) => `${backendUrl}/api/auth/profile`);
 
     // Forward all headers from the original request
     const headers: Record<string, string> = {
@@ -39,21 +92,31 @@ export async function GET(request: NextRequest) {
       headers['X-Tenant-ID'] = tenantId;
     }
 
-    // Make request to backend
-    const response = await fetch(apiUrl, {
-      method: 'GET',
-      headers,
-      credentials: 'include',
-    });
+    const response = await proxyProfileRequest(apiUrls, headers);
+    const responseText = await response.text();
+    const contentType = response.headers.get('content-type') || 'application/json';
 
-    const data = await response.json();
+    let data: unknown = responseText;
+    if (contentType.includes('application/json')) {
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        data = {
+          success: false,
+          error: {
+            code: 'UPSTREAM_INVALID_JSON',
+            message: 'Backend returned invalid JSON payload',
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    }
 
     // Forward the response with the same status code
     return NextResponse.json(data, {
       status: response.status,
       headers: {
         'Content-Type': 'application/json',
-        // Forward any relevant headers from backend response
         ...(response.headers.get('set-cookie') && {
           'Set-Cookie': response.headers.get('set-cookie')!,
         }),
@@ -79,4 +142,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

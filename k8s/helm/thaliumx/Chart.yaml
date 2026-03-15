@@ -25,7 +25,7 @@ dependencies:
     version: "26.6.2"
     repository: "https://charts.bitnami.com/bitnami"
     condition: kafka.enabled
-  - name: keycloak
+  - name: Authentik
     version: "18.3.0"
     repository: "https://charts.bitnami.com/bitnami"
-    condition: keycloak.enabled
+    condition: Authentik.enabled

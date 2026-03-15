@@ -36,8 +36,8 @@ POSTGRES_PASSWORD=staging_password_123
 REDIS_PASSWORD=staging_redis_123
 MONGODB_PASSWORD=staging_mongo_123
 
-# Keycloak Configuration
-KEYCLOAK_ADMIN_PASSWORD=staging_keycloak_123
+# Authentik Configuration
+AUTHENTIK_ADMIN_PASSWORD=staging_Authentik_123
 
 # JWT & Encryption
 JWT_SECRET=staging_jwt_secret_very_long_and_secure_key_for_testing

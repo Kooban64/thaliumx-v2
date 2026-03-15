@@ -125,15 +125,16 @@ export function HeaderNav() {
 
     // Use role from user object or fallback to userStore
     const role = user.role || userStoreProfile?.role;
-    if (!role) {
+    const normalizedRole = role?.toLowerCase().replace(/-/g, '_');
+    if (!normalizedRole) {
       return [{ id: 'home', label: 'Home', href: '/', icon: Home }];
     }
 
     let configItems: typeof userNavConfig.items;
 
-    if (role === 'admin' || role === 'super_admin' || role === 'platform-admin') {
+    if (normalizedRole === 'admin' || normalizedRole === 'super_admin' || normalizedRole === 'platform_admin' || normalizedRole === 'master_system_admin') {
       configItems = adminNavConfig.items;
-    } else if (role?.startsWith('broker_') || role === 'broker_admin') {
+    } else if (normalizedRole === 'broker_admin' || normalizedRole.startsWith('broker_')) {
       configItems = brokerNavConfig.items;
     } else {
       configItems = userNavConfig.items;
@@ -142,7 +143,7 @@ export function HeaderNav() {
     const filtered = filterItems(configItems);
     
     // For admin, group items into categories for better UX
-    if (role === 'admin' || role === 'super_admin' || role === 'platform-admin') {
+    if (normalizedRole === 'admin' || normalizedRole === 'super_admin' || normalizedRole === 'platform_admin' || normalizedRole === 'master_system_admin') {
       // Group by item IDs to ensure correct categorization regardless of filtering
       const primaryIds = ['admin-home', 'admin-users', 'admin-brokers', 'admin-analytics'];
       const managementIds = ['admin-system', 'admin-rbac', 'admin-policies'];

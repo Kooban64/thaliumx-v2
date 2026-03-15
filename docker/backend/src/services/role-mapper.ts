@@ -2,7 +2,7 @@
  * Role Mapper Service
  * 
  * Centralized role normalization and matching service.
- * Maps Zitadel kebab-case roles to standard snake_case format.
+ * Maps provider kebab-case roles to standard snake_case format.
  */
 
 export class RoleMapperService {
@@ -43,7 +43,7 @@ export class RoleMapperService {
 
   /**
    * Normalize roles to standard format (snake_case).
-   * Maps Zitadel kebab-case roles to standard snake_case format.
+   * Maps provider kebab-case roles to standard snake_case format.
    */
   public static normalizeRoles(roles: string[]): string[] {
     if (!roles || roles.length === 0) {

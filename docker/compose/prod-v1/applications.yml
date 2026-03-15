@@ -34,8 +34,8 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
-      # Identity provider selection (Keycloak)
-      THALIUMX_AUTH_PROVIDER: ${THALIUMX_AUTH_PROVIDER:-keycloak}
+      # Identity provider selection (internal JWT - self-contained)
+      THALIUMX_AUTH_PROVIDER: ${THALIUMX_AUTH_PROVIDER:-internal-jwt}
       # Production environment
       NODE_ENV: production
       PORT: 3002
@@ -57,15 +57,16 @@ services:
       VAULT_ADDR: https://vault:8200
       VAULT_CACERT: /certs/ca.crt
 
-      # Node TLS trust: trust the internal ThaliumX CA (required for Vault/Keycloak TLS)
+      # Node TLS trust: trust the internal ThaliumX CA (required for Vault/Auth TLS)
       NODE_EXTRA_CA_CERTS: /certs/ca.crt
 
-      # OIDC (Keycloak)
-      KEYCLOAK_URL: ${KEYCLOAK_URL:-https://auth.thaliumx.com/auth}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-thaliumx}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-thaliumx-backend}
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
-      OIDC_ALLOWED_ISSUERS: ${OIDC_ALLOWED_ISSUERS:-https://auth.thaliumx.com/auth/realms/thaliumx}
+      # OIDC (Optional - only needed if using external IdP like Authentik)
+      AUTHENTIK_ISSUER: ${AUTHENTIK_ISSUER:-https://thaliumx.com/application/o/thaliumx/}
+      AUTHENTIK_JWKS_URI: ${AUTHENTIK_JWKS_URI:-https://thaliumx.com/application/o/thaliumx/jwks/}
+      AUTHENTIK_AUDIENCE: ${AUTHENTIK_AUDIENCE:-thaliumx-backend}
+      AUTHENTIK_CLIENT_ID: ${AUTHENTIK_CLIENT_ID:-thaliumx-backend}
+      AUTHENTIK_CLIENT_SECRET: ${AUTHENTIK_CLIENT_SECRET:-}
+      OIDC_ALLOWED_ISSUERS: ${OIDC_ALLOWED_ISSUERS:-https://thaliumx.com/application/o/thaliumx/}
 
       # Default tenant context (header injection + DB tenancy)
       DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID:-10000000-0000-0000-0000-000000000000}
@@ -257,12 +258,9 @@ services:
         # Frontend code calls `/api/...` relative to this base.
         - NEXT_PUBLIC_API_URL=https://thaliumx.com
 
-        # Auth mode (baked into the Next.js client bundle).
-        - NEXT_PUBLIC_AUTH_MODE=keycloak
-        - NEXT_PUBLIC_AUTH_PROVIDER=keycloak
-        - NEXT_PUBLIC_KEYCLOAK_URL=https://auth.thaliumx.com/auth
-        - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx
-        - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
+        # Auth mode (internal JWT - self-contained)
+        - NEXT_PUBLIC_AUTH_MODE=internal-jwt
+        - NEXT_PUBLIC_AUTH_PROVIDER=internal-jwt
     image: thaliumx/frontend:1.0.0
     container_name: thaliumx-frontend
     hostname: thaliumx-frontend
@@ -280,12 +278,9 @@ services:
       # IMPORTANT: This must be the site origin (no trailing /api).
       - NEXT_PUBLIC_API_URL=https://thaliumx.com
 
-      # Auth provider selection
-      - NEXT_PUBLIC_AUTH_MODE=keycloak
-      - NEXT_PUBLIC_AUTH_PROVIDER=keycloak
-      - NEXT_PUBLIC_KEYCLOAK_URL=https://auth.thaliumx.com/auth
-      - NEXT_PUBLIC_KEYCLOAK_REALM=thaliumx
-      - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=thaliumx-frontend
+      # Auth provider selection - internal JWT
+      - NEXT_PUBLIC_AUTH_MODE=internal-jwt
+      - NEXT_PUBLIC_AUTH_PROVIDER=internal-jwt
     # Strict audit mode: no host-exposed ports (gateway-only exposure).
     tmpfs:
       - /tmp:noexec,nosuid,nodev,size=100M,uid=1001,gid=1001,mode=1777
@@ -294,8 +289,6 @@ services:
       - thaliumx-net
     depends_on:
       backend:
-        condition: service_healthy
-      keycloak:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]

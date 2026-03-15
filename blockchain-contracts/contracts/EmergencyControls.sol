@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title EmergencyControls
@@ -11,17 +11,17 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * @notice Provides circuit breakers, emergency pause, and recovery mechanisms
  */
 contract EmergencyControls is AccessControl, Pausable, ReentrancyGuard {
-    // Roles
-    bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
-    bytes32 public constant RECOVERY_ROLE = keccak256("RECOVERY_ROLE");
-    bytes32 public constant CIRCUIT_BREAKER_ROLE = keccak256("CIRCUIT_BREAKER_ROLE");
-
     // Emergency levels
     enum EmergencyLevel {
         NORMAL,
         WARNING,
         EMERGENCY
     }
+
+    // Roles
+    bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
+    bytes32 public constant RECOVERY_ROLE = keccak256("RECOVERY_ROLE");
+    bytes32 public constant CIRCUIT_BREAKER_ROLE = keccak256("CIRCUIT_BREAKER_ROLE");
 
     // State variables
     EmergencyLevel public currentEmergencyLevel = EmergencyLevel.NORMAL;
@@ -115,57 +115,6 @@ contract EmergencyControls is AccessControl, Pausable, ReentrancyGuard {
         emit EmergencyUnpause(msg.sender);
     }
 
-    /**
-     * @dev Check if contract is accessible (not under circuit breaker)
-     * @param contractAddress Address of the contract to check
-     * @return accessible True if contract is accessible
-     */
-    function isContractAccessible(address contractAddress) external view returns (bool accessible) {
-        if (contractAddress == address(0)) return false;
-        
-        // Check if circuit breaker is active
-        if (circuitBreakers[contractAddress]) return false;
-        
-        // Check if emergency level allows access
-        if (currentEmergencyLevel == EmergencyLevel.EMERGENCY) return false;
-        
-        return true;
-    }
-
-    /**
-     * @dev Check activity limits
-     * @param contractAddress Address of the contract
-     * @return withinLimits True if within activity limits
-     */
-    function checkActivityLimits(address contractAddress) external pure returns (bool withinLimits) {
-        // For simplicity, always return true in this implementation
-        // In a real implementation, you would check activity counters
-        return contractAddress != address(0);
-    }
-
-    /**
-     * @dev Get emergency status
-     * @return level Current emergency level
-     * @return paused True if contract is paused
-     * @return emergencyAddresses List of addresses under circuit breaker
-     */
-    function getEmergencyStatus() external view returns (
-        EmergencyLevel level,
-        bool paused,
-        address[] memory emergencyAddresses
-    ) {
-        level = currentEmergencyLevel;
-        paused = super.paused();
-
-        // This is a simplified implementation
-        // In practice, you'd maintain a list of emergency addresses
-        emergencyAddresses = new address[](0);
-    }
-
-    /**
-     * @dev Update emergency cooldown period
-     * @param newCooldown New cooldown period in seconds
-     */
     function setEmergencyCooldown(uint256 newCooldown) external onlyRole(DEFAULT_ADMIN_ROLE) {
         emergencyCooldown = newCooldown;
     }
@@ -201,11 +150,55 @@ contract EmergencyControls is AccessControl, Pausable, ReentrancyGuard {
     }
 
     /**
+     * @dev Get emergency status
+     * @return level Current emergency level
+     * @return paused True if contract is paused
+     * @return emergencyAddresses List of addresses under circuit breaker
+     */
+    function getEmergencyStatus() external view returns (
+        EmergencyLevel level,
+        bool paused,
+        address[] memory emergencyAddresses
+    ) {
+        level = currentEmergencyLevel;
+        paused = super.paused();
+
+        // This is a simplified implementation
+        // In practice, you'd maintain a list of emergency addresses
+        emergencyAddresses = new address[](0);
+    }
+
+    /**
+     * @dev Check if contract is accessible (not under circuit breaker)
+     * @param contractAddress Address of the contract to check
+     * @return accessible True if contract is accessible
+     */
+    function isContractAccessible(address contractAddress) external view returns (bool accessible) {
+        if (contractAddress == address(0)) return false;
+
+        if (circuitBreakers[contractAddress]) return false;
+        if (currentEmergencyLevel == EmergencyLevel.EMERGENCY) return false;
+
+        return true;
+    }
+
+    /**
      * @dev Check if address has emergency role
      * @param account Address to check
      * @return hasRole True if address has emergency role
      */
     function hasEmergencyRole(address account) external view returns (bool hasRole) {
         return super.hasRole(EMERGENCY_ROLE, account);
+    }
+
+    /**
+     * @dev Check activity limits
+     * @param contractAddress Address of the contract
+     * @return withinLimits True if within activity limits
+     */
+    function checkActivityLimits(address contractAddress) external pure returns (bool withinLimits) {
+        // For simplicity, always return true in this implementation
+        // In a real implementation, you would check activity counters
+        return contractAddress != address(0);
     }
 }

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title ThaliumMarginVault
@@ -28,24 +28,6 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 contract ThaliumMarginVault is AccessControl, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Math for uint256;
-
-    // ========================================
-    // CONSTANTS
-    // ========================================
-
-    bytes32 public constant MARGIN_ADMIN_ROLE = keccak256("MARGIN_ADMIN_ROLE");
-    bytes32 public constant RISK_MANAGER_ROLE = keccak256("RISK_MANAGER_ROLE");
-    bytes32 public constant LIQUIDATOR_ROLE = keccak256("LIQUIDATOR_ROLE");
-
-    uint256 public constant MAX_LEVERAGE = 100; // 100x max leverage
-    uint256 public constant MIN_LEVERAGE = 1;   // 1x min leverage
-    uint256 public constant LIQUIDATION_THRESHOLD = 8000; // 80% (8000/10000)
-    uint256 public constant MAINTENANCE_MARGIN = 5000;    // 50% (5000/10000)
-    uint256 public constant PRECISION = 10000; // 100.00%
-
-    // ========================================
-    // STRUCTS
-    // ========================================
 
     struct MarginAccount {
         address user;
@@ -83,6 +65,43 @@ contract ThaliumMarginVault is AccessControl, Pausable, ReentrancyGuard {
         uint256 liquidatedAmount;
         uint256 timestamp;
     }
+
+    error InvalidAdmin();
+    error InvalidMarginAdmin();
+    error InvalidRiskManager();
+    error InvalidToken();
+    error InvalidAmount();
+    error AccountExists();
+    error NoMarginAccount();
+    error AssetNotSupported();
+    error InvalidLeverage();
+    error InvalidSize();
+    error InvalidPrice();
+    error InsufficientMargin();
+    error InvalidPosition();
+    error PositionNotActive();
+    error InsufficientCollateralForLoss();
+    error PositionNotLiquidatable();
+    error InsufficientBalance();
+    error WithdrawalNotSafe();
+    error InvalidThreshold();
+    error PenaltyTooHigh();
+    error InvalidAsset();
+    error LeverageTooHigh();
+
+    bytes32 public constant MARGIN_ADMIN_ROLE = keccak256("MARGIN_ADMIN_ROLE");
+    bytes32 public constant RISK_MANAGER_ROLE = keccak256("RISK_MANAGER_ROLE");
+    bytes32 public constant LIQUIDATOR_ROLE = keccak256("LIQUIDATOR_ROLE");
+
+    uint256 public constant MAX_LEVERAGE = 100; // 100x max leverage
+    uint256 public constant MIN_LEVERAGE = 1;   // 1x min leverage
+    uint256 public constant LIQUIDATION_THRESHOLD = 8000; // 80% (8000/10000)
+    uint256 public constant MAINTENANCE_MARGIN = 5000;    // 50% (5000/10000)
+    uint256 public constant PRECISION = 10000; // 100.00%
+
+    // ========================================
+    // CONSTANTS
+    // ========================================
 
     // ========================================
     // STATE VARIABLES
@@ -166,9 +185,9 @@ contract ThaliumMarginVault is AccessControl, Pausable, ReentrancyGuard {
         address marginAdmin,
         address riskManager
     ) {
-        require(defaultAdmin != address(0), "ThaliumMarginVault: Invalid admin");
-        require(marginAdmin != address(0), "ThaliumMarginVault: Invalid margin admin");
-        require(riskManager != address(0), "ThaliumMarginVault: Invalid risk manager");
+        if (defaultAdmin == address(0)) revert InvalidAdmin();
+        if (marginAdmin == address(0)) revert InvalidMarginAdmin();
+        if (riskManager == address(0)) revert InvalidRiskManager();
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(MARGIN_ADMIN_ROLE, marginAdmin);
@@ -188,9 +207,9 @@ contract ThaliumMarginVault is AccessControl, Pausable, ReentrancyGuard {
         address collateralToken,
         uint256 collateralAmount
     ) external whenNotPaused nonReentrant {
-        require(collateralToken != address(0), "ThaliumMarginVault: Invalid token");
-        require(collateralAmount > 0, "ThaliumMarginVault: Invalid amount");
-        require(!marginAccounts[msg.sender].isActive, "ThaliumMarginVault: Account exists");
+        if (collateralToken == address(0)) revert InvalidToken();
+        if (collateralAmount == 0) revert InvalidAmount();
+        if (marginAccounts[msg.sender].isActive) revert AccountExists();
 
         // Transfer collateral
         IERC20(collateralToken).safeTransferFrom(msg.sender, address(this), collateralAmount);
@@ -230,17 +249,17 @@ contract ThaliumMarginVault is AccessControl, Pausable, ReentrancyGuard {
         bool isLong,
         uint256 entryPrice
     ) external whenNotPaused nonReentrant {
-        require(marginAccounts[msg.sender].isActive, "ThaliumMarginVault: No margin account");
-        require(supportedAssets[asset], "ThaliumMarginVault: Asset not supported");
-        require(leverage >= MIN_LEVERAGE && leverage <= assetMaxLeverage[asset], "ThaliumMarginVault: Invalid leverage");
-        require(size > 0, "ThaliumMarginVault: Invalid size");
-        require(entryPrice > 0, "ThaliumMarginVault: Invalid price");
+        if (!marginAccounts[msg.sender].isActive) revert NoMarginAccount();
+        if (!supportedAssets[asset]) revert AssetNotSupported();
+        if (leverage < MIN_LEVERAGE || leverage > assetMaxLeverage[asset]) revert InvalidLeverage();
+        if (size == 0) revert InvalidSize();
+        if (entryPrice == 0) revert InvalidPrice();
 
         MarginAccount storage account = marginAccounts[msg.sender];
         
         // Calculate required margin
         uint256 requiredMargin = (size * entryPrice) / leverage;
-        require(account.collateralAmount >= requiredMargin, "ThaliumMarginVault: Insufficient margin");
+        if (account.collateralAmount < requiredMargin) revert InsufficientMargin();
 
         // Calculate borrowed amount
         uint256 borrowedAmount = (size * entryPrice) - requiredMargin;
@@ -292,11 +311,11 @@ contract ThaliumMarginVault is AccessControl, Pausable, ReentrancyGuard {
         uint256 positionIndex,
         uint256 exitPrice
     ) external whenNotPaused nonReentrant {
-        require(positionIndex < userPositions[msg.sender].length, "ThaliumMarginVault: Invalid position");
+        if (positionIndex >= userPositions[msg.sender].length) revert InvalidPosition();
         
         Position storage position = userPositions[msg.sender][positionIndex];
-        require(position.isActive, "ThaliumMarginVault: Position not active");
-        require(exitPrice > 0, "ThaliumMarginVault: Invalid price");
+        if (!position.isActive) revert PositionNotActive();
+        if (exitPrice == 0) revert InvalidPrice();
 
         // Calculate PnL with proper loss handling
         int256 realizedPnL;
@@ -326,7 +345,9 @@ contract ThaliumMarginVault is AccessControl, Pausable, ReentrancyGuard {
         } else {
             // Loss: subtract from collateral (ensure no underflow)
             uint256 loss = uint256(-realizedPnL);
-            require(account.collateralAmount >= loss + position.marginUsed, "ThaliumMarginVault: Insufficient collateral for loss");
+            if (account.collateralAmount < loss + position.marginUsed) {
+                revert InsufficientCollateralForLoss();
+            }
             account.collateralAmount = account.collateralAmount - loss - position.marginUsed;
         }
         account.borrowedAmount -= (position.size * position.entryPrice) - position.marginUsed;
@@ -355,16 +376,16 @@ contract ThaliumMarginVault is AccessControl, Pausable, ReentrancyGuard {
         uint256 positionIndex,
         uint256 liquidationPrice
     ) external onlyRole(LIQUIDATOR_ROLE) whenNotPaused nonReentrant {
-        require(positionIndex < userPositions[user].length, "ThaliumMarginVault: Invalid position");
+        if (positionIndex >= userPositions[user].length) revert InvalidPosition();
         
         Position storage position = userPositions[user][positionIndex];
-        require(position.isActive, "ThaliumMarginVault: Position not active");
+        if (!position.isActive) revert PositionNotActive();
 
         MarginAccount storage account = marginAccounts[user];
-        require(account.isActive, "ThaliumMarginVault: No margin account");
+        if (!account.isActive) revert NoMarginAccount();
 
         // Check if position should be liquidated
-        require(_shouldLiquidate(position, liquidationPrice), "ThaliumMarginVault: Position not liquidatable");
+        if (!_shouldLiquidate(position, liquidationPrice)) revert PositionNotLiquidatable();
 
         // Calculate liquidation amount
         uint256 liquidatedAmount = (position.size * liquidationPrice * liquidationPenalty) / PRECISION;
@@ -403,8 +424,8 @@ contract ThaliumMarginVault is AccessControl, Pausable, ReentrancyGuard {
      * @param amount Amount to deposit
      */
     function depositMargin(uint256 amount) external whenNotPaused nonReentrant {
-        require(amount > 0, "ThaliumMarginVault: Invalid amount");
-        require(marginAccounts[msg.sender].isActive, "ThaliumMarginVault: No margin account");
+        if (amount == 0) revert InvalidAmount();
+        if (!marginAccounts[msg.sender].isActive) revert NoMarginAccount();
 
         MarginAccount storage account = marginAccounts[msg.sender];
         
@@ -426,14 +447,14 @@ contract ThaliumMarginVault is AccessControl, Pausable, ReentrancyGuard {
      * @param amount Amount to withdraw
      */
     function withdrawMargin(uint256 amount) external whenNotPaused nonReentrant {
-        require(amount > 0, "ThaliumMarginVault: Invalid amount");
-        require(marginAccounts[msg.sender].isActive, "ThaliumMarginVault: No margin account");
+        if (amount == 0) revert InvalidAmount();
+        if (!marginAccounts[msg.sender].isActive) revert NoMarginAccount();
 
         MarginAccount storage account = marginAccounts[msg.sender];
-        require(account.collateralAmount >= amount, "ThaliumMarginVault: Insufficient balance");
+        if (account.collateralAmount < amount) revert InsufficientBalance();
 
         // Check if withdrawal is safe (no active positions or sufficient margin remaining)
-        require(_canWithdraw(msg.sender, amount), "ThaliumMarginVault: Withdrawal not safe");
+        if (!_canWithdraw(msg.sender, amount)) revert WithdrawalNotSafe();
 
         // Update account
         account.collateralAmount -= amount;
@@ -463,9 +484,9 @@ contract ThaliumMarginVault is AccessControl, Pausable, ReentrancyGuard {
         uint256 maxLeverage,
         uint256 liquidationThreshold
     ) external onlyRole(MARGIN_ADMIN_ROLE) {
-        require(asset != address(0), "ThaliumMarginVault: Invalid asset");
-        require(maxLeverage <= MAX_LEVERAGE, "ThaliumMarginVault: Leverage too high");
-        require(liquidationThreshold > 0 && liquidationThreshold < PRECISION, "ThaliumMarginVault: Invalid threshold");
+        if (asset == address(0)) revert InvalidAsset();
+        if (maxLeverage > MAX_LEVERAGE) revert LeverageTooHigh();
+        if (liquidationThreshold == 0 || liquidationThreshold >= PRECISION) revert InvalidThreshold();
 
         supportedAssets[asset] = true;
         assetMaxLeverage[asset] = maxLeverage;
@@ -477,7 +498,7 @@ contract ThaliumMarginVault is AccessControl, Pausable, ReentrancyGuard {
      * @param asset Asset address
      */
     function removeSupportedAsset(address asset) external onlyRole(MARGIN_ADMIN_ROLE) {
-        require(asset != address(0), "ThaliumMarginVault: Invalid asset");
+        if (asset == address(0)) revert InvalidAsset();
         supportedAssets[asset] = false;
     }
 
@@ -486,7 +507,7 @@ contract ThaliumMarginVault is AccessControl, Pausable, ReentrancyGuard {
      * @param penalty New penalty (in basis points)
      */
     function setLiquidationPenalty(uint256 penalty) external onlyRole(MARGIN_ADMIN_ROLE) {
-        require(penalty <= 1000, "ThaliumMarginVault: Penalty too high"); // Max 10%
+        if (penalty > 1000) revert PenaltyTooHigh(); // Max 10%
         liquidationPenalty = penalty;
     }
 

@@ -55,7 +55,7 @@ export interface User {
   permissions: Permission[];
   tenantId: string;
   passwordHash?: string; // Internal field for authentication
-  zitadelId?: string; // Zitadel user ID (links to Zitadel identity)
+  authentikId?: string; // Authentik user ID (links to Authentik identity)
 }
 
 export interface Address {
@@ -130,7 +130,7 @@ export interface AuthResponse {
 export type SessionChannel = 'direct' | 'broker';
 
 export interface AuthContext {
-  provider: 'keycloak' | 'internal-jwt';
+  provider: 'authentik' | 'internal-jwt';
   channel: SessionChannel;
   brokerId?: string;
   brokerSlug?: string;
@@ -160,7 +160,7 @@ export interface JWTPayload {
   customerId?: string;
   mandateScopes?: string[];
   sessionType?: string;
-  authProvider?: 'keycloak' | 'internal-jwt';
+  authProvider?: 'authentik' | 'internal-jwt';
   issuer?: string;
   audience?: string[];
   permissions: Permission[];
@@ -341,7 +341,7 @@ export interface SMTPConfig {
 export interface AppConfig {
   port: number;
   env: 'development' | 'staging' | 'production';
-  authProvider?: 'keycloak' | 'internal-jwt';
+  authProvider?: 'authentik' | 'internal-jwt';
   cors: {
     origin: string[];
     credentials: boolean;
@@ -387,11 +387,10 @@ export interface AppConfig {
     replicationFactor?: number;
     minInSyncReplicas?: number;
   };
-    keycloak?: {
+  authentik?: {
       issuer?: string;
       jwksUri?: string;
       audience?: string;
-      realm?: string;
       clientId?: string;
     };
     wazuh?: {

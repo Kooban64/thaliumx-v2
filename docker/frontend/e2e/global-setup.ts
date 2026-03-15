@@ -27,8 +27,8 @@ async function globalSetup(_config: FullConfig) {
       console.warn('⚠️ Backend health check returned:', healthResponse.status);
     }
 
-    // Test users are now provisioned in Keycloak, not via backend API.
-    console.log('ℹ️ Test users provisioned in Keycloak.');
+    // Test users are now provisioned in Authentik, not via backend API.
+    console.log('ℹ️ Test users provisioned in Authentik.');
 
     console.log('✅ Global setup completed successfully');
   } catch (error: any) {

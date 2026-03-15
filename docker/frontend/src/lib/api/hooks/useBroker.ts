@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api/client';
-import { getKeycloakToken } from '@/lib/auth/backend-auth';
+import { getAuthToken } from '@/lib/auth/backend-auth';
 
 // Define types for broker-related data
 interface BrokerDashboardData {
@@ -742,7 +742,7 @@ export function useUpdateBrokerBranding() {
         method: 'PUT',
         body: formData,
         headers: {
-          'Authorization': `Bearer ${typeof window !== 'undefined' ? getKeycloakToken() || '' : ''}`,
+          'Authorization': `Bearer ${typeof window !== 'undefined' ? getAuthToken() || '' : ''}`,
         },
       });
 

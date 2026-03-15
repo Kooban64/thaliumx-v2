@@ -230,7 +230,7 @@ main() {
 
   # Services (produce both <name>.crt/.key and server.crt/server.key)
   generate_leaf "vault" "thaliumx-vault" "DNS:thaliumx-vault,DNS:vault,DNS:localhost,IP:127.0.0.1"
-  generate_leaf "keycloak" "thaliumx-keycloak" "DNS:thaliumx-keycloak,DNS:keycloak,DNS:localhost,IP:127.0.0.1"
+  generate_leaf "Authentik" "thaliumx-Authentik" "DNS:thaliumx-Authentik,DNS:Authentik,DNS:localhost,IP:127.0.0.1"
   generate_leaf "postgres" "thaliumx-postgres" "DNS:thaliumx-postgres,DNS:postgres,DNS:localhost,IP:127.0.0.1"
   generate_leaf "redis" "thaliumx-redis" "DNS:thaliumx-redis,DNS:redis,DNS:localhost,IP:127.0.0.1"
   generate_leaf "mongodb" "thaliumx-mongodb" "DNS:thaliumx-mongodb,DNS:mongodb,DNS:localhost,IP:127.0.0.1"

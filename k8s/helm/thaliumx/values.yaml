@@ -382,13 +382,13 @@ kafka:
       enabled: true
 
 # ============================================
-# Keycloak
+# Authentik (Legacy - retained during Authentik migration)
 # ============================================
-keycloak:
+Authentik:
   enabled: true
   auth:
     adminUser: admin
-    existingSecret: keycloak-secret
+    existingSecret: Authentik-secret
     passwordSecretKey: admin-password
   production: true
   proxy: edge
@@ -405,9 +405,79 @@ keycloak:
   externalDatabase:
     host: postgresql
     port: 5432
-    database: keycloak
-    existingSecret: keycloak-db-secret
+    database: Authentik
+    existingSecret: Authentik-db-secret
     existingSecretPasswordKey: password
+
+# ============================================
+# Authentik (Primary OIDC Provider)
+# ============================================
+authentik:
+  enabled: false  # Enable after initial setup
+  replicaCount: 1
+  image:
+    repository: authentik/server
+    tag: "2024.10.2"
+    pullPolicy: IfNotPresent
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: gp3
+  postgresql:
+    enabled: true
+    auth:
+      existingSecret: authentik-postgres-secret
+      secretKeys:
+        passwordKey: password
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: gp3
+  redis:
+    enabled: true  # Requires external Redis
+    existingSecret: authentik-redis-secret
+  env:
+    # Authentik settings
+    AUTHENTIK_PORT: "9000"
+    AUTHENTIK_LISTEN: "0.0.0.0:9000"
+    # Set these via secrets
+    # AUTHENTIK_SECRET_KEY: <set via secret>
+    # AUTHENTIK_EMAIL_HOST: smtp.example.com
+    # AUTHENTIK_EMAIL_PORT: "587"
+    # AUTHENTIK_EMAIL_USE_TLS: "true"
+    # AUTHENTIK_EMAIL_FROM: authentik@thaliumx.com
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  service:
+    type: ClusterIP
+    port: 9000
+  livenessProbe:
+    httpGet:
+      path: /health/live/
+      port: 9000
+    initialDelaySeconds: 60
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /health/ready/
+      port: 9000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  worker:
+    enabled: true
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
 
 # ============================================
 # Vault Integration

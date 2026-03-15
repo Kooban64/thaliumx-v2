@@ -17,7 +17,7 @@ module.exports = {
     node: true,
     jest: true,
   },
-  ignorePatterns: ['.eslintrc.js', 'dist/', 'node_modules/', 'src/types/database.ts'],
+  ignorePatterns: ['.eslintrc.js', 'dist/', 'node_modules/'],
   rules: {
     // TypeScript strict rules
     '@typescript-eslint/explicit-function-return-type': 'error',

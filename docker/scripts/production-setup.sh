@@ -36,7 +36,7 @@ print_error() {
 
 # Step 1: Create data directories
 print_status "Creating persistent data directories..."
-sudo mkdir -p "$DATA_DIR"/{postgres,redis,mongodb,vault,vault-logs,vault-file,opa,keycloak,prometheus,grafana,loki,etcd,apisix-logs,kafka,typesense,citus-coordinator,citus-worker1,citus-worker2,dingir,dingir-logs,liquibook,liquibook-logs,quantlib,quantlib-cache,quantlib-models,alertmanager,tempo,wazuh-indexer,wazuh-api-config,wazuh-etc,wazuh-logs,wazuh-queue,wazuh-multigroups,wazuh-integrations,wazuh-active-response,wazuh-agentless,wazuh-wodles,filebeat-etc,filebeat-var,wazuh-dashboard-config,wazuh-dashboard-custom,ballerine-postgres,blnkfinance,timescaledb,support-postgres,graphql-cache} 2>/dev/null || true
+sudo mkdir -p "$DATA_DIR"/{postgres,redis,mongodb,vault,vault-logs,vault-file,opa,Authentik,prometheus,grafana,loki,etcd,apisix-logs,kafka,typesense,citus-coordinator,citus-worker1,citus-worker2,dingir,dingir-logs,liquibook,liquibook-logs,quantlib,quantlib-cache,quantlib-models,alertmanager,tempo,wazuh-indexer,wazuh-api-config,wazuh-etc,wazuh-logs,wazuh-queue,wazuh-multigroups,wazuh-integrations,wazuh-active-response,wazuh-agentless,wazuh-wodles,filebeat-etc,filebeat-var,wazuh-dashboard-config,wazuh-dashboard-custom,ballerine-postgres,blnkfinance,timescaledb,support-postgres,graphql-cache} 2>/dev/null || true
 sudo chown -R "$USER:$USER" /opt/thaliumx 2>/dev/null || true
 print_status "Data directories created"
 
@@ -62,7 +62,7 @@ docker compose -f compose.yaml up -d postgres mongodb redis typesense
 docker compose -f compose.yaml up -d citus-coordinator citus-worker-1 citus-worker-2
 docker compose -f compose.yaml up -d timescaledb support-postgres
 docker compose -f compose.yaml up -d kafka schema-registry
-docker compose -f compose.yaml up -d keycloak vault opa
+docker compose -f compose.yaml up -d Authentik vault opa
 
 # Wait for infrastructure to be healthy
 print_status "Waiting for infrastructure services to be healthy..."

@@ -4,6 +4,27 @@
 
 import type { CoordinatorConfig } from '../types/coordinator';
 
+function hasNonEmptyValue(value: string | undefined): value is string {
+  return value !== undefined && value.trim().length > 0;
+}
+
+function parseJsonRecord(value: string, envKey: string): Record<string, string> {
+  const parsed: unknown = JSON.parse(value);
+
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`Environment variable ${envKey} must be a JSON object`);
+  }
+
+  const entries = Object.entries(parsed);
+  for (const [entryKey, entryValue] of entries) {
+    if (typeof entryValue !== 'string') {
+      throw new Error(`Environment variable ${envKey} must contain only string values. Invalid key: ${entryKey}`);
+    }
+  }
+
+  return Object.fromEntries(entries) as Record<string, string>;
+}
+
 /**
  * Get environment variable with optional default
  */
@@ -69,12 +90,8 @@ function getEnvArray(key: string, defaultValue?: string[]): string[] {
  */
 function parseSubmissionEndpoints(): Record<string, string> {
   const endpointsJson = process.env['REGULATORY_SUBMISSION_ENDPOINTS'];
-  if (endpointsJson) {
-    try {
-      return JSON.parse(endpointsJson) as Record<string, string>;
-    } catch {
-      // Fall back to empty object
-    }
+  if (hasNonEmptyValue(endpointsJson)) {
+    return parseJsonRecord(endpointsJson, 'REGULATORY_SUBMISSION_ENDPOINTS');
   }
   return {};
 }

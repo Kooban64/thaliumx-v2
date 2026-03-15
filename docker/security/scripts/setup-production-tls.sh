@@ -2,7 +2,7 @@
 # ===========================================
 # ThaliumX Production TLS Setup Script
 # ===========================================
-# This script generates TLS certificates for Vault and Zitadel
+# This script generates TLS certificates for Vault and Keycloak
 # For production, replace with certificates from a trusted CA
 
 set -e
@@ -10,7 +10,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="${SCRIPT_DIR}/../config"
 VAULT_TLS_DIR="${CONFIG_DIR}/vault/tls"
-ZITADEL_TLS_DIR="${CONFIG_DIR}/zitadel/tls"
+AUTHENTIK_TLS_DIR="${CONFIG_DIR}/Authentik/tls"
 
 # Certificate validity (days)
 CA_VALIDITY=3650  # 10 years
@@ -28,7 +28,7 @@ echo ""
 
 # Create directories
 mkdir -p "${VAULT_TLS_DIR}"
-mkdir -p "${ZITADEL_TLS_DIR}"
+mkdir -p "${AUTHENTIK_TLS_DIR}"
 
 # ===========================================
 # Generate CA Certificate
@@ -111,26 +111,26 @@ chmod 644 "${VAULT_TLS_DIR}/ca.crt"
 echo "Vault certificate generated: ${VAULT_CERT}"
 
 # ===========================================
-# Generate Zitadel Certificate
+# Generate Keycloak Certificate
 # ===========================================
 echo ""
-echo "Generating Zitadel certificate..."
+echo "Generating Keycloak certificate..."
 
-ZITADEL_KEY="${ZITADEL_TLS_DIR}/tls.key"
-ZITADEL_CSR="${ZITADEL_TLS_DIR}/tls.csr"
-ZITADEL_CERT="${ZITADEL_TLS_DIR}/tls.crt"
-ZITADEL_EXT="${ZITADEL_TLS_DIR}/zitadel.ext"
+AUTHENTIK_KEY="${AUTHENTIK_TLS_DIR}/tls.key"
+AUTHENTIK_CSR="${AUTHENTIK_TLS_DIR}/tls.csr"
+AUTHENTIK_CERT="${AUTHENTIK_TLS_DIR}/tls.crt"
+AUTHENTIK_EXT="${AUTHENTIK_TLS_DIR}/Authentik.ext"
 
-# Create extension file for Zitadel
-cat > "${ZITADEL_EXT}" << EOF
+# Create extension file for Keycloak
+cat > "${AUTHENTIK_EXT}" << EOF
 authorityKeyIdentifier=keyid,issuer
 basicConstraints=CA:FALSE
 keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
 subjectAltName = @alt_names
 
 [alt_names]
-DNS.1 = thaliumx-zitadel
-DNS.2 = zitadel
+DNS.1 = thaliumx-Authentik
+DNS.2 = Authentik
 DNS.3 = localhost
 DNS.4 = auth.thaliumx.local
 DNS.5 = auth.thaliumx.com
@@ -139,33 +139,33 @@ IP.2 = 0.0.0.0
 EOF
 
 # Generate key and CSR
-openssl genrsa -out "${ZITADEL_KEY}" 2048
+openssl genrsa -out "${AUTHENTIK_KEY}" 2048
 
 openssl req -new \
-    -key "${ZITADEL_KEY}" \
-    -out "${ZITADEL_CSR}" \
-    -subj "/C=${COUNTRY}/ST=${STATE}/L=${LOCALITY}/O=${ORGANIZATION}/OU=${ORG_UNIT}/CN=thaliumx-zitadel"
+    -key "${AUTHENTIK_KEY}" \
+    -out "${AUTHENTIK_CSR}" \
+    -subj "/C=${COUNTRY}/ST=${STATE}/L=${LOCALITY}/O=${ORGANIZATION}/OU=${ORG_UNIT}/CN=thaliumx-Authentik"
 
 # Sign with CA
 openssl x509 -req \
-    -in "${ZITADEL_CSR}" \
+    -in "${AUTHENTIK_CSR}" \
     -CA "${CA_CERT}" \
     -CAkey "${CA_KEY}" \
     -CAcreateserial \
-    -out "${ZITADEL_CERT}" \
+    -out "${AUTHENTIK_CERT}" \
     -days ${CERT_VALIDITY} \
     -sha256 \
-    -extfile "${ZITADEL_EXT}"
+    -extfile "${AUTHENTIK_EXT}"
 
-# Copy CA cert to Zitadel TLS dir
-cp "${CA_CERT}" "${ZITADEL_TLS_DIR}/ca.crt"
+# Copy CA cert to Keycloak TLS dir
+cp "${CA_CERT}" "${AUTHENTIK_TLS_DIR}/ca.crt"
 
 # Set permissions
-chmod 600 "${ZITADEL_KEY}"
-chmod 644 "${ZITADEL_CERT}"
-chmod 644 "${ZITADEL_TLS_DIR}/ca.crt"
+chmod 600 "${AUTHENTIK_KEY}"
+chmod 644 "${AUTHENTIK_CERT}"
+chmod 644 "${AUTHENTIK_TLS_DIR}/ca.crt"
 
-echo "Zitadel certificate generated: ${ZITADEL_CERT}"
+echo "Keycloak certificate generated: ${AUTHENTIK_CERT}"
 
 # ===========================================
 # Summary
@@ -177,8 +177,8 @@ echo "Generated files:"
 echo "  CA Certificate:       ${CA_CERT}"
 echo "  Vault Certificate:    ${VAULT_CERT}"
 echo "  Vault Key:            ${VAULT_KEY}"
-echo "  Zitadel Certificate:  ${ZITADEL_CERT}"
-echo "  Zitadel Key:          ${ZITADEL_KEY}"
+echo "  Keycloak Certificate: ${AUTHENTIK_CERT}"
+echo "  Keycloak Key:         ${AUTHENTIK_KEY}"
 echo ""
 echo "IMPORTANT: For production deployment:"
 echo "  1. Replace these self-signed certificates with certificates from a trusted CA"

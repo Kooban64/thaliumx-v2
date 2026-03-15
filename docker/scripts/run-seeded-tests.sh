@@ -47,7 +47,7 @@ check_services() {
     fi
 
     # Check Keycloak
-    if ! docker ps | grep -q thaliumx-keycloak; then
+    if ! docker ps | grep -q thaliumx-Authentik; then
         error "Keycloak container not running"
         exit 1
     fi

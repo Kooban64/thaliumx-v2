@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { PolicyViolationAlert } from './PolicyViolationAlert';
-import { getKeycloakToken } from '@/lib/auth/backend-auth';
+import { getAuthToken } from '@/lib/auth/backend-auth';
 import apiClient from '@/lib/api/client';
 
 interface ProfilePayload {
@@ -21,7 +21,7 @@ export function PolicyViolationAlertContainer() {
     
     const fetchUserId = async () => {
       try {
-        const token = getKeycloakToken();
+        const token = getAuthToken();
         if (token) {
           const profileRes = await apiClient.get<ProfilePayload>('/api/auth/profile');
           const currentUserId = profileRes.data?.user?.id || profileRes.data?.id;

@@ -386,7 +386,7 @@ const getStringArrayClaim = (decoded: Record<string, unknown>, ...keys: string[]
 
 
 const getAllowedIssuers = (): string[] => {
-  // Comma-separated allowlist. If unset, default to Keycloak issuer only.
+  // Comma-separated allowlist. If unset, default to internal JWT issuer only.
   const raw = (process.env.OIDC_ALLOWED_ISSUERS || '').trim();
   const list = raw
     ? raw
@@ -396,25 +396,25 @@ const getAllowedIssuers = (): string[] => {
         .map(normalizeIssuer)
     : [];
 
-  return list.length ? Array.from(new Set(list)) : [getKeycloakIssuerDefault()];
+  // Default to internal JWT issuer if no issuers configured
+  const defaultIssuer = process.env.JWT_ISSUER || 'thaliumx-platform';
+  return list.length ? Array.from(new Set(list)) : [defaultIssuer];
 };
 
-const getKeycloakIssuerDefault = (): string => {
-  const explicitIssuer = (process.env.KEYCLOAK_ISSUER || '').trim();
+const getAuthentikIssuerDefault = (): string => {
+  const explicitIssuer = (process.env.AUTHENTIK_ISSUER || '').trim();
   if (explicitIssuer) return normalizeIssuer(explicitIssuer);
 
-  const keycloakUrl = (process.env.KEYCLOAK_URL || '').trim();
-  const realm = (process.env.KEYCLOAK_REALM || 'thaliumx').trim();
-  if (!keycloakUrl) {
-    return normalizeIssuer(`https://auth.thaliumx.com/realms/${realm}`);
-  }
-  return normalizeIssuer(`${normalizeIssuer(keycloakUrl)}/realms/${realm}`);
+  // Default Authentik issuer for ThaliumX
+  return normalizeIssuer('https://thaliumx.com/application/o/thaliumx/');
 };
 
 const getExpectedAudience = (): string[] => {
   const values = [
-    process.env.KEYCLOAK_AUDIENCE,
-    process.env.KEYCLOAK_CLIENT_ID,
+    process.env.AUTHENTIK_AUDIENCE,
+    process.env.AUTHENTIK_CLIENT_ID,
+    process.env.AUTHENTIK_AUDIENCE,
+    process.env.AUTHENTIK_CLIENT_ID,
   ]
     .filter((v): v is string => typeof v === 'string')
     .map(v => v.trim())
@@ -423,15 +423,26 @@ const getExpectedAudience = (): string[] => {
   return Array.from(new Set(values));
 };
 
-const getJwtVerificationProvider = () => {
-  const keycloakIssuer = getKeycloakIssuerDefault();
-  const keycloakJwks =
-    (process.env.KEYCLOAK_JWKS_URI || '').trim() || `${keycloakIssuer}/protocol/openid-connect/certs`;
+const getJwtVerificationProvider = (): { name: 'internal-jwt' | 'authentik'; issuer: string; jwksUri: string } => {
+  // Check if Authentik JWT is explicitly enabled
+  const useAuthentik = (process.env.USE_AUTHENTIK_JWT || 'false').trim().toLowerCase() === 'true';
+  
+  if (useAuthentik) {
+    const authentikIssuer = getAuthentikIssuerDefault();
+    const authentikJwks = (process.env.AUTHENTIK_JWKS_URI || '').trim() || 
+      `${authentikIssuer}jwks/`;
+    return {
+      name: 'authentik' as const,
+      issuer: authentikIssuer,
+      jwksUri: authentikJwks,
+    };
+  }
 
+  // Default to internal JWT
   return {
-    name: 'keycloak' as const,
-    issuer: keycloakIssuer,
-    jwksUri: keycloakJwks,
+    name: 'internal-jwt' as const,
+    issuer: process.env.JWT_ISSUER || 'thaliumx-platform',
+    jwksUri: '', // Internal JWT doesn't need JWKS
   };
 };
 
@@ -450,7 +461,7 @@ const enforceContextInvariants = (
     channel: SessionChannel;
     brokerId?: string;
     brokerSlug?: string;
-    provider: 'keycloak' | 'internal-jwt';
+    provider: 'Authentik' | 'authentik' | 'internal-jwt';
   },
 ): void => {
   const allowDirectBrokerContext = (process.env.AUTH_ALLOW_DIRECT_BROKER_CONTEXT || 'false')
@@ -502,7 +513,7 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Token authentication - supports Keycloak OIDC tokens and internal JWT tokens.
+    // Token authentication - supports Authentik OIDC tokens and internal JWT tokens.
     // Tokens are stored in frontend memory and sent via Authorization header (high security).
     const authHeader = req.headers.authorization;
     const bearer = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
@@ -527,7 +538,7 @@ export const authenticateToken = async (
     const isOidcToken = !!(issuerNorm && configuredIssuers.has(issuerNorm));
 
     // ------------------------------
-    // Keycloak OIDC token verification
+    // Authentik OIDC token verification
     // ------------------------------
     if (isOidcToken) {
       const jwksUri = verificationProvider.jwksUri;
@@ -550,14 +561,26 @@ export const authenticateToken = async (
       }
       
       await new Promise((resolve, reject) => {
+        const expectedAudiences = getExpectedAudience();
+
+        // Build JWT verification options - include audience validation for security
+        const jwtVerifyOptions: jwt.VerifyOptions = {
+          algorithms: ['RS256'],
+          // Accept normalized issuer and one trailing-slash variant only.
+          issuer: issuers.length === 1 ? issuers[0] : issuers as [string, ...string[]],
+        };
+
+        // Add audience validation to JWT verification to prevent token substitution attacks
+        // Only validate if expected audiences are configured
+        if (expectedAudiences.length > 0) {
+          // Cast to the required tuple type for jsonwebtoken
+          jwtVerifyOptions.audience = expectedAudiences as [string, ...string[]];
+        }
+
         jwt.verify(
           token,
           getKey,
-          {
-            algorithms: ['RS256'],
-            // Accept normalized issuer and one trailing-slash variant only.
-            issuer: issuers.length === 1 ? issuers[0] : issuers as [string, ...string[]],
-          },
+          jwtVerifyOptions,
           (err: Error | null, payload: any) => {
             if (err) return reject(err);
             resolve(payload);
@@ -661,7 +684,7 @@ export const authenticateToken = async (
           result: 'success',
           ip: req.ip || req.socket.remoteAddress,
           userAgent: req.headers['user-agent'],
-          method: 'keycloak_oidc',
+          method: 'Authentik_oidc',
           mfaUsed: false, // MFA status would come from token claims if available
         });
       } catch (logError) {
@@ -756,7 +779,7 @@ export const authenticateToken = async (
         reason: error instanceof Error ? error.message : 'unknown_error',
         ip: req.ip || req.socket.remoteAddress,
         userAgent: req.headers['user-agent'],
-        method: 'keycloak_oidc',
+        method: 'Authentik_oidc',
       });
     } catch {
       // Ignore audit log errors
@@ -1064,27 +1087,48 @@ export const xssProtection = (req: Request, res: Response, next: NextFunction): 
 // API KEY VALIDATION MIDDLEWARE
 // =============================================================================
 
-export const validateApiKey = (req: Request, _res: Response, next: NextFunction): void => {
-  const apiKey = req.headers['x-api-key'] as string;
+import { apiKeyRateLimiter } from './rate-limiter';
 
-  if (!apiKey) {
-    return next(createError('API key required', 401, 'MISSING_API_KEY'));
-  }
+export const validateApiKey = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  // Apply rate limiting for API key validation attempts (10 per minute per IP)
+  // This should be called before any validation logic to prevent brute-force attacks
+  return apiKeyRateLimiter(req, res, async () => {
+    const apiKey = req.headers['x-api-key'] as string;
 
-  // In production, validate against database or cache
-  // For now, accept any key (this should be replaced with proper validation)
-  const validKeys = process.env.VALID_API_KEYS?.split(',') || [];
-  if (!validKeys.includes(apiKey)) {
-    LoggerService.warn('Invalid API key attempt', {
-      ip: req.ip,
-      url: req.url,
-      apiKey: apiKey.substring(0, 8) + '...' // Log partial key for debugging
-    });
+    if (!apiKey) {
+      return next(createError('API key required', 401, 'MISSING_API_KEY'));
+    }
 
-    return next(createError('Invalid API key', 401, 'INVALID_API_KEY'));
-  }
+    try {
+      // Validate the API key against the database
+      const { ApiKeyService } = await import('../services/api-key');
+      const validatedKey = await ApiKeyService.validateKey(apiKey, req.ip);
 
-  next();
+      // Attach validated key info to request for downstream use
+      (req as any).apiKey = {
+        id: validatedKey.id,
+        name: validatedKey.name,
+        userId: validatedKey.userId,
+        tenantId: validatedKey.tenantId,
+        brokerId: validatedKey.brokerId,
+        scopes: validatedKey.scopes,
+        rateLimit: validatedKey.rateLimit
+      };
+
+      next();
+    } catch (error: any) {
+      // Log the failed API key attempt
+      LoggerService.warn('API key validation failed', {
+        ip: req.ip,
+        url: req.url,
+        userAgent: req.get('User-Agent'),
+        errorCode: error.code || 'UNKNOWN'
+      });
+
+      // Pass the error to the error handler
+      next(error);
+    }
+  });
 };
 
 // =============================================================================

@@ -28,8 +28,8 @@ export default function LandingPage() {
     (async () => {
       try {
         // Only check if we have a token in memory (no API call if no token)
-        const { getKeycloakToken } = await import('@/lib/auth/backend-auth');
-        const token = getKeycloakToken();
+        const { getAuthToken } = await import('@/lib/auth/backend-auth');
+        const token = getAuthToken();
         if (token) {
           // Only make API call if we have a token
           const auth = await checkBackendAuth();
@@ -117,7 +117,7 @@ export default function LandingPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>1) Authenticate</CardTitle>
-                  <CardDescription>SSO via OIDC (Zitadel)</CardDescription>
+                  <CardDescription>SSO via OIDC (Authentik)</CardDescription>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
                   Your session is managed centrally and API requests use Bearer tokens.

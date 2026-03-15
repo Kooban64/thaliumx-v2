@@ -56,7 +56,7 @@ modules:
       tls: true
       preferred_ip_protocol: "ip4"
 
-  zitadel_health:
+  Authentik_health:
     prober: http
     timeout: 5s
     http:

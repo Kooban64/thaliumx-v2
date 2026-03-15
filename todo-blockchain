@@ -1,0 +1,7 @@
+Recommendations:
+Implement Multi-Sig: Add Gnosis Safe or similar multi-sig for DEFAULT_ADMIN_ROLE
+Add Timelock: Implement OpenZeppelin TimelockController for admin actions
+On-Chain Whitelist: Consider Merkle tree or mapping-based whitelist
+Signature Verification: Add EIP-712 signature verification for KYC'd purchasers
+Emergency Roles: Separate EMERGENCY_ROLE from DEFAULT_ADMIN_ROLE
+Auditable Role Grants: Add events/logging for role changes beyond what OpenZeppelin provides

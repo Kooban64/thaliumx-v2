@@ -8,7 +8,7 @@
  * - Service health status aggregation
  * - Database connection status
  * - Redis connection status
- * - Zitadel realm information
+ * - Authentik realm information
  * - RBAC statistics
  * - DEX service status
  * - Exchange service status
@@ -84,7 +84,7 @@ export class DashboardService {
     const services = {
       database: DatabaseService.isConnected(),
       redis: RedisService.isConnected(),
-      zitadel: true, // Zitadel health is managed at infrastructure level
+      authentik: true, // Authentik health is managed at infrastructure level
       rbac: RBACService.isHealthy(),
       dex: DEXService.isHealthy(),
       cex: NativeCEXService ? true : false,

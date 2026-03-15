@@ -443,7 +443,7 @@ export interface ServiceHealth {
     latency: number;
   };
   redis: {
-    status: 'connected' | 'disconnected';
+    status: 'connected' | 'degraded' | 'disconnected';
     latency: number;
   };
   kafka: {
@@ -451,7 +451,7 @@ export interface ServiceHealth {
     topics: string[];
   };
   blockchain: {
-    status: 'connected' | 'disconnected';
+    status: 'connected' | 'degraded' | 'disconnected';
     chains: Array<{
       chainId: number;
       name: string;

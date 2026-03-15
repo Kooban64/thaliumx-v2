@@ -3,7 +3,68 @@
  * Environment-based configuration management
  */
 
-import { NFTComplianceConfig } from '../types/compliance';
+import type { NFTComplianceConfig } from '../types/compliance';
+
+function hasNonEmptyValue(value: string | undefined): value is string {
+  return value !== undefined && value.trim().length > 0;
+}
+
+function parseJsonRecord(value: string, envKey: string): Record<string, string> {
+  const parsed: unknown = JSON.parse(value);
+
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`Environment variable ${envKey} must be a JSON object`);
+  }
+
+  const entries = Object.entries(parsed);
+  for (const [entryKey, entryValue] of entries) {
+    if (typeof entryValue !== 'string') {
+      throw new Error(`Environment variable ${envKey} must contain only string values. Invalid key: ${entryKey}`);
+    }
+  }
+
+  return Object.fromEntries(entries) as Record<string, string>;
+}
+
+function parseProvidersJson(value: string): NFTComplianceConfig['blockchain']['providers'] {
+  const parsed: unknown = JSON.parse(value);
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('Environment variable BLOCKCHAIN_PROVIDERS must be a JSON array');
+  }
+
+  return parsed.map((provider, index) => {
+    if (provider === null || typeof provider !== 'object' || Array.isArray(provider)) {
+      throw new Error(`BLOCKCHAIN_PROVIDERS[${index}] must be an object`);
+    }
+
+    const candidate = provider as Record<string, unknown>;
+    const { chainId, name, rpcUrl, wsUrl } = candidate;
+
+    if (typeof chainId !== 'number' || !Number.isInteger(chainId)) {
+      throw new Error(`BLOCKCHAIN_PROVIDERS[${index}].chainId must be an integer`);
+    }
+
+    if (typeof name !== 'string' || name.trim().length === 0) {
+      throw new Error(`BLOCKCHAIN_PROVIDERS[${index}].name must be a non-empty string`);
+    }
+
+    if (typeof rpcUrl !== 'string' || rpcUrl.trim().length === 0) {
+      throw new Error(`BLOCKCHAIN_PROVIDERS[${index}].rpcUrl must be a non-empty string`);
+    }
+
+    if (wsUrl !== undefined && (typeof wsUrl !== 'string' || wsUrl.trim().length === 0)) {
+      throw new Error(`BLOCKCHAIN_PROVIDERS[${index}].wsUrl must be a non-empty string when provided`);
+    }
+
+    return {
+      chainId,
+      name,
+      rpcUrl,
+      ...(typeof wsUrl === 'string' ? { wsUrl } : {}),
+    };
+  });
+}
 
 /**
  * Get environment variable with optional default
@@ -88,12 +149,8 @@ function getEnvArray(key: string, defaultValue?: string[]): string[] {
  */
 function parseBlockchainProviders(): NFTComplianceConfig['blockchain']['providers'] {
   const providersJson = process.env['BLOCKCHAIN_PROVIDERS'];
-  if (providersJson) {
-    try {
-      return JSON.parse(providersJson);
-    } catch {
-      // Fall back to default providers
-    }
+  if (hasNonEmptyValue(providersJson)) {
+    return parseProvidersJson(providersJson);
   }
 
   // Default providers for common NFT chains
@@ -104,7 +161,7 @@ function parseBlockchainProviders(): NFTComplianceConfig['blockchain']['provider
     chainId: 1,
     name: 'Ethereum Mainnet',
     rpcUrl: getEnv('ETH_RPC_URL', 'https://eth.llamarpc.com'),
-    ...(ethWsUrl ? { wsUrl: ethWsUrl } : {}),
+    ...(hasNonEmptyValue(ethWsUrl) ? { wsUrl: ethWsUrl } : {}),
   });
   
   const polygonWsUrl = process.env['POLYGON_WS_URL'];
@@ -112,7 +169,7 @@ function parseBlockchainProviders(): NFTComplianceConfig['blockchain']['provider
     chainId: 137,
     name: 'Polygon',
     rpcUrl: getEnv('POLYGON_RPC_URL', 'https://polygon.llamarpc.com'),
-    ...(polygonWsUrl ? { wsUrl: polygonWsUrl } : {}),
+    ...(hasNonEmptyValue(polygonWsUrl) ? { wsUrl: polygonWsUrl } : {}),
   });
   
   const arbitrumWsUrl = process.env['ARBITRUM_WS_URL'];
@@ -120,7 +177,7 @@ function parseBlockchainProviders(): NFTComplianceConfig['blockchain']['provider
     chainId: 42161,
     name: 'Arbitrum One',
     rpcUrl: getEnv('ARBITRUM_RPC_URL', 'https://arbitrum.llamarpc.com'),
-    ...(arbitrumWsUrl ? { wsUrl: arbitrumWsUrl } : {}),
+    ...(hasNonEmptyValue(arbitrumWsUrl) ? { wsUrl: arbitrumWsUrl } : {}),
   });
   
   const optimismWsUrl = process.env['OPTIMISM_WS_URL'];
@@ -128,7 +185,7 @@ function parseBlockchainProviders(): NFTComplianceConfig['blockchain']['provider
     chainId: 10,
     name: 'Optimism',
     rpcUrl: getEnv('OPTIMISM_RPC_URL', 'https://optimism.llamarpc.com'),
-    ...(optimismWsUrl ? { wsUrl: optimismWsUrl } : {}),
+    ...(hasNonEmptyValue(optimismWsUrl) ? { wsUrl: optimismWsUrl } : {}),
   });
   
   const bscWsUrl = process.env['BSC_WS_URL'];
@@ -136,7 +193,7 @@ function parseBlockchainProviders(): NFTComplianceConfig['blockchain']['provider
     chainId: 56,
     name: 'BNB Chain',
     rpcUrl: getEnv('BSC_RPC_URL', 'https://bsc.llamarpc.com'),
-    ...(bscWsUrl ? { wsUrl: bscWsUrl } : {}),
+    ...(hasNonEmptyValue(bscWsUrl) ? { wsUrl: bscWsUrl } : {}),
   });
   
   const baseWsUrl = process.env['BASE_WS_URL'];
@@ -144,7 +201,7 @@ function parseBlockchainProviders(): NFTComplianceConfig['blockchain']['provider
     chainId: 8453,
     name: 'Base',
     rpcUrl: getEnv('BASE_RPC_URL', 'https://base.llamarpc.com'),
-    ...(baseWsUrl ? { wsUrl: baseWsUrl } : {}),
+    ...(hasNonEmptyValue(baseWsUrl) ? { wsUrl: baseWsUrl } : {}),
   });
   
   return providers;
@@ -155,12 +212,8 @@ function parseBlockchainProviders(): NFTComplianceConfig['blockchain']['provider
  */
 function parseSubmissionEndpoints(): Record<string, string> {
   const endpointsJson = process.env['REGULATORY_SUBMISSION_ENDPOINTS'];
-  if (endpointsJson) {
-    try {
-      return JSON.parse(endpointsJson);
-    } catch {
-      // Fall back to empty object
-    }
+  if (hasNonEmptyValue(endpointsJson)) {
+    return parseJsonRecord(endpointsJson, 'REGULATORY_SUBMISSION_ENDPOINTS');
   }
   return {};
 }
@@ -192,7 +245,7 @@ export function buildConfig(): NFTComplianceConfig {
     redis: {
       host: getEnv('REDIS_HOST', 'localhost'),
       port: getEnvInt('REDIS_PORT', 6379),
-      ...(process.env['REDIS_PASSWORD'] ? { password: process.env['REDIS_PASSWORD'] } : {}),
+      ...(hasNonEmptyValue(process.env['REDIS_PASSWORD']) ? { password: process.env['REDIS_PASSWORD'] } : {}),
       db: getEnvInt('REDIS_DB', 2), // Different DB from CEX and DEX
     },
 

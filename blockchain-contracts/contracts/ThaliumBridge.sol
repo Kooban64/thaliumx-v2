@@ -1,46 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
-/**
- * @title ThaliumBridge
- * @dev Cross-chain bridge for Thalium token transfers
- *
- * This contract provides secure cross-chain functionality:
- * - Multi-signature validation for transfers
- * - Bridge fee management
- * - Emergency controls
- * - Transfer tracking and verification
- *
- * Security Model:
- * - On-chain: Transfer execution and validation
- * - Off-chain: Multi-sig verification and cross-chain communication
- *
- * @author Thalium Development Team
- */
 contract ThaliumBridge is AccessControl, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
-
-    // ========================================
-    // CONSTANTS
-    // ========================================
-
-    bytes32 public constant BRIDGE_ADMIN_ROLE = keccak256("BRIDGE_ADMIN_ROLE");
-    bytes32 public constant VALIDATOR_ROLE = keccak256("VALIDATOR_ROLE");
-
-    uint256 public constant MIN_VALIDATORS = 3;
-    uint256 public constant MAX_VALIDATORS = 10;
-    uint256 public constant TRANSFER_EXPIRY = 24 hours;
-
-    // ========================================
-    // STRUCTS
-    // ========================================
 
     struct TransferRequest {
         address sender;
@@ -50,425 +20,370 @@ contract ThaliumBridge is AccessControl, Pausable, ReentrancyGuard {
         uint256 targetChainId;
         uint256 nonce;
         uint256 timestamp;
+        uint256 deadline;
         bytes32 transferId;
         bool executed;
-        uint256 validatorCount;
-        mapping(address => bool) validatorApprovals;
     }
 
-    // ========================================
-    // STATE VARIABLES
-    // ========================================
+    bytes32 public constant BRIDGE_ADMIN_ROLE = keccak256("BRIDGE_ADMIN_ROLE");
+    bytes32 public constant VALIDATOR_ROLE = keccak256("VALIDATOR_ROLE");
+    bytes32 public constant TRANSFER_TYPEHASH = keccak256(
+        "BridgeTransfer(bytes32 transferId,address sender,address recipient,uint256 amount,uint256 sourceChainId,uint256 targetChainId,uint256 nonce,uint256 deadline)"
+    );
 
-    IERC20 public immutable thalToken;
+    uint256 public constant MIN_VALIDATORS = 3;
+    uint256 public constant MAX_VALIDATORS = 10;
+    uint256 public constant TRANSFER_EXPIRY = 24 hours;
+    uint256 public constant MAX_BRIDGE_FEE = 1_000 * 10 ** 18;
+
+    IERC20 public immutable THAL_TOKEN;
 
     mapping(bytes32 => TransferRequest) public transferRequests;
     mapping(uint256 => bool) public supportedChains;
-    mapping(address => uint256) public validatorNonces;
+    mapping(address => uint256) public userNonces;
+    mapping(bytes32 => bool) public completedTransferDigests;
 
-    uint256 public bridgeFee; // Fee in THAL tokens
+    uint256 public bridgeFee;
     uint256 public totalTransferred;
     uint256 public totalFeesCollected;
-
-    address[] public validators;
     uint256 public requiredValidators;
 
-    // ========================================
-    // EVENTS
-    // ========================================
+    address[] private validatorList;
+    uint256[] private supportedChainList;
 
     event TransferInitiated(
         bytes32 indexed transferId,
         address indexed sender,
         address indexed recipient,
         uint256 amount,
-        uint256 targetChainId
+        uint256 sourceChainId,
+        uint256 targetChainId,
+        uint256 nonce,
+        uint256 deadline
     );
-
-    event TransferCompleted(
-        bytes32 indexed transferId,
-        address indexed recipient,
-        uint256 amount,
-        uint256 sourceChainId
-    );
-
+    event TransferCompleted(bytes32 indexed transferId, address indexed recipient, uint256 amount, uint256 sourceChainId);
     event ValidatorAdded(address indexed validator);
     event ValidatorRemoved(address indexed validator);
-    event ChainSupportUpdated(uint256 chainId, bool supported);
+    event ChainSupportUpdated(uint256 indexed chainId, bool supported);
     event BridgeFeeUpdated(uint256 newFee);
     event EmergencyPaused(address indexed pauser);
     event EmergencyUnpaused(address indexed unpauser);
 
-    // ========================================
-    // CONSTRUCTOR
-    // ========================================
+    error InvalidAddress();
+    error InvalidAmount();
+    error UnsupportedChain();
+    error SameChainTransfer();
+    error TransferNotFound();
+    error TransferAlreadyExecuted();
+    error TransferExpired();
+    error InvalidSignatureCount();
+    error DuplicateValidator();
+    error SignerNotValidator();
+    error InvalidTransferData();
+    error InvalidBridgeFee();
+    error TooManyValidators();
+    error ValidatorAlreadyExists();
+    error ValidatorDoesNotExist();
+    error MinimumValidatorThresholdBreach();
+    error TransferAlreadyExists();
 
-    /**
-     * @dev Initialize bridge contract
-     * @param thalTokenAddress THAL token contract address
-     * @param defaultAdmin Default admin address
-     * @param bridgeAdmin Bridge admin address
-     * @param initialValidators Array of initial validator addresses
-     */
-    constructor(
-        address thalTokenAddress,
-        address defaultAdmin,
-        address bridgeAdmin,
-        address[] memory initialValidators
-    ) {
-        require(thalTokenAddress != address(0), "ThaliumBridge: Invalid THAL address");
-        require(defaultAdmin != address(0), "ThaliumBridge: Invalid default admin");
-        require(bridgeAdmin != address(0), "ThaliumBridge: Invalid bridge admin");
-        require(
-            initialValidators.length >= MIN_VALIDATORS,
-            "ThaliumBridge: Insufficient initial validators"
-        );
+    constructor(address thalTokenAddress, address defaultAdmin, address bridgeAdmin, address[] memory initialValidators) {
+        if (thalTokenAddress == address(0) || defaultAdmin == address(0) || bridgeAdmin == address(0)) {
+            revert InvalidAddress();
+        }
+        if (initialValidators.length < MIN_VALIDATORS || initialValidators.length > MAX_VALIDATORS) {
+            revert InvalidSignatureCount();
+        }
 
-        thalToken = IERC20(thalTokenAddress);
+        THAL_TOKEN = IERC20(thalTokenAddress);
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(BRIDGE_ADMIN_ROLE, bridgeAdmin);
 
-        // Set up initial validators
         for (uint256 i = 0; i < initialValidators.length; i++) {
-            require(initialValidators[i] != address(0), "ThaliumBridge: Invalid validator");
-            _grantRole(VALIDATOR_ROLE, initialValidators[i]);
-            validators.push(initialValidators[i]);
+            _addValidator(initialValidators[i]);
         }
 
-        requiredValidators = (initialValidators.length * 2) / 3 + 1; // 2/3 majority
-
-        // Initialize supported chains
-        supportedChains[1] = true; // Ethereum
-        supportedChains[56] = true; // BSC
-        supportedChains[137] = true; // Polygon
-        supportedChains[43114] = true; // Avalanche
-
-        bridgeFee = 10 * 10**18; // 10 THAL fee
+        requiredValidators = _calculateRequiredValidators(initialValidators.length);
+        _setChainSupport(1, true);
+        _setChainSupport(56, true);
+        _setChainSupport(137, true);
+        _setChainSupport(43114, true);
+        bridgeFee = 10 * 10 ** 18;
     }
 
-    // ========================================
-    // EXTERNAL FUNCTIONS
-    // ========================================
-
-    /**
-     * @dev Initiate cross-chain transfer
-     * @param recipient Recipient address on target chain
-     * @param amount Amount to transfer
-     * @param targetChainId Target chain ID
-     */
-    function initiateTransfer(
-        address recipient,
-        uint256 amount,
-        uint256 targetChainId
-    )
+    function initiateTransfer(address recipient, uint256 amount, uint256 targetChainId)
         external
         whenNotPaused
         nonReentrant
-        returns (bytes32)
+        returns (bytes32 transferId)
     {
-        require(recipient != address(0), "ThaliumBridge: Invalid recipient");
-        require(amount > 0, "ThaliumBridge: Amount must be positive");
-        require(supportedChains[targetChainId], "ThaliumBridge: Unsupported chain");
-        require(targetChainId != block.chainid, "ThaliumBridge: Cannot transfer to same chain");
+        if (recipient == address(0)) {
+            revert InvalidAddress();
+        }
+        if (amount == 0) {
+            revert InvalidAmount();
+        }
+        if (!supportedChains[targetChainId]) {
+            revert UnsupportedChain();
+        }
+        if (targetChainId == block.chainid) {
+            revert SameChainTransfer();
+        }
 
-        // Check bridge fee
         uint256 totalAmount = amount + bridgeFee;
-        require(
-            thalToken.balanceOf(msg.sender) >= totalAmount,
-            "ThaliumBridge: Insufficient balance"
+        uint256 nonce = userNonces[msg.sender];
+        uint256 deadline = block.timestamp + TRANSFER_EXPIRY;
+
+        transferId = keccak256(
+            abi.encodePacked(msg.sender, recipient, amount, block.chainid, targetChainId, nonce, deadline)
         );
 
-        // Generate transfer ID
-        uint256 nonce = validatorNonces[msg.sender]++;
-        bytes32 transferId = keccak256(
-            abi.encodePacked(
-                msg.sender,
-                recipient,
-                amount,
-                block.chainid,
-                targetChainId,
-                nonce,
-                block.timestamp
-            )
-        );
+        if (transferRequests[transferId].timestamp != 0) {
+            revert TransferAlreadyExists();
+        }
 
-        // Create transfer request
-        TransferRequest storage request = transferRequests[transferId];
-        require(request.timestamp == 0, "ThaliumBridge: Transfer ID collision");
+        transferRequests[transferId] = TransferRequest({
+            sender: msg.sender,
+            recipient: recipient,
+            amount: amount,
+            sourceChainId: block.chainid,
+            targetChainId: targetChainId,
+            nonce: nonce,
+            timestamp: block.timestamp,
+            deadline: deadline,
+            transferId: transferId,
+            executed: false
+        });
 
-        request.sender = msg.sender;
-        request.recipient = recipient;
-        request.amount = amount;
-        request.sourceChainId = block.chainid;
-        request.targetChainId = targetChainId;
-        request.nonce = nonce;
-        request.timestamp = block.timestamp;
-        request.transferId = transferId;
-        request.executed = false;
-        request.validatorCount = 0;
-
-        // Transfer tokens to bridge
-        thalToken.safeTransferFrom(msg.sender, address(this), totalAmount);
-
-        // Update totals
+        userNonces[msg.sender] = nonce + 1;
+        THAL_TOKEN.safeTransferFrom(msg.sender, address(this), totalAmount);
         totalTransferred += amount;
         totalFeesCollected += bridgeFee;
 
-        emit TransferInitiated(transferId, msg.sender, recipient, amount, targetChainId);
-
-        return transferId;
+        emit TransferInitiated(transferId, msg.sender, recipient, amount, block.chainid, targetChainId, nonce, deadline);
     }
 
-    /**
-     * @dev Complete cross-chain transfer (called by validators)
-     * @param transferId Transfer ID to complete
-     * @param recipient Recipient address
-     * @param amount Transfer amount
-     * @param sourceChainId Source chain ID
-     */
     function completeTransfer(
         bytes32 transferId,
+        address sender,
         address recipient,
         uint256 amount,
-        uint256 sourceChainId
-    )
-        external
-        onlyRole(VALIDATOR_ROLE)
-        whenNotPaused
-        nonReentrant
-    {
+        uint256 sourceChainId,
+        uint256 targetChainId,
+        uint256 nonce,
+        uint256 deadline,
+        bytes[] calldata signatures
+    ) external whenNotPaused nonReentrant {
         TransferRequest storage request = transferRequests[transferId];
-        require(request.timestamp > 0, "ThaliumBridge: Transfer not found");
-        require(!request.executed, "ThaliumBridge: Already executed");
-        require(request.recipient == recipient, "ThaliumBridge: Recipient mismatch");
-        require(request.amount == amount, "ThaliumBridge: Amount mismatch");
-        require(request.sourceChainId == sourceChainId, "ThaliumBridge: Chain mismatch");
-        require(
-            block.timestamp <= request.timestamp + TRANSFER_EXPIRY,
-            "ThaliumBridge: Transfer expired"
-        );
-
-        // Check validator hasn't already approved
-        require(
-            !request.validatorApprovals[msg.sender],
-            "ThaliumBridge: Already approved by validator"
-        );
-
-        // Record approval
-        request.validatorApprovals[msg.sender] = true;
-        request.validatorCount++;
-
-        // Execute transfer if enough validators
-        if (request.validatorCount >= requiredValidators) {
-            request.executed = true;
-
-            // Transfer tokens to recipient
-            thalToken.safeTransfer(recipient, amount);
-
-            emit TransferCompleted(transferId, recipient, amount, sourceChainId);
+        if (request.timestamp == 0) {
+            revert TransferNotFound();
         }
+        if (request.executed) {
+            revert TransferAlreadyExecuted();
+        }
+        if (block.timestamp > deadline || block.timestamp > request.deadline) {
+            revert TransferExpired();
+        }
+        if (
+            request.sender != sender ||
+            request.recipient != recipient ||
+            request.amount != amount ||
+            request.sourceChainId != sourceChainId ||
+            request.targetChainId != targetChainId ||
+            request.nonce != nonce ||
+            request.deadline != deadline
+        ) {
+            revert InvalidTransferData();
+        }
+        if (targetChainId != block.chainid) {
+            revert SameChainTransfer();
+        }
+        if (signatures.length < requiredValidators) {
+            revert InvalidSignatureCount();
+        }
+
+        bytes32 digest = _buildTransferDigest(transferId, sender, recipient, amount, sourceChainId, targetChainId, nonce, deadline);
+        if (completedTransferDigests[digest]) {
+            revert TransferAlreadyExecuted();
+        }
+
+        address previousSigner = address(0);
+        for (uint256 i = 0; i < signatures.length; i++) {
+            address signer = ECDSA.recover(digest, signatures[i]);
+            if (!hasRole(VALIDATOR_ROLE, signer)) {
+                revert SignerNotValidator();
+            }
+            if (signer <= previousSigner) {
+                revert DuplicateValidator();
+            }
+            previousSigner = signer;
+        }
+
+        completedTransferDigests[digest] = true;
+        request.executed = true;
+        THAL_TOKEN.safeTransfer(recipient, amount);
+
+        emit TransferCompleted(transferId, recipient, amount, sourceChainId);
     }
 
-    /**
-     * @dev Add validator
-     * @param validator Validator address to add
-     */
-    function addValidator(address validator)
-        external
-        onlyRole(BRIDGE_ADMIN_ROLE)
-    {
-        require(validator != address(0), "ThaliumBridge: Invalid validator");
-        require(!hasRole(VALIDATOR_ROLE, validator), "ThaliumBridge: Already validator");
-        require(validators.length < MAX_VALIDATORS, "ThaliumBridge: Too many validators");
-
-        _grantRole(VALIDATOR_ROLE, validator);
-        validators.push(validator);
-
-        // Recalculate required validators
-        requiredValidators = (validators.length * 2) / 3 + 1;
-
-        emit ValidatorAdded(validator);
+    function addValidator(address validator) external onlyRole(BRIDGE_ADMIN_ROLE) {
+        if (validatorList.length >= MAX_VALIDATORS) {
+            revert TooManyValidators();
+        }
+        _addValidator(validator);
+        requiredValidators = _calculateRequiredValidators(validatorList.length);
     }
 
-    /**
-     * @dev Remove validator
-     * @param validator Validator address to remove
-     */
-    function removeValidator(address validator)
-        external
-        onlyRole(BRIDGE_ADMIN_ROLE)
-    {
-        require(hasRole(VALIDATOR_ROLE, validator), "ThaliumBridge: Not a validator");
-        require(validators.length > MIN_VALIDATORS, "ThaliumBridge: Cannot remove last validator");
+    function removeValidator(address validator) external onlyRole(BRIDGE_ADMIN_ROLE) {
+        if (!hasRole(VALIDATOR_ROLE, validator)) {
+            revert ValidatorDoesNotExist();
+        }
+        if (validatorList.length <= MIN_VALIDATORS) {
+            revert MinimumValidatorThresholdBreach();
+        }
 
         _revokeRole(VALIDATOR_ROLE, validator);
-
-        // Remove from array
-        for (uint256 i = 0; i < validators.length; i++) {
-            if (validators[i] == validator) {
-                validators[i] = validators[validators.length - 1];
-                validators.pop();
+        uint256 lastIndex = validatorList.length - 1;
+        for (uint256 i = 0; i < validatorList.length; i++) {
+            if (validatorList[i] == validator) {
+                validatorList[i] = validatorList[lastIndex];
+                validatorList.pop();
                 break;
             }
         }
 
-        // Recalculate required validators
-        requiredValidators = (validators.length * 2) / 3 + 1;
-
+        requiredValidators = _calculateRequiredValidators(validatorList.length);
         emit ValidatorRemoved(validator);
     }
 
-    /**
-     * @dev Update chain support
-     * @param chainId Chain ID
-     * @param supported Whether chain is supported
-     */
-    function updateChainSupport(uint256 chainId, bool supported)
-        external
-        onlyRole(BRIDGE_ADMIN_ROLE)
-    {
-        supportedChains[chainId] = supported;
-        emit ChainSupportUpdated(chainId, supported);
+    function updateChainSupport(uint256 chainId, bool supported) external onlyRole(BRIDGE_ADMIN_ROLE) {
+        _setChainSupport(chainId, supported);
     }
 
-    /**
-     * @dev Update bridge fee
-     * @param newFee New bridge fee in THAL tokens
-     */
-    function updateBridgeFee(uint256 newFee)
-        external
-        onlyRole(BRIDGE_ADMIN_ROLE)
-    {
-        require(newFee >= 0, "ThaliumBridge: Invalid fee");
+    function updateBridgeFee(uint256 newFee) external onlyRole(BRIDGE_ADMIN_ROLE) {
+        if (newFee > MAX_BRIDGE_FEE) {
+            revert InvalidBridgeFee();
+        }
         bridgeFee = newFee;
         emit BridgeFeeUpdated(newFee);
     }
 
-    /**
-     * @dev Withdraw collected fees
-     * @param amount Amount to withdraw
-     * @param recipient Recipient address
-     */
-    function withdrawFees(uint256 amount, address recipient)
-        external
-        onlyRole(BRIDGE_ADMIN_ROLE)
-        nonReentrant
-    {
-        require(recipient != address(0), "ThaliumBridge: Invalid recipient");
-        require(amount > 0, "ThaliumBridge: Amount must be positive");
-        require(totalFeesCollected >= amount, "ThaliumBridge: Insufficient fees");
+    function withdrawFees(uint256 amount, address recipient) external onlyRole(BRIDGE_ADMIN_ROLE) nonReentrant {
+        if (recipient == address(0)) {
+            revert InvalidAddress();
+        }
+        if (amount == 0 || amount > totalFeesCollected) {
+            revert InvalidAmount();
+        }
 
         totalFeesCollected -= amount;
-        thalToken.safeTransfer(recipient, amount);
+        THAL_TOKEN.safeTransfer(recipient, amount);
     }
 
-    /**
-     * @dev Emergency pause
-     */
     function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _pause();
         emit EmergencyPaused(msg.sender);
     }
 
-    /**
-     * @dev Emergency unpause
-     */
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
         emit EmergencyUnpaused(msg.sender);
     }
 
-    // ========================================
-    // PUBLIC VIEW FUNCTIONS
-    // ========================================
-
-    /**
-     * @dev Get supported chains
-     */
     function getSupportedChains() external view returns (uint256[] memory) {
-        uint256[] memory chains = new uint256[](10); // Reasonable max
-        uint256 count = 0;
-
-        // Check common chain IDs
-        uint256[10] memory commonChains = [uint256(1), 56, 137, 43114, 42161, 10, 8453, 100, 250, 1284];
-
-        for (uint256 i = 0; i < commonChains.length; i++) {
-            if (supportedChains[commonChains[i]]) {
-                chains[count] = commonChains[i];
-                count++;
-            }
-        }
-
-        // Resize array
-        uint256[] memory result = new uint256[](count);
-        for (uint256 i = 0; i < count; i++) {
-            result[i] = chains[i];
-        }
-
-        return result;
+        return supportedChainList;
     }
 
-    /**
-     * @dev Get validators list
-     */
     function getValidators() external view returns (address[] memory) {
-        return validators;
+        return validatorList;
     }
 
-    /**
-     * @dev Get transfer request details
-     */
-    function getTransferRequest(bytes32 transferId)
-        external
-        view
-        returns (
-            address sender,
-            address recipient,
-            uint256 amount,
-            uint256 sourceChainId,
-            uint256 targetChainId,
-            uint256 timestamp,
-            bool executed,
-            uint256 validatorCount
-        )
-    {
+    function getTransferRequest(bytes32 transferId) external view returns (TransferRequest memory) {
         TransferRequest storage request = transferRequests[transferId];
-        return (
-            request.sender,
-            request.recipient,
-            request.amount,
-            request.sourceChainId,
-            request.targetChainId,
-            request.timestamp,
-            request.executed,
-            request.validatorCount
-        );
+        if (request.timestamp == 0) {
+            revert TransferNotFound();
+        }
+        return request;
     }
 
-    /**
-     * @dev Check if chain is supported
-     */
     function isChainSupported(uint256 chainId) external view returns (bool) {
         return supportedChains[chainId];
     }
 
-    /**
-     * @dev Get bridge statistics
-     */
-    function getBridgeStats() external view returns (
-        uint256 totalTransferred_,
-        uint256 totalFeesCollected_,
-        uint256 bridgeFee_,
-        uint256 validatorCount,
-        uint256 requiredValidators_
-    ) {
-        return (
-            totalTransferred,
-            totalFeesCollected,
-            bridgeFee,
-            validators.length,
-            requiredValidators
+    function getBridgeStats()
+        external
+        view
+        returns (uint256 totalTransferred_, uint256 totalFeesCollected_, uint256 bridgeFee_, uint256 validatorCount, uint256 requiredValidators_)
+    {
+        return (totalTransferred, totalFeesCollected, bridgeFee, validatorList.length, requiredValidators);
+    }
+
+    function getTransferDigest(
+        bytes32 transferId,
+        address sender,
+        address recipient,
+        uint256 amount,
+        uint256 sourceChainId,
+        uint256 targetChainId,
+        uint256 nonce,
+        uint256 deadline
+    ) external view returns (bytes32) {
+        return _buildTransferDigest(transferId, sender, recipient, amount, sourceChainId, targetChainId, nonce, deadline);
+    }
+
+    function _addValidator(address validator) internal {
+        if (validator == address(0)) {
+            revert InvalidAddress();
+        }
+        if (hasRole(VALIDATOR_ROLE, validator)) {
+            revert ValidatorAlreadyExists();
+        }
+
+        _grantRole(VALIDATOR_ROLE, validator);
+        validatorList.push(validator);
+        emit ValidatorAdded(validator);
+    }
+
+    function _setChainSupport(uint256 chainId, bool supported) internal {
+        bool exists = supportedChains[chainId];
+        supportedChains[chainId] = supported;
+
+        if (supported && !exists) {
+            supportedChainList.push(chainId);
+        }
+
+        if (!supported && exists) {
+            uint256 lastIndex = supportedChainList.length - 1;
+            for (uint256 i = 0; i < supportedChainList.length; i++) {
+                if (supportedChainList[i] == chainId) {
+                    supportedChainList[i] = supportedChainList[lastIndex];
+                    supportedChainList.pop();
+                    break;
+                }
+            }
+        }
+
+        emit ChainSupportUpdated(chainId, supported);
+    }
+
+    function _buildTransferDigest(
+        bytes32 transferId,
+        address sender,
+        address recipient,
+        uint256 amount,
+        uint256 sourceChainId,
+        uint256 targetChainId,
+        uint256 nonce,
+        uint256 deadline
+    ) internal view returns (bytes32) {
+        bytes32 structHash = keccak256(
+            abi.encode(TRANSFER_TYPEHASH, transferId, sender, recipient, amount, sourceChainId, targetChainId, nonce, deadline)
         );
+        return MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(block.chainid, address(this), structHash)));
+    }
+
+    function _calculateRequiredValidators(uint256 validatorCount) internal pure returns (uint256) {
+        return (validatorCount * 2) / 3 + 1;
     }
 }

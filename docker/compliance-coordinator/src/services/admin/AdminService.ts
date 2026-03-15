@@ -122,7 +122,19 @@ export class AdminService {
   async getAdmin(adminId: string): Promise<AdminUser | null> {
     const db = getDatabaseService();
     const row = await db.queryOne<AdminUserTable>(`
-      SELECT * FROM admin_users WHERE id = $1
+      SELECT
+        id,
+        email,
+        name,
+        role,
+        permissions,
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        last_login as "lastLogin",
+        active,
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM admin_users WHERE id = $1
     `, [adminId]);
 
     if (!row) {
@@ -138,7 +150,19 @@ export class AdminService {
   async getAdminByEmail(email: string, tenantId: string): Promise<AdminUser | null> {
     const db = getDatabaseService();
     const row = await db.queryOne<AdminUserTable>(`
-      SELECT * FROM admin_users WHERE email = $1 AND tenant_id = $2
+      SELECT
+        id,
+        email,
+        name,
+        role,
+        permissions,
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        last_login as "lastLogin",
+        active,
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM admin_users WHERE email = $1 AND tenant_id = $2
     `, [email, tenantId]);
 
     if (!row) {
@@ -182,7 +206,19 @@ export class AdminService {
     const offset = options?.offset ?? 0;
 
     const rows = await db.queryAll<AdminUserTable>(`
-      SELECT * FROM admin_users
+      SELECT
+        id,
+        email,
+        name,
+        role,
+        permissions,
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        last_login as "lastLogin",
+        active,
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM admin_users
       ${whereClause}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${offset}
@@ -389,7 +425,18 @@ export class AdminService {
     const offset = options?.offset ?? 0;
 
     const rows = await db.queryAll<AdminActionLogTable>(`
-      SELECT * FROM admin_action_logs
+      SELECT
+        id,
+        admin_id as "adminId",
+        action,
+        entity_type as "entityType",
+        entity_id as "entityId",
+        details,
+        ip_address as "ipAddress",
+        user_agent as "userAgent",
+        tenant_id as "tenantId",
+        created_at as "createdAt"
+      FROM admin_action_logs
       ${whereClause}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${offset}
@@ -460,12 +507,12 @@ export class AdminService {
       name: row.name,
       role: row.role as AdminUser['role'],
       permissions: row.permissions,
-      tenantId: row.tenant_id,
-      brokerId: row.broker_id ?? undefined,
-      lastLogin: row.last_login ?? undefined,
+      tenantId: row.tenantId,
+      brokerId: row.brokerId ?? undefined,
+      lastLogin: row.lastLogin ?? undefined,
       active: row.active,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -475,15 +522,15 @@ export class AdminService {
   private mapActionLogTableToData(row: AdminActionLogTable): AdminActionLog {
     return {
       id: row.id,
-      adminId: row.admin_id,
+      adminId: row.adminId,
       action: row.action,
-      entityType: row.entity_type,
-      entityId: row.entity_id,
+      entityType: row.entityType,
+      entityId: row.entityId,
       details: row.details,
-      ipAddress: row.ip_address ?? undefined,
-      userAgent: row.user_agent ?? undefined,
-      tenantId: row.tenant_id,
-      createdAt: row.created_at,
+      ipAddress: row.ipAddress ?? undefined,
+      userAgent: row.userAgent ?? undefined,
+      tenantId: row.tenantId,
+      createdAt: row.createdAt,
     };
   }
 }

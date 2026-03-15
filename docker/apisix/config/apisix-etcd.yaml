@@ -101,7 +101,7 @@ nginx_config:
   http:
     # PRODUCTION TLS HARDENING
     # ------------------------
-    # Trust the internal CA and verify upstream TLS for HTTPS upstreams like Keycloak.
+    # Trust the internal CA and verify upstream TLS for HTTPS upstreams like Authentik.
     proxy_ssl_trusted_certificate: /usr/local/apisix/certs/ca.crt
     proxy_ssl_verify: "on"
     proxy_ssl_verify_depth: 2

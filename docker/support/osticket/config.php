@@ -14,12 +14,12 @@ define('OST_WEB_ROOT', '/');
 define('OST_ROOT_PATH', '/var/www/html');
 define('SECRET_SALT', getenv('OSTICKET_SECRET_SALT') ?: 'change-this-in-production');
 
-// Zitadel OIDC Configuration
-define('AUTH_BACKEND', 'zitadel');
-define('ZITADEL_ISSUER', 'https://auth.thaliumx.com');
-define('ZITADEL_CLIENT_ID', getenv('ZITADEL_CLIENT_ID') ?: '');
-define('ZITADEL_CLIENT_SECRET', getenv('ZITADEL_CLIENT_SECRET') ?: '');
-define('ZITADEL_REDIRECT_URI', 'https://tickets.thaliumx.com/api/auth/callback');
+// Keycloak OIDC Configuration
+define('AUTH_PROVIDER', 'keycloak');
+define('KEYCLOAK_ISSUER', 'https://auth.thaliumx.com/auth/realms/thaliumx');
+define('KEYCLOAK_CLIENT_ID', getenv('KEYCLOAK_CLIENT_ID') ?: '');
+define('KEYCLOAK_CLIENT_SECRET', getenv('KEYCLOAK_CLIENT_SECRET') ?: '');
+define('KEYCLOAK_REDIRECT_URI', 'https://tickets.thaliumx.com/api/auth/callback');
 
 // Email configuration
 define('MAIL_FROM', 'noreply@thaliumx.com');

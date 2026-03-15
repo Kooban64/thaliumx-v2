@@ -125,13 +125,9 @@ export function initializeEntryDomain(): 'presale' | 'main' | null {
     return null;
   }
 
-  // Check if already stored
-  const stored = getEntryDomain();
-  if (stored) {
-    return stored;
-  }
-
-  // Detect from current hostname
+  // Detect from current hostname on every auth entry.
+  // This prevents stale sessionStorage values (e.g. prior presale visit)
+  // from overriding current-domain login/register intent.
   let detected: 'presale' | 'main' | null = null;
   if (isPresaleDomain()) {
     detected = 'presale';
@@ -139,9 +135,15 @@ export function initializeEntryDomain(): 'presale' | 'main' | null {
     detected = 'main';
   }
 
-  // Store detected domain
+  // Persist detected domain when known.
   if (detected) {
     setEntryDomain(detected);
+  } else {
+    // Fall back to stored value for non-primary hosts where detection is unknown.
+    const stored = getEntryDomain();
+    if (stored) {
+      detected = stored;
+    }
   }
 
   const brokerSlug = resolveBrokerSlugFromHostname(getCurrentHostname());
@@ -199,22 +201,45 @@ export function cameFromMainDomain(): boolean {
  * @param defaultPath - Default path if no domain detected (default: '/dashboard')
  * @param userRole - Optional user role to override domain logic for admins/brokers
  */
+const normalizeRole = (role?: string | null): string | null => {
+  if (!role) return null;
+  const normalized = role.trim().toLowerCase().replace(/-/g, '_');
+  if (!normalized) return null;
+  return normalized;
+};
+
+const isAdminRole = (role?: string | null): boolean => {
+  const normalized = normalizeRole(role);
+  return (
+    normalized === 'admin' ||
+    normalized === 'super_admin' ||
+    normalized === 'platform_admin' ||
+    normalized === 'master_system_admin'
+  );
+};
+
+const isBrokerRole = (role?: string | null): boolean => {
+  const normalized = normalizeRole(role);
+  if (!normalized) return false;
+  return normalized === 'broker_admin' || normalized.startsWith('broker_');
+};
+
 export function getPostLoginRedirectPath(defaultPath: string = '/dashboard', userRole?: string | null): string {
   // Role-based redirects take priority
-  if (userRole === 'admin' || userRole === 'super_admin' || userRole === 'platform-admin') {
+  if (isAdminRole(userRole)) {
     return '/admin';
   }
-  
-  if (userRole && (userRole.startsWith('broker_') || userRole === 'broker_admin')) {
+
+  if (isBrokerRole(userRole)) {
     return '/broker';
   }
-  
+
   // For regular users, use domain detection
   const entryDomain = getEntryDomain();
-  
+
   if (entryDomain === 'presale') {
     return '/token-presale';
   }
-  
+
   return defaultPath;
 }

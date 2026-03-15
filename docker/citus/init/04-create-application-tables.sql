@@ -13,7 +13,7 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    zitadel_id VARCHAR(255) UNIQUE,
+    authentik_id VARCHAR(255) UNIQUE,
     email VARCHAR(255) UNIQUE NOT NULL,
     email_verified BOOLEAN DEFAULT FALSE,
     phone VARCHAR(50),
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_zitadel_id ON users(zitadel_id);
+CREATE INDEX idx_users_authentik_id ON users(authentik_id);
 CREATE INDEX idx_users_status ON users(status);
 CREATE INDEX idx_users_kyc_status ON users(kyc_status);
 CREATE INDEX idx_users_created_at ON users(created_at);
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     domain VARCHAR(255),
     type VARCHAR(50) DEFAULT 'broker' CHECK (type IN ('platform', 'broker', 'partner', 'enterprise')),
     status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'suspended', 'terminated')),
-    keycloak_realm VARCHAR(100),
+    authentik_realm VARCHAR(100),
     logo_url TEXT,
     primary_color VARCHAR(7),
     secondary_color VARCHAR(7),

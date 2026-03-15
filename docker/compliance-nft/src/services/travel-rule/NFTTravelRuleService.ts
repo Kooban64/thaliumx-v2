@@ -9,7 +9,7 @@ import { getEventProducer } from '../events';
 import { createComponentLogger } from '../../utils/logger';
 import { getConfig } from '../../config';
 import { NFTTravelRuleData } from '../../types/compliance';
-import { NFTTravelRuleTable } from '../../types/database';
+import { NftTravelRuleRow } from '../../types/database';
 
 const logger = createComponentLogger('nft-travel-rule-service');
 
@@ -152,7 +152,7 @@ export class NFTTravelRuleService {
 
     try {
       // Get Travel Rule data
-      const row = await db.queryOne<NFTTravelRuleTable>(`
+      const row = await db.queryOne<NftTravelRuleRow>(`
         SELECT * FROM nft_travel_rule_messages WHERE id = $1
       `, [travelRuleId]);
 
@@ -174,17 +174,17 @@ export class NFTTravelRuleService {
       // Publish sent event
       await producer.publishTravelRuleSent(
         travelRuleId,
-        row.sale_id,
-        row.message_id,
-        row.beneficiary_vasp || 'unknown',
-        row.tenant_id,
-        row.broker_id ?? undefined
+        row.saleId,
+        row.messageId,
+        row.beneficiaryVasp ?? 'unknown',
+        row.tenantId,
+        row.brokerId ?? undefined
       );
 
       logger.logTravelRuleEvent(
         'sent',
         travelRuleId,
-        row.sale_id,
+        row.saleId,
         'sent'
       );
     } catch (error) {
@@ -207,14 +207,14 @@ export class NFTTravelRuleService {
     const producer = getEventProducer();
 
     // Get current retry count
-    const row = await db.queryOne<NFTTravelRuleTable>(`
+    const row = await db.queryOne<NftTravelRuleRow>(`
       SELECT * FROM nft_travel_rule_messages WHERE id = $1
     `, [travelRuleId]);
 
     if (!row) return;
 
-    const newRetryCount = row.retry_count + 1;
-    const willRetry = newRetryCount < row.max_retries;
+    const newRetryCount = row.retryCount + 1;
+    const willRetry = newRetryCount < row.maxRetries;
 
     // Update status
     await db.query(`
@@ -236,13 +236,13 @@ export class NFTTravelRuleService {
     // Publish failed event
     await producer.publishTravelRuleFailed(
       travelRuleId,
-      row.sale_id,
-      row.message_id,
+      row.saleId,
+      row.messageId,
       errorMessage,
       newRetryCount,
       willRetry,
-      row.tenant_id,
-      row.broker_id ?? undefined
+      row.tenantId,
+      row.brokerId ?? undefined
     );
   }
 
@@ -267,7 +267,7 @@ export class NFTTravelRuleService {
     `, [travelRuleId]);
 
     // Get updated data
-    const row = await db.queryOne<NFTTravelRuleTable>(`
+    const row = await db.queryOne<NftTravelRuleRow>(`
       SELECT * FROM nft_travel_rule_messages WHERE id = $1
     `, [travelRuleId]);
 
@@ -280,11 +280,11 @@ export class NFTTravelRuleService {
       timestamp: new Date(),
       version: '1.0',
       source: 'nft-compliance-service',
-      tenantId: row.tenant_id,
+      tenantId: row.tenantId,
       payload: {
         travelRuleId,
-        saleId: row.sale_id,
-        messageId: row.message_id,
+        saleId: row.saleId,
+        messageId: row.messageId,
         acknowledgedAt: new Date(),
         acknowledgedBy,
       },
@@ -293,7 +293,7 @@ export class NFTTravelRuleService {
     logger.logTravelRuleEvent(
       'acknowledged',
       travelRuleId,
-      row.sale_id,
+      row.saleId,
       'acknowledged'
     );
   }
@@ -381,7 +381,7 @@ export class NFTTravelRuleService {
   async getTravelRuleMessage(travelRuleId: string): Promise<NFTTravelRuleData | null> {
     const db = getDatabaseService();
 
-    const row = await db.queryOne<NFTTravelRuleTable>(`
+    const row = await db.queryOne<NftTravelRuleRow>(`
       SELECT * FROM nft_travel_rule_messages WHERE id = $1
     `, [travelRuleId]);
 
@@ -401,7 +401,7 @@ export class NFTTravelRuleService {
   ): Promise<NFTTravelRuleData[]> {
     const db = getDatabaseService();
 
-    const rows = await db.queryAll<NFTTravelRuleTable>(`
+    const rows = await db.queryAll<NftTravelRuleRow>(`
       SELECT * FROM nft_travel_rule_messages
       WHERE sale_id = $1 AND tenant_id = $2
       ORDER BY created_at DESC
@@ -416,7 +416,7 @@ export class NFTTravelRuleService {
   async getPendingMessages(tenantId: string, limit = 100): Promise<NFTTravelRuleData[]> {
     const db = getDatabaseService();
 
-    const rows = await db.queryAll<NFTTravelRuleTable>(`
+    const rows = await db.queryAll<NftTravelRuleRow>(`
       SELECT * FROM nft_travel_rule_messages
       WHERE tenant_id = $1
         AND status = 'pending'
@@ -434,7 +434,7 @@ export class NFTTravelRuleService {
   async getFailedMessages(tenantId: string, limit = 100): Promise<NFTTravelRuleData[]> {
     const db = getDatabaseService();
 
-    const rows = await db.queryAll<NFTTravelRuleTable>(`
+    const rows = await db.queryAll<NftTravelRuleRow>(`
       SELECT * FROM nft_travel_rule_messages
       WHERE tenant_id = $1
         AND status = 'failed'
@@ -452,7 +452,7 @@ export class NFTTravelRuleService {
     const db = getDatabaseService();
 
     // Get failed messages that can be retried
-    const rows = await db.queryAll<NFTTravelRuleTable>(`
+    const rows = await db.queryAll<NftTravelRuleRow>(`
       SELECT * FROM nft_travel_rule_messages
       WHERE tenant_id = $1
         AND status = 'failed'
@@ -487,46 +487,46 @@ export class NFTTravelRuleService {
   /**
    * Map database table to data type
    */
-  private mapTableToData(row: NFTTravelRuleTable): NFTTravelRuleData {
+  private mapTableToData(row: NftTravelRuleRow): NFTTravelRuleData {
     return {
       id: row.id,
-      saleId: row.sale_id,
-      contractAddress: row.contract_address,
-      tokenId: row.token_id,
-      chainId: row.chain_id,
-      sellerAddress: row.seller_address,
-      buyerAddress: row.buyer_address,
+      saleId: row.saleId,
+      contractAddress: row.contractAddress,
+      tokenId: row.tokenId,
+      chainId: row.chainId,
+      sellerAddress: row.sellerAddress,
+      buyerAddress: row.buyerAddress,
       price: row.price,
-      priceUSD: row.price_usd,
+      priceUSD: row.priceUsd,
       currency: row.currency,
       timestamp: row.timestamp,
       status: row.status,
-      messageId: row.message_id,
-      originatorInfo: row.originator_name || row.originator_address || row.originator_country || row.originator_account_number
+      messageId: row.messageId,
+      originatorInfo: row.originatorName || row.originatorAddress || row.originatorCountry || row.originatorAccountNumber
         ? {
-            name: row.originator_name ?? undefined,
-            address: row.originator_address ?? undefined,
-            country: row.originator_country ?? undefined,
-            accountNumber: row.originator_account_number ?? undefined,
+            name: row.originatorName ?? undefined,
+            address: row.originatorAddress ?? undefined,
+            country: row.originatorCountry ?? undefined,
+            accountNumber: row.originatorAccountNumber ?? undefined,
           }
         : undefined,
-      beneficiaryInfo: row.beneficiary_name || row.beneficiary_address || row.beneficiary_country || row.beneficiary_account_number
+      beneficiaryInfo: row.beneficiaryName || row.beneficiaryAddress || row.beneficiaryCountry || row.beneficiaryAccountNumber
         ? {
-            name: row.beneficiary_name ?? undefined,
-            address: row.beneficiary_address ?? undefined,
-            country: row.beneficiary_country ?? undefined,
-            accountNumber: row.beneficiary_account_number ?? undefined,
+            name: row.beneficiaryName ?? undefined,
+            address: row.beneficiaryAddress ?? undefined,
+            country: row.beneficiaryCountry ?? undefined,
+            accountNumber: row.beneficiaryAccountNumber ?? undefined,
           }
         : undefined,
-      vaspInfo: row.originator_vasp || row.beneficiary_vasp
+      vaspInfo: row.originatorVasp || row.beneficiaryVasp
         ? {
-            originatorVASP: row.originator_vasp ?? undefined,
-            beneficiaryVASP: row.beneficiary_vasp ?? undefined,
+            originatorVASP: row.originatorVasp ?? undefined,
+            beneficiaryVASP: row.beneficiaryVasp ?? undefined,
           }
         : undefined,
-      tenantId: row.tenant_id,
-      brokerId: row.broker_id ?? undefined,
-      userId: row.user_id ?? undefined,
+      tenantId: row.tenantId,
+      brokerId: row.brokerId ?? undefined,
+      userId: row.userId ?? undefined,
     };
   }
 }

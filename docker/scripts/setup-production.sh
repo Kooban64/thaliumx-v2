@@ -110,8 +110,8 @@ generate_secrets() {
         fi
     done
     
-    # Keycloak secrets removed - migrated to Zitadel
-    # Keycloak admin password and client secrets no longer needed
+    # Keycloak secrets
+    # Generate/use Keycloak admin password and client secrets via dedicated provisioning flow
     
     # APISIX admin key
     if [ ! -f "${SECRETS_DIR}/generated/apisix-admin-key" ]; then
@@ -390,8 +390,7 @@ populate_vault_secrets() {
         key="$encryption_key" \
         algorithm=aes-256-gcm
     
-    # Keycloak secrets removed - migrated to Zitadel
-    # No Keycloak secrets to write to Vault
+    # Keycloak secrets are provisioned separately (identity bootstrap) and can be written to Vault
     
     # SMTP secrets (from existing .secrets if available)
     log_step "Writing SMTP secrets..."
@@ -535,8 +534,8 @@ VAULT_ROLE_ID=${vault_role_id}
 VAULT_SECRET_ID=${vault_secret_id}
 VAULT_MOUNT_PATH=kv
 
-# Keycloak removed - migrated to Zitadel
-# No Keycloak configuration needed
+# Keycloak configuration
+# Configure issuer/client values through environment or Vault-managed secrets
 
 # APISIX
 APISIX_ADMIN_KEY=${apisix_admin_key}

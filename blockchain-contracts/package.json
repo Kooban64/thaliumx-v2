@@ -1,14 +1,13 @@
 {
-  "name": "@acme/blockchain-contracts",
+  "name": "@thaliumx/blockchain-contracts",
   "version": "1.0.0",
-  "description": "Acme Exchange Smart Contracts - Minimal on-chain logic with maximum backend integration",
-  "main": "index.js",
+  "description": "ThaliumX smart contracts for token, NFT, governance, bridge, oracle, presale, and security modules",
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy": "hardhat run scripts/deploy.js",
     "deploy:local": "hardhat run scripts/deploy.js --network localhost",
-    "deploy:testnet": "hardhat run scripts/deploy.js --network testnet",
+    "deploy:bsc-testnet": "hardhat run scripts/deploy.js --network bscTestnet",
     "deploy:mainnet": "hardhat run scripts/deploy.js --network mainnet",
     "verify": "hardhat verify",
     "coverage": "hardhat coverage",
@@ -21,7 +20,7 @@
     "security": "pnpm run lint && pnpm run slither && pnpm run mythril",
     "clean": "hardhat clean",
     "node": "hardhat node",
-    "fork": "hardhat node --fork https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY",
+    "fork": "node -e \"if (!process.env.ETH_MAINNET_RPC_URL) { console.error('ETH_MAINNET_RPC_URL is required for fork'); process.exit(1); }\" && hardhat node --fork $ETH_MAINNET_RPC_URL",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
@@ -33,9 +32,9 @@
     "margin-trading",
     "governance",
     "openzeppelin",
-    "acme-exchange"
+    "thaliumx"
   ],
-  "author": "Acme Exchange Team",
+  "author": "ThaliumX",
   "license": "MIT",
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
@@ -72,6 +71,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Kooban64/acme.git"
+    "url": "https://github.com/thaliumx/thaliumx.git"
   }
 }

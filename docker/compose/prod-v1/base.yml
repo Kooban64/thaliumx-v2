@@ -131,8 +131,8 @@ secrets:
   # Authentication
   postgres-username:
     file: ../../../.secrets/generated/postgres-username
-  keycloak-admin-password:
-    file: ../../../.secrets/generated/keycloak-admin-password
+  Authentik-admin-password:
+    file: ../../../.secrets/generated/Authentik-admin-password
 
   # Vault
   vault-role-id:
@@ -195,7 +195,7 @@ secrets:
     file: ../../../.secrets/generated/api-key
 
   # APISIX gateway OIDC plugin requires a `client_secret` value even in bearer_only mode.
-  # In Zitadel-first deployments we use this as a non-empty secret string to satisfy the schema.
+  # In Authentik deployments we use this as a non-empty secret string to satisfy the schema.
   apisix-oidc-client-secret:
     file: ../../../.secrets/generated/apisix-oidc-client-secret
 
@@ -251,7 +251,7 @@ secrets:
   ballerine-magic-link-auth-jwt-secret:
     file: ../../../.secrets/generated/ballerine-magic-link-auth-jwt-secret
 
-  # Legacy Zitadel secrets removed; Keycloak is the only supported identity provider.
+  # Legacy IdP-specific secrets removed; Authentik is the only supported identity provider.
 
   # Support Services
   support-db-password:

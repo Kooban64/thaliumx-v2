@@ -2,7 +2,7 @@
  * Authentication and KYC Verification E2E Tests
  *
  * Comprehensive tests to verify authentication flows and KYC access controls
- * post-Zitadel migration. Tests cover login, user roles, KYC levels, and
+ * post-Authentik migration. Tests cover login, user roles, KYC levels, and
  * session management.
  */
 
@@ -55,8 +55,8 @@ test.describe('Authentication and KYC Verification', () => {
   // LOGIN FUNCTIONALITY TESTS
   // =============================================================================
 
-  test('✅ Login: Successful authentication flow with Keycloak', async ({ page }) => {
-    console.log('🔍 Testing successful Keycloak authentication flow...');
+  test('✅ Login: Successful authentication flow with Authentik', async ({ page }) => {
+    console.log('🔍 Testing successful Authentik authentication flow...');
 
     await page.goto('/auth', { waitUntil: 'domcontentloaded' });
 
@@ -64,7 +64,7 @@ test.describe('Authentication and KYC Verification', () => {
     const continueButton = page.getByRole('button', { name: /^continue$/i });
     await expect(continueButton).toBeVisible({ timeout: 15000 });
 
-    // Click continue to initiate Keycloak flow
+    // Click continue to initiate Authentik flow
     await continueButton.click();
 
     // Verify redirect to auth host
@@ -73,7 +73,7 @@ test.describe('Authentication and KYC Verification', () => {
     expect(currentUrl).toContain('auth.thaliumx.com');
     expect(currentUrl).toContain('authorize');
 
-    console.log('✅ Keycloak authentication flow initiated successfully');
+    console.log('✅ Authentik authentication flow initiated successfully');
   });
 
   test('✅ Login: OIDC callback handling', async ({ page }) => {
@@ -271,7 +271,7 @@ test.describe('Authentication and KYC Verification', () => {
         'Authorization': 'Bearer mock-user-token'
       },
       data: {
-        keycloakUserId: 'test-user-id',
+        AuthentikUserId: 'test-user-id',
         workflowId: 'kyc-upgrade-workflow'
       }
     }).catch(() => null);
@@ -401,16 +401,16 @@ test.describe('Authentication and KYC Verification', () => {
       await page.goto('/auth', { waitUntil: 'domcontentloaded' });
       console.log('✅ Step 1: Auth page loaded');
 
-      // Step 2: Initiate Keycloak authentication
+      // Step 2: Initiate Authentik authentication
       const continueButton = page.getByRole('button', { name: /^continue$/i });
       await continueButton.click();
-      console.log('✅ Step 2: Keycloak authentication initiated');
+      console.log('✅ Step 2: Authentik authentication initiated');
 
       // Step 3: Verify redirect to auth host
       await page.waitForURL(/.*auth\.thaliumx\.com.*/, { timeout: 30000 });
       const currentUrl = page.url();
       expect(currentUrl).toContain('auth.thaliumx.com');
-      console.log('✅ Step 3: Redirected to Keycloak host');
+      console.log('✅ Step 3: Redirected to Authentik host');
 
       authFlowCompleted = true;
 
@@ -465,7 +465,7 @@ test.describe('Test Scenarios Documentation', () => {
     console.log('======================================================');
 
     console.log('\n🔐 LOGIN FUNCTIONALITY:');
-    console.log('✅ Successful Keycloak authentication flow');
+    console.log('✅ Successful Authentik authentication flow');
     console.log('✅ OIDC callback error handling');
     console.log('✅ Session persistence across reloads');
 
@@ -496,7 +496,7 @@ test.describe('Test Scenarios Documentation', () => {
     console.log('✅ Role-based feature access matrix');
 
     console.log('\n🎯 TEST COVERAGE:');
-    console.log('• Authentication flows with Keycloak');
+    console.log('• Authentication flows with Authentik');
     console.log('• User role-based access controls');
     console.log('• KYC level-based feature restrictions');
     console.log('• Error handling and security');

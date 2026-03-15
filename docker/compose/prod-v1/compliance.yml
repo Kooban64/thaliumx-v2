@@ -57,9 +57,10 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
 
-      # OIDC (Keycloak)
-      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.thaliumx.com/auth/realms/thaliumx}
-      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI:-http://keycloak:8080/auth/realms/thaliumx/protocol/openid-connect/certs}
+      # OIDC (Authentik)
+      AUTHENTIK_ISSUER: ${AUTHENTIK_ISSUER:-https://thaliumx.com/application/o/thaliumx/}
+      AUTHENTIK_JWKS_URI: ${AUTHENTIK_JWKS_URI:-https://thaliumx.com/application/o/thaliumx/jwks/}
+      AUTHENTIK_AUDIENCE: ${AUTHENTIK_AUDIENCE:-thaliumx-backend}
 
       # Observability toggles
       METRICS_ENABLED: "true"
@@ -155,9 +156,10 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
 
-      # OIDC (Keycloak)
-      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.thaliumx.com/auth/realms/thaliumx}
-      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI:-http://keycloak:8080/auth/realms/thaliumx/protocol/openid-connect/certs}
+      # OIDC (Authentik)
+      AUTHENTIK_ISSUER: ${AUTHENTIK_ISSUER:-https://thaliumx.com/application/o/thaliumx/}
+      AUTHENTIK_JWKS_URI: ${AUTHENTIK_JWKS_URI:-https://thaliumx.com/application/o/thaliumx/jwks/}
+      AUTHENTIK_AUDIENCE: ${AUTHENTIK_AUDIENCE:-thaliumx-backend}
 
       METRICS_ENABLED: "true"
       AUDIT_LOG_ENABLED: "true"
@@ -251,9 +253,10 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /certs/ca.crt
 
-      # OIDC (Keycloak)
-      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.thaliumx.com/auth/realms/thaliumx}
-      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI:-http://keycloak:8080/auth/realms/thaliumx/protocol/openid-connect/certs}
+      # OIDC (Authentik)
+      AUTHENTIK_ISSUER: ${AUTHENTIK_ISSUER:-https://thaliumx.com/application/o/thaliumx/}
+      AUTHENTIK_JWKS_URI: ${AUTHENTIK_JWKS_URI:-https://thaliumx.com/application/o/thaliumx/jwks/}
+      AUTHENTIK_AUDIENCE: ${AUTHENTIK_AUDIENCE:-thaliumx-backend}
 
       METRICS_ENABLED: "true"
       AUDIT_LOG_ENABLED: "true"
@@ -342,9 +345,10 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
 
-      # OIDC (Keycloak)
-      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.thaliumx.com/auth/realms/thaliumx}
-      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI:-http://keycloak:8080/auth/realms/thaliumx/protocol/openid-connect/certs}
+      # OIDC (Authentik)
+      AUTHENTIK_ISSUER: ${AUTHENTIK_ISSUER:-https://thaliumx.com/application/o/thaliumx/}
+      AUTHENTIK_JWKS_URI: ${AUTHENTIK_JWKS_URI:-https://thaliumx.com/application/o/thaliumx/jwks/}
+      AUTHENTIK_AUDIENCE: ${AUTHENTIK_AUDIENCE:-thaliumx-backend}
 
       METRICS_ENABLED: "true"
       AUDIT_LOG_ENABLED: "true"
@@ -442,9 +446,10 @@ services:
       VAULT_CACERT: /etc/ssl/certs/ca.crt
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca.crt
 
-      # OIDC (Keycloak)
-      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.thaliumx.com/auth/realms/thaliumx}
-      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI:-http://keycloak:8080/auth/realms/thaliumx/protocol/openid-connect/certs}
+      # OIDC (Authentik)
+      AUTHENTIK_ISSUER: ${AUTHENTIK_ISSUER:-https://thaliumx.com/application/o/thaliumx/}
+      AUTHENTIK_JWKS_URI: ${AUTHENTIK_JWKS_URI:-https://thaliumx.com/application/o/thaliumx/jwks/}
+      AUTHENTIK_AUDIENCE: ${AUTHENTIK_AUDIENCE:-thaliumx-backend}
 
       METRICS_ENABLED: "true"
       AUDIT_LOG_ENABLED: "true"

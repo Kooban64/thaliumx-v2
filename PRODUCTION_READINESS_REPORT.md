@@ -3,7 +3,7 @@
 
 **Date:** 2025-01-03  
 **Status:** Production Readiness Assessment  
-**Scope:** APISIX, Zitadel, Ballerine, OPA, Kafka, Blnkfinance, Grafana, Promtail, Loki, Redis, OpenTelemetry
+**Scope:** APISIX, Authentik, Ballerine, OPA, Kafka, Blnkfinance, Grafana, Promtail, Loki, Redis, OpenTelemetry
 
 ---
 
@@ -12,7 +12,7 @@
 | Service | Status | Production Ready | Notes |
 |---------|--------|------------------|-------|
 | **APISIX** | ✅ | **YES** | Fully configured with TLS, rate limiting, health checks |
-| **Zitadel** | ✅ | **YES** | Seamless integration, Vault-backed credentials, OIDC flow |
+| **Authentik** | ✅ | **YES** | Seamless integration, Vault-backed credentials, OIDC flow |
 | **Ballerine** | ✅ | **YES** | KYC/KYB workflows, webhooks, iframe embedding |
 | **OPA** | ✅ | **YES** | Multi-tier caching, optimized, policy-as-code |
 | **Kafka** | ✅ | **YES** | HA cluster, SSL/SASL, transactional producers |
@@ -38,7 +38,7 @@
 - **Health Checks:** Configured with proper intervals
 
 **Features Implemented:**
-- ✅ Route configuration for frontend, backend, Zitadel
+- ✅ Route configuration for frontend, backend, Authentik
 - ✅ OpenID Connect plugin for GraphQL and support routes
 - ✅ Rate limiting (distributed with Redis)
 - ✅ SSL termination
@@ -64,7 +64,7 @@
 
 ---
 
-## 2. Zitadel (Identity Provider)
+## 2. Authentik (Identity Provider)
 
 ### ✅ Production Ready
 
@@ -90,15 +90,15 @@
 - ✅ Issuer validation
 
 **Files:**
-- `docker/backend/src/services/zitadel-api.service.ts` - Main service
+- `docker/backend/src/services/Authentik-api.service.ts` - Main service
 - `docker/backend/src/middleware/error-handler.ts` - JWT validation
 - `docker/backend/src/services/auth.ts` - Auth service integration
-- `docker/backend/ZITADEL_VAULT_SETUP.md` - Setup documentation
+- `docker/backend/AUTHENTIK_VAULT_SETUP.md` - Setup documentation
 - `docker/backend/AUTHENTICATION_FLOW.md` - Flow documentation
 
 **Recommendations:**
 - ✅ All production requirements met
-- Ensure `ZITADEL_AUDIENCE` is configured in production for additional security
+- Ensure `AUTHENTIK_AUDIENCE` is configured in production for additional security
 
 ---
 

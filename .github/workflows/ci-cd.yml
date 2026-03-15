@@ -67,6 +67,33 @@ jobs:
           cd docker
           pnpm install
 
+      - name: Guard against Authentik references in runtime/config paths
+        run: |
+          set -euo pipefail
+          FORBIDDEN_REGEX='(Authentik|AUTHENTIK_)'
+          TARGETS=(
+            "docker/backend/src"
+            "docker/frontend/src"
+            "docker/core"
+            "docker/compose"
+            "docker/apisix"
+            "docker/compliance"
+            "docker/observability"
+            "docker/security"
+          )
+
+          MATCHES=$(grep -RInE "$FORBIDDEN_REGEX" "${TARGETS[@]}" \
+            --include='*.ts' --include='*.tsx' --include='*.js' --include='*.sql' \
+            --include='*.yml' --include='*.yaml' --include='*.env' --include='*.sh' || true)
+
+          if [ -n "$MATCHES" ]; then
+            echo "❌ Forbidden Authentik references detected in runtime/config paths:"
+            echo "$MATCHES"
+            exit 1
+          fi
+
+          echo "✅ No forbidden Authentik references found in guarded runtime/config paths"
+
       - name: Run ESLint
         run: |
           cd docker

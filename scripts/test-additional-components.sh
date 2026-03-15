@@ -118,7 +118,7 @@ cat << 'EOF'
    □ Live Helper Chat connects to moderation API
    □ osTicket receives escalated chats
    □ Kafka messages flow between services
-   □ Authentication works with Zitadel
+   □ Authentication works with Authentik
    □ WebSocket subscriptions work for real-time data
 EOF
 
@@ -155,7 +155,7 @@ else
 fi
 
 # Check for exposed secrets in logs (basic)
-if docker logs thaliumx-graphql 2>&1 | grep -i "password\|secret\|key" | head -5 | grep -v "CHAT_ENCRYPTION_KEY\|ZITADEL"; then
+if docker logs thaliumx-graphql 2>&1 | grep -i "password\|secret\|key" | head -5 | grep -v "CHAT_ENCRYPTION_KEY\|KEYCLOAK"; then
   echo "   ⚠ Potential sensitive data in GraphQL logs"
   ((SECURITY_ISSUES++))
 else
@@ -196,7 +196,7 @@ if [ $PASSED_TESTS -eq $TOTAL_TESTS ]; then
   echo "- Escalation: <200ms end-to-end"
   echo ""
   echo "Security Requirements:"
-  echo "- ✓ Authentication via Zitadel OIDC"
+  echo "- ✓ Authentication via Authentik OIDC"
   echo "- ✓ PII masking in chat messages"
   echo "- ✓ Rate limiting on APIs"
   echo "- ✓ Encrypted data storage"

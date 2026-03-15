@@ -27,7 +27,7 @@ def main():
     print("=" * 30)
 
     services = [
-        ("Zitadel", "http://localhost:8080/healthz"),
+        ("Authentik", "http://localhost:8080/healthz"),
         ("Backend", "http://localhost:3002/health"),
         ("Frontend", "http://localhost:3000/api/health"),
         ("APISIX", "http://localhost:9080/apisix/status"),

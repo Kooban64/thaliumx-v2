@@ -13,7 +13,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 export const TEST_USERS = {
   // Regular user with L0 KYC
   regular_l0: {
-    zitadelUserId: 'test-user-l0-id',
+    userId: 'test-user-l0-id',
     email: 'test-user-l0@example.com',
     firstName: 'Test',
     lastName: 'User L0',
@@ -23,7 +23,7 @@ export const TEST_USERS = {
   },
   // Verified user with L1 KYC
   verified_l1: {
-    zitadelUserId: 'test-user-l1-id',
+    userId: 'test-user-l1-id',
     email: 'test-user-l1@example.com',
     firstName: 'Test',
     lastName: 'User L1',
@@ -33,7 +33,7 @@ export const TEST_USERS = {
   },
   // Advanced user with L2 KYC
   advanced_l2: {
-    zitadelUserId: 'test-user-l2-id',
+    userId: 'test-user-l2-id',
     email: 'test-user-l2@example.com',
     firstName: 'Test',
     lastName: 'User L2',
@@ -43,7 +43,7 @@ export const TEST_USERS = {
   },
   // Premium user with L3 KYC
   premium_l3: {
-    zitadelUserId: 'test-user-l3-id',
+    userId: 'test-user-l3-id',
     email: 'test-user-l3@example.com',
     firstName: 'Test',
     lastName: 'User L3',
@@ -53,7 +53,7 @@ export const TEST_USERS = {
   },
   // Broker user
   broker: {
-    zitadelUserId: 'test-broker-id',
+    userId: 'test-broker-id',
     email: 'test-broker@example.com',
     firstName: 'Test',
     lastName: 'Broker',
@@ -63,7 +63,7 @@ export const TEST_USERS = {
   },
   // Admin user
   admin: {
-    zitadelUserId: 'test-admin-id',
+    userId: 'test-admin-id',
     email: 'test-admin@example.com',
     firstName: 'Test',
     lastName: 'Admin',
@@ -91,7 +91,7 @@ export async function setupTestData() {
 
   try {
     // In a real implementation, this would:
-    // 1. Create test users in Zitadel
+    // 1. Create test users in Authentik
     // 2. Set up their roles and permissions
     // 3. Initialize KYC records with appropriate levels
     // 4. Create necessary tenant and broker relationships
@@ -136,7 +136,7 @@ export async function teardownTestData() {
 
   try {
     // In a real implementation, this would:
-    // 1. Remove test users from Zitadel
+    // 1. Remove test users from Authentik
     // 2. Clean up KYC records
     // 3. Remove role assignments
     // 4. Clean up any test-specific data
@@ -218,7 +218,7 @@ export async function setupUserKYC(userId: string, kycLevel: string) {
     console.log(`🔒 Setting up KYC level ${kycLevel} for user: ${userId}`);
 
     const kycData = {
-      zitadelUserId: userId,
+      userId,
       brokerId: 'test-broker-id',
       email: `test-user-${userId}@example.com`,
       requestedLevel: kycLevel

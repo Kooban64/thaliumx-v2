@@ -128,7 +128,29 @@ export class RegulatoryService {
   async getSubmission(submissionId: string): Promise<RegulatorySubmission | null> {
     const db = getDatabaseService();
     const row = await db.queryOne<RegulatorySubmissionTable>(`
-      SELECT * FROM regulatory_submissions WHERE id = $1 OR submission_id = $1
+      SELECT
+        id,
+        submission_id as "submissionId",
+        submission_type as "submissionType",
+        jurisdiction,
+        authority,
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        reporting_period_start_date as "reportingPeriodStartDate",
+        reporting_period_end_date as "reportingPeriodEndDate",
+        data,
+        status,
+        submission_date as "submissionDate",
+        response_date as "responseDate",
+        response_code as "responseCode",
+        response_message as "responseMessage",
+        retry_count as "retryCount",
+        max_retries as "maxRetries",
+        next_retry_at as "nextRetryAt",
+        submitted_by as "submittedBy",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM regulatory_submissions WHERE id = $1 OR submission_id = $1
     `, [submissionId]);
 
     if (!row) {
@@ -184,7 +206,29 @@ export class RegulatoryService {
     const offset = options?.offset ?? 0;
 
     const rows = await db.queryAll<RegulatorySubmissionTable>(`
-      SELECT * FROM regulatory_submissions
+      SELECT
+        id,
+        submission_id as "submissionId",
+        submission_type as "submissionType",
+        jurisdiction,
+        authority,
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        reporting_period_start_date as "reportingPeriodStartDate",
+        reporting_period_end_date as "reportingPeriodEndDate",
+        data,
+        status,
+        submission_date as "submissionDate",
+        response_date as "responseDate",
+        response_code as "responseCode",
+        response_message as "responseMessage",
+        retry_count as "retryCount",
+        max_retries as "maxRetries",
+        next_retry_at as "nextRetryAt",
+        submitted_by as "submittedBy",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM regulatory_submissions
       ${whereClause}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${offset}
@@ -360,7 +404,29 @@ export class RegulatoryService {
     const db = getDatabaseService();
 
     const pendingRetries = await db.queryAll<RegulatorySubmissionTable>(`
-      SELECT * FROM regulatory_submissions
+      SELECT
+        id,
+        submission_id as "submissionId",
+        submission_type as "submissionType",
+        jurisdiction,
+        authority,
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        reporting_period_start_date as "reportingPeriodStartDate",
+        reporting_period_end_date as "reportingPeriodEndDate",
+        data,
+        status,
+        submission_date as "submissionDate",
+        response_date as "responseDate",
+        response_code as "responseCode",
+        response_message as "responseMessage",
+        retry_count as "retryCount",
+        max_retries as "maxRetries",
+        next_retry_at as "nextRetryAt",
+        submitted_by as "submittedBy",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM regulatory_submissions
       WHERE status = 'pending'
         AND retry_count < max_retries
         AND (next_retry_at IS NULL OR next_retry_at <= CURRENT_TIMESTAMP)
@@ -405,8 +471,8 @@ export class RegulatoryService {
     `, [tenantId, periodStart, periodEnd]);
 
     // Get by type
-    const typeStats = await db.queryAll<{ submission_type: string; count: string }>(`
-      SELECT submission_type, COUNT(*) as count
+    const typeStats = await db.queryAll<{ submissionType: string; count: string }>(`
+      SELECT submission_type as "submissionType", COUNT(*) as count
       FROM regulatory_submissions
       WHERE tenant_id = $1
         AND created_at >= $2
@@ -439,7 +505,7 @@ export class RegulatoryService {
     }
 
     for (const stat of typeStats) {
-      byType[stat.submission_type] = parseInt(stat.count, 10);
+      byType[stat.submissionType] = parseInt(stat.count, 10);
     }
 
     for (const stat of jurisdictionStats) {
@@ -566,28 +632,28 @@ export class RegulatoryService {
   private mapSubmissionTableToData(row: RegulatorySubmissionTable): RegulatorySubmission {
     return {
       id: row.id,
-      submissionId: row.submission_id,
-      submissionType: row.submission_type as RegulatorySubmission['submissionType'],
+      submissionId: row.submissionId,
+      submissionType: row.submissionType as RegulatorySubmission['submissionType'],
       jurisdiction: row.jurisdiction,
       authority: row.authority,
-      tenantId: row.tenant_id,
-      brokerId: row.broker_id ?? undefined,
-      reportingPeriod: row.reporting_period_start_date && row.reporting_period_end_date ? {
-        startDate: row.reporting_period_start_date,
-        endDate: row.reporting_period_end_date,
+      tenantId: row.tenantId,
+      brokerId: row.brokerId ?? undefined,
+      reportingPeriod: row.reportingPeriodStartDate && row.reportingPeriodEndDate ? {
+        startDate: row.reportingPeriodStartDate,
+        endDate: row.reportingPeriodEndDate,
       } : undefined,
       data: row.data,
       status: row.status as RegulatorySubmission['status'],
-      submissionDate: row.submission_date ?? undefined,
-      responseDate: row.response_date ?? undefined,
-      responseCode: row.response_code ?? undefined,
-      responseMessage: row.response_message ?? undefined,
-      retryCount: row.retry_count,
-      maxRetries: row.max_retries,
-      nextRetryAt: row.next_retry_at ?? undefined,
-      submittedBy: row.submitted_by ?? undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      submissionDate: row.submissionDate ?? undefined,
+      responseDate: row.responseDate ?? undefined,
+      responseCode: row.responseCode ?? undefined,
+      responseMessage: row.responseMessage ?? undefined,
+      retryCount: row.retryCount,
+      maxRetries: row.maxRetries,
+      nextRetryAt: row.nextRetryAt ?? undefined,
+      submittedBy: row.submittedBy ?? undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 }

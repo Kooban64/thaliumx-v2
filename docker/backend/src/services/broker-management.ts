@@ -19,7 +19,7 @@
 import { LoggerService } from './logger';
 // ConfigService, AppError, uuidv4 imported but not used in this file
 import { EventStreamingService } from './event-streaming';
-// import { KeycloakService } from './keycloak'; // Removed - using Zitadel now
+// import { AuthentikService } from './Authentik'; // Removed - using Authentik now
 import { DatabaseService } from './database';
 import { createError } from '../utils';
 import { Op } from 'sequelize';
@@ -774,15 +774,15 @@ export class BrokerManagementService {
       // Create broker configuration (for backward compatibility with BrokerManagementService)
       const brokerConfig = await this.createBrokerConfig(request, brokerId);
 
-      // Zitadel organization/project creation - authentication is now handled globally
-      // For now, skip realm creation since Zitadel handles organizations differently
+      // Authentik organization/project creation - authentication is now handled globally
+      // For now, skip realm creation since Authentik handles organizations differently
       // and authentication is managed at the token validation level
       const realmResult = {
         success: true,
         realmName: `${request.slug}-organization`,
         adminUrl: `https://auth.thaliumx.com/org/${request.slug}`,
         clientId: `thaliumx-${request.slug}`,
-        clientSecret: '', // Zitadel uses PKCE, no client secret needed
+        clientSecret: '', // Authentik public clients can use PKCE, no client secret needed
       };
 
       result.realmName = realmResult.realmName;

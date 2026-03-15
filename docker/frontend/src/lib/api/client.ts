@@ -1,7 +1,7 @@
 // API Configuration
 // In browser: Use relative URLs (Next.js will proxy via API routes)
 // In SSR: Use NEXT_PUBLIC_API_URL or default to backend service name
-import { getKeycloakToken } from '@/lib/auth/backend-auth';
+import { getOidcToken } from '@/lib/auth/backend-auth';
 
 const getApiBaseUrl = (): string => {
   // Always check NEXT_PUBLIC_API_URL first (set at build time)
@@ -143,10 +143,10 @@ class ApiClient {
       'X-Tenant-ID': getTenantId(), // Always include tenant ID
     };
 
-    // Attach Keycloak Bearer token when available.
-    const keycloakToken = typeof window !== 'undefined' ? getKeycloakToken() : null;
-    if (keycloakToken && !hasAuthorizationHeader(options.headers)) {
-      defaultHeaders['Authorization'] = `Bearer ${keycloakToken}`;
+    // Attach OIDC Bearer token when available.
+    const oidcToken = typeof window !== 'undefined' ? getOidcToken() : null;
+    if (oidcToken && !hasAuthorizationHeader(options.headers)) {
+      defaultHeaders['Authorization'] = `Bearer ${oidcToken}`;
     }
 
     // CSRF tokens not needed for Bearer token authentication

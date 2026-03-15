@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/interfaces/IERC2981.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import {ERC721Royalty} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol";
+import {ERC721URIStorage} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title ThaliumNFT
@@ -87,9 +86,9 @@ contract ThaliumNFT is
         string memory uri,
         uint256 royaltyFee
     ) external onlyRole(MINTER_ROLE) whenNotPaused nonReentrant returns (uint256) {
-        require(to != address(0), "ThaliumNFT: Invalid recipient");
-        require(bytes(uri).length > 0, "ThaliumNFT: Invalid URI");
-        require(royaltyFee <= MAX_ROYALTY, "ThaliumNFT: Royalty too high");
+        if (to == address(0)) revert InvalidAddress();
+        if (bytes(uri).length == 0) revert InvalidTokenId();
+        if (royaltyFee > MAX_ROYALTY) revert RoyaltyTooHigh();
 
         uint256 tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
@@ -111,15 +110,15 @@ contract ThaliumNFT is
         string[] memory uris,
         uint256[] memory royaltyFees
     ) external onlyRole(MINTER_ROLE) whenNotPaused nonReentrant returns (uint256[] memory) {
-        require(to != address(0), "ThaliumNFT: Invalid recipient");
-        require(uris.length == royaltyFees.length, "ThaliumNFT: Array length mismatch");
-        require(uris.length <= MAX_BATCH_SIZE, "ThaliumNFT: Batch size too large");
+        if (to == address(0)) revert InvalidAddress();
+        if (uris.length != royaltyFees.length) revert InvalidTokenId();
+        if (uris.length > MAX_BATCH_SIZE) revert BatchSizeTooLarge();
 
         uint256[] memory tokenIds = new uint256[](uris.length);
 
         for (uint256 i = 0; i < uris.length; i++) {
-            require(bytes(uris[i]).length > 0, "ThaliumNFT: Invalid URI");
-            require(royaltyFees[i] <= MAX_ROYALTY, "ThaliumNFT: Royalty too high");
+            if (bytes(uris[i]).length == 0) revert InvalidTokenId();
+            if (royaltyFees[i] > MAX_ROYALTY) revert RoyaltyTooHigh();
 
             uint256 tokenId = _nextTokenId++;
             _safeMint(to, tokenId);
@@ -138,7 +137,7 @@ contract ThaliumNFT is
      * @param tokenId Token ID to burn
      */
     function burn(uint256 tokenId) external onlyRole(BURNER_ROLE) whenNotPaused nonReentrant {
-        require(_ownerOf(tokenId) != address(0), "ThaliumNFT: Token does not exist");
+        if (_ownerOf(tokenId) == address(0)) revert InvalidTokenId();
         
         // Unstake if staked
         if (stakedTokens[tokenId]) {
@@ -166,9 +165,9 @@ contract ThaliumNFT is
         address recipient,
         uint256 fee
     ) external onlyRole(ROYALTY_MANAGER_ROLE) {
-        require(_ownerOf(tokenId) != address(0), "ThaliumNFT: Token does not exist");
-        require(recipient != address(0), "ThaliumNFT: Invalid recipient");
-        require(fee <= MAX_ROYALTY, "ThaliumNFT: Royalty too high");
+        if (_ownerOf(tokenId) == address(0)) revert InvalidTokenId();
+        if (recipient == address(0)) revert InvalidAddress();
+        if (fee > MAX_ROYALTY) revert RoyaltyTooHigh();
 
         _setTokenRoyalty(tokenId, recipient, uint96(fee));
         tokenRoyaltyFees[tokenId] = fee;
@@ -185,8 +184,8 @@ contract ThaliumNFT is
         address recipient,
         uint256 fee
     ) external onlyRole(ROYALTY_MANAGER_ROLE) {
-        require(recipient != address(0), "ThaliumNFT: Invalid recipient");
-        require(fee <= MAX_ROYALTY, "ThaliumNFT: Royalty too high");
+        if (recipient == address(0)) revert InvalidAddress();
+        if (fee > MAX_ROYALTY) revert RoyaltyTooHigh();
 
         _setDefaultRoyalty(recipient, uint96(fee));
         emit DefaultRoyaltyUpdated(recipient, fee);
@@ -201,9 +200,9 @@ contract ThaliumNFT is
      * @param tokenId Token ID to stake
      */
     function stakeToken(uint256 tokenId) external whenNotPaused nonReentrant {
-        require(_ownerOf(tokenId) != address(0), "ThaliumNFT: Token does not exist");
-        require(ownerOf(tokenId) == msg.sender, "ThaliumNFT: Not token owner");
-        require(!stakedTokens[tokenId], "ThaliumNFT: Token already staked");
+        if (_ownerOf(tokenId) == address(0)) revert InvalidTokenId();
+        if (ownerOf(tokenId) != msg.sender) revert Unauthorized();
+        if (stakedTokens[tokenId]) revert TokenAlreadyStaked();
 
         stakedTokens[tokenId] = true;
         userStakedTokens[msg.sender].push(tokenId);
@@ -217,31 +216,67 @@ contract ThaliumNFT is
      * @param tokenId Token ID to unstake
      */
     function unstakeToken(uint256 tokenId) external whenNotPaused nonReentrant {
-        require(_ownerOf(tokenId) != address(0), "ThaliumNFT: Token does not exist");
-        require(ownerOf(tokenId) == msg.sender, "ThaliumNFT: Not token owner");
-        require(stakedTokens[tokenId], "ThaliumNFT: Token not staked");
+        if (_ownerOf(tokenId) == address(0)) revert InvalidTokenId();
+        if (ownerOf(tokenId) != msg.sender) revert Unauthorized();
+        if (!stakedTokens[tokenId]) revert TokenNotStaked();
 
         _unstakeToken(tokenId);
         emit TokenUnstaked(tokenId, msg.sender);
     }
 
-    /**
-     * @dev Internal function to unstake token
-     * @param tokenId Token ID to unstake
-     */
-    function _unstakeToken(uint256 tokenId) internal {
-        stakedTokens[tokenId] = false;
-        totalStakedTokens--;
+    // ========================================
+    // OVERRIDE FUNCTIONS
+    // ========================================
 
-        // Remove from user's staked tokens array
-        uint256[] storage userTokens = userStakedTokens[ownerOf(tokenId)];
-        for (uint256 i = 0; i < userTokens.length; i++) {
-            if (userTokens[i] == tokenId) {
-                userTokens[i] = userTokens[userTokens.length - 1];
-                userTokens.pop();
-                break;
-            }
-        }
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        return super.tokenURI(tokenId);
+    }
+
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override(ERC721, ERC721Enumerable)
+        returns (address)
+    {
+        return super._update(to, tokenId, auth);
+    }
+
+    function _increaseBalance(address account, uint128 value)
+        internal
+        override(ERC721, ERC721Enumerable)
+    {
+        super._increaseBalance(account, value);
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC721Enumerable, ERC721URIStorage, ERC721Royalty, AccessControl)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+
+    // ========================================
+    // ADMIN FUNCTIONS
+    // ========================================
+
+    /**
+     * @dev Pause the contract
+     */
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @dev Unpause the contract
+     */
+    function unpause() external onlyRole(PAUSER_ROLE) {
+        _unpause();
     }
 
     // ========================================
@@ -267,6 +302,24 @@ contract ThaliumNFT is
     }
 
     /**
+     * @dev Internal function to unstake token
+     * @param tokenId Token ID to unstake
+     */
+    function _unstakeToken(uint256 tokenId) internal {
+        stakedTokens[tokenId] = false;
+        totalStakedTokens--;
+
+        uint256[] storage userTokens = userStakedTokens[ownerOf(tokenId)];
+        for (uint256 i = 0; i < userTokens.length; i++) {
+            if (userTokens[i] == tokenId) {
+                userTokens[i] = userTokens[userTokens.length - 1];
+                userTokens.pop();
+                break;
+            }
+        }
+    }
+
+    /**
      * @dev Get token royalty fee
      * @param tokenId Token ID
      * @return Royalty fee in basis points
@@ -281,60 +334,5 @@ contract ThaliumNFT is
      */
     function getTotalStakedTokens() external view returns (uint256) {
         return totalStakedTokens;
-    }
-
-    // ========================================
-    // ADMIN FUNCTIONS
-    // ========================================
-
-    /**
-     * @dev Pause the contract
-     */
-    function pause() external onlyRole(PAUSER_ROLE) {
-        _pause();
-    }
-
-    /**
-     * @dev Unpause the contract
-     */
-    function unpause() external onlyRole(PAUSER_ROLE) {
-        _unpause();
-    }
-
-    // ========================================
-    // OVERRIDE FUNCTIONS
-    // ========================================
-
-    function _update(address to, uint256 tokenId, address auth)
-        internal
-        override(ERC721, ERC721Enumerable)
-        returns (address)
-    {
-        return super._update(to, tokenId, auth);
-    }
-
-    function _increaseBalance(address account, uint128 value)
-        internal
-        override(ERC721, ERC721Enumerable)
-    {
-        super._increaseBalance(account, value);
-    }
-
-    function tokenURI(uint256 tokenId)
-        public
-        view
-        override(ERC721, ERC721URIStorage)
-        returns (string memory)
-    {
-        return super.tokenURI(tokenId);
-    }
-
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC721, ERC721Enumerable, ERC721URIStorage, ERC721Royalty, AccessControl)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
     }
 }

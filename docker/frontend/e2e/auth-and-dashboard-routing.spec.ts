@@ -11,8 +11,10 @@
 import { test, expect, Page } from '@playwright/test';
 
 // Test configuration
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+const env = (globalThis as any).process?.env ?? {};
+const BASE_URL = env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+const BACKEND_URL = env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+const HAS_AUTHENTIK_E2E_CREDS = Boolean(env.E2E_AUTHENTIK_LOGINNAME && env.E2E_AUTHENTIK_PASSWORD);
 
 // Generate unique test user emails to avoid conflicts
 // Use random number to ensure uniqueness even if tests run quickly
@@ -59,290 +61,31 @@ async function waitForPageLoad(page: Page) {
 }
 
 /**
- * Helper: Register a new user
+ * Helper: Login via Authentik (requires E2E creds)
  */
-async function registerUser(page: Page, user: typeof TEST_USERS.regularUser): Promise<boolean> {
-  try {
-    await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await waitForPageLoad(page);
-
-    // Wait for form to be visible
-    await page.waitForSelector('input[type="email"], input[name="email"]', { timeout: 10000 });
-
-    // Check if we're already in register mode by looking for firstName field
-    const isRegisterMode = await page.locator('input[id="firstName"], input[name="firstName"]').isVisible({ timeout: 2000 }).catch(() => false);
-    
-    if (!isRegisterMode) {
-      // Look for button/link to switch to register mode
-      // The login page has a mode switcher - look for "Sign up" or "Register" button
-      const switchButtons = [
-        'button:has-text("Sign up")',
-        'button:has-text("Register")',
-        'a:has-text("Sign up")',
-        'a:has-text("Register")',
-        'text=/sign up/i',
-        'text=/register/i'
-      ];
-      
-      let switched = false;
-      for (const selector of switchButtons) {
-        const switchBtn = page.locator(selector).first();
-        if (await switchBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await switchBtn.click();
-          await page.waitForTimeout(1500);
-          await waitForPageLoad(page);
-          switched = true;
-          break;
-        }
-      }
-      
-      if (!switched) {
-        console.log('Could not find register mode switch button');
-      }
-    }
-
-    // Wait for registration form fields to be visible
-    await page.waitForSelector('input[id="firstName"], input[name="firstName"]', { timeout: 5000 });
-    
-    // Fill registration form
-    const firstNameInput = page.locator('input[id="firstName"], input[name="firstName"]').first();
-    const lastNameInput = page.locator('input[id="lastName"], input[name="lastName"]').first();
-    const emailInput = page.locator('input[type="email"], input[id="email"], input[name="email"]').first();
-    const passwordInput = page.locator('input[type="password"]').first();
-    const confirmPasswordInput = page.locator('input[type="password"]').nth(1); // Second password field
-    
-    await firstNameInput.fill(user.firstName);
-    await lastNameInput.fill(user.lastName);
-    await emailInput.fill(user.email);
-    await passwordInput.fill(user.password);
-    await confirmPasswordInput.fill(user.password);
-
-    // Submit registration and wait for network request
-    const submitButton = page.locator('button[type="submit"]').first();
-    
-    // Set up response listener before clicking
-    let apiSuccess = false;
-    let apiResponseData: any = null;
-    
-    const responsePromise = page.waitForResponse(
-      response => response.url().includes('/api/auth/register') && response.request().method() === 'POST',
-      { timeout: 15000 }
-    ).catch(() => null);
-    
-    // Click submit
-    await submitButton.click();
-    
-    // Wait for the API response
-    try {
-      const response = await responsePromise;
-      if (response) {
-        const status = response.status();
-        apiResponseData = await response.json().catch(() => ({}));
-        const responseStr = JSON.stringify(apiResponseData).substring(0, 200);
-        console.log(`Registration API response [${status}]:`, responseStr);
-        
-        // If API says success, registration worked
-        if (apiResponseData.success === true || (apiResponseData.data && apiResponseData.data.user)) {
-          console.log('Registration API returned success - returning true');
-          apiSuccess = true;
-        }
-        
-        // Handle backend connection errors - wait and check UI
-        if (status >= 500 || 
-            apiResponseData.error?.message?.toLowerCase().includes('connect') ||
-            apiResponseData.error?.message?.toLowerCase().includes('backend service')) {
-          console.log('Backend connection error detected - waiting and checking UI');
-          await page.waitForTimeout(5000);
-          // Continue to check UI - might have succeeded despite error
-        }
-        
-        // Handle rate limiting - if rate limited, wait longer and try to continue
-        if (apiResponseData.error && 
-            (apiResponseData.error.code === 'RATE_LIMIT_EXCEEDED' || 
-             apiResponseData.error.message?.toLowerCase().includes('rate limit') ||
-             apiResponseData.error.message?.toLowerCase().includes('too many requests'))) {
-          console.log('Rate limit detected - waiting longer and checking UI');
-          await page.waitForTimeout(5000); // Wait longer for rate limit to clear
-          // Don't return false immediately - check UI to see if registration actually worked
-        }
-      }
-    } catch (error) {
-      // If we can't catch the response, continue to check UI
-      console.log('Could not catch API response, checking UI:', error);
-      // Wait a bit for UI to update
-      await page.waitForTimeout(3000);
-    }
-    
-    // If API confirmed success, wait for UI and return
-    if (apiSuccess) {
-      await page.waitForTimeout(2000); // Wait for UI to update
-      // Return true immediately if API confirmed success
-      return true;
-    }
-
-    // Wait for response - look for success message or error
-    // Success shows "Registration Successful!" as CardTitle with CheckCircle icon
-    // Error shows in Alert with destructive variant
-    await page.waitForTimeout(3000); // Give React time to update after form submission
-    
-    // Check for error first - if error exists, registration failed
-    // Only check for actual error text, not just alert elements
-    const errorTextSelectors = [
-      '[role="alert"]:has-text(/error|failed|invalid|connect|backend service/i)',
-      '.destructive:has-text(/error|failed|invalid|connect|backend service/i)',
-      'text=/error|failed|invalid|connect|backend service/i'
-    ];
-    
-    for (const selector of errorTextSelectors) {
-      const errorElement = page.locator(selector).first();
-      if (await errorElement.isVisible({ timeout: 2000 }).catch(() => false)) {
-        const errorText = await errorElement.textContent().catch(() => '');
-        // If error says user already exists, that's actually a success (user was created)
-        if (errorText && errorText.toLowerCase().includes('already exists')) {
-          console.log('User already exists - considering as success');
-          return true;
-        }
-        // Backend connection errors - wait and check if UI shows success anyway
-        if (errorText && (errorText.toLowerCase().includes('connect') || 
-                          errorText.toLowerCase().includes('backend service'))) {
-          console.log('Backend connection error in UI - waiting longer:', errorText);
-          await page.waitForTimeout(3000);
-          // Continue to check for success - might have succeeded despite error
-        }
-        // Only fail if there's actual error text (not connection errors)
-        if (errorText && errorText.trim().length > 0 && 
-            !errorText.toLowerCase().includes('success') &&
-            !errorText.toLowerCase().includes('connect') &&
-            !errorText.toLowerCase().includes('backend service')) {
-          console.log('Registration error detected:', errorText);
-          return false;
-        }
-      }
-    }
-    
-    // Check for success message - the CardTitle shows "Registration Successful!"
-    // Look for the h3 element with this text (CardTitle renders as h3)
-    const successSelectors = [
-      'h3:has-text("Registration Successful!")',
-      'h3:has-text("Registration Successful")',
-      'text="Registration Successful!"',
-      'text=/Registration Successful/i',
-      '.text-green-600', // CheckCircle icon color class
-      'svg.lucide-check-circle-2', // CheckCircle icon
-    ];
-    
-    let hasSuccess = false;
-    for (const selector of successSelectors) {
-      try {
-        const element = page.locator(selector).first();
-        if (await element.isVisible({ timeout: 5000 })) {
-          hasSuccess = true;
-          console.log(`Registration success detected via: ${selector}`);
-          break;
-        }
-      } catch {
-        // Continue to next selector
-      }
-    }
-    
-    // Also check page content for success indicators
-    if (!hasSuccess) {
-      const pageText = await page.textContent('body').catch(() => '');
-      if (pageText) {
-        const hasSuccessText = pageText.includes('Registration Successful') || 
-                              (pageText.includes('successfully') && !pageText.includes('error') && !pageText.includes('failed'));
-        if (hasSuccessText) {
-          hasSuccess = true;
-          console.log('Registration success detected via page text');
-        }
-      }
-    }
-    
-    // Also check if we're still on login page (success state shows success card)
-    const currentUrl = page.url();
-    const onLoginPage = currentUrl.includes('/login');
-    
-    // Success is shown as a card on the same page, not a redirect
-    // If we're on login page and see success indicators, registration worked
-    if (onLoginPage && hasSuccess) {
-      return true;
-    }
-    
-    // If we see success indicators anywhere, it worked
-    return hasSuccess;
-  } catch (error) {
-    console.error('Registration error:', error);
-    // Take screenshot for debugging
-    await page.screenshot({ path: `test-results/registration-error-${Date.now()}.png` }).catch(() => {});
+async function loginViaAuthentik(page: Page): Promise<boolean> {
+  if (!HAS_AUTHENTIK_E2E_CREDS) {
     return false;
   }
-}
 
-/**
- * Helper: Login a user
- */
-async function loginUser(page: Page, email: string, password: string): Promise<boolean> {
   try {
-    await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto('/auth', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await waitForPageLoad(page);
 
-    // Wait for login form to be visible
-    await page.waitForSelector('input[type="email"], input[id="email"], input[name="email"]', { timeout: 10000 });
+    const continueButton = page.getByRole('button', { name: /^continue$/i });
+    await continueButton.click();
+    await page.waitForURL(/auth\.thaliumx\.com/, { timeout: 45000 });
 
-    // Ensure we're in login mode (not register) - login mode doesn't have firstName field
-    const hasFirstName = await page.locator('input[id="firstName"]').isVisible({ timeout: 1000 }).catch(() => false);
-    if (hasFirstName) {
-      // We're in register mode, switch to login
-      const switchToLogin = page.locator('button:has-text("Sign in"), a:has-text("Sign in"), text=/sign in/i, text=/login/i').first();
-      if (await switchToLogin.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await switchToLogin.click();
-        await page.waitForTimeout(1500);
-        await waitForPageLoad(page);
-      }
-    }
+    await page.getByLabel(/username|email|login/i).fill(env.E2E_AUTHENTIK_LOGINNAME);
+    await page.getByLabel(/password/i).fill(env.E2E_AUTHENTIK_PASSWORD);
+    await page.getByRole('button', { name: /log in|sign in/i }).click();
 
-    // Fill login form
-    const emailInput = page.locator('input[type="email"], input[id="email"]').first();
-    const passwordInput = page.locator('input[type="password"], input[id="password"]').first();
-
-    await emailInput.fill(email);
-    await passwordInput.fill(password);
-
-    // Submit login
-    const submitButton = page.locator('button[type="submit"]').first();
-    await submitButton.click();
-
-    // Wait for redirect (should redirect to dashboard based on role)
-    // The login page redirects via router.push, so wait for URL change
-    try {
-      await page.waitForURL(/.*\/(dashboard|admin|broker)/, { timeout: 20000 });
-      const currentUrl = page.url();
-      return currentUrl.includes('/dashboard') || currentUrl.includes('/admin') || currentUrl.includes('/broker');
-    } catch {
-      // If URL doesn't change, check for error or wait more
-      await page.waitForTimeout(3000);
-      const currentUrl = page.url();
-      
-      // Check if we're still on login page with an error
-      if (currentUrl.includes('/login')) {
-        const hasError = await page.locator('[role="alert"], .destructive, text=/error|invalid|incorrect|failed/i').isVisible({ timeout: 2000 }).catch(() => false);
-        if (hasError) {
-          console.log('Login failed - still on login page with error');
-          return false;
-        }
-        // No error but still on login - might be loading
-        await page.waitForTimeout(2000);
-        const finalUrl = page.url();
-        return !finalUrl.includes('/login');
-      }
-      
-      // Check final URL
-      return currentUrl.includes('/dashboard') || currentUrl.includes('/admin') || currentUrl.includes('/broker');
-    }
+    await page.waitForURL(/.*\/(dashboard|admin|broker|token-presale)/, { timeout: 60000 });
+    const currentUrl = page.url();
+    return /\/dashboard|\/admin|\/broker|\/token-presale/.test(currentUrl);
   } catch (error) {
-    console.error('Login error:', error);
-    // Take screenshot for debugging
-    await page.screenshot({ path: `test-results/login-error-${Date.now()}.png` }).catch(() => {});
+    console.error('Authentik login error:', error);
+    await page.screenshot({ path: `test-results/Authentik-login-error-${Date.now()}.png` }).catch(() => {});
     return false;
   }
 }
@@ -439,150 +182,20 @@ test.describe('Authentication and Dashboard Routing', () => {
   });
 
   test.describe('User Registration Flow', () => {
-    test('should successfully register a new user', async ({ page }) => {
-      const user = TEST_USERS.regularUser;
-      
-      const registered = await registerUser(page, user);
-      expect(registered).toBe(true);
-      
-      // Wait for registration to complete
-      await page.waitForTimeout(3000);
-      
-      // Navigate to login page to test login
-      await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await waitForPageLoad(page);
-      
-      // After registration, should be able to login
-      const loggedIn = await loginUser(page, user.email, user.password);
-      expect(loggedIn).toBe(true);
-    });
-
-    test('should validate registration form fields', async ({ page }) => {
-      await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    test('should defer registration to IdP (legacy form removed)', async ({ page }) => {
+      await page.goto('/register', { waitUntil: 'domcontentloaded', timeout: 30000 });
       await waitForPageLoad(page);
 
-      // Wait for form
-      await page.waitForSelector('input[type="email"]', { timeout: 10000 });
-
-      // Switch to register mode
-      const isRegisterMode = await page.locator('input[id="firstName"]').isVisible({ timeout: 5000 }).catch(() => false);
-      if (!isRegisterMode) {
-        // Try multiple selectors for the sign up button
-        const switchSelectors = [
-          'button:has-text("Sign up")',
-          'a:has-text("Sign up")',
-          'button:has-text("Sign Up")',
-          'a:has-text("Sign Up")',
-          'text=/sign up/i',
-          '[data-testid="sign-up-button"]'
-        ];
-        
-        let switched = false;
-        for (const selector of switchSelectors) {
-          try {
-            const switchButton = page.locator(selector).first();
-            if (await switchButton.isVisible({ timeout: 2000 })) {
-              await switchButton.click();
-              await page.waitForTimeout(2000);
-              await waitForPageLoad(page);
-              // Verify we're now in register mode
-              const nowInRegisterMode = await page.locator('input[id="firstName"]').isVisible({ timeout: 3000 }).catch(() => false);
-              if (nowInRegisterMode) {
-                switched = true;
-                break;
-              }
-            }
-          } catch {
-            continue;
-          }
-        }
-        
-        if (!switched) {
-          console.log('Could not switch to register mode - trying to continue anyway');
-        }
-      }
-
-      // Wait for registration form with multiple attempts
-      let formFound = false;
-      for (let i = 0; i < 3; i++) {
-        try {
-          await page.waitForSelector('input[id="firstName"]', { timeout: 5000 });
-          formFound = true;
-          break;
-        } catch {
-          // Try clicking sign up again
-          const switchButton = page.locator('button:has-text("Sign"), a:has-text("Sign")').first();
-          if (await switchButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-            await switchButton.click();
-            await page.waitForTimeout(2000);
-          }
-        }
-      }
-      
-      if (!formFound) {
-        throw new Error('Registration form not found after multiple attempts');
-      }
-
-      // Try to submit empty form - but first check if HTML5 validation prevents it
-      const submitButton = page.locator('button[type="submit"]').first();
-      
-      // Check if form has required attributes (HTML5 validation)
-      const firstNameInput = page.locator('input[id="firstName"]').first();
-      const isRequired = await firstNameInput.evaluate((el: HTMLInputElement) => el.required).catch(() => false);
-      
-      if (isRequired) {
-        // HTML5 validation will prevent submission
-        // Try to submit and check if it was prevented
-        await submitButton.click();
-        await page.waitForTimeout(1000);
-        
-        // Check if form is still visible (submission was prevented)
-        const formStillVisible = await page.locator('input[id="firstName"]').isVisible({ timeout: 1000 }).catch(() => false);
-        expect(formStillVisible).toBe(true);
-      } else {
-        // Custom validation - submit and check for error message
-        await submitButton.click();
-        await page.waitForTimeout(2000);
-        
-        // Check for error message in Alert (destructive variant)
-        const errorSelectors = [
-          '[role="alert"]', // Alert component
-          '.destructive', // Destructive variant
-          'text=/required/i',
-          'text=/invalid/i',
-          'text=/error/i',
-          'text=/please enter/i',
-          'text=/must be/i',
-        ];
-        
-        let hasErrors = false;
-        for (const selector of errorSelectors) {
-          if (await page.locator(selector).isVisible({ timeout: 2000 }).catch(() => false)) {
-            hasErrors = true;
-            break;
-          }
-        }
-        
-        expect(hasErrors).toBe(true);
-      }
+      // Registration should redirect to /auth entry and show the continue CTA.
+      await expect(page.getByRole('button', { name: /^continue$/i })).toBeVisible({ timeout: 15000 });
     });
   });
 
   test.describe('User Login Flow', () => {
     test('should successfully login with valid credentials', async ({ page }) => {
-      const user = TEST_USERS.regularUser;
-      
-      // First register the user
-      const registered = await registerUser(page, user);
-      expect(registered).toBe(true);
-      await page.waitForTimeout(3000);
-      
-      // Navigate to login page
-      await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await waitForPageLoad(page);
-      
-      // Then login
-      const loggedIn = await loginUser(page, user.email, user.password);
+      test.skip(!HAS_AUTHENTIK_E2E_CREDS, 'Authentik creds required for login flow');
+
+      const loggedIn = await loginViaAuthentik(page);
       expect(loggedIn).toBe(true);
       
       // Should be redirected to dashboard
@@ -591,57 +204,25 @@ test.describe('Authentication and Dashboard Routing', () => {
     });
 
     test('should reject login with invalid credentials', async ({ page }) => {
-      await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
+      test.skip(!HAS_AUTHENTIK_E2E_CREDS, 'Authentik creds required for login flow');
+
+      await page.goto('/auth', { waitUntil: 'domcontentloaded', timeout: 30000 });
       await waitForPageLoad(page);
+      await page.getByRole('button', { name: /^continue$/i }).click();
+      await page.waitForURL(/auth\.thaliumx\.com/, { timeout: 45000 });
 
-      // Wait for form
-      await page.waitForSelector('input[type="email"]', { timeout: 10000 });
+      await page.getByLabel(/username|email|login/i).fill('invalid@example.com');
+      await page.getByLabel(/password/i).fill('wrongpassword');
+      await page.getByRole('button', { name: /log in|sign in/i }).click();
 
-      // Try to login with invalid credentials
-      const emailInput = page.locator('input[type="email"], input[id="email"]').first();
-      const passwordInput = page.locator('input[type="password"], input[id="password"]').first();
-      
-      await emailInput.fill('invalid@example.com');
-      await passwordInput.fill('wrongpassword');
-      
-      const submitButton = page.locator('button[type="submit"]').first();
-      await submitButton.click();
-      
-      // Should show error message
-      await page.waitForTimeout(3000);
-      const errorSelectors = [
-        '[role="alert"]',
-        '.destructive',
-        'text=/invalid|incorrect|error|failed/i'
-      ];
-      
-      let hasError = false;
-      for (const selector of errorSelectors) {
-        if (await page.locator(selector).isVisible({ timeout: 3000 }).catch(() => false)) {
-          hasError = true;
-          break;
-        }
-      }
-      
-      expect(hasError).toBe(true);
-      
-      // Should still be on login page
-      expect(page.url()).toMatch(/\/login/);
+      const errorVisible = await page.getByText(/invalid|incorrect|error|failed/i).isVisible({ timeout: 15000 }).catch(() => false);
+      expect(errorVisible).toBe(true);
     });
 
     test('should persist login session', async ({ page }) => {
-      const user = TEST_USERS.regularUser;
-      
-      // Register and login
-      const registered = await registerUser(page, user);
-      expect(registered).toBe(true);
-      await page.waitForTimeout(3000);
-      
-      // Navigate to login page
-      await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await waitForPageLoad(page);
-      
-      const loggedIn = await loginUser(page, user.email, user.password);
+      test.skip(!HAS_AUTHENTIK_E2E_CREDS, 'Authentik creds required for login flow');
+
+      const loggedIn = await loginViaAuthentik(page);
       expect(loggedIn).toBe(true);
       
       // Verify we're logged in
@@ -661,20 +242,9 @@ test.describe('Authentication and Dashboard Routing', () => {
 
   test.describe('Role-Based Dashboard Routing', () => {
     test('should route regular user to /dashboard', async ({ page }) => {
-      const user = TEST_USERS.regularUser;
-      
-      // Register and login
-      const registered = await registerUser(page, user);
-      expect(registered).toBe(true);
-      
-      // Wait for registration to complete and form to switch back to login
-      await page.waitForTimeout(3000);
-      
-      // Now login - need to ensure we're on login page
-      await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await waitForPageLoad(page);
-      
-      const loggedIn = await loginUser(page, user.email, user.password);
+      test.skip(!HAS_AUTHENTIK_E2E_CREDS, 'Authentik creds required for login flow');
+
+      const loggedIn = await loginViaAuthentik(page);
       expect(loggedIn).toBe(true);
       
       // Wait for redirect to dashboard
@@ -691,11 +261,12 @@ test.describe('Authentication and Dashboard Routing', () => {
     });
 
     test('should route admin user to /admin', async ({ page }) => {
+      test.skip(!HAS_AUTHENTIK_E2E_CREDS, 'Authentik creds required for login flow');
       // Note: This test assumes admin users can be created or exist
       // In a real scenario, you might need to create admin users via API
       
       // Try to login as admin (if exists)
-      const loggedIn = await loginUser(page, TEST_USERS.adminUser.email, TEST_USERS.adminUser.password);
+      const loggedIn = await loginViaAuthentik(page);
       
       if (loggedIn) {
         // Should be redirected to admin dashboard
@@ -712,8 +283,9 @@ test.describe('Authentication and Dashboard Routing', () => {
     });
 
     test('should route broker user to /broker', async ({ page }) => {
+      test.skip(!HAS_AUTHENTIK_E2E_CREDS, 'Authentik creds required for login flow');
       // Note: This test assumes broker users can be created or exist
-      const loggedIn = await loginUser(page, TEST_USERS.brokerUser.email, TEST_USERS.brokerUser.password);
+      const loggedIn = await loginViaAuthentik(page);
       
       if (loggedIn) {
         // Should be redirected to broker dashboard
@@ -729,18 +301,9 @@ test.describe('Authentication and Dashboard Routing', () => {
     });
 
     test('should redirect non-admin from /admin to /dashboard', async ({ page }) => {
-      const user = TEST_USERS.regularUser;
-      
-      // Register and login as regular user
-      const registered = await registerUser(page, user);
-      expect(registered).toBe(true);
-      await page.waitForTimeout(3000);
-      
-      // Navigate to login page
-      await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await waitForPageLoad(page);
-      
-      const loggedIn = await loginUser(page, user.email, user.password);
+      test.skip(!HAS_AUTHENTIK_E2E_CREDS, 'Authentik creds required for login flow');
+
+      const loggedIn = await loginViaAuthentik(page);
       expect(loggedIn).toBe(true);
       
       // Wait for dashboard to load
@@ -766,18 +329,9 @@ test.describe('Authentication and Dashboard Routing', () => {
     });
 
     test('should redirect non-broker from /broker to /dashboard', async ({ page }) => {
-      const user = TEST_USERS.regularUser;
-      
-      // Register and login as regular user
-      const registered = await registerUser(page, user);
-      expect(registered).toBe(true);
-      await page.waitForTimeout(3000);
-      
-      // Navigate to login page
-      await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await waitForPageLoad(page);
-      
-      const loggedIn = await loginUser(page, user.email, user.password);
+      test.skip(!HAS_AUTHENTIK_E2E_CREDS, 'Authentik creds required for login flow');
+
+      const loggedIn = await loginViaAuthentik(page);
       expect(loggedIn).toBe(true);
       
       // Wait for dashboard to load
@@ -805,18 +359,9 @@ test.describe('Authentication and Dashboard Routing', () => {
 
   test.describe('Smooth Navigation', () => {
     test('should navigate smoothly between dashboard sections', async ({ page }) => {
-      const user = TEST_USERS.regularUser;
-      
-      // Register and login
-      const registered = await registerUser(page, user);
-      expect(registered).toBe(true);
-      await page.waitForTimeout(3000);
-      
-      // Navigate to login page
-      await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await waitForPageLoad(page);
-      
-      const loggedIn = await loginUser(page, user.email, user.password);
+      test.skip(!HAS_AUTHENTIK_E2E_CREDS, 'Authentik creds required for login flow');
+
+      const loggedIn = await loginViaAuthentik(page);
       expect(loggedIn).toBe(true);
       
       // Wait for dashboard to load - check current URL
@@ -849,18 +394,9 @@ test.describe('Authentication and Dashboard Routing', () => {
     });
 
     test('should maintain authentication during navigation', async ({ page }) => {
-      const user = TEST_USERS.regularUser;
-      
-      // Register and login
-      const registered = await registerUser(page, user);
-      expect(registered).toBe(true);
-      await page.waitForTimeout(3000);
-      
-      // Navigate to login page
-      await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await waitForPageLoad(page);
-      
-      const loggedIn = await loginUser(page, user.email, user.password);
+      test.skip(!HAS_AUTHENTIK_E2E_CREDS, 'Authentik creds required for login flow');
+
+      const loggedIn = await loginViaAuthentik(page);
       expect(loggedIn).toBe(true);
       
       // Wait for initial dashboard load
@@ -892,12 +428,9 @@ test.describe('Authentication and Dashboard Routing', () => {
     });
 
     test('should handle logout smoothly', async ({ page }) => {
-      const user = TEST_USERS.regularUser;
-      
-      // Register and login
-      await registerUser(page, user);
-      await page.waitForTimeout(1000);
-      await loginUser(page, user.email, user.password);
+      test.skip(!HAS_AUTHENTIK_E2E_CREDS, 'Authentik creds required for login flow');
+
+      await loginViaAuthentik(page);
       
       // Find and click logout button
       const logoutButton = page.locator('button:has-text("Logout"), a:has-text("Logout"), button:has-text("Sign out")').first();
@@ -914,27 +447,9 @@ test.describe('Authentication and Dashboard Routing', () => {
 
   test.describe('Complete User Journey', () => {
     test('should complete full registration -> login -> dashboard flow', async ({ page }) => {
-      // Create a unique user for this test
-      const uniqueUser = {
-        email: `journey-${Date.now()}-${Math.floor(Math.random() * 1000000)}@thaliumx.test`,
-        password: 'JourneyTest123!@#',
-        firstName: 'Journey',
-        lastName: 'Test',
-        expectedRole: 'user',
-        expectedDashboard: '/dashboard'
-      };
-      
-      // Step 1: Register
-      const registered = await registerUser(page, uniqueUser);
-      expect(registered).toBe(true);
-      
-      // Step 2: Wait for registration to complete and navigate to login
-      await page.waitForTimeout(3000);
-      await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await waitForPageLoad(page);
-      
-      // Step 3: Login
-      const loggedIn = await loginUser(page, uniqueUser.email, uniqueUser.password);
+      test.skip(!HAS_AUTHENTIK_E2E_CREDS, 'Authentik creds required for login flow');
+
+      const loggedIn = await loginViaAuthentik(page);
       expect(loggedIn).toBe(true);
       
       // Step 4: Verify dashboard access

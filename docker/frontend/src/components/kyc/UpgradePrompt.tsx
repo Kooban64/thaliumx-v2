@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { TrendingUp, AlertTriangle, ArrowRight } from 'lucide-react';
-import { getKeycloakToken } from '@/lib/auth/backend-auth';
+import { getAuthToken } from '@/lib/auth/backend-auth';
 import { KYCCollectionFlow } from './KYCCollectionFlow';
 import { toast } from '@/components/shared/Toast';
 
@@ -41,7 +41,7 @@ export function UpgradePrompt({ limitType = 'investment', className, onUpgradeCl
 
   useEffect(() => {
     const fetchStatus = async () => {
-      const token = getKeycloakToken();
+      const token = getAuthToken();
       if (!token) { setLoading(false); return; }
       try {
         const res = await fetch('/api/kyc/status/unified', {
@@ -85,7 +85,7 @@ export function UpgradePrompt({ limitType = 'investment', className, onUpgradeCl
 
     setTriggeringWorkflow(true);
     try {
-      const token = getKeycloakToken();
+      const token = getAuthToken();
       if (!token) {
         window.location.href = '/login?next=/dashboard';
         return;

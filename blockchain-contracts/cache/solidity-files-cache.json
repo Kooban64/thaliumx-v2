@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/home/ubuntu/thaliumx-v1/blockchain-contracts/contracts/EmergencyControls.sol": {
-      "lastModificationDate": 1765203749950,
-      "contentHash": "13d523bf59071befcabd3c82770dc498",
+      "lastModificationDate": 1773212246614,
+      "contentHash": "aca3df7ea29b0f3f323026142c127dd6",
       "sourceName": "contracts/EmergencyControls.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -1288,8 +1288,8 @@
       ]
     },
     "/home/ubuntu/thaliumx-v1/blockchain-contracts/contracts/ThaliumVesting.sol": {
-      "lastModificationDate": 1765203749957,
-      "contentHash": "97489ea15d32315437707d87c5e6c82d",
+      "lastModificationDate": 1773208327756,
+      "contentHash": "f3d588fd284e22ead824d4f0eb790f31",
       "sourceName": "contracts/ThaliumVesting.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -1317,9 +1317,9 @@
         }
       },
       "imports": [
+        "@openzeppelin/contracts/access/AccessControl.sol",
         "@openzeppelin/contracts/token/ERC20/IERC20.sol",
         "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
-        "@openzeppelin/contracts/access/AccessControl.sol",
         "@openzeppelin/contracts/utils/Pausable.sol",
         "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
         "@openzeppelin/contracts/utils/math/Math.sol"
@@ -1486,8 +1486,8 @@
       "artifacts": []
     },
     "/home/ubuntu/thaliumx-v1/blockchain-contracts/contracts/ThaliumPresale.sol": {
-      "lastModificationDate": 1765434054985,
-      "contentHash": "bd8db7dbe4ef8f3d430ac724980573cf",
+      "lastModificationDate": 1773545206474,
+      "contentHash": "e0d1a66f0db9d85499190685d2b074b5",
       "sourceName": "contracts/ThaliumPresale.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -1515,9 +1515,9 @@
         }
       },
       "imports": [
+        "@openzeppelin/contracts/access/AccessControl.sol",
         "@openzeppelin/contracts/token/ERC20/IERC20.sol",
         "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
-        "@openzeppelin/contracts/access/AccessControl.sol",
         "@openzeppelin/contracts/utils/Pausable.sol",
         "@openzeppelin/contracts/utils/ReentrancyGuard.sol"
       ],
@@ -1530,8 +1530,8 @@
       ]
     },
     "/home/ubuntu/thaliumx-v1/blockchain-contracts/contracts/ThaliumToken.sol": {
-      "lastModificationDate": 1765203749956,
-      "contentHash": "6f9ef21c1563da1d321142b9d449839c",
+      "lastModificationDate": 1773208916056,
+      "contentHash": "72827f9d5179dc4c2f0fe330014a60ed",
       "sourceName": "contracts/ThaliumToken.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -1559,10 +1559,11 @@
         }
       },
       "imports": [
+        "@openzeppelin/contracts/access/AccessControl.sol",
         "@openzeppelin/contracts/token/ERC20/ERC20.sol",
         "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol",
         "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol",
-        "@openzeppelin/contracts/access/AccessControl.sol",
+        "@openzeppelin/contracts/utils/Nonces.sol",
         "@openzeppelin/contracts/utils/Pausable.sol",
         "@openzeppelin/contracts/utils/ReentrancyGuard.sol"
       ],
@@ -2014,8 +2015,8 @@
       ]
     },
     "/home/ubuntu/thaliumx-v1/blockchain-contracts/contracts/ThaliumNFT.sol": {
-      "lastModificationDate": 1765203749954,
-      "contentHash": "b736d993a354c4c240fd3d6cab6c8dbd",
+      "lastModificationDate": 1773209029574,
+      "contentHash": "6b33faf1f77614426cbb9d4647534ddd",
       "sourceName": "contracts/ThaliumNFT.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -2043,14 +2044,13 @@
         }
       },
       "imports": [
+        "@openzeppelin/contracts/access/AccessControl.sol",
         "@openzeppelin/contracts/token/ERC721/ERC721.sol",
         "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol",
-        "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol",
         "@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol",
-        "@openzeppelin/contracts/access/AccessControl.sol",
+        "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol",
         "@openzeppelin/contracts/utils/Pausable.sol",
-        "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
-        "@openzeppelin/contracts/interfaces/IERC2981.sol"
+        "@openzeppelin/contracts/utils/ReentrancyGuard.sol"
       ],
       "versionPragmas": [
         "^0.8.24"
@@ -2140,8 +2140,8 @@
       ]
     },
     "/home/ubuntu/thaliumx-v1/blockchain-contracts/contracts/ThaliumSecurity.sol": {
-      "lastModificationDate": 1765203749956,
-      "contentHash": "a29180f9c070f06b7ddbeafa58c46c26",
+      "lastModificationDate": 1773202390136,
+      "contentHash": "d3180be2f9f46c0c0abf4881d55bcb3d",
       "sourceName": "contracts/ThaliumSecurity.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -2181,8 +2181,8 @@
       ]
     },
     "/home/ubuntu/thaliumx-v1/blockchain-contracts/contracts/ThaliumOracle.sol": {
-      "lastModificationDate": 1765203749955,
-      "contentHash": "b964d661f1d1b993e3121bcb9f5e2676",
+      "lastModificationDate": 1773209036783,
+      "contentHash": "b0fb051c1dba64b6ce5d66940eebf437",
       "sourceName": "contracts/ThaliumOracle.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -2221,8 +2221,8 @@
       ]
     },
     "/home/ubuntu/thaliumx-v1/blockchain-contracts/contracts/ThaliumMarginVault.sol": {
-      "lastModificationDate": 1765203749953,
-      "contentHash": "c8d0e9bfe7b5a6af0108eef98f6ae574",
+      "lastModificationDate": 1773208334775,
+      "contentHash": "72402f6c071940ee47ef4261cce9a229",
       "sourceName": "contracts/ThaliumMarginVault.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -2250,9 +2250,9 @@
         }
       },
       "imports": [
+        "@openzeppelin/contracts/access/AccessControl.sol",
         "@openzeppelin/contracts/token/ERC20/IERC20.sol",
         "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
-        "@openzeppelin/contracts/access/AccessControl.sol",
         "@openzeppelin/contracts/utils/Pausable.sol",
         "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
         "@openzeppelin/contracts/utils/math/Math.sol"
@@ -2265,8 +2265,8 @@
       ]
     },
     "/home/ubuntu/thaliumx-v1/blockchain-contracts/contracts/ThaliumGovernance.sol": {
-      "lastModificationDate": 1765203749952,
-      "contentHash": "8a4b2a8367b24a6cfbd0a1e10ef552c6",
+      "lastModificationDate": 1773212039349,
+      "contentHash": "46fba358ef9cff455302bacefde05d73",
       "sourceName": "contracts/ThaliumGovernance.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -2307,8 +2307,8 @@
       ]
     },
     "/home/ubuntu/thaliumx-v1/blockchain-contracts/contracts/ThaliumDEX.sol": {
-      "lastModificationDate": 1765203749952,
-      "contentHash": "e4605b5b6fb11f7ed497b492200c7f3d",
+      "lastModificationDate": 1773193275413,
+      "contentHash": "86d1b6ce9090668977e1f02cbdc3373a",
       "sourceName": "contracts/ThaliumDEX.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -2351,8 +2351,8 @@
       ]
     },
     "/home/ubuntu/thaliumx-v1/blockchain-contracts/contracts/ThaliumBridge.sol": {
-      "lastModificationDate": 1765203749952,
-      "contentHash": "116461b2d799e0627da83d26038ed9c4",
+      "lastModificationDate": 1773192978461,
+      "contentHash": "b599435c8cb8593aa1651cf5e26bc2d2",
       "sourceName": "contracts/ThaliumBridge.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -2385,13 +2385,58 @@
         "@openzeppelin/contracts/access/AccessControl.sol",
         "@openzeppelin/contracts/utils/Pausable.sol",
         "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
-        "@openzeppelin/contracts/utils/cryptography/ECDSA.sol"
+        "@openzeppelin/contracts/utils/cryptography/ECDSA.sol",
+        "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol"
       ],
       "versionPragmas": [
         "^0.8.24"
       ],
       "artifacts": [
         "ThaliumBridge"
+      ]
+    },
+    "/home/ubuntu/thaliumx-v1/blockchain-contracts/contracts/ThaliumPresaleMultiSig.sol": {
+      "lastModificationDate": 1773545347826,
+      "contentHash": "5cd26a49d2256b3fde392578eecb6ac6",
+      "sourceName": "contracts/ThaliumPresaleMultiSig.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/AccessControl.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/utils/Pausable.sol",
+        "@openzeppelin/contracts/utils/ReentrancyGuard.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "IThaliumVesting",
+        "ThaliumPresaleMultiSig"
       ]
     }
   }

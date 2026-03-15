@@ -2,7 +2,7 @@
 
 ## Overview
 
-The authentication system provides a **seamless, backend-driven experience** where users never see Zitadel or any backend implementation details. All authentication happens through our backend APIs.
+The authentication system provides a **seamless, backend-driven experience** where users never see Authentik or any backend implementation details. All authentication happens through our backend APIs.
 
 ## User Journey: Landing → Login → Dashboard
 
@@ -20,22 +20,22 @@ The authentication system provides a **seamless, backend-driven experience** whe
 └──────┬──────┘
        │
        │ User enters email/password
-       │ (Clean UI - no Zitadel branding)
+       │ (Clean UI - no Authentik branding)
        ▼
 ┌─────────────────────────────────┐
 │ Backend API: /api/auth/login    │
 │                                  │
-│ 1. Authenticates via Zitadel     │
+│ 1. Authenticates via Authentik     │
 │    Management API (password)     │
 │                                  │
-│ 2. Gets Zitadel OIDC token      │
+│ 2. Gets Authentik OIDC token      │
 │    (password grant flow)         │
 │                                  │
-│ 3. Returns Zitadel token to     │
+│ 3. Returns Authentik token to     │
 │    frontend (or sets in cookie)  │
 └──────┬───────────────────────────┘
        │
-       │ Zitadel token returned
+       │ Authentik token returned
        ▼
 ┌─────────────┐
 │  Dashboard │
@@ -43,27 +43,27 @@ The authentication system provides a **seamless, backend-driven experience** whe
 │             │
 │ All API     │
 │ calls use   │
-│ Zitadel     │
+│ Authentik     │
 │ token       │
 └─────────────┘
 ```
 
 ## Key Principles
 
-### ✅ No Zitadel Handoffs
-- **No redirects to Zitadel UI**
+### ✅ No Authentik Handoffs
+- **No redirects to Authentik UI**
 - **No OIDC authorization endpoints exposed to users**
-- **No Zitadel branding or implementation details visible**
+- **No Authentik branding or implementation details visible**
 
 ### ✅ Backend API-Driven
 - Frontend calls backend `/api/auth/login` with email/password
-- Backend uses Zitadel Management API to authenticate
-- Backend gets Zitadel OIDC token via password grant
+- Backend uses Authentik Management API to authenticate
+- Backend gets Authentik OIDC token via password grant
 - Backend returns token to frontend (or sets in httpOnly cookie)
 
 ### ✅ Seamless Experience
 - User sees clean, professional login/register UI
-- No knowledge of Zitadel, OIDC, or backend implementation
+- No knowledge of Authentik, OIDC, or backend implementation
 - Smooth flow from landing page → login → dashboard
 
 ## Technical Flow
@@ -81,8 +81,8 @@ const isAuthenticated = await checkBackendAuth();
 // User enters credentials in clean UI
 // Frontend calls: POST /api/auth/login
 // Backend:
-//   - Authenticates via Zitadel Management API
-//   - Gets Zitadel OIDC token
+//   - Authenticates via Authentik Management API
+//   - Gets Authentik OIDC token
 //   - Returns token (or sets in cookie)
 // Frontend redirects to dashboard
 ```
@@ -91,8 +91,8 @@ const isAuthenticated = await checkBackendAuth();
 ```typescript
 // Checks authentication via backend API
 const isAuthenticated = await checkBackendAuth();
-// All API calls include Zitadel token in Authorization header
-// Backend validates Zitadel JWT via middleware
+// All API calls include Authentik token in Authorization header
+// Backend validates Authentik JWT via middleware
 ```
 
 ## Backend Authentication Flow
@@ -108,21 +108,21 @@ User Credentials
        │ 1. Verify user exists in database
        ▼
 ┌─────────────────────────────────────┐
-│ ZitadelApiService.authenticateUser()│
+│ AuthentikApiService.authenticateUser()│
 │ (Management API - password verify)  │
 └──────┬──────────────────────────────┘
        │
-       │ 2. Get Zitadel OIDC token
+       │ 2. Get Authentik OIDC token
        ▼
 ┌─────────────────────────────────────┐
-│ ZitadelApiService.getUserToken()    │
+│ AuthentikApiService.getUserToken()    │
 │ (Password grant - OIDC token)      │
 └──────┬──────────────────────────────┘
        │
-       │ 3. Return Zitadel token
+       │ 3. Return Authentik token
        ▼
 ┌─────────────────────────────────────┐
-│ Frontend receives Zitadel token     │
+│ Frontend receives Authentik token     │
 │ (Stored in memory or cookie)        │
 └─────────────────────────────────────┘
 ```
@@ -132,8 +132,8 @@ User Credentials
 ```
 Frontend Request
       │
-      │ Authorization: Bearer <Zitadel-JWT>
-      │ (or httpOnly cookie with Zitadel-JWT)
+      │ Authorization: Bearer <Authentik-JWT>
+      │ (or httpOnly cookie with Authentik-JWT)
       ▼
 ┌─────────────────────────────────────┐
 │ authenticateToken Middleware         │
@@ -142,9 +142,9 @@ Frontend Request
 │    - Authorization header (Bearer)   │
 │    - Cookie (accessToken)            │
 │                                      │
-│ 2. Validate Zitadel JWT:              │
+│ 2. Validate Authentik JWT:              │
 │    - Decode token                    │
-│    - Verify issuer (Zitadel)         │
+│    - Verify issuer (Authentik)         │
 │    - Verify signature (JWKS)          │
 │    - Check expiration                │
 │                                      │
@@ -170,14 +170,14 @@ Frontend Request
 - Never logged or exposed
 
 ### ✅ Token Security
-- Zitadel tokens validated via JWKS (public key)
+- Authentik tokens validated via JWKS (public key)
 - Tokens stored in httpOnly cookies (XSS protection)
 - Or in-memory storage (not localStorage)
 
 ### ✅ No Implementation Exposure
-- Users never see Zitadel UI
+- Users never see Authentik UI
 - No OIDC discovery endpoints called from frontend
-- No Zitadel branding or references
+- No Authentik branding or references
 
 ## MFA/TOTP Support
 
@@ -187,7 +187,7 @@ MFA is handled seamlessly:
 3. If MFA required, backend returns MFA challenge
 4. Frontend shows MFA input (clean UI)
 5. User enters TOTP code
-6. Backend verifies with Zitadel
+6. Backend verifies with Authentik
 7. Complete authentication
 
 ## Future SSO Support
@@ -199,31 +199,31 @@ The architecture is SSO-ready:
 
 ## Verification Checklist
 
-- ✅ Landing page uses backend auth (no Zitadel handoff)
-- ✅ Login page uses backend API (no Zitadel handoff)
-- ✅ Dashboard uses backend auth (no Zitadel handoff)
-- ✅ All API calls use Zitadel tokens
-- ✅ Backend validates Zitadel JWTs
+- ✅ Landing page uses backend auth (no Authentik handoff)
+- ✅ Login page uses backend API (no Authentik handoff)
+- ✅ Dashboard uses backend auth (no Authentik handoff)
+- ✅ All API calls use Authentik tokens
+- ✅ Backend validates Authentik JWTs
 - ✅ Service account credentials in Vault
-- ✅ Clean UI (no Zitadel branding)
+- ✅ Clean UI (no Authentik branding)
 - ✅ Seamless user experience
 
 ## Files Modified
 
 ### Backend
-- `services/zitadel-api.service.ts` - Vault credential loading
-- `services/auth.ts` - Zitadel token generation
-- `middleware/error-handler.ts` - Cookie support for Zitadel tokens
+- `services/Authentik-api.service.ts` - Vault credential loading
+- `services/auth.ts` - Authentik token generation
+- `middleware/error-handler.ts` - Cookie support for Authentik tokens
 - `routes/auth-router.ts` - Enabled login/register endpoints
 
 ### Frontend
-- `lib/auth/backend-auth.ts` - Zitadel token management
+- `lib/auth/backend-auth.ts` - Authentik token management
 - `components/auth/LoginForm.tsx` - Backend API login
-- `lib/api/client.ts` - Zitadel token in Authorization header
+- `lib/api/client.ts` - Authentik token in Authorization header
 - `app/auth/AuthClient.tsx` - Redirects to login (no handoff)
 - All pages updated to use backend auth
 
 ## Documentation
 
-- `ZITADEL_VAULT_SETUP.md` - Guide for storing credentials in Vault
+- `AUTHENTIK_VAULT_SETUP.md` - Guide for storing credentials in Vault
 - `AUTHENTICATION_FLOW.md` - This document

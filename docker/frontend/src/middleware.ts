@@ -7,10 +7,22 @@ import type { NextRequest } from 'next/server';
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const url = request.nextUrl.clone();
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/register', '/landing', '/', '/token-presale'];
+  const publicRoutes = ['/auth', '/login', '/register', '/landing', '/', '/token-presale'];
   const isPublicRoute = publicRoutes.some((route) => pathname === route || pathname.startsWith('/api'));
+
+  // Strict auth entry enforcement: funnel legacy routes into /auth.
+  if (pathname === '/login' || pathname === '/register') {
+    const next = request.nextUrl.searchParams.get('next');
+    url.pathname = '/auth';
+    url.search = '';
+    if (next) {
+      url.searchParams.set('next', next);
+    }
+    return NextResponse.redirect(url);
+  }
 
   // Allow public routes and API routes
   if (isPublicRoute) {

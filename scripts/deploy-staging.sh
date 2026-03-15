@@ -93,7 +93,7 @@ REDIS_PASSWORD_FILE=/run/secrets/redis-password
 MONGODB_PASSWORD_FILE=/run/secrets/mongodb-password
 
 # Authentication
-KEYCLOAK_ADMIN_PASSWORD_FILE=/run/secrets/keycloak-admin-password
+AUTHENTIK_ADMIN_PASSWORD_FILE=/run/secrets/Authentik-admin-password
 JWT_SECRET_FILE=/run/secrets/jwt-secret
 ENCRYPTION_KEY_FILE=/run/secrets/encryption-key
 
@@ -117,7 +117,7 @@ EOF
     echo "staging-postgres-password" > "$STAGING_DIR/secrets/postgres-password"
     echo "staging-redis-password" > "$STAGING_DIR/secrets/redis-password"
     echo "staging-mongodb-password" > "$STAGING_DIR/secrets/mongodb-password"
-    echo "staging-keycloak-admin-password" > "$STAGING_DIR/secrets/keycloak-admin-password"
+    echo "staging-Authentik-admin-password" > "$STAGING_DIR/secrets/Authentik-admin-password"
     echo "staging-jwt-secret-$(openssl rand -hex 32)" > "$STAGING_DIR/secrets/jwt-secret"
     echo "staging-encryption-key-$(openssl rand -hex 32)" > "$STAGING_DIR/secrets/encryption-key"
     echo "staging-grafana-admin-password" > "$STAGING_DIR/secrets/grafana-admin-password"
@@ -258,7 +258,7 @@ show_access_info() {
     echo "   API:          http://localhost:3002"
     echo "   Load Balancer: http://localhost:80"
     echo "   Grafana:      http://localhost:3001"
-    echo "   Keycloak:     http://localhost:8080"
+    echo "   Authentik:     http://localhost:8080"
     echo ""
     echo "📊 Monitoring:"
     echo "   Prometheus:   http://localhost:9090"

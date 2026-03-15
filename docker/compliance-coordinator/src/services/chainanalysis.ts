@@ -27,7 +27,11 @@ export interface TransactionRiskRequest {
   chain: string;
 }
 
-export interface ChainAnalysisResponse<T = any> {
+interface HealthResponse {
+  status?: string;
+}
+
+export interface ChainAnalysisResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -107,9 +111,9 @@ export class ChainAnalysisService {
 
   constructor(config: Partial<ChainAnalysisConfig> = {}) {
     this.config = {
-      baseUrl: config.baseUrl || 'http://thaliumx-compliance-chainanalysis:3011',
-      timeout: config.timeout || 30000, // 30 seconds
-      retries: config.retries || 3,
+      baseUrl: config.baseUrl ?? 'http://thaliumx-compliance-chainanalysis:3011',
+      timeout: config.timeout ?? 30000,
+      retries: config.retries ?? 3,
     };
   }
 
@@ -229,7 +233,7 @@ export class ChainAnalysisService {
       );
 
       logger.info('ChainAnalysis alerts retrieved', {
-        alertCount: response.data?.total || 0,
+        alertCount: response.data?.total ?? 0,
         success: response.success,
       });
 
@@ -253,7 +257,7 @@ export class ChainAnalysisService {
    */
   async checkHealth(): Promise<boolean> {
     try {
-      const response = await this.makeRequest('GET', '/health');
+      const response = await this.makeRequest<HealthResponse>('GET', '/health');
       return response.success && response.data?.status === 'healthy';
     } catch (error) {
       logger.warn('ChainAnalysis health check failed', {
@@ -266,10 +270,10 @@ export class ChainAnalysisService {
   /**
    * Make HTTP request with retry logic
    */
-  private async makeRequest<T = any>(
+  private async makeRequest<T = unknown>(
     method: 'GET' | 'POST',
     path: string,
-    body?: any
+    body?: unknown
   ): Promise<ChainAnalysisResponse<T>> {
     const url = `${this.config.baseUrl}${path}`;
 
@@ -278,16 +282,17 @@ export class ChainAnalysisService {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
+        const requestHeaders = new Headers();
+        requestHeaders.set('Content-Type', 'application/json');
+        requestHeaders.set('User-Agent', 'ThaliumX-Compliance-Coordinator/1.0.0');
+
         const requestInit: RequestInit = {
           method,
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'ThaliumX-Compliance-Coordinator/1.0.0',
-          },
+          headers: requestHeaders,
           signal: controller.signal,
         };
 
-        if (body) {
+        if (body !== undefined) {
           requestInit.body = JSON.stringify(body);
         }
 
@@ -299,7 +304,7 @@ export class ChainAnalysisService {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const data = await response.json() as T;
+        const data: T = (await response.json()) as T;
 
         return {
           success: true,
@@ -322,7 +327,9 @@ export class ChainAnalysisService {
         }
 
         // Exponential backoff
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, Math.pow(2, attempt) * 1000);
+        });
       }
     }
 
@@ -335,10 +342,14 @@ let chainAnalysisService: ChainAnalysisService | null = null;
 
 export function getChainAnalysisService(): ChainAnalysisService {
   if (!chainAnalysisService) {
+    const configuredBaseUrl = process.env['CHAINANALYSIS_URL'];
+    const configuredTimeout = process.env['CHAINANALYSIS_TIMEOUT'];
+    const configuredRetries = process.env['CHAINANALYSIS_RETRIES'];
+
     chainAnalysisService = new ChainAnalysisService({
-      baseUrl: process.env['CHAINANALYSIS_URL'] || 'http://thaliumx-compliance-chainanalysis:3011',
-      timeout: parseInt(process.env['CHAINANALYSIS_TIMEOUT'] || '30000'),
-      retries: parseInt(process.env['CHAINANALYSIS_RETRIES'] || '3'),
+      baseUrl: configuredBaseUrl ?? 'http://thaliumx-compliance-chainanalysis:3011',
+      timeout: configuredTimeout !== undefined ? parseInt(configuredTimeout, 10) : 30000,
+      retries: configuredRetries !== undefined ? parseInt(configuredRetries, 10) : 3,
     });
   }
   return chainAnalysisService;

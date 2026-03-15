@@ -10,14 +10,34 @@
  * - Token revocation support
  * - Secure token storage (hashed refresh tokens)
  * - Token blacklisting
+ * - Periodic user data refresh from database on token refresh
  */
 
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { LoggerService } from './logger';
 import { RedisService } from './redis';
-// import { AuditLogService } from './audit-log.service'; // Use LoggerService.logAudit instead
 import type { JWTPayload } from '../types';
+import { DatabaseService } from './database';
+import type { Model, ModelCtor } from 'sequelize';
+
+// User model type for database queries
+type UserModelInstance = Model & {
+  id: string;
+  email: string;
+  role: string;
+  roles: string[];
+  tenantId: string;
+  brokerId?: string;
+  brokerSlug?: string;
+  channel: 'direct' | 'broker';
+  customerId?: string;
+  mandateScopes?: string[];
+  permissions: any[];
+  mfaEnabled: boolean;
+  mfaVerified: boolean;
+  isActive: boolean;
+};
 
 export interface TokenPair {
   accessToken: string;
@@ -58,7 +78,7 @@ export class TokenService {
     customerId?: string;
     mandateScopes?: string[];
     sessionType?: string;
-    authProvider?: 'keycloak' | 'internal-jwt';
+    authProvider?: 'authentik' | 'internal-jwt';
     permissions?: string[];
     mfaEnabled?: boolean;
     mfaVerified?: boolean;
@@ -146,6 +166,7 @@ export class TokenService {
 
   /**
    * Refresh access token using refresh token
+   * Periodically fetches fresh user data from database to ensure permissions are up-to-date
    */
   public static async refreshAccessToken(refreshToken: string): Promise<TokenPair> {
     try {
@@ -182,23 +203,107 @@ export class TokenService {
       // Revoke old refresh token (rotation)
       await this.revokeRefreshToken(tokenId);
 
-      // Issue new token pair
-      // Note: In production, you'd fetch full user data from database
+      // Fetch fresh user data from database to ensure permissions are up-to-date
+      const freshUserData = await this.fetchFreshUserData(meta.userId);
+
+      // Issue new token pair with fresh user data
       const newTokenPair = await this.issueTokenPair({
-        id: meta.userId,
-        userId: meta.userId,
-        email: meta.email,
+        id: freshUserData.id,
+        userId: freshUserData.id,
+        email: freshUserData.email,
+        role: freshUserData.role,
+        roles: freshUserData.roles,
+        tenantId: freshUserData.tenantId,
+        brokerId: freshUserData.brokerId,
+        brokerSlug: freshUserData.brokerSlug,
+        channel: freshUserData.channel,
+        customerId: freshUserData.customerId,
+        mandateScopes: freshUserData.mandateScopes,
+        permissions: freshUserData.permissions,
+        mfaEnabled: freshUserData.mfaEnabled,
+        mfaVerified: freshUserData.mfaVerified
       });
 
-      // Log refresh
+      // Log refresh with audit
       await LoggerService.logAudit('token_refreshed', 'token_operation', { userId: meta.userId }, {
         operation: 'refreshed',
         tokenType: 'refresh',
+        permissionsRefreshed: true
       });
 
       return newTokenPair;
     } catch (error) {
       LoggerService.error('Token refresh failed', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch fresh user data from database
+   * This ensures that token permissions are always up-to-date
+   * including role changes, permission updates, and tenant assignments
+   */
+  private static async fetchFreshUserData(userId: string): Promise<{
+    id: string;
+    email: string;
+    role: string;
+    roles: string[];
+    tenantId: string;
+    brokerId?: string;
+    brokerSlug?: string;
+    channel: 'direct' | 'broker';
+    customerId?: string;
+    mandateScopes?: string[];
+    permissions: string[];
+    mfaEnabled: boolean;
+    mfaVerified: boolean;
+  }> {
+    try {
+      const UserModel = DatabaseService.getModel('User') as unknown as ModelCtor<UserModelInstance>;
+      const user = await UserModel.findByPk(userId, {
+        attributes: [
+          'id', 'email', 'role', 'roles', 'tenantId', 'brokerId', 'brokerSlug',
+          'channel', 'customerId', 'mandateScopes', 'permissions', 'mfaEnabled', 'mfaVerified'
+        ]
+      });
+
+      if (!user) {
+        throw new Error('User not found during token refresh');
+      }
+
+      const userData = user.toJSON();
+
+      // Convert permissions to string array
+      const permissionStrings = (userData.permissions || []).map((p: any) => 
+        typeof p === 'string' ? p : `${p.resource}:${p.action}`
+      );
+
+      // Determine channel based on role and tenant
+      const normalizedRole = String(userData.role || 'user').replace(/-/g, '_');
+      const isBrokerRole = normalizedRole.startsWith('broker_');
+      const channel = isBrokerRole ? 'broker' : (userData.channel || 'direct');
+      const brokerId = isBrokerRole ? userData.tenantId : userData.brokerId;
+
+      return {
+        id: userData.id,
+        email: userData.email,
+        role: userData.role || 'user',
+        roles: userData.roles || [userData.role || 'user'],
+        tenantId: userData.tenantId || '',
+        brokerId: brokerId,
+        brokerSlug: userData.brokerSlug,
+        channel,
+        customerId: userData.customerId,
+        mandateScopes: userData.mandateScopes || [],
+        permissions: permissionStrings,
+        mfaEnabled: userData.mfaEnabled || false,
+        mfaVerified: userData.mfaVerified || false
+      };
+    } catch (error) {
+      LoggerService.error('Failed to fetch fresh user data during token refresh', {
+        error: error instanceof Error ? error.message : String(error),
+        userId
+      });
       throw error;
     }
   }

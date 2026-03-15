@@ -1,6 +1,6 @@
 'use client';
 
-import { getKeycloakToken } from './backend-auth';
+import { getAuthToken } from './backend-auth';
 import { useUserStore } from '@/stores/userStore';
 import type { UserProfile } from '@/stores/userStore';
 import { useRBACStore } from '@/stores/rbacStore';
@@ -47,7 +47,7 @@ function toUserProfile(payload: ProfileResponse): UserProfile | null {
  */
 export async function initializePostLogin(): Promise<UserProfile | null> {
   try {
-    const token = getKeycloakToken();
+    const token = getAuthToken();
     if (!token) {
       console.warn('No token available for post-login initialization');
       return null;

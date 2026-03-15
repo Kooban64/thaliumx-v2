@@ -1,10 +1,10 @@
 #!/bin/bash
-# Script to start osTicket, Live Helper Chat, and verify Zitadel
+# Script to start osTicket, Live Helper Chat, and verify Authentik
 # This works around Docker Compose path resolution issues
 
 set -e
 
-echo "🚀 Starting Support Services (osTicket, Live Helper Chat, Zitadel)"
+echo "🚀 Starting Support Services (osTicket, Live Helper Chat, Authentik)"
 echo "===================================================================="
 
 # Get support database password
@@ -22,8 +22,8 @@ if ! docker ps | grep -q thaliumx-osticket; then
         -e DB_USER=support \
         -e DB_PASS="$DB_PASSWORD" \
         -e DB_NAME=support \
-        -e ZITADEL_CLIENT_ID="${ZITADEL_CLIENT_ID:-}" \
-        -e ZITADEL_CLIENT_SECRET="${ZITADEL_CLIENT_SECRET:-}" \
+        -e AUTHENTIK_CLIENT_ID="${AUTHENTIK_CLIENT_ID:-}" \
+        -e AUTHENTIK_CLIENT_SECRET="${AUTHENTIK_CLIENT_SECRET:-}" \
         -e OSTICKET_SECRET_SALT="${OSTICKET_SECRET_SALT:-$(openssl rand -hex 16)}" \
         -e LHC_API_KEY="${LHC_API_KEY:-}" \
         -e SMTP_HOST=thaliumx-mailhog \
@@ -35,19 +35,19 @@ else
     echo "✅ osTicket already running"
 fi
 
-# Check Zitadel
+# Check Authentik
 echo ""
-echo "🔐 Checking Zitadel..."
-if docker ps | grep -q thaliumx-zitadel; then
-    ZITADEL_STATUS=$(docker inspect thaliumx-zitadel --format '{{.State.Status}}')
-    echo "✅ Zitadel: $ZITADEL_STATUS"
+echo "🔐 Checking Authentik..."
+if docker ps | grep -q thaliumx-Authentik; then
+    AUTHENTIK_STATUS=$(docker inspect thaliumx-Authentik --format '{{.State.Status}}')
+    echo "✅ Authentik: $AUTHENTIK_STATUS"
     
-    if docker ps | grep -q thaliumx-zitadel-postgres; then
-        ZITADEL_PG_HEALTH=$(docker inspect thaliumx-zitadel-postgres --format '{{.State.Health.Status}}')
-        echo "✅ Zitadel Postgres: $ZITADEL_PG_HEALTH"
+    if docker ps | grep -q thaliumx-Authentik-postgres; then
+        AUTHENTIK_PG_HEALTH=$(docker inspect thaliumx-Authentik-postgres --format '{{.State.Health.Status}}')
+        echo "✅ Authentik Postgres: $AUTHENTIK_PG_HEALTH"
     fi
 else
-    echo "⚠️  Zitadel not running"
+    echo "⚠️  Authentik not running"
 fi
 
 # Wait for services to be ready
@@ -88,11 +88,11 @@ else
     echo "support-moderation-analytics: ⚠️  not healthy"
 fi
 
-# Check Zitadel
-if docker ps | grep -q thaliumx-zitadel; then
-    echo "zitadel: ✅ running"
-    if docker ps --filter "health=healthy" | grep -q zitadel-postgres; then
-        echo "zitadel-postgres: ✅ healthy"
+# Check Authentik
+if docker ps | grep -q thaliumx-Authentik; then
+    echo "Authentik: ✅ running"
+    if docker ps --filter "health=healthy" | grep -q Authentik-postgres; then
+        echo "Authentik-postgres: ✅ healthy"
     fi
 fi
 

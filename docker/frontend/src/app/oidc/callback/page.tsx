@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { handleKeycloakCallback } from '@/lib/auth/zitadel';
+import { handleOidcCallback } from '@/lib/auth/oidc';
 import { initializePostLogin } from '@/lib/auth/post-login-init';
 import { setAuthToken } from '@/lib/auth/backend-auth';
 import {
@@ -19,7 +19,7 @@ export default function OidcCallbackPage() {
   useEffect(() => {
     (async () => {
       try {
-        const { nextPath, accessToken, expiresIn } = await handleKeycloakCallback(window.location.search);
+        const { nextPath, accessToken, expiresIn } = await handleOidcCallback(window.location.search);
 
         // Keep backend-auth in-memory token synchronized with OIDC token-store.
         setAuthToken(accessToken, expiresIn || 3600);

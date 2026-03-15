@@ -55,6 +55,7 @@ import kycRouter from './routes/kyc';
 import rbacRouter from './routes/rbac';
 import tokenSaleRouter from './routes/token-sale';
 import tenantsRouter from './routes/tenants';
+import brokerOnboardingRouter from './routes/broker-onboarding';
 import adminRouter from './routes/admin';
 import adminBrokersRouter from './routes/admin-brokers';
 import exchangeRouter from './routes/exchange';
@@ -681,6 +682,7 @@ class ThaliumXBackend {
     this.app.use('/api/financial', financialRouter);
     this.app.use('/api/kyc', kycRouter);
     this.app.use('/api/tenants', tenantsRouter);
+    this.app.use('/api/broker-onboarding', brokerOnboardingRouter);
     this.app.use('/api/admin', adminRouter);
     this.app.use('/api/admin/brokers', adminBrokersRouter);
     this.app.use('/api/admin', adminLimitsRouter);

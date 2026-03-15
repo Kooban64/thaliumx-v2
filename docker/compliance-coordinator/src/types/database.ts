@@ -2,235 +2,225 @@
  * Database Types for Compliance Coordinator
  */
 
-// ==================== AGGREGATED RISK ASSESSMENTS ====================
-
-export interface AggregatedRiskAssessmentTable {
+export interface AggregatedRiskAssessmentRow {
   id: string;
-  source_service: string;
-  source_assessment_id: string;
-  entity_type: string;
-  entity_id: string;
-  transaction_hash: string | null;
-  user_id: string | null;
-  tenant_id: string;
-  broker_id: string | null;
-  risk_score: number;
-  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  sourceService: string;
+  sourceAssessmentId: string;
+  entityType: string;
+  entityId: string;
+  transactionHash: string | null;
+  userId: string | null;
+  tenantId: string;
+  brokerId: string | null;
+  riskScore: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
   flags: string[];
   recommendations: string[];
-  review_required: boolean;
-  reviewed_by: string | null;
-  reviewed_at: Date | null;
-  assessment_date: Date;
-  created_at: Date;
-  updated_at: Date;
+  reviewRequired: boolean;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  assessmentDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== AGGREGATED TRAVEL RULE ====================
-
-export interface AggregatedTravelRuleTable {
+export interface AggregatedTravelRuleRow {
   id: string;
-  source_service: string;
-  source_travel_rule_id: string;
-  entity_type: string;
-  entity_id: string;
-  transaction_hash: string | null;
-  from_address: string;
-  to_address: string;
+  sourceService: string;
+  sourceTravelRuleId: string;
+  entityType: string;
+  entityId: string;
+  transactionHash: string | null;
+  fromAddress: string;
+  toAddress: string;
   amount: string;
-  amount_usd: string;
+  amountUsd: string;
   asset: string;
   status: 'pending' | 'sent' | 'received' | 'acknowledged' | 'failed';
-  message_id: string;
-  originator_info: Record<string, unknown> | null;
-  beneficiary_info: Record<string, unknown> | null;
-  vasp_info: Record<string, unknown> | null;
-  tenant_id: string;
-  broker_id: string | null;
-  user_id: string | null;
-  created_at: Date;
-  updated_at: Date;
+  messageId: string;
+  originatorInfo: Record<string, unknown> | null;
+  beneficiaryInfo: Record<string, unknown> | null;
+  vaspInfo: Record<string, unknown> | null;
+  tenantId: string;
+  brokerId: string | null;
+  userId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== AGGREGATED CARF REPORTS ====================
-
-export interface AggregatedCARFReportTable {
+export interface AggregatedCarfReportRow {
   id: string;
-  report_id: string;
-  user_id: string | null;
-  tenant_id: string;
-  broker_id: string | null;
-  reporting_period_start_date: Date;
-  reporting_period_end_date: Date;
-  reporting_period_fiscal_year: string | null;
+  reportId: string;
+  userId: string | null;
+  tenantId: string;
+  brokerId: string | null;
+  reportingPeriodStartDate: Date;
+  reportingPeriodEndDate: Date;
+  reportingPeriodFiscalYear: string | null;
   services: string[];
-  cex_data: Record<string, unknown> | null;
-  dex_data: Record<string, unknown> | null;
-  nft_data: Record<string, unknown> | null;
-  token_data: Record<string, unknown> | null;
-  total_volume_usd: string;
-  total_net_gain_loss_usd: string;
-  total_transaction_count: number;
+  cexData: Record<string, unknown> | null;
+  dexData: Record<string, unknown> | null;
+  nftData: Record<string, unknown> | null;
+  tokenData: Record<string, unknown> | null;
+  totalVolumeUsd: string;
+  totalNetGainLossUsd: string;
+  totalTransactionCount: number;
   status: 'draft' | 'pending' | 'submitted' | 'acknowledged' | 'rejected';
-  submission_date: Date | null;
-  acknowledgment_date: Date | null;
-  rejection_reason: string | null;
+  submissionDate: Date | null;
+  acknowledgmentDate: Date | null;
+  rejectionReason: string | null;
   version: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== PLATFORM COMPLIANCE REPORTS ====================
-
-export interface PlatformComplianceReportTable {
+export interface PlatformComplianceReportRow {
   id: string;
-  report_id: string;
-  report_type: string;
-  tenant_id: string;
-  broker_id: string | null;
-  reporting_period_start_date: Date;
-  reporting_period_end_date: Date;
+  reportId: string;
+  reportType: string;
+  tenantId: string;
+  brokerId: string | null;
+  reportingPeriodStartDate: Date;
+  reportingPeriodEndDate: Date;
   summary: Record<string, unknown>;
-  service_breakdown: Record<string, unknown>[];
-  risk_distribution: Record<string, unknown>;
-  top_risk_flags: Record<string, unknown>[];
-  generated_at: Date;
-  generated_by: string;
+  serviceBreakdown: Record<string, unknown>[];
+  riskDistribution: Record<string, unknown>;
+  topRiskFlags: Record<string, unknown>[];
+  generatedAt: Date;
+  generatedBy: string;
   format: string;
-  file_url: string | null;
-  created_at: Date;
+  fileUrl: string | null;
+  createdAt: Date;
 }
 
-// ==================== USER COMPLIANCE REPORTS ====================
-
-export interface UserComplianceReportTable {
+export interface UserComplianceReportRow {
   id: string;
-  report_id: string;
-  user_id: string;
-  tenant_id: string;
-  broker_id: string | null;
-  reporting_period_start_date: Date;
-  reporting_period_end_date: Date;
+  reportId: string;
+  userId: string;
+  tenantId: string;
+  brokerId: string | null;
+  reportingPeriodStartDate: Date;
+  reportingPeriodEndDate: Date;
   summary: Record<string, unknown>;
-  activity_by_service: Record<string, unknown>[];
-  risk_history: Record<string, unknown>[];
+  activityByService: Record<string, unknown>[];
+  riskHistory: Record<string, unknown>[];
   flags: string[];
   recommendations: string[];
-  generated_at: Date;
+  generatedAt: Date;
   format: string;
-  file_url: string | null;
-  created_at: Date;
+  fileUrl: string | null;
+  createdAt: Date;
 }
 
-// ==================== REGULATORY SUBMISSIONS ====================
-
-export interface RegulatorySubmissionTable {
+export interface RegulatorySubmissionRow {
   id: string;
-  submission_id: string;
-  submission_type: string;
+  submissionId: string;
+  submissionType: string;
   jurisdiction: string;
   authority: string;
-  tenant_id: string;
-  broker_id: string | null;
-  reporting_period_start_date: Date | null;
-  reporting_period_end_date: Date | null;
+  tenantId: string;
+  brokerId: string | null;
+  reportingPeriodStartDate: Date | null;
+  reportingPeriodEndDate: Date | null;
   data: Record<string, unknown>;
   status: string;
-  submission_date: Date | null;
-  response_date: Date | null;
-  response_code: string | null;
-  response_message: string | null;
-  retry_count: number;
-  max_retries: number;
-  next_retry_at: Date | null;
-  submitted_by: string | null;
-  created_at: Date;
-  updated_at: Date;
+  submissionDate: Date | null;
+  responseDate: Date | null;
+  responseCode: string | null;
+  responseMessage: string | null;
+  retryCount: number;
+  maxRetries: number;
+  nextRetryAt: Date | null;
+  submittedBy: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== COMPLIANCE ALERTS ====================
-
-export interface ComplianceAlertTable {
+export interface ComplianceAlertRow {
   id: string;
-  alert_type: string;
+  alertType: string;
   severity: string;
-  source_service: string;
-  source_entity_type: string;
-  source_entity_id: string;
+  sourceService: string;
+  sourceEntityType: string;
+  sourceEntityId: string;
   title: string;
   description: string;
   details: Record<string, unknown>;
-  tenant_id: string;
-  broker_id: string | null;
-  user_id: string | null;
+  tenantId: string;
+  brokerId: string | null;
+  userId: string | null;
   status: string;
-  assigned_to: string | null;
-  acknowledged_by: string | null;
-  acknowledged_at: Date | null;
-  resolved_by: string | null;
-  resolved_at: Date | null;
+  assignedTo: string | null;
+  acknowledgedBy: string | null;
+  acknowledgedAt: Date | null;
+  resolvedBy: string | null;
+  resolvedAt: Date | null;
   resolution: string | null;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== ADMIN USERS ====================
-
-export interface AdminUserTable {
+export interface AdminUserRow {
   id: string;
   email: string;
   name: string;
   role: string;
   permissions: string[];
-  tenant_id: string;
-  broker_id: string | null;
-  last_login: Date | null;
+  tenantId: string;
+  brokerId: string | null;
+  lastLogin: Date | null;
   active: boolean;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== ADMIN ACTION LOG ====================
-
-export interface AdminActionLogTable {
+export interface AdminActionLogRow {
   id: string;
-  admin_id: string;
+  adminId: string;
   action: string;
-  entity_type: string;
-  entity_id: string;
+  entityType: string;
+  entityId: string;
   details: Record<string, unknown>;
-  ip_address: string | null;
-  user_agent: string | null;
-  tenant_id: string;
-  created_at: Date;
+  ipAddress: string | null;
+  userAgent: string | null;
+  tenantId: string;
+  createdAt: Date;
 }
 
-// ==================== SERVICE STATUS ====================
-
-export interface ServiceStatusTable {
+export interface ServiceStatusRow {
   id: string;
   service: string;
   status: string;
-  last_check: Date;
+  lastCheck: Date;
   latency: number;
   version: string;
-  pending_assessments: number;
-  high_risk_alerts: number;
-  pending_travel_rule: number;
-  pending_carf: number;
-  created_at: Date;
-  updated_at: Date;
+  pendingAssessments: number;
+  highRiskAlerts: number;
+  pendingTravelRule: number;
+  pendingCarf: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// ==================== DASHBOARD METRICS ====================
-
-export interface DashboardMetricsTable {
+export interface DashboardMetricsRow {
   id: string;
   timestamp: Date;
   period: string;
-  services_data: Record<string, unknown>[];
+  servicesData: Record<string, unknown>[];
   totals: Record<string, unknown>;
   trends: Record<string, unknown>;
-  tenant_id: string;
-  created_at: Date;
+  tenantId: string;
+  createdAt: Date;
 }
+
+export type AggregatedRiskAssessmentTable = AggregatedRiskAssessmentRow;
+export type AggregatedTravelRuleTable = AggregatedTravelRuleRow;
+export type AggregatedCARFReportTable = AggregatedCarfReportRow;
+export type PlatformComplianceReportTable = PlatformComplianceReportRow;
+export type UserComplianceReportTable = UserComplianceReportRow;
+export type RegulatorySubmissionTable = RegulatorySubmissionRow;
+export type ComplianceAlertTable = ComplianceAlertRow;
+export type AdminUserTable = AdminUserRow;
+export type AdminActionLogTable = AdminActionLogRow;
+export type ServiceStatusTable = ServiceStatusRow;
+export type DashboardMetricsTable = DashboardMetricsRow;

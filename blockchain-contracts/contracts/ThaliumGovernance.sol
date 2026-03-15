@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title ThaliumGovernance
@@ -12,33 +12,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * @notice All complex logic (proposal analysis, etc.) handled by backend
  */
 contract ThaliumGovernance is AccessControl, Pausable, ReentrancyGuard {
-    // Roles
-    bytes32 public constant PROPOSER_ROLE = keccak256("PROPOSER_ROLE");
-    bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
-    bytes32 public constant CANCELLER_ROLE = keccak256("CANCELLER_ROLE");
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-
-    // Events
-    event ProposalCreated(
-        uint256 indexed proposalId,
-        address indexed proposer,
-        string title,
-        string description,
-        uint256 startTime,
-        uint256 endTime
-    );
-    
-    event VoteCast(
-        address indexed voter,
-        uint256 indexed proposalId,
-        uint8 support,
-        uint256 weight,
-        string reason
-    );
-    
-    event ProposalExecuted(uint256 indexed proposalId);
-    event ProposalCancelled(uint256 indexed proposalId);
-
     // Structs
     struct Proposal {
         uint256 id;
@@ -55,6 +28,12 @@ contract ThaliumGovernance is AccessControl, Pausable, ReentrancyGuard {
         mapping(address => bool) hasVoted;
     }
 
+    // Roles
+    bytes32 public constant PROPOSER_ROLE = keccak256("PROPOSER_ROLE");
+    bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
+    bytes32 public constant CANCELLER_ROLE = keccak256("CANCELLER_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+
     // State variables
     uint256 public proposalCount;
     mapping(uint256 => Proposal) public proposals;
@@ -67,6 +46,27 @@ contract ThaliumGovernance is AccessControl, Pausable, ReentrancyGuard {
     mapping(uint256 => mapping(address => uint256)) public votingSnapshots; // proposalId => voter => balance
     mapping(uint256 => uint256) public proposalSnapshotBlock; // proposalId => block number
 
+    // Events
+    event ProposalCreated(
+        uint256 indexed proposalId,
+        address indexed proposer,
+        string title,
+        string description,
+        uint256 startTime,
+        uint256 endTime
+    );
+
+    event VoteCast(
+        address indexed voter,
+        uint256 indexed proposalId,
+        uint8 support,
+        uint256 weight,
+        string reason
+    );
+
+    event ProposalExecuted(uint256 indexed proposalId);
+    event ProposalCancelled(uint256 indexed proposalId);
+
     // Errors
     error InvalidAddress();
     error InvalidBackendAddress();
@@ -78,6 +78,7 @@ contract ThaliumGovernance is AccessControl, Pausable, ReentrancyGuard {
     error AlreadyVoted();
     error InsufficientVotingPower();
     error QuorumNotMet();
+    error InvalidProposalId();
     error Unauthorized();
 
     constructor(
@@ -209,67 +210,6 @@ contract ThaliumGovernance is AccessControl, Pausable, ReentrancyGuard {
         emit ProposalCancelled(proposalId);
     }
 
-    /**
-     * @dev Get proposal details
-     * @param proposalId The ID of the proposal
-     * @return id The proposal ID
-     * @return proposer The address of the proposer
-     * @return title The proposal title
-     * @return description The proposal description
-     * @return startTime The proposal start time
-     * @return endTime The proposal end time
-     * @return forVotes Number of votes for the proposal
-     * @return againstVotes Number of votes against the proposal
-     * @return abstainVotes Number of abstain votes
-     * @return executed Whether the proposal has been executed
-     * @return cancelled Whether the proposal has been cancelled
-     */
-    function getProposal(uint256 proposalId) external view returns (
-        uint256 id,
-        address proposer,
-        string memory title,
-        string memory description,
-        uint256 startTime,
-        uint256 endTime,
-        uint256 forVotes,
-        uint256 againstVotes,
-        uint256 abstainVotes,
-        bool executed,
-        bool cancelled
-    ) {
-        if (proposalId == 0 || proposalId > proposalCount) revert ProposalNotFound();
-        
-        Proposal storage proposal = proposals[proposalId];
-        return (
-            proposal.id,
-            proposal.proposer,
-            proposal.title,
-            proposal.description,
-            proposal.startTime,
-            proposal.endTime,
-            proposal.forVotes,
-            proposal.againstVotes,
-            proposal.abstainVotes,
-            proposal.executed,
-            proposal.cancelled
-        );
-    }
-
-    /**
-     * @dev Check if a user has voted on a proposal
-     * @param proposalId The ID of the proposal
-     * @param voter The address of the voter
-     * @return hasVoted True if the user has voted
-     */
-    function hasVoted(uint256 proposalId, address voter) external view returns (bool) {
-        if (proposalId == 0 || proposalId > proposalCount) return false;
-        return proposals[proposalId].hasVoted[voter];
-    }
-
-    /**
-     * @dev Update quorum threshold (admin only)
-     * @param newThreshold New quorum threshold
-     */
     function setQuorumThreshold(uint256 newThreshold) external onlyRole(ADMIN_ROLE) {
         quorumThreshold = newThreshold;
     }
@@ -305,14 +245,60 @@ contract ThaliumGovernance is AccessControl, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @dev SECURITY FIX: Get voting power using snapshot to prevent flash loan attacks
-     * @param voter The address to check voting power for
-     * @return The voting power of the voter
+     * @dev Get proposal details
+     * @param proposalId The proposal identifier
+     * @return id The proposal id
+     * @return proposer The proposer address
+     * @return title The proposal title
+     * @return description The proposal description
+     * @return startTime The proposal start time
+     * @return endTime The proposal end time
+     * @return forVotes Number of votes for the proposal
+     * @return againstVotes Number of votes against the proposal
+     * @return abstainVotes Number of abstain votes
+     * @return executed Whether the proposal has been executed
+     * @return cancelled Whether the proposal has been cancelled
      */
-    function _getVotingPower(address voter) internal view returns (uint256) {
-        // For proposal creation, use current balance
-        // For voting, use snapshot if available
-        return votingToken.balanceOf(voter);
+    function getProposal(uint256 proposalId) external view returns (
+        uint256 id,
+        address proposer,
+        string memory title,
+        string memory description,
+        uint256 startTime,
+        uint256 endTime,
+        uint256 forVotes,
+        uint256 againstVotes,
+        uint256 abstainVotes,
+        bool executed,
+        bool cancelled
+    ) {
+        if (proposalId == 0 || proposalId > proposalCount) revert ProposalNotFound();
+
+        Proposal storage proposal = proposals[proposalId];
+        return (
+            proposal.id,
+            proposal.proposer,
+            proposal.title,
+            proposal.description,
+            proposal.startTime,
+            proposal.endTime,
+            proposal.forVotes,
+            proposal.againstVotes,
+            proposal.abstainVotes,
+            proposal.executed,
+            proposal.cancelled
+        );
+    }
+
+    /**
+     * @dev Check if a user has voted on a proposal
+     * @param proposalId The ID of the proposal
+     * @param voter The address of the voter
+     * @return hasVotedOnProposal True if the user has voted
+     */
+    function hasVoted(uint256 proposalId, address voter) external view returns (bool hasVotedOnProposal) {
+        if (proposalId == 0 || proposalId > proposalCount) return false;
+        return proposals[proposalId].hasVoted[voter];
     }
 
     /**
@@ -322,20 +308,27 @@ contract ThaliumGovernance is AccessControl, Pausable, ReentrancyGuard {
      * @return The voting power of the voter at the time of proposal creation
      */
     function getVotingPowerForProposal(uint256 proposalId, address voter) external view returns (uint256) {
-        require(proposalId <= proposalCount, "ThaliumGovernance: Invalid proposal ID");
-        
+        if (proposalId == 0 || proposalId > proposalCount) revert InvalidProposalId();
+
         uint256 snapshotBlock = proposalSnapshotBlock[proposalId];
         if (snapshotBlock == 0) {
-            // Fallback to current balance if no snapshot
             return votingToken.balanceOf(voter);
         }
-        
-        // Use snapshot balance if available
+
         if (votingSnapshots[proposalId][voter] > 0) {
             return votingSnapshots[proposalId][voter];
         }
-        
-        // Fallback to current balance
+
         return votingToken.balanceOf(voter);
     }
+
+    /**
+     * @dev SECURITY FIX: Get voting power using snapshot to prevent flash loan attacks
+     * @param voter The address to check voting power for
+     * @return The voting power of the voter
+     */
+    function _getVotingPower(address voter) internal view returns (uint256) {
+        return votingToken.balanceOf(voter);
+    }
+
 }

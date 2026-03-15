@@ -54,7 +54,7 @@ wait_for_service "Redis" "http://localhost:6379" || echo "Redis check skipped"
 # Step 2: Deploy security services
 echo "🔐 Step 2: Deploying security services..."
 docker compose -f vault/compose.yaml up -d
-docker compose -f keycloak/compose.yaml up -d
+docker compose -f Authentik/compose.yaml up -d
 
 # Wait for security services
 wait_for_service "Vault" "http://localhost:8200/v1/sys/health"

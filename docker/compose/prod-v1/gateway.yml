@@ -159,8 +159,8 @@ services:
       - apisix-oidc-client-secret
       - redis-password
     environment:
-      # Keycloak is the only supported auth provider.
-      THALIUMX_AUTH_PROVIDER: ${THALIUMX_AUTH_PROVIDER:-keycloak}
+      # Auth internal JWT is the primary auth provider.
+      THALIUMX_AUTH_PROVIDER: ${THALIUMX_AUTH_PROVIDER:-internal-jwt}
       APISIX_ENABLE_OIDC: ${APISIX_ENABLE_OIDC:-false}
     volumes:
       - /home/ubuntu/thaliumx-v1/docker/gateway/scripts/init-apisix-routes.sh:/scripts/init-apisix-routes.sh:ro
@@ -175,17 +175,17 @@ services:
         export APISIX_ADMIN_KEY="$(cat /run/secrets/api-key)";
         export FRONTEND_UPSTREAM="thaliumx-frontend:3000";
         export BACKEND_UPSTREAM="thaliumx-backend:3002";
-        # Auth provider selection (Keycloak)
-        export AUTH_PROVIDER="keycloak";
-        export KEYCLOAK_UPSTREAM="keycloak:8080";
-        export KEYCLOAK_REALM="${KEYCLOAK_REALM:-thaliumx}";
+        # Auth provider selection (internal JWT)
+        export AUTH_PROVIDER="internal-jwt";
+        # Disable Authentik upstream since we're using internal JWT
+        # export AUTHENTIK_UPSTREAM="authentik:9000";
+        # export AUTHENTIK_ISSUER="https://thaliumx.com/application/o/thaliumx/";
 
-        # Configure APISIX OIDC verification.
-        export OIDC_CLIENT_ID="thaliumx-backend";
-        export OIDC_CLIENT_SECRET="$(cat /run/secrets/apisix-oidc-client-secret)";
-        # Enable gateway-side OIDC enforcement for protected APIs.
-        # Frontend is Keycloak-first and sends Bearer tokens.
-        export APISIX_ENABLE_OIDC="${APISIX_ENABLE_OIDC:-true}";
+        # Configure APISIX OIDC verification (disabled for internal JWT)
+        # export OIDC_CLIENT_ID="${AUTHENTIK_APISIX_CLIENT_ID:-thaliumx-apisix}";
+        # export OIDC_CLIENT_SECRET="$(cat /run/secrets/apisix-oidc-client-secret)";
+        # Enable gateway-side OIDC enforcement for protected APIs (disabled for internal JWT)
+        export APISIX_ENABLE_OIDC="false";
         # Redis configuration for rate limiting
         export REDIS_HOST="${REDIS_HOST:-thaliumx-redis}";
         export REDIS_PORT="${REDIS_PORT:-6379}";

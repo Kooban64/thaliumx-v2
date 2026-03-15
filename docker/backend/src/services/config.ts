@@ -168,14 +168,14 @@ export class ConfigService {
 
   private static loadConfig(): AppConfig {
     const dnsOrigins = this.loadDnsOriginsFromSecrets();
-    const keycloakIssuer =
-      process.env.KEYCLOAK_ISSUER ||
-      `${(process.env.KEYCLOAK_URL || 'https://auth.thaliumx.com').replace(/\/+$/, '')}/realms/${process.env.KEYCLOAK_REALM || 'thaliumx'}`;
+    const authentikIssuer =
+      process.env.AUTHENTIK_ISSUER ||
+      `${(process.env.AUTHENTIK_URL || 'https://auth.thaliumx.com').replace(/\/+$/, '')}/realm/${process.env.AUTHENTIK_REALM || 'thaliumx'}`;
 
     return {
       port: parseInt(process.env.PORT || '3002', 10),
       env: (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
-      authProvider: 'keycloak',
+      authProvider: 'internal-jwt',
 
       cors: {
         origin: Array.from(new Set([...(process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000','http://localhost:3001']), ...dnsOrigins])),
@@ -237,14 +237,13 @@ export class ConfigService {
         replicationFactor: parseInt(process.env.KAFKA_REPLICATION_FACTOR || '3'),
         minInSyncReplicas: parseInt(process.env.KAFKA_MIN_INSYNC_REPLICAS || '2')
       },
-      keycloak: {
-        issuer: keycloakIssuer,
+      authentik: {
+        issuer: authentikIssuer,
         jwksUri:
-          process.env.KEYCLOAK_JWKS_URI ||
-          `${keycloakIssuer.replace(/\/+$/, '')}/protocol/openid-connect/certs`,
-        audience: process.env.KEYCLOAK_AUDIENCE || process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend',
-        realm: process.env.KEYCLOAK_REALM || 'thaliumx',
-        clientId: process.env.KEYCLOAK_CLIENT_ID || 'thaliumx-backend',
+          process.env.AUTHENTIK_JWKS_URI ||
+          `${authentikIssuer.replace(/\/+$/, '')}/api/v3/core/jwks/`,
+        audience: process.env.AUTHENTIK_AUDIENCE || process.env.AUTHENTIK_CLIENT_ID || 'thaliumx-backend',
+        clientId: process.env.AUTHENTIK_CLIENT_ID || 'thaliumx-backend',
       },
       blockchain: {
         rpcUrl: process.env.BLOCKCHAIN_RPC_URL || 'http://localhost:8545',
@@ -606,20 +605,20 @@ export class ConfigService {
       }
     }
 
-    // Keycloak OIDC validation
-    if (!config.keycloak?.issuer) {
-      errors.push('Keycloak issuer is required');
+    // Authentik OIDC validation
+    if (!config.authentik?.issuer) {
+      errors.push('Authentik issuer is required');
     }
-    if (!config.keycloak?.jwksUri) {
-      errors.push('Keycloak JWKS URI is required');
+    if (!config.authentik?.jwksUri) {
+      errors.push('Authentik JWKS URI is required');
     }
-    if (!config.keycloak?.audience) {
-      errors.push('Keycloak audience is required');
+    if (!config.authentik?.audience) {
+      errors.push('Authentik audience is required');
     }
 
     if (isProduction) {
-      const authProvider = config.authProvider || 'keycloak';
-      if (authProvider !== 'keycloak') {
+      const authProvider = config.authProvider || 'internal-jwt';
+      if (authProvider !== 'internal-jwt' && authProvider !== 'authentik' && authProvider !== 'Authentik') {
         errors.push(`Unsupported auth provider in production: ${authProvider}`);
       }
     }

@@ -18,7 +18,7 @@ FRONTEND_UPSTREAM="${FRONTEND_UPSTREAM:-thaliumx-frontend:3000}"
 BACKEND_UPSTREAM="${BACKEND_UPSTREAM:-thaliumx-backend:3002}"
 
 # Identity provider upstream is plain HTTP behind APISIX TLS termination
-KEYCLOAK_UPSTREAM="${KEYCLOAK_UPSTREAM:-thaliumx-keycloak:8080}"
+AUTHENTIK_UPSTREAM="${AUTHENTIK_UPSTREAM:-authentik:9000}"
 
 OIDC_CLIENT_ID="${OIDC_CLIENT_ID:-thaliumx-frontend}"
 # NOTE: APISIX openid-connect plugin schema requires a client_secret even in bearer_only mode.
@@ -27,30 +27,35 @@ OIDC_CLIENT_SECRET="${OIDC_CLIENT_SECRET:-}"
 
 # IMPORTANT (prod correctness): the OIDC discovery URL must match the issuer that end-users actually see.
 # - End-user tokens are minted via the public hostname through APISIX.
-# - If discovery is pointed directly at the internal Keycloak service (e.g. https://keycloak:8443/...),
-#   Keycloak may emit a different `issuer` (often including :8443) which then causes APISIX to reject
+# - If discovery is pointed directly at the internal Authentik service (e.g. https://Authentik:8443/...),
+#   Authentik may emit a different `issuer` (often including :8443) which then causes APISIX to reject
 #   otherwise-valid tokens (issuer mismatch).
 #
 # Default to the public hostname, but allow overrides for air-gapped/dev deployments.
-AUTH_PUBLIC_HOST="${AUTH_PUBLIC_HOST:-auth.thaliumx.com}"
-KEYCLOAK_PUBLIC_HOST="${KEYCLOAK_PUBLIC_HOST:-$AUTH_PUBLIC_HOST}"
-KEYCLOAK_REALM="${KEYCLOAK_REALM:-thaliumx}"
+AUTH_PUBLIC_HOST="${AUTH_PUBLIC_HOST:-thaliumx.com}"
+AUTHENTIK_PUBLIC_HOST="${AUTHENTIK_PUBLIC_HOST:-$AUTH_PUBLIC_HOST}"
+AUTHENTIK_ISSUER="${AUTHENTIK_ISSUER:-https://thaliumx.com/application/o/thaliumx/}"
 
 # Optional strict audience and issuer controls for gateway OIDC route.
-OIDC_EXPECTED_AUDIENCE="${OIDC_EXPECTED_AUDIENCE:-${KEYCLOAK_CLIENT_ID:-$OIDC_CLIENT_ID}}"
+OIDC_EXPECTED_AUDIENCE="${OIDC_EXPECTED_AUDIENCE:-${AUTHENTIK_APISIX_CLIENT_ID:-$OIDC_CLIENT_ID}}"
 OIDC_EXPECTED_ISSUER="${OIDC_EXPECTED_ISSUER:-}"
 
-AUTH_UPSTREAM="$KEYCLOAK_UPSTREAM"
-OIDC_DISCOVERY="${OIDC_DISCOVERY:-https://${KEYCLOAK_PUBLIC_HOST}/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration}"
-OIDC_EXPECTED_ISSUER="${OIDC_EXPECTED_ISSUER:-https://${KEYCLOAK_PUBLIC_HOST}/realms/${KEYCLOAK_REALM}}"
+# OPA defaults (ensure valid JSON payloads even when env vars are unset)
+OPA_HOST="${OPA_HOST:-http://thaliumx-opa:8181}"
+OPA_POLICY="${OPA_POLICY:-v1/data/httpapi/authz}"
+OPA_SSL_VERIFY="${OPA_SSL_VERIFY:-false}"
 
-# PRODUCTION: verify Keycloak TLS using the internal CA mounted into the APISIX container.
+AUTH_UPSTREAM="$AUTHENTIK_UPSTREAM"
+OIDC_DISCOVERY="${OIDC_DISCOVERY:-${AUTHENTIK_ISSUER}.well-known/openid-configuration}"
+OIDC_EXPECTED_ISSUER="${OIDC_EXPECTED_ISSUER:-${AUTHENTIK_ISSUER}}"
+
+# PRODUCTION: verify Authentik TLS using the internal CA mounted into the APISIX container.
 OIDC_SSL_VERIFY="${OIDC_SSL_VERIFY:-true}"
 
 # Enable gateway-side OIDC enforcement for protected APIs.
 # - When true, a higher-priority /api/* route is created with the openid-connect plugin.
 # - Public endpoints remain public via more-specific routes.
-APISIX_ENABLE_OIDC="${APISIX_ENABLE_OIDC:-false}"
+APISIX_ENABLE_OIDC="${APISIX_ENABLE_OIDC:-true}"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -62,7 +67,7 @@ echo -e "${GREEN}=== APISIX Route Initialization ===${NC}"
 echo "Admin URL: $APISIX_ADMIN_URL"
 echo "Frontend: $FRONTEND_UPSTREAM"
 echo "Backend: $BACKEND_UPSTREAM"
-echo "Auth provider: keycloak"
+echo "Auth provider: authentik"
 echo "Auth upstream: $AUTH_UPSTREAM"
 echo "OIDC Discovery: $OIDC_DISCOVERY"
 echo "OIDC expected issuer: $OIDC_EXPECTED_ISSUER"
@@ -213,7 +218,7 @@ if [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ]; then
   # Include localhost for local curl testing (SNI = localhost).
   create_ssl "1" "{
     \"id\": \"1\",
-    \"snis\": [\"thaliumx.com\", \"*.thaliumx.com\", \"auth.thaliumx.com\", \"thal.thaliumx.com\", \"localhost\"],
+    \"snis\": [\"thaliumx.com\", \"*.thaliumx.com\", \"thal.thaliumx.com\", \"localhost\"],
     \"cert\": \"$CERT_CONTENT\",
     \"key\": \"$KEY_CONTENT\"
   }"
@@ -318,10 +323,10 @@ create_upstream "6" "{
     }
 }"
 
-# Upstream 5: Keycloak identity provider behind APISIX
+# Upstream 5: Authentik identity provider behind APISIX
 create_upstream "5" "{
     \"id\": \"5\",
-    \"name\": \"auth-upstream-keycloak\",
+    \"name\": \"auth-upstream-authentik\",
     \"type\": \"roundrobin\",
     \"scheme\": \"http\",
     \"nodes\": {
@@ -337,9 +342,9 @@ create_upstream "5" "{
     \"checks\": {
         \"active\": {
             \"type\": \"http\",
-            \"http_path\": \"/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration\",
+            \"http_path\": \"/application/o/thaliumx/.well-known/openid-configuration\",
             \"host\": \"$AUTH_UPSTREAM\",
-            \"port\": 8080,
+            \"port\": 9000,
             \"healthy\": {
                 \"interval\": 5,
                 \"successes\": 2,
@@ -677,6 +682,15 @@ if [ "$APISIX_ENABLE_OIDC" = "true" ]; then
     exit 1
   fi
 
+  # Validate OIDC discovery endpoint is accessible
+  echo -e "${YELLOW}Validating OIDC discovery endpoint: $OIDC_DISCOVERY${NC}"
+  if ! curl -s -f --capath /certs/ca "$OIDC_DISCOVERY" > /dev/null 2>&1; then
+    echo -e "${RED}ERROR: OIDC discovery endpoint is not accessible. Cannot create OIDC-protected routes.${NC}" >&2
+    echo "Please ensure the identity provider is running and the discovery URL is correct."
+    exit 1
+  fi
+  echo -e "${GREEN}OIDC discovery endpoint is accessible${NC}"
+
   # Create Route 41 with explicit exclusion of auth endpoints
   # APISIX doesn't support negative patterns, so we use a more specific pattern
   # that matches common API paths but NOT /api/auth/*
@@ -802,34 +816,24 @@ if [ "$APISIX_ENABLE_OIDC" = "true" ]; then
               \"endpoint\": \"https://thaliumx-tempo:9411/api/v2/spans\",
               \"sample_ratio\": 0.1,
               \"service_name\": \"thaliumx-apisix\"
-          },
-          \"kafka-logger\": {
-              \"broker_list\": {
-                  \"thaliumx-kafka\": 9092
-              },
-              \"kafka_topic\": \"thaliumx-access-logs\",
-              \"producer_type\": \"async\",
-              \"required_acks\": 1,
-              \"buffer_duration\": 60,
-              \"max_retry_count\": 3
           }
       }
   }"
 fi
 
-# Route 8: auth.thaliumx.com -> Keycloak identity provider
+# Route 8: thaliumx.com -> Authentik identity provider
 # NOTE (frontend PKCE):
-# The browser performs OIDC discovery + token exchange against auth.thaliumx.com.
+# The browser performs OIDC discovery + token exchange against thaliumx.com.
 # Those requests are cross-origin from https://thaliumx.com, so we must ensure CORS
 # headers are present even if the upstream does not emit them.
 
 # 8-pre) CORS-enabled discovery endpoints
 create_route "15" "{
     \"id\": \"15\",
-    \"name\": \"thaliumx-auth-oidc-discovery-keycloak\",
+    \"name\": \"thaliumx-auth-oidc-discovery-authentik\",
     \"desc\": \"OIDC discovery (CORS)\",
-    \"host\": \"auth.thaliumx.com\",
-    \"uri\": \"/realms/*/.well-known/*\",
+    \"host\": \"thaliumx.com\",
+    \"uri\": \"/application/o/*/.well-known/*\",
     \"priority\": 90,
     \"status\": 1,
     \"upstream_id\": \"5\",
@@ -838,7 +842,7 @@ create_route "15" "{
             \"headers\": {
                 \"X-Forwarded-Proto\": \"https\",
                 \"X-Forwarded-Port\": \"443\",
-                \"X-Forwarded-Host\": \"auth.thaliumx.com\"
+                \"X-Forwarded-Host\": \"thaliumx.com\"
             }
         },
         \"cors\": {
@@ -856,10 +860,10 @@ create_route "15" "{
 # 8-pre2) CORS-enabled OAuth endpoints (token exchange, JWKS, etc.)
 create_route "16" "{
     \"id\": \"16\",
-    \"name\": \"thaliumx-auth-oidc-oauth-keycloak\",
-    \"desc\": \"Keycloak OIDC protocol endpoints (CORS for PKCE token exchange)\",
-    \"host\": \"auth.thaliumx.com\",
-    \"uri\": \"/realms/*/protocol/openid-connect/*\",
+    \"name\": \"thaliumx-auth-oidc-oauth-authentik\",
+    \"desc\": \"Authentik OIDC endpoints (CORS for PKCE token exchange)\",
+    \"host\": \"thaliumx.com\",
+    \"uri\": \"/application/o/*/*\",
     \"priority\": 90,
     \"status\": 1,
     \"upstream_id\": \"5\",
@@ -868,7 +872,7 @@ create_route "16" "{
             \"headers\": {
                 \"X-Forwarded-Proto\": \"https\",
                 \"X-Forwarded-Port\": \"443\",
-                \"X-Forwarded-Host\": \"auth.thaliumx.com\"
+                \"X-Forwarded-Host\": \"thaliumx.com\"
             }
         },
         \"cors\": {
@@ -885,9 +889,9 @@ create_route "16" "{
 
 create_route "8" "{
     \"id\": \"8\",
-    \"name\": \"thaliumx-auth-keycloak\",
-    \"desc\": \"Keycloak proxy - auth.thaliumx.com/*\",
-    \"host\": \"auth.thaliumx.com\",
+    \"name\": \"thaliumx-auth-authentik\",
+    \"desc\": \"Authentik proxy - thaliumx.com/application/o/*\",
+    \"host\": \"thaliumx.com\",
     \"uri\": \"/*\",
     \"priority\": 60,
     \"status\": 1,
@@ -897,7 +901,7 @@ create_route "8" "{
             \"headers\": {
                 \"X-Forwarded-Proto\": \"https\",
                 \"X-Forwarded-Port\": \"443\",
-                \"X-Forwarded-Host\": \"auth.thaliumx.com\"
+                \"X-Forwarded-Host\": \"thaliumx.com\"
             }
         },
         \"request-id\": { \"include_in_response\": true }
@@ -1096,17 +1100,7 @@ create_route "7" "{
             \"endpoint\": \"https://thaliumx-tempo:9411/api/v2/spans\",
             \"sample_ratio\": 0.1,
             \"service_name\": \"thaliumx-apisix\"
-        },
-          \"kafka-logger\": {
-              \"broker_list\": {
-                  \"thaliumx-kafka\": 9092
-              },
-              \"kafka_topic\": \"thaliumx-financial-logs\",
-              \"producer_type\": \"async\",
-              \"required_acks\": 1,
-              \"buffer_duration\": 60,
-              \"max_retry_count\": 3
-          }
+        }
     }
 }"
 
@@ -1117,7 +1111,7 @@ echo "Routes configured:"
 echo "  ✅ thaliumx.com -> Main landing page (/landing)"
 echo "  ✅ www.thaliumx.com -> Redirect to thaliumx.com"
 echo "  ✅ thal.thaliumx.com -> Token presale page (/token-presale)"
-echo "  ✅ auth.thaliumx.com -> Keycloak (OIDC)"
+echo "  ✅ thaliumx.com -> Authentik (OIDC)"
 echo "  ✅ /api/* -> Backend API (60 req/s, 1000/min per IP, Redis-backed, OPA, caching)"
 echo "  ✅ /api/auth/login|register|reset* -> CRITICAL auth endpoints (Priority 100, 5 req/s, 30 per 5 min per IP, strict, NO OIDC)"
 echo "  ✅ /api/financial/* -> Financial endpoints (30 req/s, 100/min per IP, OPA, strict)"

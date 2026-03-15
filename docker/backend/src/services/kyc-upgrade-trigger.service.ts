@@ -15,7 +15,7 @@
 import { LoggerService } from './logger';
 import type { LimitStatus} from './transaction-volume-tracker.service';
 import { TransactionVolumeTrackerService, TimePeriod } from './transaction-volume-tracker.service';
-// TransactionType, EventStreamingService, ZitadelAttributesService imported but not used in this file
+// TransactionType, EventStreamingService, AuthAttributesService imported but not used in this file
 import { KYCService } from './kyc';
 import type { Request } from 'express';
 
@@ -289,7 +289,7 @@ export class KYCUpgradeTriggerService {
     amount: number,
     period: TimePeriod = TimePeriod.TOTAL,
     autoTrigger: boolean = false, // Whether to automatically start workflow
-    req?: Request // Optional request for Zitadel context
+    req?: Request // Optional request for Authentik context
   ): Promise<UpgradeTriggerResult> {
     const result = await this.checkUpgradeRequired(userId, tenantId, limitType, amount, period);
 

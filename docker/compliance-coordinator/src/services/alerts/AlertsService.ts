@@ -132,7 +132,29 @@ export class AlertsService {
   async getAlert(alertId: string): Promise<ComplianceAlert | null> {
     const db = getDatabaseService();
     const row = await db.queryOne<ComplianceAlertTable>(`
-      SELECT * FROM compliance_alerts WHERE id = $1
+      SELECT
+        id,
+        alert_type as "alertType",
+        severity,
+        source_service as "sourceService",
+        source_entity_type as "sourceEntityType",
+        source_entity_id as "sourceEntityId",
+        title,
+        description,
+        details,
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        user_id as "userId",
+        status,
+        assigned_to as "assignedTo",
+        acknowledged_by as "acknowledgedBy",
+        acknowledged_at as "acknowledgedAt",
+        resolved_by as "resolvedBy",
+        resolved_at as "resolvedAt",
+        resolution,
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM compliance_alerts WHERE id = $1
     `, [alertId]);
 
     if (!row) {
@@ -200,7 +222,29 @@ export class AlertsService {
     const offset = options?.offset ?? 0;
 
     const rows = await db.queryAll<ComplianceAlertTable>(`
-      SELECT * FROM compliance_alerts
+      SELECT
+        id,
+        alert_type as "alertType",
+        severity,
+        source_service as "sourceService",
+        source_entity_type as "sourceEntityType",
+        source_entity_id as "sourceEntityId",
+        title,
+        description,
+        details,
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        user_id as "userId",
+        status,
+        assigned_to as "assignedTo",
+        acknowledged_by as "acknowledgedBy",
+        acknowledged_at as "acknowledgedAt",
+        resolved_by as "resolvedBy",
+        resolved_at as "resolvedAt",
+        resolution,
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM compliance_alerts
       ${whereClause}
       ORDER BY 
         CASE severity 
@@ -364,8 +408,8 @@ export class AlertsService {
     `, [tenantId, periodStart, periodEnd]);
 
     // Get by type
-    const typeStats = await db.queryAll<{ alert_type: string; count: string }>(`
-      SELECT alert_type, COUNT(*) as count
+    const typeStats = await db.queryAll<{ alertType: string; count: string }>(`
+      SELECT alert_type as "alertType", COUNT(*) as count
       FROM compliance_alerts
       WHERE tenant_id = $1
         AND created_at >= $2
@@ -374,8 +418,8 @@ export class AlertsService {
     `, [tenantId, periodStart, periodEnd]);
 
     // Get by service
-    const serviceStats = await db.queryAll<{ source_service: string; count: string }>(`
-      SELECT source_service, COUNT(*) as count
+    const serviceStats = await db.queryAll<{ sourceService: string; count: string }>(`
+      SELECT source_service as "sourceService", COUNT(*) as count
       FROM compliance_alerts
       WHERE tenant_id = $1
         AND created_at >= $2
@@ -409,11 +453,11 @@ export class AlertsService {
     }
 
     for (const stat of typeStats) {
-      byType[stat.alert_type] = parseInt(stat.count, 10);
+      byType[stat.alertType] = parseInt(stat.count, 10);
     }
 
     for (const stat of serviceStats) {
-      byService[stat.source_service] = parseInt(stat.count, 10);
+      byService[stat.sourceService] = parseInt(stat.count, 10);
     }
 
     return {
@@ -619,7 +663,29 @@ export class AlertsService {
     const db = getDatabaseService();
 
     const row = await db.queryOne<ComplianceAlertTable>(`
-      SELECT * FROM compliance_alerts
+      SELECT
+        id,
+        alert_type as "alertType",
+        severity,
+        source_service as "sourceService",
+        source_entity_type as "sourceEntityType",
+        source_entity_id as "sourceEntityId",
+        title,
+        description,
+        details,
+        tenant_id as "tenantId",
+        broker_id as "brokerId",
+        user_id as "userId",
+        status,
+        assigned_to as "assignedTo",
+        acknowledged_by as "acknowledgedBy",
+        acknowledged_at as "acknowledgedAt",
+        resolved_by as "resolvedBy",
+        resolved_at as "resolvedAt",
+        resolution,
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM compliance_alerts
       WHERE source_service = 'chainanalysis'
         AND details->>'chainAnalysisAlertId' = $1
         AND tenant_id = $2
@@ -794,26 +860,26 @@ export class AlertsService {
   private mapAlertTableToData(row: ComplianceAlertTable): ComplianceAlert {
     return {
       id: row.id,
-      alertType: row.alert_type as ComplianceAlert['alertType'],
+      alertType: row.alertType as ComplianceAlert['alertType'],
       severity: row.severity as ComplianceAlert['severity'],
-      sourceService: row.source_service as ComplianceServiceType,
-      sourceEntityType: row.source_entity_type,
-      sourceEntityId: row.source_entity_id,
+      sourceService: row.sourceService as ComplianceServiceType,
+      sourceEntityType: row.sourceEntityType,
+      sourceEntityId: row.sourceEntityId,
       title: row.title,
       description: row.description,
       details: row.details,
-      tenantId: row.tenant_id,
-      brokerId: row.broker_id ?? undefined,
-      userId: row.user_id ?? undefined,
+      tenantId: row.tenantId,
+      brokerId: row.brokerId ?? undefined,
+      userId: row.userId ?? undefined,
       status: row.status as ComplianceAlert['status'],
-      assignedTo: row.assigned_to ?? undefined,
-      acknowledgedBy: row.acknowledged_by ?? undefined,
-      acknowledgedAt: row.acknowledged_at ?? undefined,
-      resolvedBy: row.resolved_by ?? undefined,
-      resolvedAt: row.resolved_at ?? undefined,
+      assignedTo: row.assignedTo ?? undefined,
+      acknowledgedBy: row.acknowledgedBy ?? undefined,
+      acknowledgedAt: row.acknowledgedAt ?? undefined,
+      resolvedBy: row.resolvedBy ?? undefined,
+      resolvedAt: row.resolvedAt ?? undefined,
       resolution: row.resolution ?? undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 }

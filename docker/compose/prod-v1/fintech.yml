@@ -84,17 +84,17 @@ services:
       NOTION_API_KEY: ""
       MAGIC_LINK_JWT_SECRET: ballerine_magic_link_jwt_secret_2025_production_secure_ThaliumX_64_chars
       MAGIC_LINK_AUTH_JWT_SECRET: ballerine_magic_link_auth_jwt_secret_2025_production_secure_ThaliumX_64_chars
-      # Keycloak OIDC Configuration
-      KEYCLOAK_ENABLED: ${KEYCLOAK_ENABLED:-true}
-      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI:-http://keycloak:8080/auth/realms/thaliumx/protocol/openid-connect/certs}
-      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.thaliumx.com/auth/realms/thaliumx}
-      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-}
+      # Authentik OIDC Configuration
+      AUTHENTIK_ENABLED: ${AUTHENTIK_ENABLED:-true}
+      AUTHENTIK_JWKS_URI: ${AUTHENTIK_JWKS_URI:-https://thaliumx.com/application/o/thaliumx/jwks/}
+      AUTHENTIK_ISSUER: ${AUTHENTIK_ISSUER:-https://thaliumx.com/application/o/thaliumx/}
+      AUTHENTIK_AUDIENCE: ${AUTHENTIK_AUDIENCE:-thaliumx-workflows}
       DEFAULT_PROJECT_ID: ${DEFAULT_PROJECT_ID:-}
-      # Security controls for Keycloak user creation
-      KEYCLOAK_ALLOWED_EMAIL_DOMAINS: ${KEYCLOAK_ALLOWED_EMAIL_DOMAINS:-}
-      KEYCLOAK_REQUIRE_ADMIN_APPROVAL: ${KEYCLOAK_REQUIRE_ADMIN_APPROVAL:-false}
-      KEYCLOAK_USER_CREATION_RATE_LIMIT: ${KEYCLOAK_USER_CREATION_RATE_LIMIT:-5}
-      KEYCLOAK_ALLOWED_ROLES: ${KEYCLOAK_ALLOWED_ROLES:-}
+      # Security controls for Authentik user creation
+      AUTHENTIK_ALLOWED_EMAIL_DOMAINS: ${AUTHENTIK_ALLOWED_EMAIL_DOMAINS:-}
+      AUTHENTIK_REQUIRE_ADMIN_APPROVAL: ${AUTHENTIK_REQUIRE_ADMIN_APPROVAL:-false}
+      AUTHENTIK_USER_CREATION_RATE_LIMIT: ${AUTHENTIK_USER_CREATION_RATE_LIMIT:-5}
+      AUTHENTIK_ALLOWED_ROLES: ${AUTHENTIK_ALLOWED_ROLES:-}
     secrets:
       - ballerine-db-password
       - ballerine-bcrypt-salt

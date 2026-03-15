@@ -27,8 +27,8 @@ export default function OmniTradingPage() {
           return;
         }
 
-        const { getKeycloakToken } = await import('@/lib/auth/backend-auth');
-        const token = getKeycloakToken();
+        const { getAuthToken } = await import('@/lib/auth/backend-auth');
+        const token = getAuthToken();
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
         };

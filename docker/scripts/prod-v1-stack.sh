@@ -84,8 +84,8 @@ docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" up -d --remove-orphans 
 echo "2) wait for core services"
 wait_container thaliumx-vault 300
 # Keycloak auth provider
-wait_container thaliumx-keycloak-postgres 180
-wait_container thaliumx-keycloak 180
+wait_container thaliumx-Authentik-postgres 180
+wait_container thaliumx-Authentik 180
 wait_container thaliumx-backend 420
 wait_container thaliumx-frontend 180
 wait_container thaliumx-apisix 180
@@ -111,7 +111,7 @@ docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" --profile init-jobs run
 # Keycloak realm post-import hardening:
 # - Enforces branded ThaliumX realm themes after realm import.
 # - Safe to rerun; updates are idempotent.
-docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" --profile init-jobs run --rm keycloak-post-import-seed
+docker compose "${COMPOSE_ARGS[@]}" "${PROFILE_ARGS[@]}" --profile init-jobs run --rm Authentik-post-import-seed
 
 echo "5) final status"
 docker ps --format 'table {{.Names}}\t{{.Status}}' | sed -n '1,120p'

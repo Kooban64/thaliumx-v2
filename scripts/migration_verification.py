@@ -1,35 +1,35 @@
 #!/usr/bin/env python3
 """
 Migration Verification Script
-Verifies that the Zitadel migration has been completed successfully
+Verifies that the Authentik migration has been completed successfully
 """
 
 import requests
 import json
 import sys
 
-def check_zitadel_config():
-    """Check Zitadel configuration"""
+def check_Authentik_config():
+    """Check Authentik configuration"""
     try:
-        # Check if Zitadel is running
+        # Check if Authentik is running
         response = requests.get("http://localhost:8080/healthz", timeout=5)
         if response.status_code != 200:
-            print("❌ Zitadel is not healthy")
+            print("❌ Authentik is not healthy")
             return False
 
-        print("✅ Zitadel service is running")
+        print("✅ Authentik service is running")
 
         # Check if we can access the OIDC configuration
         oidc_response = requests.get("http://localhost:8080/.well-known/openid-configuration", timeout=5)
         if oidc_response.status_code == 200:
-            print("✅ Zitadel OIDC configuration is accessible")
+            print("✅ Authentik OIDC configuration is accessible")
             return True
         else:
-            print("⚠️  Zitadel OIDC configuration not accessible")
+            print("⚠️  Authentik OIDC configuration not accessible")
             return False
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ Cannot connect to Zitadel: {e}")
+        print(f"❌ Cannot connect to Authentik: {e}")
         return False
 
 def check_auth_flow():
@@ -53,7 +53,7 @@ def main():
     print("=" * 30)
 
     checks = [
-        ("Zitadel Configuration", check_zitadel_config),
+        ("Authentik Configuration", check_Authentik_config),
         ("Authentication Flow", check_auth_flow),
     ]
 

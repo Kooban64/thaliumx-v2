@@ -75,8 +75,8 @@ export default function Dashboard() {
           return;
         }
 
-        const { getKeycloakToken } = await import('@/lib/auth/backend-auth');
-        const token = getKeycloakToken();
+        const { getAuthToken } = await import('@/lib/auth/backend-auth');
+        const token = getAuthToken();
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
         };
@@ -93,7 +93,7 @@ export default function Dashboard() {
           return;
         }
 
-        // In Zitadel mode, `/api/auth/profile` returns the user identity.
+        // In Authentik mode, `/api/auth/profile` returns the user identity.
         // Use it directly instead of calling a non-existent `/api/user/profile`.
         const json = await response.json();
         const u = json?.data?.user || json?.data || null;
