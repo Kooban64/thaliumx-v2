@@ -1,0 +1,76 @@
+import { handleZodError } from '@/common/utils/handle-zod-error/handle-zod-error';
+
+import { Method } from '@/common/enums';
+
+import { z } from 'zod';
+
+import { HitSchema } from '@/lib/blocks/components/AmlBlock/utils/aml-adapter';
+
+import { apiClient } from '@/common/api-client/api-client';
+
+export const EntityType = {
+  BUSINESS: 'business',
+  UBO: 'ubo',
+  DIRECTOR: 'director',
+} as const;
+
+export const EndUserVariantSchema = z.enum([EntityType.UBO, EntityType.DIRECTOR]);
+
+export const EndUserSchema = z.object({
+  id: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  email: z.string().nullable().optional(),
+  gender: z.string().nullable(),
+  nationality: z.string().nullable(),
+  address: z.string().nullable(),
+  dateOfBirth: z.string().nullable(),
+  phone: z.string().nullable(),
+  additionalInfo: z.record(z.string(), z.any()).nullable(),
+  amlHits: z.array(HitSchema.extend({ vendor: z.string().optional() })).optional(),
+  individualVerificationsChecks: z
+    .object({
+      status: z.string(),
+      data: z.object({
+        kyc_session_1: z.object({
+          vendor: z.string(),
+          result: z
+            .object({
+              entity: z.record(z.string(), z.any()),
+              decision: z.record(z.string(), z.any()),
+              aml: z.record(z.string(), z.any()).optional(),
+              document: z.record(z.string(), z.any()),
+            })
+            .nullable(),
+        }),
+      }),
+    })
+    .optional(),
+  variant: z.enum(['director', 'ubo']).optional().nullable(),
+  createdFrom: z.enum(['user', 'analyst', 'registry']).nullable().optional(),
+});
+
+export const EndUsersSchema = z.array(EndUserSchema);
+
+export const getEndUserById = async ({ id }: { id: string }) => {
+  const [endUser, error] = await apiClient({
+    endpoint: `end-users/${id}`,
+    method: Method.GET,
+    schema: EndUserSchema,
+    timeout: 30_000,
+  });
+
+  return handleZodError(error, endUser);
+};
+
+export const getEndUsersByIds = async ({ ids }: { ids: string[] }) => {
+  const [endUsers, error] = await apiClient({
+    endpoint: `../external/end-users/by-ids`,
+    method: Method.POST,
+    schema: EndUsersSchema,
+    timeout: 30_000,
+    body: { ids },
+  });
+
+  return handleZodError(error, endUsers);
+};

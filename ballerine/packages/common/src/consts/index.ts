@@ -1,0 +1,301 @@
+import { ObjectValues } from '@/types';
+
+export const StateTag = {
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+  RESOLVED: 'resolved',
+  REVISION: 'revision',
+  EDIT: 'edit',
+  MANUAL_REVIEW: 'manual_review',
+  PENDING_PROCESS: 'pending_process',
+  COLLECTION_FLOW: 'collection_flow',
+  FAILURE: 'failure',
+  DATA_ENRICHMENT: 'data_enrichment',
+  FLAGGED: 'flagged',
+  DISMISSED: 'dismissed',
+} as const;
+
+export const StateTags = [
+  StateTag.APPROVED,
+  StateTag.REJECTED,
+  StateTag.RESOLVED,
+  StateTag.REVISION,
+  StateTag.EDIT,
+  StateTag.MANUAL_REVIEW,
+  StateTag.PENDING_PROCESS,
+  StateTag.COLLECTION_FLOW,
+  StateTag.FAILURE,
+  StateTag.DATA_ENRICHMENT,
+  StateTag.FLAGGED,
+  StateTag.DISMISSED,
+] as const satisfies ReadonlyArray<(typeof StateTag)[keyof typeof StateTag]>;
+
+export const CommonWorkflowEvent = {
+  START: 'START',
+  CASE_REVIEWED: 'CASE_REVIEWED',
+  RETURN_TO_REVIEW: 'RETURN_TO_REVIEW',
+  RESUBMITTED: 'RESUBMITTED',
+  REJECT: 'reject',
+  APPROVE: 'approve',
+  REVISION: 'revision',
+  RESOLVE: 'resolve',
+  FLAG: 'flag',
+  DISMISS: 'dismiss',
+  EDIT: 'edit',
+} as const;
+
+export const CommonWorkflowStates = {
+  IDLE: 'idle',
+  MANUAL_REVIEW: 'manual_review',
+  REJECTED: 'rejected',
+  APPROVED: 'approved',
+  RESOLVED: 'resolved',
+  REVISION: 'revision',
+  FLAGGED: 'flagged',
+  DISMISSED: 'dismissed',
+} as const;
+
+export type TStateTag = (typeof StateTags)[number];
+
+export const WorkflowDefinitionVariant = {
+  WEBSITE_MONITORING: 'WEBSITE_MONITORING',
+  MANUAL_REVIEW: 'MANUAL_REVIEW',
+  KYB: 'KYB',
+  KYB_WITH_ASSOCIATED_COMPANIES: 'KYB_WITH_ASSOCIATED_COMPANIES',
+  KYC: 'KYC',
+  DEFAULT: 'DEFAULT',
+  ONGOING: 'ONGOING',
+  AML: 'AML',
+} as const;
+
+export type TStateTags = typeof StateTags;
+
+export const ProcessStatus = {
+  DEFAULT: 'DEFAULT',
+  IDLE: 'IDLE',
+  IN_PROGRESS: 'IN_PROGRESS',
+  SUCCESS: 'SUCCESS',
+  ERROR: 'ERROR',
+  CANCELED: 'CANCELED',
+} as const;
+
+export const ProcessStatuses = [
+  ProcessStatus.IDLE,
+  ProcessStatus.IN_PROGRESS,
+  ProcessStatus.SUCCESS,
+  ProcessStatus.ERROR,
+  ProcessStatus.CANCELED,
+] as const satisfies ReadonlyArray<(typeof ProcessStatus)[keyof typeof ProcessStatus]>;
+
+export type TProcessStatus = (typeof ProcessStatuses)[number];
+
+export type TProcessStatuses = typeof ProcessStatuses;
+
+export const UnifiedApiReason = {
+  NOT_IMPLEMENTED: 'NOT_IMPLEMENTED',
+  NOT_AVAILABLE: 'NOT_AVAILABLE',
+} as const;
+
+export const UnifiedApiReasons = [
+  UnifiedApiReason.NOT_IMPLEMENTED,
+  UnifiedApiReason.NOT_AVAILABLE,
+] as const satisfies ReadonlyArray<(typeof UnifiedApiReason)[keyof typeof UnifiedApiReason]>;
+
+export type TUnifiedApiReason = (typeof UnifiedApiReasons)[number];
+
+export type TUnifiedApiReasons = typeof UnifiedApiReasons;
+
+export const WorkflowDefinitionConfigThemeEnum = {
+  KYC: 'kyc',
+  KYB: 'kyb',
+  DOCUMENTS_REVIEW: 'documents-review',
+} as const;
+
+export const WorkflowDefinitionConfigThemes = [
+  WorkflowDefinitionConfigThemeEnum.KYB,
+  WorkflowDefinitionConfigThemeEnum.KYC,
+  WorkflowDefinitionConfigThemeEnum.DOCUMENTS_REVIEW,
+] as const satisfies ReadonlyArray<
+  (typeof WorkflowDefinitionConfigThemeEnum)[keyof typeof WorkflowDefinitionConfigThemeEnum]
+>;
+
+export type TWorkflowDefinitionConfigTheme = (typeof WorkflowDefinitionConfigThemes)[number];
+
+export const Severity = {
+  CRITICAL: 'critical',
+  HIGH: 'high',
+  MEDIUM: 'medium',
+  LOW: 'low',
+} as const;
+
+export const Severities = [
+  Severity.CRITICAL,
+  Severity.HIGH,
+  Severity.MEDIUM,
+  Severity.LOW,
+] as const satisfies ReadonlyArray<ObjectValues<typeof Severity>>;
+
+export type SeverityType = (typeof Severities)[number];
+
+export type SeveritiesType = typeof Severities;
+
+export const MatchResponseCode = {
+  M00: 'M00',
+  M01: 'M01',
+  M02: 'M02',
+} as const;
+
+export const MatchResponseCodes = [
+  MatchResponseCode.M00,
+  MatchResponseCode.M01,
+  MatchResponseCode.M02,
+] as const satisfies ReadonlyArray<ObjectValues<typeof MatchResponseCode>>;
+
+export const MatchReasonCode = {
+  '00': 'Questionable Merchant/Under Investigation',
+  '01': 'Account Data Compromise',
+  '02': 'Common Point of Purchase (CPP)',
+  '03': 'Laundering',
+  '04': 'Excessive Chargebacks',
+  '05': 'Excessive Fraud',
+  '06': 'Reserved for Future Use',
+  '08': 'Mastercard Questionable Merchant Audit Program',
+  '09': 'Bankruptcy/Liquidation/Insolvency',
+  '10': 'Violation of Standards',
+  '11': 'Merchant Collusion',
+  '12': 'PCI Data Security Standard Noncompliance',
+  '13': 'Illegal Transactions',
+  '14': 'Identity Theft',
+  '20': 'Mastercard Questionable Merchant Audit Program',
+  '21': 'Listing under Privacy Review',
+  '24': 'Illegal Transactions',
+} as const;
+
+export const URL_PATTERN =
+  /^(?:https?:\/\/)?(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z0-9\u00A1-\uFFFF][a-z0-9\u00A1-\uFFFF_-]{0,62})?[a-z0-9\u00A1-\uFFFF]\.)+(?:[a-z\u00A1-\uFFFF]{2,}\.?))(?::\d{2,5})?(?:[/?#]\S*)?$/i;
+
+export const CHECKS_STATUSES = ['in-progress', 'failed', 'completed'] as const;
+
+export type ChecksStatus = (typeof CHECKS_STATUSES)[number];
+
+export const CHECKS_STATUSES_MAP = Object.fromEntries(
+  CHECKS_STATUSES.map(status => [status, status]),
+) as { [K in ChecksStatus]: K };
+
+export const ASSESSMENT_STATUSES = [
+  'in-progress',
+  'pending-review',
+  'under-review',
+  'approved',
+  'rejected',
+] as const;
+
+export type AssessmentStatus = (typeof ASSESSMENT_STATUSES)[number];
+
+export const ASSESSMENT_STATUSES_MAP = Object.fromEntries(
+  ASSESSMENT_STATUSES.map(status => [status, status]),
+) as { [K in AssessmentStatus]: K };
+
+export const UPDATEABLE_ASSESSMENT_STATUSES = [
+  ASSESSMENT_STATUSES_MAP['pending-review'],
+  ASSESSMENT_STATUSES_MAP['under-review'],
+  ASSESSMENT_STATUSES_MAP['approved'],
+  ASSESSMENT_STATUSES_MAP['rejected'],
+] as const;
+
+export type UpdateableAssessmentStatus = (typeof UPDATEABLE_ASSESSMENT_STATUSES)[number];
+
+export const MERCHANT_REPORT_STATUSES = [
+  'in-progress',
+  'quality-control',
+  'pending-review',
+  'under-review',
+  'failed',
+  'completed',
+  'cleared',
+  'conditionally-approved',
+  'terminated',
+] as const;
+
+export type MerchantReportStatus = (typeof MERCHANT_REPORT_STATUSES)[number];
+
+export const MERCHANT_REPORT_STATUSES_MAP = Object.fromEntries(
+  MERCHANT_REPORT_STATUSES.map(status => [status, status]),
+) as { [K in MerchantReportStatus]: K };
+
+export type UpdateableReportStatus =
+  | (typeof MERCHANT_REPORT_STATUSES_MAP)['cleared']
+  | (typeof MERCHANT_REPORT_STATUSES_MAP)['conditionally-approved']
+  | (typeof MERCHANT_REPORT_STATUSES_MAP)['terminated']
+  | (typeof MERCHANT_REPORT_STATUSES_MAP)['completed']
+  | (typeof MERCHANT_REPORT_STATUSES_MAP)['pending-review']
+  | (typeof MERCHANT_REPORT_STATUSES_MAP)['under-review'];
+
+export const UPDATEABLE_REPORT_STATUSES = [
+  MERCHANT_REPORT_STATUSES_MAP['pending-review'],
+  MERCHANT_REPORT_STATUSES_MAP['under-review'],
+  MERCHANT_REPORT_STATUSES_MAP['completed'],
+  MERCHANT_REPORT_STATUSES_MAP['cleared'],
+  MERCHANT_REPORT_STATUSES_MAP['conditionally-approved'],
+  MERCHANT_REPORT_STATUSES_MAP['terminated'],
+] as const;
+
+export const MERCHANT_REPORT_TYPES = ['MERCHANT_REPORT_T1', 'ONGOING_MERCHANT_REPORT_T1'] as const;
+
+export type MerchantReportType = (typeof MERCHANT_REPORT_TYPES)[number];
+
+export const MERCHANT_REPORT_TYPES_MAP = Object.fromEntries(
+  MERCHANT_REPORT_TYPES.map(type => [type, type]),
+) as { [K in MerchantReportType]: K };
+
+export const MERCHANT_REPORT_VERSIONS = ['1', '2', '3'] as const;
+
+export type MerchantReportVersion = (typeof MERCHANT_REPORT_VERSIONS)[number];
+
+export const MERCHANT_REPORT_VERSIONS_MAP = Object.fromEntries(
+  MERCHANT_REPORT_VERSIONS.map(version => [version, version]),
+) as { [K in MerchantReportVersion]: K };
+
+export const MERCHANT_REPORT_RISK_LEVELS = ['low', 'medium', 'high', 'critical'] as const;
+
+export type MerchantReportRiskLevel = (typeof MERCHANT_REPORT_RISK_LEVELS)[number];
+
+export const MERCHANT_REPORT_RISK_LEVELS_MAP = Object.fromEntries(
+  MERCHANT_REPORT_RISK_LEVELS.map(level => [level, level]),
+) as { [K in MerchantReportRiskLevel]: K };
+
+export const RISK_INDICATOR_RISK_LEVELS = ['positive', 'moderate', 'critical'] as const;
+
+export type RiskIndicatorRiskLevel = (typeof RISK_INDICATOR_RISK_LEVELS)[number];
+
+export const RISK_INDICATOR_RISK_LEVELS_MAP = Object.fromEntries(
+  RISK_INDICATOR_RISK_LEVELS.map(level => [level, level]),
+) as { [K in RiskIndicatorRiskLevel]: K };
+
+export const SUPPORTED_FILE_EXT_REGEX = /\.(jpg|jpeg|svg|png|pdf|gif|txt|csv|xlsx|xls)$/;
+
+// Extract file extensions from regex
+export const SUPPORTED_FILE_EXT_ENUM = {
+  JPG: 'jpg',
+  JPEG: 'jpeg',
+  SVG: 'svg',
+  PNG: 'png',
+  PDF: 'pdf',
+  GIF: 'gif',
+  TXT: 'txt',
+  CSV: 'csv',
+  XLSX: 'xlsx',
+  XLS: 'xls',
+} as const;
+
+// validate file exts in enum against regex
+Object.entries(SUPPORTED_FILE_EXT_ENUM).forEach(([key, value]) => {
+  if (!SUPPORTED_FILE_EXT_REGEX.test(`.${value}`)) {
+    throw new Error(`Invalid file extension: .${value}`);
+  }
+});
+
+export type SupportedFileExt =
+  (typeof SUPPORTED_FILE_EXT_ENUM)[keyof typeof SUPPORTED_FILE_EXT_ENUM];
+
+export const BANK_ACCOUNT_VERIFICATION_COMMERCIAL_REQUEST_TYPE = 'BAVCommercial-Standard' as const;
