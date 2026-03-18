@@ -1,0 +1,42 @@
+{
+  "logo": "/app-logo.svg",
+  "title": "ThaliumX Verification",
+  "subtitle": "Complete your identity verification to activate your account.",
+  "contactInformation": "Contact ThaliumX Support <br /> support@thaliumx.com",
+  "appName": "ThaliumX",
+  "leaveText": "Return to ThaliumX Portal.",
+  "theme": {
+    "palette": {
+      "primary": {
+        "color": "220 90% 45%",
+        "foreground": "0 0% 100%"
+      },
+      "secondary": {
+        "color": "220 20% 15%",
+        "foreground": "0 0% 100%"
+      },
+      "muted": {
+        "color": "220 20% 96%",
+        "foreground": "220 20% 40%"
+      },
+      "accent": {
+        "color": "160 100% 40%",
+        "foreground": "0 0% 100%"
+      },
+      "destructive": {
+        "color": "0 85% 55%",
+        "foreground": "0 0% 100%"
+      },
+      "success": {
+        "color": "142 70% 45%",
+        "foreground": "0 0% 100%"
+      }
+    },
+    "elements": {
+      "ring": "220 90% 45%",
+      "border": "220 20% 90%",
+      "input": "220 20% 90%",
+      "radius": "0.5rem"
+    }
+  }
+}
