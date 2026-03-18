@@ -1,9 +1,20 @@
 /**
  * Migration: Rename Authentik_id to zitadel_id in users table
  *
- * Why:
+ * ⚠️ LEGACY MIGRATION - DEPRECATED March 2026
+ * 
+ * This migration was part of the Authentik → Zitadel transition.
+ * Both Authentik and Zitadel have now been deprecated in favor
+ * of the internal JWT authentication system.
+ *
+ * Why (original):
  * - Migrating from Authentik to Zitadel identity management
  * - Column name needs to reflect the new identity provider
+ *
+ * Current Status:
+ * - This migration is kept for backward compatibility
+ * - The zitadel_id column is no longer used for authentication
+ * - All authentication now uses internal JWT tokens
  *
  * This migration is idempotent and safe to run on existing databases.
  */

@@ -427,16 +427,20 @@ class ThaliumXBackend {
     this.app.use(metricsMiddleware);
 
     // Rate limiting - CRITICAL for DDoS protection
-    // Wrap in error handler to catch "failed to limit count" errors
+    // Deny requests when rate limiting fails (fail closed for security)
     this.app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
       rateLimiter(req, res, (err?: any) => {
-        // If rate limiter fails with "failed to limit count" or any store error, allow request
-        if (err && (err.message?.includes('failed to limit count') || err.message?.includes('store'))) {
-          LoggerService.warn('Rate limiter store error, allowing request', {
+        // If rate limiter fails, deny the request (fail closed)
+        if (err) {
+          LoggerService.error('Rate limiter error, denying request', {
             error: err.message,
             path: req.path
           });
-          return next(); // Allow request to proceed
+          return res.status(429).json({
+            success: false,
+            error: { code: 'RATE_LIMIT_ERROR', message: 'Rate limiting temporarily unavailable' },
+            timestamp: new Date().toISOString()
+          });
         }
         return next(err); // Pass through other errors
       });

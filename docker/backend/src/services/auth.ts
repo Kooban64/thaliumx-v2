@@ -795,6 +795,14 @@ export class AuthService {
   }
 
   /**
+   * Verify backup code for MFA
+   * Alias for useBackupCode - validates and consumes a backup code
+   */
+  static async verifyBackupCode(userId: string, code: string): Promise<{ success: boolean }> {
+    return this.useBackupCode(userId, code);
+  }
+
+  /**
    * Use backup code for MFA verification
    * Validates and consumes a backup code
    */

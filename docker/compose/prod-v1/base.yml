@@ -131,8 +131,6 @@ secrets:
   # Authentication
   postgres-username:
     file: ../../../.secrets/generated/postgres-username
-  Authentik-admin-password:
-    file: ../../../.secrets/generated/Authentik-admin-password
 
   # Vault
   vault-role-id:
@@ -253,6 +251,14 @@ secrets:
 
   # Legacy IdP-specific secrets removed; Authentik is the only supported identity provider.
 
+  # Vault
+  vault-token:
+    file: ../../../.secrets/generated/vault-token
+
   # Support Services
   support-db-password:
     file: ../../../.secrets/generated/support-db-password
+
+  # Compliance Services
+  chainanalysis-postgres-password:
+    file: ../../../.secrets/generated/chainanalysis-postgres-password

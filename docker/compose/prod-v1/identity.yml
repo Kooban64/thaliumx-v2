@@ -1,104 +1,112 @@
 # ThaliumX Production v1 - Identity Layer (Authentik)
 # ==================================================
-# Authentik is the primary OIDC issuer for the platform.
+# DEPRECATED: Authentik services are disabled for security review.
+# The platform now uses internal JWT authentication.
+# To re-enable Authentik, uncomment the services below and ensure
+# USE_AUTHENTIK_JWT is set to true in backend environment.
+# 
+# NOTE: Authentik services have been disabled as part of security hardening.
+# All authentication is now handled via internal JWT tokens.
 
 version: '3.8'
 
 services:
   # ================================================
-  # Authentik OIDC Provider (Primary Identity Provider)
+  # Authentik OIDC Provider (DISABLED)
   # ================================================
+  # The following services have been disabled for security.
+  # To re-enable, remove the comment markers (1-2 characters per line).
 
-  # Dedicated Postgres for Authentik
-  authentik-postgres:
-    image: postgres:17-alpine
-    container_name: thaliumx-authentik-postgres
-    hostname: thaliumx-authentik-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: authentik
-      POSTGRES_PASSWORD_FILE: /run/secrets/authentik-postgres-password
-      POSTGRES_DB: authentik
-    secrets:
-      - authentik-postgres-password
-    volumes:
-      - authentik-postgres-data:/var/lib/postgresql/data
-    networks:
-      - thaliumx-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U authentik -d authentik"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 20s
+  # # Dedicated Postgres for Authentik
+  # authentik-postgres:
+  #   image: postgres:17-alpine
+  #   container_name: thaliumx-authentik-postgres
+  #   hostname: thaliumx-authentik-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: authentik
+  #     POSTGRES_PASSWORD_FILE: /run/secrets/authentik-postgres-password
+  #     POSTGRES_DB: authentik
+  #   secrets:
+  #     - authentik-postgres-password
+  #   volumes:
+  #     - authentik-postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - thaliumx-net
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U authentik -d authentik"]
+  #     interval: 15s
+  #     timeout: 10s
+  #     retries: 10
+  #     start_period: 20s
 
-  # Authentik Server
-  authentik:
-    image: authentik/server:2024.10.2
-    container_name: thaliumx-authentik
-    hostname: thaliumx-authentik
-    restart: unless-stopped
-    depends_on:
-      authentik-postgres:
-        condition: service_healthy
-    environment:
-      # Authentik requires a secret key
-      AUTHENTIK_SECRET_KEY_FILE: /run/secrets/authentik-secret-key
-      # PostgreSQL configuration
-      AUTHENTIK_DB_ENGINE: postgresql
-      AUTHENTIK_DB_HOST: authentik-postgres
-      AUTHENTIK_DB_NAME: authentik
-      AUTHENTIK_DB_USER: authentik
-      AUTHENTIK_DB_PASSWORD_FILE: /run/secrets/authentik-postgres-password
-      # Redis configuration (optional but recommended for performance)
-      AUTHENTIK_REDIS: redis://:@thaliumx-redis:6379/0
-      # Server settings
-      AUTHENTIK_PORT: 9000
-      AUTHENTIK_LISTEN: 0.0.0.0:9000
-      # Security
-      AUTHENTIK_ALLOWED_HOSTS: ${AUTHENTIK_ALLOWED_HOSTS:-auth.thaliumx.com}
-    secrets:
-      - authentik-postgres-password
-      - authentik-secret-key
-    volumes:
-      - ./../../authentik/media:/media
-      - ./../../authentik/custom-templates:/templates
-    networks:
-      - thaliumx-net
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/health/ready/"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 60s
+  # # Authentik Server
+  # authentik:
+  #   image: authentik/server:2024.10.2
+  #   container_name: thaliumx-authentik
+  #   hostname: thaliumx-authentik
+  #   restart: unless-stopped
+  #   depends_on:
+  #     authentik-postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     # Authentik requires a secret key
+  #     AUTHENTIK_SECRET_KEY_FILE: /run/secrets/authentik-secret-key
+  #     # PostgreSQL configuration
+  #     AUTHENTIK_DB_ENGINE: postgresql
+  #     AUTHENTIK_DB_HOST: authentik-postgres
+  #     AUTHENTIK_DB_NAME: authentik
+  #     AUTHENTIK_DB_USER: authentik
+  #     AUTHENTIK_DB_PASSWORD_FILE: /run/secrets/authentik-postgres-password
+  #     # Redis configuration (optional but recommended for performance)
+  #     AUTHENTIK_REDIS: redis://:@thaliumx-redis:6379/0
+  #     # Server settings
+  #     AUTHENTIK_PORT: 9000
+  #     AUTHENTIK_LISTEN: 0.0.0.0:9000
+  #     # Security
+  #     AUTHENTIK_ALLOWED_HOSTS: ${AUTHENTIK_ALLOWED_HOSTS:-auth.thaliumx.com}
+  #   secrets:
+  #     - authentik-postgres-password
+  #     - authentik-secret-key
+  #   volumes:
+  #     - ./../../authentik/media:/media
+  #     - ./../../authentik/custom-templates:/templates
+  #   networks:
+  #     - thaliumx-net
+  #   healthcheck:
+  #     test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/health/ready/"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 10
+  #     start_period: 60s
 
-  # Authentik Worker (for background tasks)
-  authentik-worker:
-    image: authentik/server:2024.10.2
-    container_name: thaliumx-authentik-worker
-    hostname: thaliumx-authentik-worker
-    restart: unless-stopped
-    depends_on:
-      authentik-postgres:
-        condition: service_healthy
-    environment:
-      AUTHENTIK_SECRET_KEY_FILE: /run/secrets/authentik-secret-key
-      AUTHENTIK_DB_ENGINE: postgresql
-      AUTHENTIK_DB_HOST: authentik-postgres
-      AUTHENTIK_DB_NAME: authentik
-      AUTHENTIK_DB_USER: authentik
-      AUTHENTIK_DB_PASSWORD_FILE: /run/secrets/authentik-postgres-password
-      AUTHENTIK_REDIS: redis://:@thaliumx-redis:6379/0
-    command:
-      - worker
-    secrets:
-      - authentik-postgres-password
-      - authentik-secret-key
-    networks:
-      - thaliumx-net
+  # # Authentik Worker (for background tasks)
+  # authentik-worker:
+  #   image: authentik/server:2024.10.2
+  #   container_name: thaliumx-authentik-worker
+  #   hostname: thaliumx-authentik-worker
+  #   restart: unless-stopped
+  #   depends_on:
+  #     authentik-postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     AUTHENTIK_SECRET_KEY_FILE: /run/secrets/authentik-secret-key
+  #     AUTHENTIK_DB_ENGINE: postgresql
+  #     AUTHENTIK_DB_HOST: authentik-postgres
+  #     AUTHENTIK_DB_NAME: authentik
+  #     AUTHENTIK_DB_USER: authentik
+  #     AUTHENTIK_DB_PASSWORD_FILE: /run/secrets/authentik-postgres-password
+  #     AUTHENTIK_REDIS: redis://:@thaliumx-redis:6379/0
+  #   command:
+  #     - worker
+  #   secrets:
+  #     - authentik-postgres-password
+  #     - authentik-secret-key
+  #   networks:
+  #     - thaliumx-net
 
-volumes:
-  authentik-postgres-data:
+# volumes:
+#   authentik-postgres-data:
 
 networks:
   thaliumx-net:

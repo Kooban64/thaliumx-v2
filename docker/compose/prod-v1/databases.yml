@@ -256,7 +256,7 @@ services:
     volumes:
       - mongodb-data:/data/db
       - ./../../certs/services/mongodb:/certs:ro
-      - ./../../../.secrets/generated/mongodb-password:/tmp/secrets/mongodb-password:ro
+      - ./../../../.secrets/generated/mongodb-password:/run/secrets/mongodb-password:ro
     command:
       - mongod
       - --auth

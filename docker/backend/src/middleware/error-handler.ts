@@ -184,7 +184,7 @@ export const rateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: (req: Request) => {
     // Skip rate limiting in test environment
-    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+    if (process.env.NODE_ENV === 'test') {
       return Number.MAX_SAFE_INTEGER; // Effectively disable rate limiting
     }
 
@@ -240,7 +240,7 @@ export const rateLimiter = rateLimit({
       return true;
     }
     // Skip rate limiting in test environment
-    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+    if (process.env.NODE_ENV === 'test') {
       return true;
     }
     return false;
@@ -274,7 +274,7 @@ export const financialRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: (_req: Request) => {
     // Skip rate limiting in test environment
-    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+    if (process.env.NODE_ENV === 'test') {
       return Number.MAX_SAFE_INTEGER; // Effectively disable rate limiting
     }
     return 10; // 10 requests per minute for financial operations
@@ -290,7 +290,7 @@ export const financialRateLimiter = rateLimit({
   legacyHeaders: false,
   skip: (_req: Request) => {
     // Skip rate limiting in test environment
-    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+    if (process.env.NODE_ENV === 'test') {
       return true;
     }
     return false;
@@ -409,12 +409,15 @@ const getAuthentikIssuerDefault = (): string => {
   return normalizeIssuer('https://thaliumx.com/application/o/thaliumx/');
 };
 
+/**
+ * Get expected audience values for JWT validation
+ * 
+ * ⚠️ LEGACY: Authentik audience deprecated March 2026
+ * Now uses JWT_AUDIENCE from internal JWT config.
+ */
 const getExpectedAudience = (): string[] => {
   const values = [
-    process.env.AUTHENTIK_AUDIENCE,
-    process.env.AUTHENTIK_CLIENT_ID,
-    process.env.AUTHENTIK_AUDIENCE,
-    process.env.AUTHENTIK_CLIENT_ID,
+    process.env.JWT_AUDIENCE,
   ]
     .filter((v): v is string => typeof v === 'string')
     .map(v => v.trim())
@@ -423,22 +426,15 @@ const getExpectedAudience = (): string[] => {
   return Array.from(new Set(values));
 };
 
-const getJwtVerificationProvider = (): { name: 'internal-jwt' | 'authentik'; issuer: string; jwksUri: string } => {
-  // Check if Authentik JWT is explicitly enabled
-  const useAuthentik = (process.env.USE_AUTHENTIK_JWT || 'false').trim().toLowerCase() === 'true';
-  
-  if (useAuthentik) {
-    const authentikIssuer = getAuthentikIssuerDefault();
-    const authentikJwks = (process.env.AUTHENTIK_JWKS_URI || '').trim() || 
-      `${authentikIssuer}jwks/`;
-    return {
-      name: 'authentik' as const,
-      issuer: authentikIssuer,
-      jwksUri: authentikJwks,
-    };
-  }
-
-  // Default to internal JWT
+/**
+ * Get JWT verification configuration
+ * 
+ * ⚠️ LEGACY: Authentik support deprecated March 2026
+ * This function now only returns internal JWT configuration.
+ * Authentik OIDC tokens are no longer supported.
+ */
+const getJwtVerificationProvider = (): { name: 'internal-jwt'; issuer: string; jwksUri: string } => {
+  // Only internal JWT is now supported
   return {
     name: 'internal-jwt' as const,
     issuer: process.env.JWT_ISSUER || 'thaliumx-platform',
@@ -461,7 +457,7 @@ const enforceContextInvariants = (
     channel: SessionChannel;
     brokerId?: string;
     brokerSlug?: string;
-    provider: 'Authentik' | 'authentik' | 'internal-jwt';
+    provider: 'internal-jwt';
   },
 ): void => {
   const allowDirectBrokerContext = (process.env.AUTH_ALLOW_DIRECT_BROKER_CONTEXT || 'false')

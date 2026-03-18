@@ -59,7 +59,7 @@ const createRateLimiter = (
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       // Skip rate limiting in test environment
-      if (skipTestEnv && (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true')) {
+      if (skipTestEnv && process.env.NODE_ENV === 'test') {
         return next();
       }
       
@@ -163,7 +163,7 @@ export const emailVerificationRateLimiter = createRateLimiter(RATE_LIMIT_CONFIG.
 export const rateLimiter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     // Skip rate limiting in test environment
-    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+    if (process.env.NODE_ENV === 'test') {
       return next();
     }
     
@@ -230,7 +230,7 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
 export const authRateLimiter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     // Skip rate limiting in test environment
-    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+    if (process.env.NODE_ENV === 'test') {
       return next();
     }
     
@@ -283,7 +283,7 @@ export const authRateLimiter = async (req: Request, res: Response, next: NextFun
 export const apiRateLimiter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     // Skip rate limiting in test environment
-    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+    if (process.env.NODE_ENV === 'test') {
       return next();
     }
     
@@ -346,7 +346,7 @@ export const apiRateLimiter = async (req: Request, res: Response, next: NextFunc
 export const publicSupportRateLimiter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     // Skip rate limiting in test environment
-    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+    if (process.env.NODE_ENV === 'test') {
       return next();
     }
 

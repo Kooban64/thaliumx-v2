@@ -644,9 +644,6 @@ export class ConfigService {
    */
   private static async loadConfig(): Promise<AppConfig> {
     const dnsOrigins = this.loadDnsOriginsFromSecrets();
-    const authentikIssuer =
-      process.env.AUTHENTIK_ISSUER ||
-      `${(process.env.AUTHENTIK_URL || 'https://auth.thaliumx.com').replace(/\/+$/, '')}/realms/${process.env.AUTHENTIK_REALM || 'thaliumx'}`;
     
     // Load secrets from Vault or fallback
     const dbSecret = await this.getVaultSecret(VAULT_SECRET_PATHS.database);
@@ -662,7 +659,7 @@ export class ConfigService {
     return {
       port: parseInt(process.env.PORT || '3002', 10),
       env: (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
-      authProvider: (process.env.AUTH_PROVIDER || 'internal-jwt') as 'authentik' | 'internal-jwt',
+      authProvider: 'internal-jwt',
 
       cors: {
         origin: Array.from(new Set([
@@ -723,15 +720,6 @@ export class ConfigService {
         } : undefined
       },
 
-      authentik: {
-        issuer: authentikIssuer,
-        jwksUri:
-          process.env.AUTHENTIK_JWKS_URI ||
-          `${authentikIssuer.replace(/\/+$/, '')}/api/v3/core/jwks/`,
-        audience: process.env.AUTHENTIK_AUDIENCE || process.env.AUTHENTIK_CLIENT_ID || 'thaliumx-backend',
-        clientId: process.env.AUTHENTIK_CLIENT_ID || 'thaliumx-backend',
-      },
-
       blockchain: {
         rpcUrl: process.env.BLOCKCHAIN_RPC_URL || 'http://localhost:8545',
         privateKey: process.env.BLOCKCHAIN_PRIVATE_KEY || '',
@@ -749,14 +737,11 @@ export class ConfigService {
    */
   private static loadConfigSync(): AppConfig {
     const dnsOrigins = this.loadDnsOriginsFromSecrets();
-    const authentikIssuer =
-      process.env.AUTHENTIK_ISSUER ||
-      `${(process.env.AUTHENTIK_URL || 'https://auth.thaliumx.com').replace(/\/+$/, '')}/realms/${process.env.AUTHENTIK_REALM || 'thaliumx'}`;
     
     return {
       port: parseInt(process.env.PORT || '3002', 10),
       env: (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
-      authProvider: (process.env.AUTH_PROVIDER || 'internal-jwt') as 'authentik' | 'internal-jwt',
+      authProvider: 'internal-jwt',
 
       cors: {
         origin: Array.from(new Set([
@@ -815,15 +800,6 @@ export class ConfigService {
           username: process.env.KAFKA_SASL_USERNAME,
           password: process.env.KAFKA_SASL_PASSWORD || ''
         } : undefined
-      },
-
-      authentik: {
-        issuer: authentikIssuer,
-        jwksUri:
-          process.env.AUTHENTIK_JWKS_URI ||
-          `${authentikIssuer.replace(/\/+$/, '')}/api/v3/core/jwks/`,
-        audience: process.env.AUTHENTIK_AUDIENCE || process.env.AUTHENTIK_CLIENT_ID || 'thaliumx-backend',
-        clientId: process.env.AUTHENTIK_CLIENT_ID || 'thaliumx-backend',
       },
 
       blockchain: {
@@ -1035,21 +1011,29 @@ export class ConfigService {
     const config = this.getConfig();
     const errors: string[] = [];
 
-    // Identity provider selection - internal-jwt is default, authentik supported for backward compat
-    const authProvider = (config.authProvider || 'internal-jwt') as string;
+    // Auth provider - internal-jwt only
+    const authProvider = 'internal-jwt';
 
-    if (!['Authentik', 'authentik', 'internal-jwt'].includes(authProvider)) {
-      errors.push(`Unsupported auth provider: ${authProvider}`);
-    }
-
-    // JWT validation
+    // JWT validation - 64 chars recommended for production
     if (!config.jwt.secret || config.jwt.secret.length < 32) {
-      errors.push('JWT secret must be at least 32 characters long');
+      errors.push('JWT secret must be at least 32 characters long (64+ recommended for production)');
     }
 
-    // Encryption key validation
+    // Encryption key validation - 64 chars recommended for production
     if (!config.encryption.key || config.encryption.key.length < 32) {
-      errors.push('Encryption key must be at least 32 characters long');
+      errors.push('Encryption key must be at least 32 characters long (64+ recommended for production)');
+    }
+
+    // METRICS_TOKEN validation (required for production monitoring)
+    const metricsToken = process.env.METRICS_TOKEN;
+    if (!metricsToken || metricsToken.length < 32) {
+      errors.push('METRICS_TOKEN must be at least 32 characters long for production monitoring');
+    }
+
+    // INTERNAL_REQUEST_TOKEN validation (required for internal API access)
+    const internalRequestToken = process.env.INTERNAL_REQUEST_TOKEN;
+    if (!internalRequestToken || internalRequestToken.length < 32) {
+      errors.push('INTERNAL_REQUEST_TOKEN must be at least 32 characters long for internal API access');
     }
 
     // Database validation
@@ -1059,31 +1043,52 @@ export class ConfigService {
 
     // Production-specific validations
     if (config.env === 'production') {
+      // Database SSL must be enabled
       if (!config.database.ssl) {
-        errors.push('Database SSL must be enabled in production');
+        errors.push('Database SSL must be enabled in production (DB_SSL=true)');
       }
 
-      if ((authProvider === 'authentik' || authProvider === 'Authentik') && !config.authentik?.issuer) {
-        errors.push('Authentik issuer is required when auth provider is authentik');
-      }
-      if ((authProvider === 'authentik' || authProvider === 'Authentik') && !config.authentik?.jwksUri) {
-        errors.push('Authentik JWKS URI is required when auth provider is authentik');
+      // Redis SSL check (if REDIS_URL uses rediss://)
+      const redisUrl = process.env.REDIS_URL || '';
+      if (redisUrl && !redisUrl.startsWith('rediss://')) {
+        LoggerService.warn('Redis SSL not configured - consider using rediss:// for production');
       }
 
+      // Kafka SSL check
+      if (!config.kafka.ssl) {
+        LoggerService.warn('Kafka SSL not configured - consider enabling KAFKA_SSL for production');
+      }
+
+      // Check for Vault connection
       if (!this.isVaultConnected()) {
         LoggerService.warn('Vault is not connected in production - secrets may not be properly managed');
       }
+
+      // Check for placeholder values that would fail in production
+      const placeholderPatterns = ['REQUIRED', 'SET_IN_VAULT', 'CHANGE_ME', 'YOUR_', '_YOUR_'];
+      const checkForPlaceholders = (name: string, value: string) => {
+        if (value && placeholderPatterns.some(p => value.includes(p))) {
+          errors.push(`${name} contains placeholder value - must be set before deployment`);
+        }
+      };
+
+      checkForPlaceholders('JWT_SECRET', config.jwt.secret);
+      checkForPlaceholders('ENCRYPTION_KEY', config.encryption.key);
+      checkForPlaceholders('METRICS_TOKEN', metricsToken || '');
+      checkForPlaceholders('INTERNAL_REQUEST_TOKEN', internalRequestToken || '');
     }
 
     if (errors.length > 0) {
       const errorMessage = `Configuration validation failed:\n${errors.map(e => `  - ${e}`).join('\n')}`;
       if (config.env === 'production') {
+        // In production, fail hard on configuration errors
+        LoggerService.error(`💥 PRODUCTION CONFIGURATION ERROR:\n${errorMessage}`);
         throw new Error(errorMessage);
       } else {
         LoggerService.warn(errorMessage);
       }
     } else {
-      LoggerService.info('Configuration validation passed');
+      LoggerService.info('✅ Configuration validation passed');
     }
   }
 }

@@ -78,7 +78,7 @@ export class TokenService {
     customerId?: string;
     mandateScopes?: string[];
     sessionType?: string;
-    authProvider?: 'authentik' | 'internal-jwt';
+    authProvider?: 'internal-jwt';
     permissions?: string[];
     mfaEnabled?: boolean;
     mfaVerified?: boolean;

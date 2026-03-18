@@ -21,18 +21,18 @@ services:
       - sh
       - -lc
       - |
-        # Environment-based configuration (secrets not available in non-Swarm mode)
+        # Use environment variables for secrets (secrets not available in non-Swarm mode)
         export TIMESCALE_USER="dingir";
         export TIMESCALE_DB="exchange";
-        export TIMESCALE_PASSWORD="dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7";
-        # Use $$ to prevent docker-compose variable substitution; container shell will expand $TIMESCALE_*.
-        export DATABASE_URL="postgresql://$$TIMESCALE_USER:$$TIMESCALE_PASSWORD@timescaledb:5432/$$TIMESCALE_DB";
+        export TIMESCALE_PASSWORD="${TIMESCALE_PASSWORD}";
+        # Use $ to prevent docker-compose variable substitution; container shell will expand $TIMESCALE_*.
+        export DATABASE_URL="postgresql://$TIMESCALE_USER:$TIMESCALE_PASSWORD@timescaledb:5432/$TIMESCALE_DB";
         # Set Dingir config environment variables
-        export DB_PASSWORD="dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7";
-        export DB_LOG="postgresql://$$TIMESCALE_USER:$$DB_PASSWORD@timescaledb:5432/$$TIMESCALE_DB";
-        export DB_HISTORY="postgresql://$$TIMESCALE_USER:$$DB_PASSWORD@timescaledb:5432/$$TIMESCALE_DB";
+        export DB_PASSWORD="${TIMESCALE_PASSWORD}";
+        export DB_LOG="postgresql://$TIMESCALE_USER:$DB_PASSWORD@timescaledb:5432/$TIMESCALE_DB";
+        export DB_HISTORY="postgresql://$TIMESCALE_USER:$DB_PASSWORD@timescaledb:5432/$TIMESCALE_DB";
         echo "DB_LOG=$DB_LOG";
-        export REDIS_PASSWORD="NFqT8uZlru7Tw5cv8IHVll23BNHg2otS";
+        export REDIS_PASSWORD="${REDIS_PASSWORD}";
         export REDIS_HOST="redis";
         export REDIS_PORT=6379;
         # Use PLAINTEXT Kafka (corrected port for current setup)
@@ -41,7 +41,7 @@ services:
         echo "BROKERS=$BROKERS";
         # Use HTTP Vault (as in working legacy config)
         export VAULT_ADDR="http://vault:8200";
-        export VAULT_TOKEN="a0f1ad52a21cc1342c7f603d134e0f0e";
+        export VAULT_TOKEN="${VAULT_TOKEN}";
         # Disable Kafka persistence to avoid startup issues
         export DINGIR_PERSIST_TO_MQ="false";
         exec ./matchengine
@@ -74,28 +74,28 @@ services:
       - sh
       - -lc
       - |
-        # Environment-based configuration (secrets not available in non-Swarm mode)
+        # Use environment variables for secrets
         export TIMESCALE_USER="dingir";
         export TIMESCALE_DB="exchange";
-        export TIMESCALE_PASSWORD="dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7";
-        # Use $$ to prevent docker-compose variable substitution; container shell will expand $TIMESCALE_*.
-        export DATABASE_URL="postgresql://$$TIMESCALE_USER:$$TIMESCALE_PASSWORD@timescaledb:5432/$$TIMESCALE_DB";
-        export REDIS_PASSWORD="NFqT8uZlru7Tw5cv8IHVll23BNHg2otS";
+        export TIMESCALE_PASSWORD="${TIMESCALE_PASSWORD}";
+        # Use $ to prevent docker-compose variable substitution; container shell will expand $TIMESCALE_*.
+        export DATABASE_URL="postgresql://$TIMESCALE_USER:$TIMESCALE_PASSWORD@timescaledb:5432/$TIMESCALE_DB";
+        export REDIS_PASSWORD="${REDIS_PASSWORD}";
         export REDIS_HOST="redis";
         export REDIS_PORT=6379;
         # Use PLAINTEXT Kafka (corrected port for current setup)
         export BROKERS="thaliumx-kafka:9092";
         # Use HTTP Vault (as in working legacy config)
         export VAULT_ADDR="http://vault:8200";
-        export VAULT_TOKEN="a0f1ad52a21cc1342c7f603d134e0f0e";
+        export VAULT_TOKEN="${VAULT_TOKEN}";
         # Disable Kafka persistence to avoid startup issues
         export DINGIR_PERSIST_TO_MQ="false";
         exec ./restapi
     environment:
       RUST_LOG: ${RUST_LOG:-info}
       RUN_MODE: ${RUN_MODE:-production}
-      POSTGRES_PASSWORD: dW2QSkQnxJhaY2pP8mAt7YR9qtmbaHZ7
-      REDIS_PASSWORD: NFqT8uZlru7Tw5cv8IHVll23BNHg2otS
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       DB_LOG: postgres://dingir:@timescaledb:5432/exchange
       DB_HISTORY: postgres://dingir:@timescaledb:5432/exchange
     # Strict audit mode: no host-exposed ports (gateway-only exposure).
@@ -153,13 +153,14 @@ services:
     hostname: thaliumx-quantlib
     restart: unless-stopped
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme123}
-      MONGO_INITDB_ROOT_PASSWORD: 003YPJRc4LKEAjGWJ5RPkQu5w51HNhJd
-      REDIS_URL: redis://:${REDIS_PASSWORD:-changeme123}@redis:6379/0
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       MONGO_USER: thaliumx
       MONGO_DB: thaliumx
-      MONGODB_URL: mongodb://thaliumx:${MONGO_INITDB_ROOT_PASSWORD:-changeme123}@mongodb:27017/thaliumx?authSource=admin
+      MONGODB_URL: mongodb://thaliumx:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/thaliumx?authSource=admin
       VAULT_ADDR: https://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN}
       PYTHONUNBUFFERED: 1
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     command: uvicorn src.main:app --host 0.0.0.0 --port 3010
@@ -190,15 +191,15 @@ services:
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 3011
       CORS_ORIGINS: http://localhost:3000
-      POSTGRES_URL: postgresql://chainanalysis:chainpass@postgres:5432/chainanalysis
-      REDIS_URL: redis://redis:6379
+      POSTGRES_URL: postgresql://chainanalysis:${CHAINANALYSIS_POSTGRES_PASSWORD}@postgres:5432/chainanalysis
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       KAFKA_BROKERS: thaliumx-kafka:9092
       GRAPHSENSE_API_URL: http://graphsense:8080
       INFURA_ETH_URL: https://mainnet.infura.io/v3/38cb2ace40b3446d900e1c500dd714ab
       INFURA_BTC_URL: https://btc-mainnet.infura.io/v3/YOUR_PROJECT_ID
       INFURA_POLYGON_URL: https://polygon-mainnet.infura.io/v3/YOUR_PROJECT_ID
       LOG_LEVEL: info
-      JWT_SECRET: production-jwt-secret-change-this-in-production
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "3011:3011"
     volumes:

@@ -1,90 +1,102 @@
 /**
- * Authentik Attributes Service
+ * Auth Attributes Service
  * 
- * Extracts and normalizes authentication attributes from requests for OPA policy evaluation.
- * This service handles Authentik/OIDC token attributes and provides a unified interface.
+ * ⚠️ LEGACY SERVICE - DEPRECATED March 2026
+ * 
+ * This service was previously used to extract authentication attributes
+ * from Authentik tokens. Since Authentik has been deprecated in favor
+ * of internal JWT authentication, this service now provides simplified
+ * attribute extraction from the internal JWT context.
+ * 
+ * The functionality is kept for backward compatibility with existing code
+ * that depends on this interface.
  */
 
 import type { Request } from 'express';
+import type { User } from '../types';
 
-export interface AuthAttributesContext {
+export interface AuthContextAttributes {
   roles: string[];
   normalizedRoles: string[];
-  tenantId?: string;
-  brokerId?: string;
   organizationId?: string;
   clientId?: string;
+  brokerId?: string;
   metadata: Record<string, any>;
   customClaims: Record<string, any>;
 }
 
-export class AuthAttributesService {
+/**
+ * Extract authentication attributes from request
+ * 
+ * With internal JWT, attributes come directly from the JWT payload
+ * rather than from an external identity provider.
+ */
+export const AuthAttributesService = {
   /**
-   * Extract authentication attributes from request
-   * 
-   * @param req - Express request object
-   * @returns AuthAttributesContext with normalized roles and other auth attributes
+   * Extract auth context from request (JWT-based)
    */
-  public static extractFromRequest(req: Request): AuthAttributesContext {
+  extractFromRequest(req: Request): AuthContextAttributes {
     const user = req.user as any;
     
-    // Extract roles from various possible locations
-    let roles: string[] = [];
-    if (user?.roles) {
-      roles = Array.isArray(user.roles) ? user.roles : [user.roles];
-    } else if (user?.role) {
-      roles = [user.role];
-    } else if (user?.realm_access?.roles) {
-      // Keycloak/Authentik format
-      roles = user.realm_access.roles;
-    } else if (user?.groups) {
-      roles = user.groups;
-    }
-
-    // Normalize roles (convert to lowercase for consistent comparison)
-    const normalizedRoles = roles.map(r => r.toLowerCase().trim());
-
+    // Extract roles from JWT payload
+    const roles: string[] = user?.roles || (user?.role ? [user.role] : []);
+    
+    // Extract other attributes from JWT claims
+    const organizationId = user?.organizationId || user?.tenantId;
+    const clientId = user?.clientId;
+    const brokerId = user?.brokerId;
+    
     return {
       roles,
-      normalizedRoles,
-      tenantId: user?.tenantId || req.headers['x-tenant-id'] as string,
-      brokerId: user?.brokerId,
-      organizationId: user?.organizationId || user?.org_id,
-      clientId: user?.clientId || user?.client_id,
+      normalizedRoles: roles.map(r => r.toLowerCase()),
+      organizationId,
+      clientId,
+      brokerId,
       metadata: user?.metadata || {},
-      customClaims: user || {}
+      customClaims: user?.customClaims || {}
     };
-  }
+  },
 
   /**
-   * Extract roles from token claims
-   * 
-   * @param claims - Token claims object
-   * @returns Array of roles
+   * Extract roles from JWT payload
    */
-  public static extractRoles(claims: any): string[] {
-    if (!claims) return [];
-    
-    if (claims.roles) {
-      return Array.isArray(claims.roles) ? claims.roles : [claims.roles];
-    }
-    if (claims.realm_access?.roles) {
-      return claims.realm_access.roles;
-    }
-    if (claims.groups) {
-      return Array.isArray(claims.groups) ? claims.groups : [claims.groups];
-    }
-    
-    return [];
-  }
+  extractRoles(req: Request): string[] {
+    const user = req.user as any;
+    return user?.roles || (user?.role ? [user.role] : []);
+  },
 
   /**
-   * Normalize a single role
-   * 
-   * @param role - Role string
-   * @returns Normalized role string
+   * Extract organization/tenant ID from JWT
    */
-  public static normalizeRole(role: string): string {
-    return role.toLowerCase().trim();
+  extractOrganizationId(req: Request): string | undefined {
+    const user = req.user as any;
+    return user?.organizationId || user?.tenantId;
+  },
+
+  /**
+   * Extract broker ID from JWT (if applicable)
+   */
+  extractBrokerId(req: Request): string | undefined {
+    const user = req.user as any;
+    return user?.brokerId;
+  },
+
+  /**
+   * Check if user has specific role
+   */
+  hasRole(req: Request, role: string): boolean {
+    const roles = this.extractRoles(req);
+    return roles.some(r => r.toLowerCase() === role.toLowerCase());
+  },
+
+  /**
+   * Check if user has any of the specified roles
+   */
+  hasAnyRole(req: Request, roles: string[]): boolean {
+    const userRoles = this.extractRoles(req);
+    const lowerUserRoles = userRoles.map(r => r.toLowerCase());
+    return roles.some(r => lowerUserRoles.includes(r.toLowerCase()));
   }
-}
+};
+
+export default AuthAttributesService;

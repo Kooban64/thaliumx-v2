@@ -55,7 +55,9 @@ export interface User {
   permissions: Permission[];
   tenantId: string;
   passwordHash?: string; // Internal field for authentication
-  authentikId?: string; // Authentik user ID (links to Authentik identity)
+  // Legacy: authentikId was used when Authentik was the identity provider
+  // This field is kept for backward compatibility but is no longer populated
+  authentikId?: string; // Deprecated: Use internal JWT authentication
 }
 
 export interface Address {
@@ -130,7 +132,7 @@ export interface AuthResponse {
 export type SessionChannel = 'direct' | 'broker';
 
 export interface AuthContext {
-  provider: 'authentik' | 'internal-jwt';
+  provider: 'internal-jwt'; // Only internal JWT is now supported
   channel: SessionChannel;
   brokerId?: string;
   brokerSlug?: string;
@@ -160,7 +162,7 @@ export interface JWTPayload {
   customerId?: string;
   mandateScopes?: string[];
   sessionType?: string;
-  authProvider?: 'authentik' | 'internal-jwt';
+  authProvider: 'internal-jwt'; // Only internal JWT is now supported
   issuer?: string;
   audience?: string[];
   permissions: Permission[];
@@ -341,7 +343,7 @@ export interface SMTPConfig {
 export interface AppConfig {
   port: number;
   env: 'development' | 'staging' | 'production';
-  authProvider?: 'authentik' | 'internal-jwt';
+  authProvider: 'internal-jwt'; // Only internal JWT is now supported
   cors: {
     origin: string[];
     credentials: boolean;
@@ -387,6 +389,8 @@ export interface AppConfig {
     replicationFactor?: number;
     minInSyncReplicas?: number;
   };
+  // Legacy: Authentik config kept for backward compatibility
+  // These values are no longer used - only internal JWT is supported
   authentik?: {
       issuer?: string;
       jwksUri?: string;

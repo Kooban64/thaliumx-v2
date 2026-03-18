@@ -292,8 +292,8 @@ const EXCLUDED_PATHS = [
 
 // Advanced threat detection with behavioral analysis
 export const behavioralAnalysis = (req: Request, res: Response, next: NextFunction): void => {
-  // Skip behavioral analysis in test environment or when rate limiting is disabled
-  if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+  // Skip behavioral analysis in test environment
+  if (process.env.NODE_ENV === 'test') {
     return next();
   }
   
@@ -318,8 +318,8 @@ export const behavioralAnalysis = (req: Request, res: Response, next: NextFuncti
 
   // Check for rapid requests (potential DoS)
   // Increased threshold significantly to avoid false positives during testing
-  // In production, this should be 100, but for testing we allow much more
-  const requestThreshold = process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true' ? 10000 : 100;
+  // In production, this should be 100 requests per minute
+  const requestThreshold = 100;
   if (recentRequests > requestThreshold) { // More than threshold requests in tracking window
     LoggerService.warn('Potential DoS attack detected', {
       ip: clientIP,

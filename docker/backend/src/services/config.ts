@@ -168,9 +168,6 @@ export class ConfigService {
 
   private static loadConfig(): AppConfig {
     const dnsOrigins = this.loadDnsOriginsFromSecrets();
-    const authentikIssuer =
-      process.env.AUTHENTIK_ISSUER ||
-      `${(process.env.AUTHENTIK_URL || 'https://auth.thaliumx.com').replace(/\/+$/, '')}/realm/${process.env.AUTHENTIK_REALM || 'thaliumx'}`;
 
     return {
       port: parseInt(process.env.PORT || '3002', 10),
@@ -236,14 +233,6 @@ export class ConfigService {
         } : undefined,
         replicationFactor: parseInt(process.env.KAFKA_REPLICATION_FACTOR || '3'),
         minInSyncReplicas: parseInt(process.env.KAFKA_MIN_INSYNC_REPLICAS || '2')
-      },
-      authentik: {
-        issuer: authentikIssuer,
-        jwksUri:
-          process.env.AUTHENTIK_JWKS_URI ||
-          `${authentikIssuer.replace(/\/+$/, '')}/api/v3/core/jwks/`,
-        audience: process.env.AUTHENTIK_AUDIENCE || process.env.AUTHENTIK_CLIENT_ID || 'thaliumx-backend',
-        clientId: process.env.AUTHENTIK_CLIENT_ID || 'thaliumx-backend',
       },
       blockchain: {
         rpcUrl: process.env.BLOCKCHAIN_RPC_URL || 'http://localhost:8545',
@@ -605,21 +594,10 @@ export class ConfigService {
       }
     }
 
-    // Authentik OIDC validation
-    if (!config.authentik?.issuer) {
-      errors.push('Authentik issuer is required');
-    }
-    if (!config.authentik?.jwksUri) {
-      errors.push('Authentik JWKS URI is required');
-    }
-    if (!config.authentik?.audience) {
-      errors.push('Authentik audience is required');
-    }
-
     if (isProduction) {
       const authProvider = config.authProvider || 'internal-jwt';
-      if (authProvider !== 'internal-jwt' && authProvider !== 'authentik' && authProvider !== 'Authentik') {
-        errors.push(`Unsupported auth provider in production: ${authProvider}`);
+      if (authProvider !== 'internal-jwt') {
+        errors.push(`Unsupported auth provider in production: ${authProvider}. Only internal-jwt is supported.`);
       }
     }
 

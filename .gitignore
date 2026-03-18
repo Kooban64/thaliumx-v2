@@ -123,3 +123,12 @@ temp/
 .credentials.*
 docker/.credentials.*
 docker/.env.backup.*
+
+# Secrets directory - ensure no secrets are committed
+.secrets/
+.secrets/generated/
+
+# Trading env files with secrets
+docker/compose/prod-v1/trading.env
+docker/compose/prod-v1/core.env
+docker/compose/prod-v1/wazuh.env
